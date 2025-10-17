@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=40.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "spafw37"
+version = "0.1.0"
+description = "A small example package scaffolded for Python 3.7"
+authors = ["Your Name <you@example.com>"]
