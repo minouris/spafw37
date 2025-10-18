@@ -1,6 +1,8 @@
 # Configures configuration parameters for the application
-from .config import _persistent_config, _temporary_config_names, config
-from .cli import add_params, add_post_parse_action, add_post_parse_actions, add_pre_parse_actions
+from .param import add_params
+from .consts import *
+from .config import _persistent_config, _non_persisted_config_names, config
+from .cli import add_post_parse_action, add_post_parse_actions, add_pre_parse_actions
 import json
 
 _CONFIG_INFILE_KEY='config-infile'
@@ -11,22 +13,22 @@ _config_file = 'config.json'
 
 _params_builtin = [
     {
-        'name':'config-infile',
-        'description': 'A JSON file containing configuration to load',
-        'bind_to':_CONFIG_INFILE_KEY,
-        'type': 'string',
-        'aliases': ['--save-config','-save'],
-        'required': False,
-        'non-persisted': True
+        PARAM_NAME:'config-infile',
+        PARAM_DESCRIPTION: 'A JSON file containing configuration to load',
+        PARAM_BIND_TO:_CONFIG_INFILE_KEY,
+        PARAM_TYPE: 'string',
+        PARAM_ALIASES: ['--save-config','-save'],
+        PARAM_REQUIRED: False,
+        PARAM_NON_PERSISTED: True
     },
     {
-        'name':'config-outfile',
-        'description': 'A JSON file to save configuration to',
-        'bind_to':_CONFIG_OUTFILE_KEY,
-        'type': 'string',
-        'aliases': ['--load-config','-load'],
-        'required': False,
-        'non-persisted': True
+        PARAM_NAME:'config-outfile',
+        PARAM_DESCRIPTION: 'A JSON file to save configuration to',
+        PARAM_BIND_TO:_CONFIG_OUTFILE_KEY,
+        PARAM_TYPE: 'string',
+        PARAM_ALIASES: ['--load-config','-load'],
+        PARAM_REQUIRED: False,
+        PARAM_NON_PERSISTED: True
     }
 ]
 
@@ -45,7 +47,7 @@ def load_config(config_file_in: str) -> dict:
 
 # Removes temporary params from config
 def filter_temporary_config(config_dict: dict) -> dict:
-    return {k: v for k, v in config_dict.items() if k not in _temporary_config_names}
+    return {k: v for k, v in config_dict.items() if k not in _non_persisted_config_names}
 
 def save_config(config_file_out: str, config_dict: dict):
     if (config_file_out and filter_temporary_config(config_dict)):

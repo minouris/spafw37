@@ -43,6 +43,11 @@ RUN ln -s /usr/local/bin/python3.7 /usr/local/bin/python && \
     ln -s /usr/local/bin/python3.7 /usr/local/bin/python3 && \
     ln -s /usr/local/bin/pip3.7 /usr/local/bin/pip
 
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    python -m pip install "pytest==6.2.5" typing_extensions
+# Apply patches to the container
+COPY patch /
+
 # Set fallback timezone (will be overridden by host mount if available)
 ENV TZ=UTC
 
