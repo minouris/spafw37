@@ -1,10 +1,10 @@
 # Repository: https://github.com/minouris/s4fw
 #
-# Project: S4FW
+# Project: SPAFW37
 # Author: Ciara Norrish (@minouris)
 # License: MIT (see LICENSE.md)
 #
-# Description: Dev container for Sims 4 Framework development
+# Description: Dev container for Simple Python 3.7 Application Framework development
 
 FROM ubuntu:20.04
 
@@ -14,9 +14,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install build dependencies and system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git unzip zip sudo build-essential cmake libboost-all-dev tzdata jq \
-    wget ca-certificates \
+    wget ca-certificates curl apt-transport-https \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
     libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+
+# Install GitHub CLI from the official repository for Ubuntu 20.04
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+    apt-get update && apt-get install -y gh
 
 # Uninstall conflicting Python versions
  RUN apt-get remove --purge python3.8 python3.8-minimal -y && sudo apt-get autoremove -y && sudo apt-get autoclean
