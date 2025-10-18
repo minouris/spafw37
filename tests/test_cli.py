@@ -104,7 +104,7 @@ def test_set_default_param_toggle_with_default_true():
         param.PARAM_DEFAULT: True
     })
     cli._set_defaults()
-    assert cli.config[bind_name] is True
+    assert config.config[bind_name] is True
 
 def test_set_default_param_toggle_with_no_default():
     setup_function()
@@ -116,7 +116,7 @@ def test_set_default_param_toggle_with_no_default():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     })
     cli._set_defaults()
-    assert cli.config[bind_name] is False
+    assert config.config[bind_name] is False
 
 def test_is_toggle_param_true():
     setup_function()
@@ -227,8 +227,8 @@ def test_parse_value_list_behavior():
 def test_parse_value_default_returns_value():
     setup_function()
     # unspecified type should return the value unchanged
-    param = {}
-    assert param._parse_value(param, "hello") == "hello"
+    _param = {}
+    assert param._parse_value(_param, "hello") == "hello"
 
 def test_parse_command_line_toggle_param():
     setup_function()

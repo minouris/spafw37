@@ -17,6 +17,8 @@ def set_config_value(param: dict, value):
         config[bind_name].append(value)
     elif is_toggle_param(param):
         config[bind_name] = bool(value)
+    else:
+        config[bind_name] = value
     _manage_config_persistence(param, bind_name)
 
 def _manage_config_persistence(param, bind_name):
