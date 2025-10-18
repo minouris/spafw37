@@ -42,11 +42,11 @@ ENV TZ=UTC
 
 # Create a non-root user 'pythondev' with home directory
 RUN useradd -ms /bin/bash pythondev
-RUN mkdir -p /spafw37
+RUN mkdir -p /workspaces/spafw37
 RUN echo "pythondev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Switch to the new user
 USER pythondev
 
 # Set the working directory for the new user
-WORKDIR /spafw37
+WORKDIR /workspaces/spafw37
