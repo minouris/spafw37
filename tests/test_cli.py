@@ -1,4 +1,5 @@
 from spafw37 import cli, config, param
+from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
 import spafw37.param
 from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
@@ -12,6 +13,10 @@ def setup_function():
         config._config.clear()
         config._persistent_config.clear()
         param._xor_list.clear()
+        cli._command_queue.clear()
+        cli._pre_parse_actions.clear()
+        cli._post_parse_actions.clear()
+        cli._commands.clear()
     except Exception:
         pass
 
@@ -377,3 +382,198 @@ def test_xor_clashing_params_raise_error():
         assert False, "Expected ValueError for clashing xor params"
     except ValueError as e:
         assert str(e) == "Conflicting parameters provided: option1 and option2"
+
+def test_add_command_registers_command():
+    setup_function()
+    def sample_command_action():
+        pass
+    command = {
+        COMMAND_NAME: "sample-command",
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_DESCRIPTION: "A sample command for testing",
+        COMMAND_ACTION: sample_command_action
+    }
+    cli.add_command(command)
+    assert cli.get_command("sample-command") == command
+
+def test_handle_command():
+    setup_function()
+    _command = {
+        COMMAND_NAME: "save-user-config",
+        COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
+        COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
+        COMMAND_ACTION: config.save_user_config
+    }
+    cli.add_command(_command)
+    param.add_param({
+        PARAM_NAME: CONFIG_OUTFILE_PARAM,
+        PARAM_DESCRIPTION: 'A JSON file to save configuration to',
+        PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
+        PARAM_TYPE: 'string',
+        PARAM_ALIASES: ['--save-config','-s'],
+        PARAM_REQUIRED: False,
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
+    })
+    args = ["save-user-config", "--save-config", "config.json"]
+    cli.handle_cli_args(args)
+    assert _command in cli._command_queue
+
+def test_handle_command_missing_required_param_raises():
+    setup_function()
+    _command = {
+        COMMAND_NAME: "save-user-config",
+        COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
+        COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
+        COMMAND_ACTION: config.save_user_config
+    }
+    cli.add_command(_command)
+    param.add_param({
+        PARAM_NAME: CONFIG_OUTFILE_PARAM,
+        PARAM_DESCRIPTION: 'A JSON file to save configuration to',
+        PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
+        PARAM_TYPE: 'string',
+        PARAM_ALIASES: ['--save-config','-s'],
+        PARAM_REQUIRED: False,
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
+    })
+    args = ["save-user-config"]
+    try:
+        cli.handle_cli_args(args)
+        cli._run_command_queue()
+        assert False, "Expected ValueError for missing required param"
+    except ValueError as e:
+        assert str(e) == f"Required parameter '{CONFIG_OUTFILE_PARAM}' not provided for command 'save-user-config'"
+
+def test_handle_command_executes_action():
+    setup_function()
+    action_executed = {'executed': False}
+    def sample_action():
+        action_executed['executed'] = True
+    _command = {
+        COMMAND_NAME: "sample-command",
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_DESCRIPTION: "A sample command for testing",
+        COMMAND_ACTION: sample_action
+    }
+    cli.add_command(_command)
+    args = ["sample-command"]
+    cli.handle_cli_args(args)
+    cli._run_command_queue()
+    assert action_executed['executed'] is True
+
+def test_capture_param_values_toggle_direct() -> None:
+    """Directly exercise capture_param_values for a toggle parameter."""
+    setup_function()
+    _param = { param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE }
+    # For toggle params, capture_param_values should immediately return (1, True)
+    result = cli.capture_param_values(['--some-flag'], _param)
+    assert result == (1, True)
+
+def test_capture_param_values_two_aliases_breaks_out():
+    setup_function()
+    # Register two params with distinct aliases
+    param.add_params([{
+        param.PARAM_NAME: "first",
+        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
+        param.PARAM_ALIASES: ['--first', '-f']
+    },{
+        param.PARAM_NAME: "second",
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_ALIASES: ['--second', '-s']
+    }])
+    # Capture values for the first param but provide the second param's alias immediately after
+    _param = param.get_param_by_alias('--first')
+    result = cli.capture_param_values(['--first', '--second'], _param)
+    # Expect capture to break out and return offset 2 and an empty list of values
+    assert result == (2, [])
+
+def test_capture_param_values_breaks_on_command():
+    setup_function()
+    # Register a command that should break capture when encountered
+    command = {
+        COMMAND_NAME: "break-command",
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_DESCRIPTION: "Command used to break capture",
+        COMMAND_ACTION: lambda: None
+    }
+    cli.add_command(command)
+
+    # Register a list param with an alias
+    param.add_param({
+        param.PARAM_NAME: "files",
+        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
+        param.PARAM_ALIASES: ['--files', '-f']
+    })
+
+    _param = param.get_param_by_alias('--files')
+    # Simulate args where the command appears right after the alias
+    args = ['--files', 'break-command']
+    result = cli.capture_param_values(args, _param)
+    # Expect capture to break out and return offset 2 and an empty list of values
+    assert result == (2, [])
+
+def test_do_pre_parse_actions_swallow_exception():
+    setup_function()
+    called = {'done': False}
+    def raising_action():
+        raise RuntimeError("pre-error")
+    def succeeding_action():
+        called['done'] = True
+    cli.add_pre_parse_actions([raising_action, succeeding_action])
+    # Should not raise despite the first action throwing
+    cli._do_pre_parse_actions()
+    assert called['done'] is True
+
+def test_do_post_parse_actions_reraises_exception():
+    setup_function()
+    def raising_action():
+        raise ValueError("post-error")
+    cli.add_post_parse_actions([raising_action])
+    try:
+        cli._do_post_parse_actions()
+        assert False, "Expected ValueError from post-parse action"
+    except ValueError as e:
+        assert str(e) == "post-error"
+
+def test_run_command_queue_reraises_on_action_exception():
+    setup_function()
+    def raising_action():
+        raise ValueError("cmd-error")
+    # command dict shape used by _run_command_queue/_run_command
+    cmd = {
+        'command-name': 'err-cmd',
+        'required-params': [],
+        'function': raising_action
+    }
+    cli._command_queue.append(cmd)
+    try:
+        cli._run_command_queue()
+        assert False, "Expected ValueError from queued command action"
+    except ValueError as e:
+        assert str(e) == "cmd-error"
+
+def test_handle_long_alias_param_unknown_raises():
+    setup_function()
+    # Ensure no config params so test_switch_xor doesn't try to inspect _param
+    try:
+        cli._handle_long_alias_param("--no-such=val")
+        assert False, "Expected ValueError for unknown long alias"
+    except ValueError as e:
+        assert str(e) == "Unknown parameter alias: --no-such"
+
+def test_handle_command_unknown_raises():
+    setup_function()
+    try:
+        cli._handle_command("no-such-command")
+        assert False, "Expected ValueError for unknown command"
+    except ValueError as e:
+        assert str(e) == "Unknown command alias: no-such-command"
+
+def test_parse_command_line_unknown_arg_raises():
+    setup_function()
+    try:
+        cli._parse_command_line(["--this-does-not-exist"])
+        assert False, "Expected ValueError for unknown argument"
+    except ValueError as e:
+        assert str(e) == "Unknown parameter alias: --this-does-not-exist"
+
