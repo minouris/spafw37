@@ -1,31 +1,116 @@
-
-
 # Config dict to hold parameters that are saved to disk
-from .param import get_bind_name, is_list_param, is_persistence_always, is_persistence_never, is_toggle_param
+from .param import _parse_value, get_bind_name, is_list_param, is_persistence_always, is_persistence_never, is_toggle_param
+from .config_consts import CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM
+import json
 
 _persistent_config = {}
+
+# File to store persisting params
+_config_file = 'config.json'
 
 # Config dict to hold parameter names that are never saved to disk
 _non_persisted_config_names = []
 
 # Config dict to hold runtime parameters
-config = {}
+_config = {}
+
+def set_config_file(config_file: str):
+    global _config_file
+    _config_file = config_file
+
+def update_config(new_config: dict):
+    _config.update(new_config)
+
+def get_config_value(name: str):
+    return _config.get(name)
 
 def set_config_value(param: dict, value):
     bind_name = get_bind_name(param)
     if is_list_param(param):
-        config[bind_name].append(value)
+        set_config_list_value(value, bind_name)
     elif is_toggle_param(param):
-        config[bind_name] = bool(value)
+        _config[bind_name] = bool(value)
     else:
-        config[bind_name] = value
-    _manage_config_persistence(param, bind_name)
+        _config[bind_name] = _parse_value(param,value)
+    _manage_config_persistence(param, value)
 
-def _manage_config_persistence(param, bind_name):
+def set_config_list_value(value, bind_name):
+    if bind_name not in _config:
+        _config[bind_name] = []
+    if isinstance(value, list):
+        _config[bind_name].extend(value)
+    else:
+        _config[bind_name].append(value)
+
+def list_config_params():
+    return list(_config.keys())
+
+# Not sure this is doing the right thing - values 
+#   that are Persistent should be stored in _persistent_config, not their param defs
+def _manage_config_persistence(param,value):
+    bind_name = get_bind_name(param)
     if is_persistence_never(param):
         _non_persisted_config_names.append(bind_name)
         return
     if is_persistence_always(param):
-        _persistent_config[bind_name] = param
+        _persistent_config[bind_name] = value
+
+
+def load_config(config_file_in: str) -> dict:
+    if config_file_in:
+        try:
+            with open(config_file_in, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            # TODO: Log file not found
+            pass
+        except json.JSONDecodeError:
+            # TODO: Log invalid JSON
+            pass
+    return {}
+
+
+# Removes temporary params from config
+def filter_temporary_config(config_dict: dict) -> dict:
+    return {k: v for k, v in config_dict.items() if k not in _non_persisted_config_names}
+
+
+def save_config(config_file_out: str, config_dict: dict):
+    if (config_file_out and filter_temporary_config(config_dict)):
+        try:
+            with open(config_file_out, 'w') as f:
+                json.dump(config_dict, f, indent=2)
+        except (OSError, IOError):
+            # TODO: Log file write error
+            pass
+
+
+def load_persistent_config():
+    _persistent_config.update(load_config(_config_file))
+    update_config(_persistent_config)
+
+
+def load_user_config():
+    in_file = get_config_value(CONFIG_INFILE_PARAM)
+    if in_file:
+        _new_config = load_config(in_file)
+        update_config(_new_config)
+
+
+# Create a copy of _config excluding non-persisted names
+def get_filtered_config_copy() -> dict:
+    # Return a shallow copy of _config without keys in _non_persisted_config_names
+    return {k: v for k, v in _config.items() if k not in _non_persisted_config_names}
+
+
+def save_user_config():
+    out_file = get_config_value(CONFIG_OUTFILE_PARAM)    
+    if out_file:
+        # Save a filtered copy of the runtime config (exclude non-persisted params)
+        save_config(out_file, get_filtered_config_copy())
+
+
+def save_persistent_config():
+    save_config(_config_file, _persistent_config)
 
 

@@ -7,16 +7,13 @@ def setup_function():
     # reset module state between tests
     param._param_aliases.clear()
     param._params.clear()
-    if hasattr(cli, "_non_persisted_config_names"):
-        try:
-            cli._non_persisted_config_names.clear()
-        except Exception:
-            pass
-    if hasattr(cli, "_xor_list"):
-        try:
-            spafw37.param._xor_list.clear()
-        except Exception:
-            pass
+    try:
+        config._non_persisted_config_names.clear()
+        config._config.clear()
+        config._persistent_config.clear()
+        param._xor_list.clear()
+    except Exception:
+        pass
 
 def test_register_param_alias_valid():
     setup_function()
@@ -52,6 +49,29 @@ def test_is_alias_format():
     for alias in invalid_aliases:
         assert param.is_alias(alias) is False, f"Expected {alias} to be invalid"
 
+def test_is_param_alias_true():
+    setup_function()
+    alias = '--my-alias'
+    param_name = 'my_param'
+    _param = {
+        param.PARAM_NAME: param_name,
+        param.PARAM_ALIASES: [alias]
+    }
+    param.add_param(_param)
+    assert param.is_param_alias(_param, alias) is True
+
+def test_is_param_alias_false():
+    setup_function()
+    alias = '--my-alias'
+    param_name = 'my_param'
+    _param = {
+        param.PARAM_NAME: param_name,
+        param.PARAM_ALIASES: [alias]
+    }
+    param.add_param(_param)
+    # alias does not belong to the param
+    assert param.is_param_alias(_param, '--other-alias') is False
+
 def test_add_param_multiple_aliases():
     setup_function()
     alias1 = '--alias'
@@ -64,6 +84,8 @@ def test_add_param_multiple_aliases():
     })
     assert param._param_aliases[alias1] == param_name
     assert param._param_aliases[alias2] == param_name
+
+
 
 
 def test_get_param_by_alias_unknown_returns_empty():
@@ -91,7 +113,7 @@ def test_set_default_param_values():
         param.PARAM_DEFAULT: 'default_value'
     })
     cli._set_defaults()
-    assert config.config[bind_name] == 'default_value'
+    assert config._config[bind_name] == 'default_value'
 
 def test_set_default_param_toggle_with_default_true():
     setup_function()
@@ -104,7 +126,7 @@ def test_set_default_param_toggle_with_default_true():
         param.PARAM_DEFAULT: True
     })
     cli._set_defaults()
-    assert config.config[bind_name] is True
+    assert config._config[bind_name] is True
 
 def test_set_default_param_toggle_with_no_default():
     setup_function()
@@ -116,7 +138,7 @@ def test_set_default_param_toggle_with_no_default():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     })
     cli._set_defaults()
-    assert config.config[bind_name] is False
+    assert config._config[bind_name] is False
 
 def test_is_toggle_param_true():
     setup_function()
@@ -243,5 +265,115 @@ def test_parse_command_line_toggle_param():
     }])
     args = ["--some-flag", "-v"]
     cli.handle_cli_args(args)
-    assert config.config["some_flag"] is True
-    assert config.config["verbose"] is True
+    assert config._config["some_flag"] is True
+    assert config._config["verbose"] is True
+
+def test_parse_command_line_param_with_text_value():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "output_file",
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_ALIASES: ['--output-file', '-o']
+    }])
+    args = ["--output-file", "result.txt"]
+    cli.handle_cli_args(args)
+    assert config._config["output_file"] == "result.txt"
+
+def test_parse_command_line_param_with_number_value():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "max_retries",
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_ALIASES: ['--max-retries', '-m']
+    }])
+    args = ["--max-retries", "5"]
+    cli.handle_cli_args(args)
+    assert config._config["max_retries"] == 5
+
+def test_parse_command_line_param_with_list_value():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "input_files",
+        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
+        param.PARAM_ALIASES: ['--input-files', '-i']
+    }])
+    args = ["--input-files", "file1.txt", "file2.txt"]
+    cli.handle_cli_args(args)
+    assert config._config["input_files"] == ["file1.txt", "file2.txt"]
+
+def test_parse_command_line_param_with_list_value_across_multi_params():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "input_files",
+        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
+        param.PARAM_ALIASES: ['--input-files', '-i']
+    }])
+    args = ["--input-files", "file1.txt", "--input-files", "file2.txt"]
+    cli.handle_cli_args(args)
+    assert config._config["input_files"] == ["file1.txt", "file2.txt"]
+
+def test_parse_command_line_param_with_toggle_value():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "some_flag",
+        param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
+        param.PARAM_ALIASES: ['--some-flag', '-s'],
+        param.PARAM_DEFAULT: True
+    },{
+        param.PARAM_NAME: "verbose",
+        param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
+        param.PARAM_ALIASES: ['--verbose', '-v']
+    }])
+    args = ["--some-flag", "-v"]
+    cli.handle_cli_args(args)
+    assert config._config["some_flag"] is False
+    assert config._config["verbose"] is True
+
+def test_parse_command_line_param_with_equals_value():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "config_path",
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_ALIASES: ['--config-path', '-c']
+    }])
+    args = ["--config-path=/etc/config.json"]
+    cli.handle_cli_args(args)
+    assert config._config["config_path"] == "/etc/config.json"
+
+def test_add_pre_parse_actions():
+    setup_function()
+    action_called = {'called': False}
+    def sample_action():
+        action_called['called'] = True
+    cli.add_pre_parse_actions([sample_action])
+    cli._do_pre_parse_actions()
+    assert action_called['called'] is True
+
+def test_add_post_parse_actions():
+    setup_function()
+    action_called = {'called': False}
+    def sample_action():
+        action_called['called'] = True
+    cli.add_post_parse_actions([sample_action])
+    cli._do_post_parse_actions()
+    assert action_called['called'] is True
+
+def test_xor_clashing_params_raise_error():
+    setup_function()
+    param.add_params([{
+        param.PARAM_NAME: "option1",
+        param.PARAM_ALIASES: ["--option1"],
+        param.PARAM_SWITCH_LIST: [ "option2" ],
+        param.PARAM_DEFAULT: False
+    },{
+        param.PARAM_NAME: "option2",
+        param.PARAM_ALIASES: ["--option2"],
+        param.PARAM_SWITCH_LIST: [ "option1" ],
+        param.PARAM_DEFAULT: False
+    }])
+    args = ["--option1", "--option2"]
+    try:
+        cli.handle_cli_args(args)
+        assert False, "Expected ValueError for clashing xor params"
+    except ValueError as e:
+        assert str(e) == "Conflicting parameters provided: option1 and option2"

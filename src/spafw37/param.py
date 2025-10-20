@@ -1,35 +1,29 @@
 import re
 from typing import List, Dict, Any, Optional
-
-# Param Definitions
-PARAM_NAME          = 'name'
-PARAM_DESCRIPTION   = 'description'
-PARAM_BIND_TO       = 'bind_to'
-PARAM_TYPE          = 'type'
-PARAM_ALIASES       = 'aliases'
-PARAM_REQUIRED      = 'required'
-PARAM_PERSISTENCE   = 'persistence'
-PARAM_SWITCH_LIST   = 'switch-list'
-PARAM_ALWAYS_SET    = 'always-set'
-PARAM_DEFAULT       = 'default-value'
-
-PARAM_PERSISTENCE_ALWAYS    = 'always'
-PARAM_PERSISTENCE_NEVER     = 'never'
-
-# Param Types
-PARAM_TYPE_TEXT     = 'text'
-PARAM_TYPE_NUMBER   = 'number'
-PARAM_TYPE_TOGGLE   = 'toggle'
-PARAM_TYPE_LIST     = 'list'
+from .config_consts import (
+    PARAM_NAME,
+    PARAM_BIND_TO,
+    PARAM_TYPE,
+    PARAM_ALIASES,
+    PARAM_PERSISTENCE,
+    PARAM_SWITCH_LIST,
+    PARAM_DEFAULT,
+    PARAM_PERSISTENCE_ALWAYS,
+    PARAM_PERSISTENCE_NEVER,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_TYPE_TOGGLE,
+    PARAM_TYPE_LIST,
+)
 
 # RegExp Patterns
 PATTERN_LONG_ALIAS = r"^--\w+(?:-\w+)*$"
 PATTERN_LONG_ALIAS_EQUALS_VALUE = r"^--\w+(?:-\w+)*=.+$"
 PATTERN_SHORT_ALIAS = r"^-\w{1,2}$"
 
-_params: Dict[str, dict] = {}
-_param_aliases: Dict[str, str] = {}
-_xor_list: Dict[str, list] = {}
+_params = {}
+_param_aliases = {}
+_xor_list = {}
 
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
@@ -51,9 +45,6 @@ def is_list_param(param: dict) -> bool:
 
 def is_toggle_param(param: dict) -> bool:
     return is_param_type(param, PARAM_TYPE_TOGGLE)
-
-def is_long_alias_with_value(arg):
-    return bool(re.match(PATTERN_LONG_ALIAS_EQUALS_VALUE, arg))
 
 
 def is_alias(alias: str) -> bool:
@@ -106,8 +97,6 @@ def _set_param_xor_list(param_name: str, xor_list: list):
         _add_param_xor(param_name, xor_param_name)
         _add_param_xor(xor_param_name, param_name)
 
-
-
 # Params to set on the command line
 def get_param_by_alias(alias: str) -> dict:
     param_name: Optional[str] = _param_aliases.get(alias)
@@ -116,6 +105,10 @@ def get_param_by_alias(alias: str) -> dict:
         if param:
             return param
     return {}
+
+def is_param_alias(_param: dict, alias: str) -> bool:
+    aliases = _param.get(PARAM_ALIASES, [])
+    return alias in aliases
 
 def add_param(param: dict):
     _param_name = param.get(PARAM_NAME)
@@ -136,7 +129,7 @@ def _register_param_alias(param, alias):
 def get_bind_name(param: dict) -> str:
     return param.get(PARAM_BIND_TO, param[PARAM_NAME])
 
-def get_param_default(_param: dict, default=None) -> any:
+def get_param_default(_param: dict, default=None):
     return _param.get(PARAM_DEFAULT, default)
 
 def param_has_default(_param: dict) -> bool:
@@ -150,3 +143,4 @@ def add_params(params: List[Dict[str, Any]]):
     """
     for param in params:
        add_param(param)
+
