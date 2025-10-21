@@ -2,7 +2,6 @@
     "python.envFile": "${workspaceFolder}/.env",
     "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.terminal.activateEnvironment": false,
-    "python.venvPath": "",
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
     // optional: folder(s) or args to pass to pytest discovery

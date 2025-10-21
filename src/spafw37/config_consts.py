@@ -23,7 +23,11 @@ CONFIG_INFILE_PARAM='config-infile'
 CONFIG_OUTFILE_PARAM='config-outfile'
 
 # Command Definitions
-COMMAND_NAME = "command-name"
-COMMAND_REQUIRED_PARAMS = "required-params"
-COMMAND_DESCRIPTION = "description"
-COMMAND_ACTION = "function"
+COMMAND_NAME = "command-name" # Used on the CLI to queue the command
+COMMAND_REQUIRED_PARAMS = "required-params" # List of param bind names that are required for this command
+COMMAND_DESCRIPTION = "description" # Description of the command
+COMMAND_ACTION = "function" # Function to call when the command is run
+COMMAND_GOES_BEFORE = "sequence-before" # List of command names that will be sequenced before this in a queue - user queued
+COMMAND_GOES_AFTER = "sequence-after" # List of command names that will be sequenced after this in a queue - user queued
+COMMAND_REQUIRE_BEFORE = "require-before" # List of command names that must be completed before this in a queue - automatically queued if this command is invoked
+COMMAND_NEXT_COMMANDS = "next-commands" # List of command names that will be automatically queued after this command is run

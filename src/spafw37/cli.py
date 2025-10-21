@@ -3,29 +3,18 @@ import sys
 
 from typing import Callable
 
-from spafw37.config_consts import COMMAND_NAME
+from spafw37.command import _command_queue
+
+from .command import run_command_queue, get_command, is_command
 
 from .config import list_config_params, set_config_value
 from .param import _has_xor_with, _params, get_bind_name, get_param_default, is_alias, is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, is_param_alias, is_toggle_param, param_has_default
-
-# Commands to run from the command line
-_commands = {}
 
 # Functions to run before parsing the command line
 _pre_parse_actions: list[Callable] = []
 
 # Functions to run after parsing the command line
 _post_parse_actions: list[Callable] = []
-
-_command_queue: list[dict] = []
-
-def add_command(command: dict):
-    _command_name = command.get(COMMAND_NAME)
-    _commands[_command_name] = command
-
-def add_commands(commands: list[dict]):
-    for command in commands:
-        add_command(command)
 
 def add_pre_parse_action(action: Callable):
     _pre_parse_actions.append(action)
@@ -56,35 +45,6 @@ def _do_pre_parse_actions():
         except Exception as e:
             # TODO: Log error
             pass
-
-def _run_command(command):
-    # 1. Verify required params are present in _config
-    required_params = command.get('required-params', [])
-    for req_param in required_params:
-        if req_param not in list_config_params():
-            raise ValueError(f"Required parameter '{req_param}' not provided for command '{command.get('command-name')}'")
-    # 2. Run command action
-    action = command.get('function')
-    if action:
-        try:
-            action()
-        except Exception as e:
-            # TODO: Log error
-            raise e
-
-def _run_command_queue():
-    for command in _command_queue:
-        try:
-            _run_command(command)
-        except Exception as e:
-            # TODO: Log error
-            raise e
-
-def is_command(arg):
-    return arg in _commands.keys()
-
-def get_command(command_name):
-    return _commands.get(command_name, {})
 
 def capture_param_values(args: list[str], _param):
     if is_toggle_param(_param):
@@ -175,4 +135,4 @@ def handle_cli_args(args: list[str]):
     _do_pre_parse_actions()
     _parse_command_line(args)
     _do_post_parse_actions()
-    _run_command_queue()
+    run_command_queue()

@@ -1,6 +1,5 @@
-from spafw37 import cli, config, param
+from spafw37 import cli, config, param, command
 from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
-import spafw37.param
 from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
 
@@ -13,10 +12,10 @@ def setup_function():
         config._config.clear()
         config._persistent_config.clear()
         param._xor_list.clear()
-        cli._command_queue.clear()
+        command._command_queue.clear()
         cli._pre_parse_actions.clear()
         cli._post_parse_actions.clear()
-        cli._commands.clear()
+        command._commands.clear()
     except Exception:
         pass
 
@@ -387,14 +386,14 @@ def test_add_command_registers_command():
     setup_function()
     def sample_command_action():
         pass
-    command = {
+    _command = {
         COMMAND_NAME: "sample-command",
         COMMAND_REQUIRED_PARAMS: [],
         COMMAND_DESCRIPTION: "A sample command for testing",
         COMMAND_ACTION: sample_command_action
     }
-    cli.add_command(command)
-    assert cli.get_command("sample-command") == command
+    command.add_command(_command)
+    assert command.get_command("sample-command") == _command
 
 def test_handle_command():
     setup_function()
@@ -404,7 +403,7 @@ def test_handle_command():
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
         COMMAND_ACTION: config.save_user_config
     }
-    cli.add_command(_command)
+    command.add_command(_command)
     param.add_param({
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
@@ -416,7 +415,7 @@ def test_handle_command():
     })
     args = ["save-user-config", "--save-config", "config.json"]
     cli.handle_cli_args(args)
-    assert _command in cli._command_queue
+    assert _command in command._command_queue
 
 def test_handle_command_missing_required_param_raises():
     setup_function()
@@ -426,7 +425,7 @@ def test_handle_command_missing_required_param_raises():
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
         COMMAND_ACTION: config.save_user_config
     }
-    cli.add_command(_command)
+    command.add_command(_command)
     param.add_param({
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
@@ -439,7 +438,7 @@ def test_handle_command_missing_required_param_raises():
     args = ["save-user-config"]
     try:
         cli.handle_cli_args(args)
-        cli._run_command_queue()
+        command.run_command_queue()
         assert False, "Expected ValueError for missing required param"
     except ValueError as e:
         assert str(e) == f"Required parameter '{CONFIG_OUTFILE_PARAM}' not provided for command 'save-user-config'"
@@ -455,10 +454,10 @@ def test_handle_command_executes_action():
         COMMAND_DESCRIPTION: "A sample command for testing",
         COMMAND_ACTION: sample_action
     }
-    cli.add_command(_command)
+    command.add_command(_command)
     args = ["sample-command"]
     cli.handle_cli_args(args)
-    cli._run_command_queue()
+    command.run_command_queue()
     assert action_executed['executed'] is True
 
 def test_capture_param_values_toggle_direct() -> None:
@@ -490,13 +489,13 @@ def test_capture_param_values_two_aliases_breaks_out():
 def test_capture_param_values_breaks_on_command():
     setup_function()
     # Register a command that should break capture when encountered
-    command = {
+    _command = {
         COMMAND_NAME: "break-command",
         COMMAND_REQUIRED_PARAMS: [],
         COMMAND_DESCRIPTION: "Command used to break capture",
         COMMAND_ACTION: lambda: None
     }
-    cli.add_command(command)
+    command.add_command(_command)
 
     # Register a list param with an alias
     param.add_param({
@@ -540,14 +539,14 @@ def test_run_command_queue_reraises_on_action_exception():
     def raising_action():
         raise ValueError("cmd-error")
     # command dict shape used by _run_command_queue/_run_command
-    cmd = {
+    _command = {
         'command-name': 'err-cmd',
         'required-params': [],
         'function': raising_action
     }
-    cli._command_queue.append(cmd)
+    command._command_queue.append(_command)
     try:
-        cli._run_command_queue()
+        command.run_command_queue()
         assert False, "Expected ValueError from queued command action"
     except ValueError as e:
         assert str(e) == "cmd-error"
