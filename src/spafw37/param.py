@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from .config_consts import (
     PARAM_NAME,
     PARAM_BIND_TO,
+    PARAM_RUNTIME_ONLY,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,
@@ -57,6 +58,11 @@ def is_persistence_always(param: dict) -> bool:
 def is_persistence_never(param: dict) -> bool:
     return param.get(PARAM_PERSISTENCE, None) == PARAM_PERSISTENCE_NEVER
 
+def is_runtime_only_param(_param):
+    if not _param:
+        return False
+    return _param.get(PARAM_RUNTIME_ONLY, False)
+
 def _parse_number(value, default=0):
     if isinstance(value, float) or isinstance(value, int):
         return value
@@ -97,6 +103,11 @@ def _set_param_xor_list(param_name: str, xor_list: list):
         _add_param_xor(param_name, xor_param_name)
         _add_param_xor(xor_param_name, param_name)
 
+def get_param_by_name(param_name):
+    if param_name in _params:
+        return _params.get(param_name)
+    return None
+
 # Params to set on the command line
 def get_param_by_alias(alias: str) -> dict:
     param_name: Optional[str] = _param_aliases.get(alias)
@@ -110,14 +121,16 @@ def is_param_alias(_param: dict, alias: str) -> bool:
     aliases = _param.get(PARAM_ALIASES, [])
     return alias in aliases
 
-def add_param(param: dict):
-    _param_name = param.get(PARAM_NAME)
-    if PARAM_ALIASES in param:
-        for alias in param.get(PARAM_ALIASES, []):
-            _register_param_alias(param, alias)
-    if PARAM_SWITCH_LIST in param:
-        _set_param_xor_list(param[PARAM_NAME], param[PARAM_SWITCH_LIST])
-    _params[_param_name] = param
+def add_param(_param: dict):
+    _param_name = _param.get(PARAM_NAME)
+    if PARAM_ALIASES in _param:
+        for alias in _param.get(PARAM_ALIASES, []):
+            _register_param_alias(_param, alias)
+    if PARAM_SWITCH_LIST in _param:
+        _set_param_xor_list(_param[PARAM_NAME], _param[PARAM_SWITCH_LIST])
+    if _param.get(PARAM_RUNTIME_ONLY, False):
+        _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
+    _params[_param_name] = _param
 
 
 def _register_param_alias(param, alias):

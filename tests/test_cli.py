@@ -1,6 +1,6 @@
 import pytest
 from spafw37 import cli, config, param, command
-from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
+from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_INFILE_ALIAS, CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
 from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
 from unittest.mock import patch, mock_open
@@ -412,13 +412,13 @@ def test_handle_command():
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
         PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
         PARAM_TYPE: 'string',
-        PARAM_ALIASES: ['--save-config','-s'],
+        PARAM_ALIASES: [CONFIG_INFILE_ALIAS,'-s'],
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     })
-    args = ["save-user-config", "--save-config", "config.json"]
+    args = ["save-user-config", CONFIG_INFILE_ALIAS, "config.json"]
     cli.handle_cli_args(args)
-    assert _command in command._command_queue
+    assert command._is_command_finished("save-user-config")
 
 def test_handle_command_missing_required_param_raises():
     setup_function()
@@ -699,4 +699,19 @@ def test_save_config_write_error_during_operation():
     with patch('builtins.open', mock_file):
         with pytest.raises(IOError, match="Error writing to config file 'test.json': Write failed"):
              config.save_user_config()
+
+def test_handle_cli_args_sets_defaults():
+    setup_function()
+    bind_name = 'default_bind'
+    param_name = 'default_param'
+    param.add_param({
+        param.PARAM_BIND_TO: bind_name,
+        param.PARAM_NAME: param_name,
+        param.PARAM_DEFAULT: 'default_value'
+    })
+    # calling handle_cli_args with no args should set defaults
+    cli.handle_cli_args([])
+    assert config._config[bind_name] == 'default_value'
+
+
 

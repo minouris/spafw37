@@ -1,6 +1,14 @@
-from spafw37 import config
+from spafw37 import config, param
 from spafw37.config import _persistent_config
-from spafw37.config_consts import PARAM_PERSISTENCE_ALWAYS, PARAM_PERSISTENCE_NEVER, PARAM_NAME, PARAM_BIND_TO, PARAM_TYPE, PARAM_PERSISTENCE
+from spafw37.config_consts import (
+    PARAM_PERSISTENCE_ALWAYS, 
+    PARAM_PERSISTENCE_NEVER, 
+    PARAM_NAME, 
+    PARAM_BIND_TO, 
+    PARAM_RUNTIME_ONLY, 
+    PARAM_TYPE, 
+    PARAM_PERSISTENCE, 
+    PARAM_DEFAULT)
 
 def test_set_and_get_config_value():
     test_param = {
@@ -243,3 +251,14 @@ def test_non_persistent_param_not_saved_in_user_save(tmp_path):
     assert retrieved_value is None
     retrieved_persistent_value = config.get_config_value("persistent_param_bind")
     assert retrieved_persistent_value == "persistent_value"
+
+# test that a RUNTIME_ONLY param is marked as NEVER persisted
+def test_runtime_only_param_set_never_persisted():
+    runtime_only_param = {
+        PARAM_NAME: "runtime_only_param",
+        PARAM_BIND_TO: "runtime_only_param_bind",
+        PARAM_TYPE: "string",
+        PARAM_RUNTIME_ONLY: True
+    }
+    param.add_param(runtime_only_param)
+    assert config.is_persistence_never(runtime_only_param) is True

@@ -7,8 +7,8 @@ PARAM_ALIASES       = 'aliases'
 PARAM_REQUIRED      = 'required'
 PARAM_PERSISTENCE   = 'persistence'
 PARAM_SWITCH_LIST   = 'switch-list'
-PARAM_ALWAYS_SET    = 'always-set'
 PARAM_DEFAULT       = 'default-value'
+PARAM_RUNTIME_ONLY   = 'runtime-only' # Not persisted, only for runtime use, not checked at startof queue, but checked when a command that uses them is run
 
 PARAM_PERSISTENCE_ALWAYS    = 'always'
 PARAM_PERSISTENCE_NEVER     = 'never'
@@ -22,6 +22,9 @@ PARAM_TYPE_LIST     = 'list'
 CONFIG_INFILE_PARAM='config-infile'
 CONFIG_OUTFILE_PARAM='config-outfile'
 
+CONFIG_INFILE_ALIAS = '--save-config'
+CONFIG_OUTFILE_ALIAS = '--load-config'
+
 # Command Definitions
 COMMAND_NAME = "command-name" # Used on the CLI to queue the command
 COMMAND_REQUIRED_PARAMS = "required-params" # List of param bind names that are required for this command
@@ -31,3 +34,4 @@ COMMAND_GOES_BEFORE = "sequence-before" # List of command names that will be seq
 COMMAND_GOES_AFTER = "sequence-after" # List of command names that will be sequenced after this in a queue - user queued
 COMMAND_REQUIRE_BEFORE = "require-before" # List of command names that must be completed before this in a queue - automatically queued if this command is invoked
 COMMAND_NEXT_COMMANDS = "next-commands" # List of command names that will be automatically queued after this command is run
+COMMAND_TRIGGER_PARAM = "trigger-param" # Param bind name that triggers this command when set

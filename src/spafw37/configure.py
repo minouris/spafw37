@@ -16,7 +16,8 @@ from .config_consts import (
     COMMAND_NAME,
     COMMAND_REQUIRED_PARAMS,
     COMMAND_DESCRIPTION,
-    COMMAND_ACTION
+    COMMAND_ACTION,
+    PARAM_TYPE_TEXT
 )
 
 _params_builtin = [
@@ -24,7 +25,7 @@ _params_builtin = [
         PARAM_NAME: CONFIG_INFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file containing configuration to load',
         PARAM_BIND_TO: CONFIG_INFILE_PARAM,
-        PARAM_TYPE: 'string',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--save-config','-save'],
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
@@ -33,7 +34,7 @@ _params_builtin = [
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
         PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
-        PARAM_TYPE: 'string',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--load-config','-load'],
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER

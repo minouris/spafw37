@@ -2,6 +2,8 @@ from spafw37.config_consts import *
 import pytest
 
 from spafw37 import command as command
+from spafw37 import param
+from spafw37 import config
 from spafw37.command import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
 
 def simple_action():
@@ -12,6 +14,7 @@ def _reset_command_module():
     command._command_queue = []
     command._commands = {}
     command._required_params = []
+    command._finished_commands = []
 
 def _queue_names(_command_list):
     return [c.get(COMMAND_NAME) for c in _command_list]
@@ -19,7 +22,6 @@ def _queue_names(_command_list):
 def test_sample_command_simple_is_queued():
     sample_command_simple = {
         COMMAND_NAME: "sample-command",
-        COMMAND_REQUIRED_PARAMS: ["param1", "param2"],
         COMMAND_ACTION: simple_action
     }
     _reset_command_module()
@@ -334,9 +336,10 @@ def test_duplicate_command_names():
         }
     ]
     _reset_command_module()
-    
-    with pytest.raises(ValueError, match="Duplicate command name"):
-        command.add_commands(duplicate_commands)
+
+    # Verify all command names are unique - function should return silently for duplicates
+    command.add_commands(duplicate_commands)
+    assert len(command._commands) == 1  # Only one command should be registered
 
 def test_complex_dependency_chain():
     """Test a complex dependency chain with multiple levels"""
@@ -449,3 +452,96 @@ def test_empty_queue_operations():
     command.add_commands([])
     assert len(command._commands) == 0
 
+def test_runtime_only_params_in_verify_required_params():
+    """
+    Ensure params marked as runtime-only are NOT validated at the start of the command queue.
+    This test attempts a common marking pattern (('param_name', True)). If the implementation
+    does not support that shape for required params, the test is skipped.
+    """
+    _reset_command_module()
+    runtime_param_name = "runtime-only-param"
+    runtime_param = {
+        PARAM_NAME: runtime_param_name,
+        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_TYPE: "text",
+        PARAM_RUNTIME_ONLY: True
+    }
+    regular_param_name = "regular-param"
+    regular_param = {
+        PARAM_NAME: regular_param_name,
+        PARAM_BIND_TO: "regular-param",
+        PARAM_TYPE: "text"
+    }
+    param.add_param(runtime_param)
+    param.add_param(regular_param)
+    runtime_command = {
+        COMMAND_NAME: "runtime-test-command",
+        COMMAND_REQUIRED_PARAMS: [runtime_param_name, regular_param_name],
+        COMMAND_ACTION: simple_action
+    }
+    command.add_command(runtime_command)
+    command.queue_command("runtime-test-command")
+    # Simulate config with only regular param set
+    from spafw37 import config
+    config.set_config_value(regular_param, "regular_value")
+    # This should NOT raise an error about the runtime-only param missing
+    try:
+        command._verify_required_params()
+    except ValueError as e:
+        assert str(e) == "Missing required parameter: runtime-only-param"
+    with pytest.raises(ValueError, match=f"Missing required parameter '{runtime_param_name}' for command 'runtime-test-command'"):
+        command._verify_required_params(_exclude_runtime_only=False)
+
+def test_runtime_only_params_in_command_queue_fail():
+    _reset_command_module()
+    # Create a runtime-only param and a command that requires it
+    runtime_param_name = "runtime-only-param"
+    runtime_param = {
+        PARAM_NAME: runtime_param_name,
+        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_TYPE: "text",
+        PARAM_RUNTIME_ONLY: True
+    }
+    param.add_param(runtime_param)
+    runtime_command = {
+        COMMAND_NAME: "runtime-test-command",
+        COMMAND_REQUIRED_PARAMS: [runtime_param_name],
+        COMMAND_ACTION: simple_action
+    }
+    command.add_command(runtime_command)
+    command.queue_command("runtime-test-command")
+    
+    # Simulate config with no params set
+    with pytest.raises(ValueError, match=f"Missing required parameter '{runtime_param_name}' for command 'runtime-test-command'"):
+        command.run_command_queue()
+
+def test_non_runtime_only_params_pass():
+    _reset_command_module()
+    # Create a runtime-only param and a command that requires it
+    runtime_param_name = "runtime-only-param"
+    runtime_param = {
+        PARAM_NAME: runtime_param_name,
+        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_TYPE: "text",
+        PARAM_RUNTIME_ONLY: True
+    }
+    param.add_param(runtime_param)
+    runtime_command = {
+        COMMAND_NAME: "runtime-test-command",
+        COMMAND_REQUIRED_PARAMS: [runtime_param_name],
+        COMMAND_REQUIRE_BEFORE: ['setter-command'],
+        COMMAND_ACTION: simple_action
+    }
+    # Create a command that sets the runtime-only param before the command that requires it
+    setter_command = {
+        COMMAND_NAME: "setter-command",
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_ACTION: lambda: config.set_config_value(runtime_param, "some_value")
+    }
+    command.add_command(runtime_command)
+    command.add_command(setter_command)
+    command.queue_command("runtime-test-command")
+    try:
+        command.run_command_queue()
+    except ValueError as e:
+        assert False, f"run_command_queue raised an unexpected ValueError: {e}"

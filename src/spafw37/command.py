@@ -1,6 +1,7 @@
 # Constants used as keys in command definitions (tests use these constants as keys).
-from .config_consts import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
+from .config_consts import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM
 from . import config
+from . import param
 
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
@@ -11,6 +12,10 @@ class CircularDependencyError(Exception):
 _commands = {}
 _command_queue = []
 _required_params = []
+_finished_commands = []
+
+def _is_command_finished(command_name):
+    return command_name in _finished_commands
 
 
 def get_command(name):
@@ -38,7 +43,7 @@ def add_command(cmd):
     if not cmd.get(COMMAND_ACTION):
         raise ValueError("Command action is required")
     if name in _commands:
-        raise ValueError(f"Duplicate command name: {name}")
+        return
         
         # Check for self-references
     for ref_list in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
@@ -66,6 +71,8 @@ def _queue_add(name, queued):
     correct order. Uses queued set to avoid duplicates and infinite cycles.
     """
     if name in queued:
+        return
+    if _is_command_finished(name):
         return
     cmd = get_command(name)
     if not cmd:
@@ -261,18 +268,55 @@ def _sort_command_queue():
     del _command_queue[:]
     _command_queue.extend(new_queue)
 
-def _verify_required_params():
+def _verify_required_params(_exclude_runtime_only=True):
     for cmd in _command_queue:
-        for param in cmd.get(COMMAND_REQUIRED_PARAMS, []):
-            if param not in config.list_config_params():
-                raise ValueError(f"Missing required parameter '{param}' for command '{cmd.get(COMMAND_NAME)}'")
+        _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
+
+def _verify_command_params(cmd, _skip_runtime_only=True):
+    for _param in cmd.get(COMMAND_REQUIRED_PARAMS, []):
+        if (_skip_runtime_only and param.is_runtime_only_param(param.get_param_by_name(_param))):
+            continue
+        if _param not in config.list_config_params():
+            raise ValueError(f"Missing required parameter '{_param}' for command '{cmd.get(COMMAND_NAME)}'")
+
+def _record_finished_command(command_name):
+    # Run commands should have their names stored so they don't get re-queued
+    if command_name not in _finished_commands:
+        _finished_commands.append(command_name)
+
+def _trim_queue():
+    # Remove finished commands from the queue
+    _command_queue[:] = [cmd for cmd in _command_queue if cmd.get(COMMAND_NAME) not in _finished_commands]
+
+def _recalculate_queue():
+    # Add any commands triggered by params set before execution
+    _add_triggered_commands() 
+    # Re-sort the queue after additions
+    _sort_command_queue()
+
+def _add_triggered_commands():
+    """Add commands to the queue that are triggered by currently set params."""
+    for param_name in config.list_config_params():
+        param_def = param.get_param_by_name(param_name)
+        if not param_def:
+            continue
+        for cmd in _commands.values():
+            trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
+            if trigger_param == param_name:
+                if cmd not in _command_queue:
+                    _queue_add(cmd.get(COMMAND_NAME), set())
 
 def run_command_queue():
     """Execute all commands in the _command_queue in order."""
+    _add_triggered_commands() # Add any commands triggered by params set before execution
+    _sort_command_queue()
     _verify_required_params()
-    for cmd in _command_queue:
+    while _command_queue:
+        _recalculate_queue() # Recalculate queue order after any additions
+        _verify_command_params(_command_queue[0], _skip_runtime_only=False)
+        cmd = _command_queue.pop(0)
         action = cmd.get(COMMAND_ACTION)
-        if callable(action):
-            action()
-        else:
+        if not callable(action):
             raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
+        action()
+        _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
