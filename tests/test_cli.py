@@ -1,7 +1,10 @@
+import pytest
 from spafw37 import cli, config, param, command
-from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
+from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
 from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
+from unittest.mock import patch, mock_open
+import json
 
 def setup_function():
     # reset module state between tests
@@ -436,12 +439,8 @@ def test_handle_command_missing_required_param_raises():
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     })
     args = ["save-user-config"]
-    try:
+    with pytest.raises(ValueError, match=f"Missing required parameter '{CONFIG_OUTFILE_PARAM}' for command 'save-user-config'"):
         cli.handle_cli_args(args)
-        command.run_command_queue()
-        assert False, "Expected ValueError for missing required param"
-    except ValueError as e:
-        assert str(e) == f"Required parameter '{CONFIG_OUTFILE_PARAM}' not provided for command 'save-user-config'"
 
 def test_handle_command_executes_action():
     setup_function()
@@ -575,4 +574,129 @@ def test_parse_command_line_unknown_arg_raises():
         assert False, "Expected ValueError for unknown argument"
     except ValueError as e:
         assert str(e) == "Unknown parameter alias: --this-does-not-exist"
+
+def test_parse_command_line_unknown_argument_raises():
+    setup_function()
+    try:
+        cli._parse_command_line(["unknown-argument"])
+        assert False, "Expected ValueError for unknown argument"
+    except ValueError as e:
+        assert str(e) == "Unknown argument or command: unknown-argument"
+
+def test_load_user_config_file_not_found():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
+    with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
+        with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.json' not found"):
+             config.load_user_config()
+
+def test_load_user_config_permission_denied():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "restricted.json"
+    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+        with pytest.raises(PermissionError, match="Permission denied for config file 'restricted.json'"):
+             config.load_user_config()
+
+def test_load_user_config_invalid_json():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "invalid.json"
+    invalid_json = "{ invalid json content"
+    with patch('builtins.open', mock_open(read_data=invalid_json)):
+        with pytest.raises(ValueError, match="Invalid JSON in config file 'invalid.json'"):
+             config.load_user_config()
+
+def test_load_persistent_config_file_not_found():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
+    with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
+        with pytest.raises(FileNotFoundError, match="Config file 'config.json' not found"):
+             config.load_persistent_config()
+
+def test_load_persistent_config_permission_denied():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "restricted.json"
+    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+        try:
+            config.load_persistent_config()
+            assert False, "Expected PermissionError"
+        except PermissionError as e:
+            assert "Permission denied" in str(e)
+
+def test_load_persistent_config_invalid_json():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "invalid.json"
+    invalid_json = "{ malformed json"
+    with patch('builtins.open', mock_open(read_data=invalid_json)):
+        with pytest.raises(ValueError, match="Invalid JSON in config file 'config.json'"):
+             config.load_persistent_config()
+
+def test_save_user_config_permission_denied():
+    setup_function()
+    config._config["test_key"] = "test_value"
+    config._config[CONFIG_OUTFILE_PARAM] = "restricted.json"
+    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+        with pytest.raises(IOError, match="Error writing to config file 'restricted.json': Permission denied"):
+             config.save_user_config()
+
+def test_save_user_config_invalid_path():
+    setup_function()
+    config._config["test_key"] = "test_value"
+    config._config[CONFIG_OUTFILE_PARAM] = "/invalid/path/config.json"
+    with patch('builtins.open', side_effect=OSError("Invalid path")):
+        with pytest.raises(IOError, match="Error writing to config file '/invalid/path/config.json': Invalid path"):
+             config.save_user_config()
+
+def test_save_persistent_config_permission_denied():
+    setup_function()
+    config._persistent_config["persistent_key"] = "persistent_value"
+    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+        with pytest.raises(IOError, match="Error writing to config file 'config.json': Permission denied"):
+             config.save_persistent_config()
+
+def test_save_persistent_config_disk_full():
+    setup_function()
+    config._persistent_config["key"] = "value"
+    config._config[CONFIG_OUTFILE_PARAM] = "config.json"
+    with patch('builtins.open', side_effect=OSError("No space left on device")):
+        with pytest.raises(IOError, match="Error writing to config file 'config.json': No space left on device"):
+             config.save_persistent_config()
+
+def test_load_config_empty_file():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "empty.json"
+    with patch('builtins.open', mock_open(read_data="")):
+        with pytest.raises(ValueError, match="Config file 'empty.json' is empty"):
+             config.load_user_config()
+
+def test_save_config_json_serialization_error():
+    setup_function()
+    # Create an object that can't be JSON serialized
+    import datetime
+    config._config["non_serializable"] = datetime.datetime.now()
+    config._config[CONFIG_OUTFILE_PARAM] = "test.json"
+    
+    with patch('builtins.open', mock_open()):
+        with pytest.raises(TypeError, match="Object of type datetime is not JSON serializable"):
+            config.save_user_config()
+
+def test_load_config_unicode_decode_error():
+    setup_function()
+    config._config[CONFIG_INFILE_PARAM] = "bad_encoding.json"
+    # Simulate a file with invalid UTF-8 encoding
+    with patch('builtins.open', side_effect=UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')):
+        with pytest.raises(UnicodeDecodeError, match="Unicode decode error in config file 'bad_encoding.json': invalid start byte"):
+             config.load_user_config()
+
+def test_save_config_write_error_during_operation():
+    setup_function()
+    config._config["test"] = "value"
+    config._config[CONFIG_OUTFILE_PARAM] = "test.json"
+    
+    # Mock open to succeed but file.write to fail
+    mock_file = mock_open()
+    mock_file.return_value.write.side_effect = OSError("Write failed")
+    
+    with patch('builtins.open', mock_file):
+        with pytest.raises(IOError, match="Error writing to config file 'test.json': Write failed"):
+             config.save_user_config()
 

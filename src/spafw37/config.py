@@ -60,13 +60,23 @@ def load_config(config_file_in: str) -> dict:
     if config_file_in:
         try:
             with open(config_file_in, 'r') as f:
-                return json.load(f)
+                content = f.read()
+                if not content.strip():
+                    raise ValueError(f"Config file '{config_file_in}' is empty")
+                f.seek(0)
+                return json.loads(content)
         except FileNotFoundError:
             # TODO: Log file not found
-            pass
+            raise FileNotFoundError(f"Config file '{config_file_in}' not found")
+        except PermissionError:
+            # TODO: Log permission error
+            raise PermissionError(f"Permission denied for config file '{config_file_in}'")
+        except UnicodeDecodeError as e:
+            # TODO: Log Unicode decode error
+            raise UnicodeDecodeError(e.encoding, e.object, e.start, e.end, f"Unicode decode error in config file '{config_file_in}': {e.reason}")
         except json.JSONDecodeError:
             # TODO: Log invalid JSON
-            pass
+            raise ValueError(f"Invalid JSON in config file '{config_file_in}'")
     return {}
 
 
@@ -80,9 +90,9 @@ def save_config(config_file_out: str, config_dict: dict):
         try:
             with open(config_file_out, 'w') as f:
                 json.dump(config_dict, f, indent=2)
-        except (OSError, IOError):
+        except (OSError, IOError) as e:
             # TODO: Log file write error
-            pass
+            raise IOError(f"Error writing to config file '{config_file_out}': {e}")
 
 
 def load_persistent_config():
