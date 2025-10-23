@@ -6,6 +6,8 @@ import re
 from unittest.mock import patch, mock_open
 import json
 
+from tests.test_command import _reset_command_module
+
 def setup_function():
     # reset module state between tests
     param._param_aliases.clear()
@@ -15,10 +17,9 @@ def setup_function():
         config._config.clear()
         config._persistent_config.clear()
         param._xor_list.clear()
-        command._command_queue.clear()
         cli._pre_parse_actions.clear()
         cli._post_parse_actions.clear()
-        command._commands.clear()
+        _reset_command_module()
     except Exception:
         pass
 
@@ -537,13 +538,14 @@ def test_run_command_queue_reraises_on_action_exception():
     setup_function()
     def raising_action():
         raise ValueError("cmd-error")
-    # command dict shape used by _run_command_queue/_run_command
+    err_cmd_name = 'err-cmd'
     _command = {
-        'command-name': 'err-cmd',
-        'required-params': [],
-        'function': raising_action
+        COMMAND_NAME: err_cmd_name,
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_ACTION: raising_action
     }
-    command._command_queue.append(_command)
+    command.add_command(_command)
+    command.queue_command(err_cmd_name)
     try:
         command.run_command_queue()
         assert False, "Expected ValueError from queued command action"

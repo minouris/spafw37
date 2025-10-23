@@ -7,24 +7,30 @@ from spafw37 import config
 from spafw37.command import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
 
 def simple_action():
+    """Simple no-op action for testing."""
     pass
 
 # Reset helper
 def _reset_command_module():
+    """Reset command module to clean state with phased execution."""
     command._command_queue = []
     command._commands = {}
     command._finished_commands = []
-    phases = [
-        PHASE_EXECUTION
-    ]
     command._phases_completed = []
     command._phases = {}
+    phases = [PHASE_EXECUTION]
     command.set_phases_order(phases)
 
 def _queue_names(_command_list):
+    """Extract command names from a list of command dictionaries."""
     return [c.get(COMMAND_NAME) for c in _command_list]
 
+def _get_phase_queue():
+    """Get the current phase queue for testing."""
+    return command._phases.get(PHASE_EXECUTION, [])
+
 def test_sample_command_simple_is_queued():
+    """Test that a simple command can be queued."""
     sample_command_simple = {
         COMMAND_NAME: "sample-command",
         COMMAND_ACTION: simple_action
@@ -32,26 +38,35 @@ def test_sample_command_simple_is_queued():
     _reset_command_module()
     command.add_commands([sample_command_simple])
     command.queue_command("sample-command")
-    assert len(command._command_queue) == 1
-    assert _queue_names(command._command_queue) == ["sample-command"]
+    # Check phase queue instead of _command_queue
+    assert len(_get_phase_queue()) == 1
+    assert _queue_names(_get_phase_queue()) == ["sample-command"]
+
 
 def test_sequenced_commands_order():
-    sequenced_commands = [ # Order should be: first-command, second-command, third-command
+    """Test that sequenced commands maintain proper order."""
+    execution_order = []
+    
+    def make_action(name):
+        """Create an action function that records execution order."""
+        return lambda: execution_order.append(name)
+    
+    sequenced_commands = [
         {
             COMMAND_NAME: "third-command",
             COMMAND_REQUIRED_PARAMS: [],
-            COMMAND_ACTION: simple_action,
+            COMMAND_ACTION: make_action("third-command"),
             COMMAND_GOES_AFTER: ["second-command"]
         },
         {
             COMMAND_NAME: "first-command",
             COMMAND_REQUIRED_PARAMS: [],
-            COMMAND_ACTION: simple_action
+            COMMAND_ACTION: make_action("first-command")
         },
         {
             COMMAND_NAME: "second-command",
             COMMAND_REQUIRED_PARAMS: [],
-            COMMAND_ACTION: simple_action,
+            COMMAND_ACTION: make_action("second-command"),
             COMMAND_GOES_AFTER: ["first-command"]
         }
     ]
@@ -59,12 +74,15 @@ def test_sequenced_commands_order():
     command.add_commands(sequenced_commands)
     _queue = _queue_names(sequenced_commands)
     command.queue_commands(_queue)
+    
+    # Execute phased command queue
+    command.run_command_queue()
+    
     # Expected order: first-command, second-command, third-command
-    _queued = _queue_names(command._command_queue)
-    assert _queued == ["first-command", "second-command", "third-command"]
+    assert execution_order == ["first-command", "second-command", "third-command"]
 
 def test_four_commands_multiseq_order():
-    # Four commands with multiple sequence_before/sequence_after relations.
+    """Test four commands with multiple sequence_before/sequence_after relations."""
     # Desired order: cmd2 -> cmd3 -> cmd4 -> cmd1
     four_commands_multiseq = [
         {
@@ -96,11 +114,15 @@ def test_four_commands_multiseq_order():
     command.add_commands(four_commands_multiseq)
     # Desired order: cmd2 -> cmd3 -> cmd4 -> cmd1
     command.queue_commands(_queue_names(four_commands_multiseq))
-    command._sort_command_queue(command._command_queue)
-    _queued_names = _queue_names(command._command_queue)
+    
+    # Get the phase queue and sort it
+    phase_queue = _get_phase_queue()
+    command._sort_command_queue(phase_queue)
+    _queued_names = _queue_names(phase_queue)
     assert _queued_names == ["cmd2", "cmd3", "cmd4", "cmd1"]
 
 def test_commands_have_next_commands_queueing():
+    """Test that commands with COMMAND_NEXT_COMMANDS queue their next commands."""
     commands_have_next_commands = [
         {
             COMMAND_NAME: "initial-command",
@@ -123,10 +145,11 @@ def test_commands_have_next_commands_queueing():
     command.add_commands(commands_have_next_commands)
     command.queue_commands(_queue_names(commands_have_next_commands))
     # initial-command should be followed by next-command-1 and next-command-2
-    _queued_names = _queue_names(command._command_queue)
+    _queued_names = _queue_names(_get_phase_queue())
     assert _queued_names == ["initial-command", "next-command-1", "next-command-2"]
 
 def test_commands_have_require_before_queueing():
+    """Test that commands with COMMAND_REQUIRE_BEFORE automatically queue prerequisites."""
     commands_have_require_before = [
         {
             COMMAND_NAME: "final-command",
@@ -148,10 +171,12 @@ def test_commands_have_require_before_queueing():
     _reset_command_module()
     command.add_commands(commands_have_require_before)
     command.queue_commands(_queue_names(commands_have_require_before))
+    command._sort_command_queue(_get_phase_queue())
     # prereq-command-1 and prereq-command-2 should appear before final-command
-    assert _queue_names(command._command_queue) == ["prereq-command-1", "prereq-command-2", "final-command"]
+    assert _queue_names(_get_phase_queue()) == ["prereq-command-1", "prereq-command-2", "final-command"]
 
 def test_commands_have_require_before_and_next_commands():
+    """Test commands with both COMMAND_REQUIRE_BEFORE and COMMAND_NEXT_COMMANDS."""
     commands_have_require_before_and_next_commands = [
         {
             COMMAND_NAME: "middle-command",
@@ -174,10 +199,12 @@ def test_commands_have_require_before_and_next_commands():
     _reset_command_module()
     command.add_commands(commands_have_require_before_and_next_commands)
     command.queue_commands(['middle-command'])
+    command._sort_command_queue(_get_phase_queue())
     # Desired: prereq-command -> middle-command -> next-command
-    assert _queue_names(command._command_queue) == ["prereq-command", "middle-command", "next-command"]
+    assert _queue_names(_get_phase_queue()) == ["prereq-command", "middle-command", "next-command"]
 
 def test_commands_have_require_before_and_sequence():
+    """Test commands with COMMAND_REQUIRE_BEFORE and sequence constraints."""
     commands_have_require_before_and_sequence = [
         {
             COMMAND_NAME: "end-command",
@@ -201,11 +228,12 @@ def test_commands_have_require_before_and_sequence():
     _reset_command_module()
     command.add_commands(commands_have_require_before_and_sequence)
     command.queue_commands(['start-command'])  # Queue start-command to trigger dependencies
+    command._sort_command_queue(_get_phase_queue())
     # Desired order: start-command -> middle-command -> end-command
-    assert _queue_names(command._command_queue) == ["start-command", "middle-command", "end-command"]
+    assert _queue_names(_get_phase_queue()) == ["start-command", "middle-command", "end-command"]
 
 def test_circular_dependency_detection():
-    """Test that circular dependencies are detected and handled"""
+    """Test that circular dependencies are detected and handled."""
     circular_commands = [
         {
             COMMAND_NAME: "cmd1",
@@ -233,7 +261,7 @@ def test_circular_dependency_detection():
         command.queue_commands(_queue_names(circular_commands))
 
 def test_missing_command_reference():
-    """Test handling of references to non-existent commands"""
+    """Test handling of references to non-existent commands."""
     commands_with_missing_ref = [
         {
             COMMAND_NAME: "existing-command",
@@ -249,7 +277,7 @@ def test_missing_command_reference():
         command.queue_commands(["existing-command"])
 
 def test_conflicting_sequence_constraints():
-    """Test handling of impossible sequence constraints"""
+    """Test handling of impossible sequence constraints."""
     conflicting_commands = [
         {
             COMMAND_NAME: "cmd1",
@@ -270,7 +298,7 @@ def test_conflicting_sequence_constraints():
         command.add_commands(conflicting_commands)
 
 def test_empty_command_name():
-    """Test handling of commands with empty or None names"""
+    """Test handling of commands with empty or None names."""
     invalid_commands = [
         {
             COMMAND_NAME: "",
@@ -284,7 +312,7 @@ def test_empty_command_name():
         command.add_commands(invalid_commands)
 
 def test_missing_action_function():
-    """Test handling of commands without action functions"""
+    """Test handling of commands without action functions."""
     invalid_commands = [
         {
             COMMAND_NAME: "no-action-command",
@@ -298,7 +326,7 @@ def test_missing_action_function():
         command.add_commands(invalid_commands)
 
 def test_duplicate_command_names():
-    """Test handling of duplicate command names"""
+    """Test handling of duplicate command names."""
     duplicate_commands = [
         {
             COMMAND_NAME: "duplicate-name",
@@ -318,7 +346,7 @@ def test_duplicate_command_names():
     assert len(command._commands) == 1  # Only one command should be registered
 
 def test_complex_dependency_chain():
-    """Test a complex dependency chain with multiple levels"""
+    """Test a complex dependency chain with multiple levels."""
     complex_commands = [
         {
             COMMAND_NAME: "level4",
@@ -354,7 +382,9 @@ def test_complex_dependency_chain():
     command.add_commands(complex_commands)
     command.queue_commands(_queue_names(complex_commands))
     
-    _queued_names = _queue_names(command._command_queue)
+    phase_queue = _get_phase_queue()
+    command._sort_command_queue(phase_queue)
+    _queued_names = _queue_names(phase_queue)
     # level1 must come first, level2 after level1, level3a/3b after level2, level4 last
     assert _queued_names[0] == "level1"
     assert _queued_names[1] == "level2"
@@ -362,7 +392,7 @@ def test_complex_dependency_chain():
     assert _queued_names[4] == "level4"
 
 def test_require_before_nonexistent_command():
-    """Test COMMAND_REQUIRE_BEFORE with non-existent command"""
+    """Test COMMAND_REQUIRE_BEFORE with non-existent command."""
     commands_require_missing = [
         {
             COMMAND_NAME: "dependent-command",
@@ -378,7 +408,7 @@ def test_require_before_nonexistent_command():
         command.queue_commands(["dependent-command"])
 
 def test_next_commands_nonexistent():
-    """Test COMMAND_NEXT_COMMANDS with non-existent command"""
+    """Test COMMAND_NEXT_COMMANDS with non-existent command."""
     commands_next_missing = [
         {
             COMMAND_NAME: "parent-command",
@@ -394,7 +424,7 @@ def test_next_commands_nonexistent():
         command.queue_commands(["parent-command"])
 
 def test_queue_nonexistent_command():
-    """Test queuing a command that doesn't exist"""
+    """Test queuing a command that doesn't exist."""
     _reset_command_module()
     command.add_commands([])
     
@@ -402,7 +432,7 @@ def test_queue_nonexistent_command():
         command.queue_command("nonexistent-command")
 
 def test_self_referencing_command():
-    """Test command that references itself"""
+    """Test command that references itself."""
     self_ref_commands = [
         {
             COMMAND_NAME: "self-ref",
@@ -417,12 +447,13 @@ def test_self_referencing_command():
         command.add_commands(self_ref_commands)
 
 def test_empty_queue_operations():
-    """Test operations on empty command queue"""
+    """Test operations on empty command queue."""
     _reset_command_module()
     
     # Should handle empty queue gracefully
-    command._sort_command_queue()
-    assert len(command._command_queue) == 0
+    phase_queue = _get_phase_queue()
+    command._sort_command_queue(phase_queue)
+    assert len(phase_queue) == 0
     
     # Should handle empty command list
     command.add_commands([])
@@ -469,6 +500,7 @@ def test_runtime_only_params_in_verify_required_params():
         command._verify_required_params(_exclude_runtime_only=False)
 
 def test_runtime_only_params_in_command_queue_fail():
+    """Test that runtime-only params cause failures when not set."""
     _reset_command_module()
     # Create a runtime-only param and a command that requires it
     runtime_param_name = "runtime-only-param"
@@ -492,6 +524,7 @@ def test_runtime_only_params_in_command_queue_fail():
         command.run_command_queue()
 
 def test_non_runtime_only_params_pass():
+    """Test that runtime-only params work when set by prerequisite commands."""
     _reset_command_module()
     # Create a runtime-only param and a command that requires it
     runtime_param_name = "runtime-only-param"
@@ -520,5 +553,4 @@ def test_non_runtime_only_params_pass():
     try:
         command.run_command_queue()
     except ValueError as e:
-        assert False, f"run_command_queue raised an unexpected ValueError: {e}"
-
+        assert False, f"run_phased_command_queue raised an unexpected ValueError: {e}"

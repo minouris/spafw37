@@ -3,10 +3,7 @@ import sys
 
 from typing import Callable
 
-from spafw37.command import _command_queue
-
-from .command import run_command_queue, get_command, is_command
-
+from .command import run_command_queue, get_command, is_command, queue_command
 from .config import list_config_params, set_config_value
 from .param import _has_xor_with, _params, get_bind_name, get_param_default, is_alias, is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, is_param_alias, is_toggle_param, param_has_default
 
@@ -117,10 +114,9 @@ def _handle_long_alias_param(arg):
     return _parse_value(_param, value), _param
 
 def _handle_command(arg):
-    _command = get_command(arg)
-    if not _command:
+    if not is_command(arg):
         raise ValueError(f"Unknown command alias: {arg}")
-    _command_queue.append(_command)
+    queue_command(arg)
 
 def _set_defaults():
     for _param in _params.values():

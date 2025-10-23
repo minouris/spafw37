@@ -221,7 +221,7 @@ def test_phased_goes_before_seperate_phases(): # Test that commands can have COM
     }
     command.add_commands([cmd_before_exec, cmd_before_exec2, cmd_exec])
     command.queue_commands(["cmd-exec", "cmd-before-exec", "cmd-before-exec-2"])
-    command.run_phased_command_queue()
+    command.run_command_queue()
     # Verify execution order
     assert execution_order == ["cmd-before-exec", "cmd-before-exec-2", "cmd-exec"]
     # Verify all commands executed
@@ -255,5 +255,5 @@ def test_commands_execute_in_correct_phases():
     }
     command.add_commands([cmd_setup, cmd_exec, cmd_teardown])
     command.queue_commands(["cmd-teardown", "cmd-setup", "cmd-exec"])
-    command.run_phased_command_queue()
+    command.run_command_queue()
     assert command._phases_completed == [PHASE_SETUP, PHASE_EXECUTION, PHASE_TEARDOWN]

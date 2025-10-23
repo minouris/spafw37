@@ -283,12 +283,21 @@ def _sort_command_queue(_command_queue=_command_queue):
     del _command_queue[:]
     _command_queue.extend(new_queue)
 
-def _verify_required_params(_exclude_runtime_only=True):
-    for cmd in _command_queue:
-        _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
-    for phase_cmds in _phases.values():
-        for cmd in phase_cmds:
-            _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
+def _verify_required_params(_exclude_runtime_only: bool = True) -> None:
+    """
+    Verify that all required parameters are set before execution.
+    
+    Args:
+        _exclude_runtime_only: If True, skip verification of runtime-only params.
+    
+    Raises:
+        ValueError: If required parameters are missing.
+    """
+    # Check all phase queues instead of _command_queue
+    for phase_name in _phase_order:
+        if phase_name not in _phases_completed:
+            for cmd in _phases.get(phase_name, []):
+                _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
 
 def _verify_command_params(cmd, _skip_runtime_only=True):
     for _param in cmd.get(COMMAND_REQUIRED_PARAMS, []):
@@ -324,7 +333,7 @@ def _add_triggered_commands():
                 if cmd not in _command_queue:
                     _queue_add(cmd.get(COMMAND_NAME), set())
 
-def run_command_queue():
+def old_run_command_queue():
     """
     Execute all commands in the _command_queue in order.
     
@@ -344,7 +353,7 @@ def run_command_queue():
         action()
         _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
 
-def run_phased_command_queue():
+def run_command_queue():
     """Execute commands phase by phase according to _phase_order."""
     _recalculate_queue(_phases.get(_phase_order[0]))
     for _current_phase in _phase_order:
