@@ -9,26 +9,65 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.7.9'
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ env.PYTHON_VERSION }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    
-    - name: Set up Python 3.7.9
-      uses: actions/setup-python@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
+          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
+          libnss3-dev liblzma-dev libffi-dev uuid-dev
+
+    - name: Restore Python build & pip caches
+      id: python-cache
+      uses: actions/cache@v4
       with:
-        python-version: '3.7.9'
-    
+        path: |
+          $HOME/.local/python-${{ env.PYTHON_VERSION }}
+          $HOME/.cache/pip
+        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Build and install Python (only if cache miss)
+      if: steps.python-cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        PY=${{ env.PYTHON_VERSION }}
+        mkdir -p $HOME/src
+        cd $HOME/src
+        wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
+        tar xzf Python-${PY}.tgz
+        cd Python-${PY}
+        ./configure --prefix=$HOME/.local/python-${PY} --enable-optimizations --with-ensurepip=install
+        make -j "$(nproc)"
+        make install
+
+    - name: Add built Python to PATH
+      run: |
+        echo "$HOME/.local/python-${{ env.PYTHON_VERSION }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    
+        python3 -m pip install --upgrade pip
+        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+
     - name: Run tests
       run: |
-        pytest tests/ -v --cov=spafw37 --cov-report=term-missing
-    
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term-missing
+
     - name: Check test coverage
       run: |
-        pytest tests/ --cov=spafw37 --cov-report=term --cov-fail-under=90
+        python3 -m pytest tests/ --cov=spafw37 --cov-report=term --cov-fail-under=90
