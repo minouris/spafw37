@@ -13,8 +13,13 @@ def simple_action():
 def _reset_command_module():
     command._command_queue = []
     command._commands = {}
-    command._required_params = []
     command._finished_commands = []
+    phases = [
+        PHASE_EXECUTION
+    ]
+    command._phases_completed = []
+    command._phases = {}
+    command.set_phases_order(phases)
 
 def _queue_names(_command_list):
     return [c.get(COMMAND_NAME) for c in _command_list]
@@ -91,38 +96,9 @@ def test_four_commands_multiseq_order():
     command.add_commands(four_commands_multiseq)
     # Desired order: cmd2 -> cmd3 -> cmd4 -> cmd1
     command.queue_commands(_queue_names(four_commands_multiseq))
-    command._sort_command_queue()
+    command._sort_command_queue(command._command_queue)
     _queued_names = _queue_names(command._command_queue)
     assert _queued_names == ["cmd2", "cmd3", "cmd4", "cmd1"]
-
-def test_commands_multiple_params_all_present():    
-    commands_multiple_params = [ # All required params should be in _required_params
-        {
-            COMMAND_NAME: "first-command",
-            COMMAND_REQUIRED_PARAMS: ["param1"],
-            COMMAND_ACTION: simple_action
-        },
-        {
-            COMMAND_NAME: "second-command",
-            COMMAND_REQUIRED_PARAMS: ["param2"],
-            COMMAND_ACTION: simple_action
-        },
-        {
-            COMMAND_NAME: "third-command",
-            COMMAND_REQUIRED_PARAMS: ["param3"],
-            COMMAND_ACTION: simple_action,
-            COMMAND_GOES_AFTER: ["second-command"]
-        }
-    ]
-    _reset_command_module()
-    # Ensure required params are known before adding (simulate config)
-    command._required_params = []
-    _test_params = ["param1", "param2", "param3"]
-    # Add the commands and ensure they are queued (all present)
-    command.add_commands(commands_multiple_params)
-    command.queue_commands(_queue_names(commands_multiple_params))
-    for param in _test_params:
-        assert param in command._required_params
 
 def test_commands_have_next_commands_queueing():
     commands_have_next_commands = [
@@ -545,3 +521,4 @@ def test_non_runtime_only_params_pass():
         command.run_command_queue()
     except ValueError as e:
         assert False, f"run_command_queue raised an unexpected ValueError: {e}"
+

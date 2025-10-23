@@ -1,5 +1,5 @@
 # Constants used as keys in command definitions (tests use these constants as keys).
-from .config_consts import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM
+from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, PHASE_DEFAULT
 from . import config
 from . import param
 
@@ -10,9 +10,19 @@ class CircularDependencyError(Exception):
 
 # Module state
 _commands = {}
-_command_queue = []
-_required_params = []
 _finished_commands = []
+_phase_order = [ PHASE_DEFAULT]
+_phases = { PHASE_DEFAULT: [] }
+_phases_completed = []
+_command_queue = []
+
+def set_phases_order(phase_order):
+    global _phase_order
+    _phase_order = phase_order
+    _current_phase = phase_order[0] if phase_order else PHASE_DEFAULT
+    for _phase in _phase_order:
+        if _phase not in _phases:
+            _phases[_phase] = []
 
 def _is_command_finished(command_name):
     return command_name in _finished_commands
@@ -57,12 +67,9 @@ def add_command(cmd):
     if goes_before & goes_after:
         conflicting = goes_before & goes_after
         raise ValueError(f"Command '{name}' has conflicting constraints with: {list(conflicting)}")
-        
+    if not cmd.get(COMMAND_PHASE):
+        cmd[COMMAND_PHASE] = PHASE_DEFAULT
     _commands[name] = cmd
-        # collect required params
-    for p in cmd.get(COMMAND_REQUIRED_PARAMS, []) or []:
-        if p not in _required_params:
-            _required_params.append(p)
 
 
 def _queue_add(name, queued):
@@ -82,6 +89,14 @@ def _queue_add(name, queued):
     if name not in queued:
         _command_queue.append(cmd)
         queued.add(name)
+    if cmd.get(COMMAND_PHASE):
+        _phase = cmd.get(COMMAND_PHASE)
+        if _phase not in _phases:
+            raise KeyError(f"Phase '{_phase}' not recognized.")
+        if _phase in _phases_completed:
+            raise ValueError(f"Cannot add command '{name}' to completed phase '{_phase}'.") 
+        if cmd not in _phases[_phase]:
+            _phases[_phase].append(cmd)
 
     # Ensure commands that this command must come after are queued
     for dep in cmd.get(COMMAND_GOES_AFTER, []) or []:
@@ -111,7 +126,7 @@ def _queue_add(name, queued):
 
 
 def queue_command(name):
-    """Public helper to queue a single command by name."""
+    """Public helper to queue a single command by name."""    
     _queue_add(name, set())
 
 
@@ -126,7 +141,7 @@ def queue_commands(names):
     
     # Check for circular dependencies after queuing
     try:
-        _sort_command_queue()
+        _sort_command_queue(_command_queue)
     except CircularDependencyError as e:
         # Convert to ValueError to match test expectations
         raise ValueError(f"Detected circular dependency: {e}")
@@ -207,7 +222,7 @@ def _build_dependency_graph(names):
     return graph
 
 
-def _sort_command_queue():
+def _sort_command_queue(_command_queue=_command_queue):
     """
     Reorder _command_queue according to dependency relations using a stable
     topological sort (Kahn's algorithm). Only sorts commands that are already
@@ -271,6 +286,9 @@ def _sort_command_queue():
 def _verify_required_params(_exclude_runtime_only=True):
     for cmd in _command_queue:
         _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
+    for phase_cmds in _phases.values():
+        for cmd in phase_cmds:
+            _verify_command_params(cmd, _skip_runtime_only=_exclude_runtime_only)
 
 def _verify_command_params(cmd, _skip_runtime_only=True):
     for _param in cmd.get(COMMAND_REQUIRED_PARAMS, []):
@@ -288,11 +306,11 @@ def _trim_queue():
     # Remove finished commands from the queue
     _command_queue[:] = [cmd for cmd in _command_queue if cmd.get(COMMAND_NAME) not in _finished_commands]
 
-def _recalculate_queue():
+def _recalculate_queue(_command_queue=_command_queue):
     # Add any commands triggered by params set before execution
     _add_triggered_commands() 
     # Re-sort the queue after additions
-    _sort_command_queue()
+    _sort_command_queue(_command_queue)
 
 def _add_triggered_commands():
     """Add commands to the queue that are triggered by currently set params."""
@@ -308,11 +326,10 @@ def _add_triggered_commands():
 
 def run_command_queue():
     """Execute all commands in the _command_queue in order."""
-    _add_triggered_commands() # Add any commands triggered by params set before execution
-    _sort_command_queue()
+    _recalculate_queue(_command_queue)
     _verify_required_params()
     while _command_queue:
-        _recalculate_queue() # Recalculate queue order after any additions
+        _recalculate_queue(_command_queue) # Recalculate queue order after any additions
         _verify_command_params(_command_queue[0], _skip_runtime_only=False)
         cmd = _command_queue.pop(0)
         action = cmd.get(COMMAND_ACTION)
@@ -320,3 +337,23 @@ def run_command_queue():
             raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
         action()
         _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
+
+def run_phased_command_queue():
+    """Execute commands phase by phase according to _phase_order."""
+    _recalculate_queue(_phases.get(_phase_order[0]))
+    for _current_phase in _phase_order:
+        while _phases.get(_current_phase):
+            try:
+                _recalculate_queue(_phases[_current_phase]) # Recalculate queue order after any additions
+            except (CircularDependencyError, ValueError) as e:
+                # TODO: Log Error
+                _phases_completed.append(_current_phase)
+                break # Break and go on to next phase
+            _verify_command_params(_phases[_current_phase][0], _skip_runtime_only=False)
+            cmd = _phases[_current_phase].pop(0)
+            action = cmd.get(COMMAND_ACTION)
+            if not callable(action):
+                raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
+            action()
+            _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
+        _phases_completed.append(_current_phase)
