@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: '3.7.9'
-      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ env.PYTHON_VERSION }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
     
     steps:
     - name: Checkout code
