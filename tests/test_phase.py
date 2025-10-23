@@ -192,7 +192,10 @@ def test_sort_command_queue_by_phase():
     assert command._commands["cmd4"] in command._phases[PHASE_EXECUTION]
 
 def test_phased_goes_before_seperate_phases(): # Test that commands can have COMMAND_GOES_BEFORE commands for earlier phases
-    _reset_command_module()
+    _reset_command_module()    
+    
+    execution_order = []
+
     phases = [
         PHASE_SETUP,
         PHASE_EXECUTION,
@@ -201,28 +204,30 @@ def test_phased_goes_before_seperate_phases(): # Test that commands can have COM
     command.set_phases_order(phases)
     cmd_before_exec = {
         COMMAND_NAME: "cmd-before-exec",
-        COMMAND_ACTION: lambda: None,
+        COMMAND_ACTION:  lambda: execution_order.append("cmd-before-exec"),
         COMMAND_GOES_BEFORE: ["cmd-exec"],
         COMMAND_PHASE: PHASE_SETUP
     }
     cmd_before_exec2 = {
         COMMAND_NAME: "cmd-before-exec-2",
-        COMMAND_ACTION: lambda: None,
+        COMMAND_ACTION: lambda: execution_order.append("cmd-before-exec-2"),
         COMMAND_GOES_BEFORE: ["cmd-exec"],
         COMMAND_PHASE: PHASE_EXECUTION
     }
     cmd_exec = {
         COMMAND_NAME: "cmd-exec",
-        COMMAND_ACTION: lambda: None,
+        COMMAND_ACTION: lambda: execution_order.append("cmd-exec"),
         COMMAND_PHASE: PHASE_EXECUTION
     }
     command.add_commands([cmd_before_exec, cmd_before_exec2, cmd_exec])
     command.queue_commands(["cmd-exec", "cmd-before-exec", "cmd-before-exec-2"])
-    command._recalculate_queue()
-    assert command._commands["cmd-before-exec"] in command._phases[PHASE_SETUP]
-    assert command._commands["cmd-before-exec-2"] in command._phases[PHASE_EXECUTION]
-    assert command._commands["cmd-exec"] in command._phases[PHASE_EXECUTION]
-    assert command._phases[PHASE_EXECUTION].index(command._commands["cmd-before-exec-2"]) < command._phases[PHASE_EXECUTION].index(command._commands["cmd-exec"])
+    command.run_phased_command_queue()
+    # Verify execution order
+    assert execution_order == ["cmd-before-exec", "cmd-before-exec-2", "cmd-exec"]
+    # Verify all commands executed
+    assert len(execution_order) == 3
+    # Verify cmd-before-exec-2 executed before cmd-exec
+    assert execution_order.index("cmd-before-exec-2") < execution_order.index("cmd-exec")
 
 def test_commands_execute_in_correct_phases():
     """Test that commands execute in the correct phases"""

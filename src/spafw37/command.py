@@ -325,7 +325,13 @@ def _add_triggered_commands():
                     _queue_add(cmd.get(COMMAND_NAME), set())
 
 def run_command_queue():
-    """Execute all commands in the _command_queue in order."""
+    """
+    Execute all commands in the _command_queue in order.
+    
+    .. deprecated:: 
+        Use :func:`run_phased_command_queue` instead. This function will be 
+        removed in a future version.
+    """
     _recalculate_queue(_command_queue)
     _verify_required_params()
     while _command_queue:
