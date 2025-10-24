@@ -12,6 +12,7 @@ jobs:
     env:
       PYTHON_VERSION: '3.7.9'
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
     
     steps:
     - name: Checkout code
@@ -22,8 +23,8 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-          $HOME/.local/python-${{ env.PYTHON_VERSION }}
-          $HOME/.cache/pip
+          $PY_PREFIX
+          $PIP_CACHE_DIR
         key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
@@ -46,7 +47,7 @@ jobs:
         wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
         tar xzf Python-${PY}.tgz
         cd Python-${PY}
-        ./configure --prefix=$HOME/.local/python-${{ env.PYTHON_VERSION }} --with-ensurepip=install
+        ./configure --prefix=$PY_PREFIX --with-ensurepip=install
         make -j "$(nproc)"
         make install     
 
