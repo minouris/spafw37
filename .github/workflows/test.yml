@@ -17,13 +17,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
-          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
-          libnss3-dev liblzma-dev libffi-dev uuid-dev
-
     - name: Restore Python build & pip caches
       id: python-cache
       uses: actions/cache@v4
@@ -35,6 +28,14 @@ jobs:
         restore-keys: |
           python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
+    - name: Install build dependencies
+      if: steps.python-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
+          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
+          libnss3-dev liblzma-dev libffi-dev uuid-dev
+
     - name: Build and install Python (only if cache miss)
       if: steps.python-cache.outputs.cache-hit != 'true'
       run: |
@@ -45,9 +46,9 @@ jobs:
         wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
         tar xzf Python-${PY}.tgz
         cd Python-${PY}
-        ./configure --prefix=$HOME/.local/python-${PY} --with-ensurepip=install
+        ./configure --prefix=$HOME/.local/python-${{ env.PYTHON_VERSION }} --with-ensurepip=install
         make -j "$(nproc)"
-        make install
+        make install     
 
     - name: Add built Python to PATH
       run: |
