@@ -18,13 +18,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
     - name: Restore Python build & pip caches
       id: python-cache
       uses: actions/cache@v4
       with:
         path: |
-          $PY_PREFIX
-          $PIP_CACHE_DIR
+          ${{ env.PY_PREFIX }}
+          ${{ env.PIP_CACHE_DIR }}
         key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
@@ -53,7 +57,7 @@ jobs:
 
     - name: Add built Python to PATH
       run: |
-        echo "$HOME/.local/python-${{ env.PYTHON_VERSION }}/bin" >> $GITHUB_PATH
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
 
     - name: Verify Python
       run: |
