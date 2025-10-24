@@ -45,7 +45,7 @@ jobs:
         wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
         tar xzf Python-${PY}.tgz
         cd Python-${PY}
-        ./configure --prefix=$HOME/.local/python-${PY} --enable-optimizations --with-ensurepip=install
+        ./configure --prefix=$HOME/.local/python-${PY} --with-ensurepip=install
         make -j "$(nproc)"
         make install
 
