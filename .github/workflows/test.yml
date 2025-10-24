@@ -58,11 +58,12 @@ jobs:
         python3 --version
         python3 -m pip --version
 
-    - name: Install dependencies
+    - name: Install dependencies and package
       run: |
-        python3 -m pip install --upgrade pip
+        python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
         if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        python3 -m pip install -e .
 
     - name: Run tests
       run: |
