@@ -26,6 +26,17 @@ CONFIG_OUTFILE_PARAM='config-outfile'
 CONFIG_INFILE_ALIAS = '--save-config'
 CONFIG_OUTFILE_ALIAS = '--load-config'
 
+# Logging Param Names
+LOG_VERBOSE_PARAM = 'log-verbose'
+LOG_TRACE_PARAM = 'log-trace'
+LOG_TRACE_CONSOLE_PARAM = 'log-trace-console'
+LOG_SILENT_PARAM = 'log-silent'
+LOG_NO_LOGGING_PARAM = 'log-no-logging'
+LOG_SUPPRESS_ERRORS_PARAM = 'log-suppress-errors'
+LOG_DIR_PARAM = 'log-dir'
+LOG_LEVEL_PARAM = 'log-level'
+LOG_PHASE_LOG_LEVEL_PARAM = 'log-phase-log-level'
+
 # Command Definitions
 COMMAND_NAME = "command-name" # Used on the CLI to queue the command
 COMMAND_REQUIRED_PARAMS = "required-params" # List of param bind names that are required for this command

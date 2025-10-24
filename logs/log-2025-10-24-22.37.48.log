@@ -1,0 +1,5 @@
+[10-24 22:37:48.276][spafw37][INFO] Test message
+[10-24 22:37:48.276][spafw37][INFO] Test info message
+[10-24 22:37:48.277][test-phase][INFO] Test message with phase
+[10-24 22:37:48.278][test-app][INFO] Test message
+[10-24 22:37:48.278][setup-phase][INFO] Test message in phase
