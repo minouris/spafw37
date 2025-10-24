@@ -251,3 +251,78 @@ def test_switch_list_conflicts():
     
     no_logging_param = [p for p in LOGGING_PARAMS if p['name'] == LOG_NO_LOGGING_PARAM][0]
     assert LOG_SILENT_PARAM in no_logging_param['switch-list']
+
+
+def test_command_execution_logging():
+    """Test that command execution produces INFO level logs."""
+    from spafw37 import command
+    from spafw37.config_consts import (
+        COMMAND_NAME, COMMAND_ACTION, COMMAND_PHASE, PHASE_EXECUTION
+    )
+    
+    # Set up test environment
+    with tempfile.TemporaryDirectory() as temp_dir:
+        set_log_dir(temp_dir)
+        
+        # Reset command module state completely
+        command._commands = {}
+        command._finished_commands = []
+        command._phases = {PHASE_EXECUTION: []}
+        command._phases_completed = []
+        command._command_queue = []
+        
+        # Create a test command
+        test_executed = {'value': False}
+        
+        def test_action():
+            test_executed['value'] = True
+        
+        test_cmd = {
+            COMMAND_NAME: 'test-cmd',
+            COMMAND_ACTION: test_action,
+            COMMAND_PHASE: PHASE_EXECUTION,
+        }
+        
+        # Register and queue command
+        command.add_command(test_cmd)
+        command.queue_command('test-cmd')
+        
+        # Execute command queue
+        command.run_command_queue()
+        
+        # Verify command was executed
+        assert test_executed['value'] is True
+        
+        # Verify log file contains command execution logs
+        log_files = list(Path(temp_dir).glob("log-*.log"))
+        assert len(log_files) > 0
+        
+        log_content = log_files[0].read_text()
+        assert 'Starting command: test-cmd' in log_content
+        assert 'Completed command: test-cmd' in log_content
+
+
+def test_param_setting_logging():
+    """Test that param value setting produces DEBUG level logs."""
+    from spafw37.config_consts import PARAM_NAME, PARAM_BIND_TO, PARAM_TYPE
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        set_log_dir(temp_dir)
+        set_file_level(DEBUG)
+        
+        # Create a test param
+        test_param = {
+            PARAM_NAME: 'test-param-log',
+            PARAM_BIND_TO: 'test-param-log',
+            PARAM_TYPE: 'text',
+        }
+        
+        # Set param value
+        config.set_config_value(test_param, 'test-value')
+        
+        # Verify log file contains param setting logs
+        log_files = list(Path(temp_dir).glob("log-*.log"))
+        assert len(log_files) > 0
+        
+        log_content = log_files[0].read_text()
+        assert "Set param 'test-param-log' = test-value" in log_content

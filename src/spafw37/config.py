@@ -2,6 +2,7 @@
 from .param import _parse_value, get_bind_name, is_list_param, is_persistence_always, is_persistence_never, is_toggle_param
 from .config_consts import CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM
 import json
+from . import logging
 
 _persistent_config = {}
 
@@ -32,6 +33,7 @@ def set_config_value(param: dict, value):
         _config[bind_name] = bool(value)
     else:
         _config[bind_name] = _parse_value(param,value)
+    logging.log_debug(_message=f"Set param '{bind_name}' = {value}")
     _manage_config_persistence(param, value)
 
 def set_config_list_value(value, bind_name):

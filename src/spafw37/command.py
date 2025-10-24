@@ -2,6 +2,7 @@
 from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, PHASE_DEFAULT
 from . import config
 from . import param
+from . import logging
 
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
@@ -357,18 +358,23 @@ def run_command_queue():
     """Execute commands phase by phase according to _phase_order."""
     _recalculate_queue(_phases.get(_phase_order[0]))
     for _current_phase in _phase_order:
+        logging.set_current_phase(_current_phase)
         while _phases.get(_current_phase):
             try:
                 _recalculate_queue(_phases[_current_phase]) # Recalculate queue order after any additions
             except (CircularDependencyError, ValueError) as e:
-                # TODO: Log Error
+                logging.log_error(_phase=_current_phase, _message=f"Error in phase {_current_phase}: {e}")
                 _phases_completed.append(_current_phase)
                 break # Break and go on to next phase
             _verify_command_params(_phases[_current_phase][0], _skip_runtime_only=False)
             cmd = _phases[_current_phase].pop(0)
+            cmd_name = cmd.get(COMMAND_NAME)
+            logging.log_info(_phase=_current_phase, _message=f"Starting command: {cmd_name}")
             action = cmd.get(COMMAND_ACTION)
             if not callable(action):
-                raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
+                raise ValueError(f"Command '{cmd_name}' has no valid action to execute.")
             action()
-            _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
+            logging.log_info(_phase=_current_phase, _message=f"Completed command: {cmd_name}")
+            _record_finished_command(cmd_name) # Note that this command has finished
         _phases_completed.append(_current_phase)
+        logging.set_current_phase(None)
