@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Demonstration script for spafw37 logging functionality."""
+"""Demonstration script for spafw37 logging functionality.
+
+Run this script from the project root directory:
+    python3 demo_logging.py
+"""
 from __future__ import annotations
-
-import sys
-import os
-
-# Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from spafw37 import logging, param, command, config
 from spafw37.logging import LOGGING_PARAMS
@@ -69,8 +67,11 @@ def main():
     logging.apply_logging_config()
     logging.set_app_name("demo-app")
     
+    # Get actual log directory from config
+    log_dir = config.get_config_value('log-dir') or 'logs/'
+    
     print("Logging configuration applied:")
-    print(f"  - Log directory: logs/")
+    print(f"  - Log directory: {log_dir}")
     print(f"  - Console level: DEBUG (verbose mode)")
     print(f"  - File level: DEBUG")
     print("\nExecuting commands...\n")
