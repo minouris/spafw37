@@ -3,7 +3,7 @@ import sys
 
 from typing import Callable
 
-from .command import run_command_queue, get_command, is_command, queue_command
+from .command import run_command_queue, get_command, is_command, queue_command, has_app_commands_queued, CommandParameterError
 from .config import list_config_params, set_config_value
 from .param import _has_xor_with, _params, get_bind_name, get_param_default, is_alias, is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, is_param_alias, is_toggle_param, param_has_default
 
@@ -127,7 +127,7 @@ def _set_defaults():
 
 def handle_cli_args(args: list[str]):
     # Check for help command before processing
-    from .help import handle_help_with_arg
+    from .help import handle_help_with_arg, display_all_help
     if handle_help_with_arg(args):
         return
     
@@ -135,4 +135,10 @@ def handle_cli_args(args: list[str]):
     _do_pre_parse_actions()
     _parse_command_line(args)
     _do_post_parse_actions()
+    
+    # Display help if no app-defined commands were queued
+    if not has_app_commands_queued():
+        display_all_help()
+        return
+    
     run_command_queue()

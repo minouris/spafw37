@@ -716,4 +716,58 @@ def test_handle_cli_args_sets_defaults():
     assert config._config[bind_name] == 'default_value'
 
 
+def test_handle_cli_args_shows_help_when_no_app_commands(capsys):
+    """Test that handle_cli_args displays help when no app commands are queued."""
+    setup_function()
+    
+    # Call with no arguments - should display help since no app commands
+    cli.handle_cli_args([])
+    
+    captured = capsys.readouterr()
+    assert "Usage:" in captured.out
+
+
+def test_handle_cli_args_shows_help_with_only_framework_commands(capsys):
+    """Test that help is shown when only framework commands are queued."""
+    setup_function()
+    from spafw37.config_consts import COMMAND_FRAMEWORK
+    
+    def framework_action():
+        pass
+    
+    command.add_command({
+        COMMAND_NAME: "framework-cmd",
+        COMMAND_DESCRIPTION: "Framework command",
+        COMMAND_ACTION: framework_action,
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_FRAMEWORK: True
+    })
+    
+    # Queue only framework command - should display help
+    cli.handle_cli_args(["framework-cmd"])
+    
+    captured = capsys.readouterr()
+    assert "Usage:" in captured.out
+
+
+def test_handle_cli_args_runs_app_commands():
+    """Test that app commands are executed when queued."""
+    setup_function()
+    
+    executed = []
+    
+    def app_action():
+        executed.append("app-cmd")
+    
+    command.add_command({
+        COMMAND_NAME: "app-cmd",
+        COMMAND_DESCRIPTION: "App command",
+        COMMAND_ACTION: app_action,
+        COMMAND_REQUIRED_PARAMS: []
+    })
+    
+    # Queue app command - should execute
+    cli.handle_cli_args(["app-cmd"])
+    
+    assert "app-cmd" in executed
 

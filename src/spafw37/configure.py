@@ -19,6 +19,7 @@ from .config_consts import (
     COMMAND_REQUIRED_PARAMS,
     COMMAND_DESCRIPTION,
     COMMAND_ACTION,
+    COMMAND_FRAMEWORK,
     PARAM_TYPE_TEXT
 )
 
@@ -48,13 +49,15 @@ _commands_builtin = [
         COMMAND_NAME: "help",
         COMMAND_REQUIRED_PARAMS: [],
         COMMAND_DESCRIPTION: "Display help information",
-        COMMAND_ACTION: show_help_command
+        COMMAND_ACTION: show_help_command,
+        COMMAND_FRAMEWORK: True
     },
     {
         COMMAND_NAME: "save-user-config",
         COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
-        COMMAND_ACTION: save_user_config
+        COMMAND_ACTION: save_user_config,
+        COMMAND_FRAMEWORK: True
     }
 ]
 
