@@ -1,10 +1,12 @@
 # Configures configuration parameters for the application
+from spafw37 import logging
 from .config import load_persistent_config, save_persistent_config, load_user_config, save_user_config, set_config_file
 from .param import add_params
 from .cli import add_post_parse_actions, add_pre_parse_actions
 from .command import add_commands
 from .help import show_help_command
 from .config_consts import (
+    PARAM_GROUP,
     PARAM_NAME,
     PARAM_DESCRIPTION,
     PARAM_BIND_TO,
@@ -23,6 +25,8 @@ from .config_consts import (
     PARAM_TYPE_TEXT
 )
 
+CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
+
 _params_builtin = [
     {
         PARAM_NAME: CONFIG_INFILE_PARAM,
@@ -31,7 +35,8 @@ _params_builtin = [
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--load-config', '-l'],
         PARAM_REQUIRED: False,
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: CONFIG_FILE_PARAM_GROUP
     },
     {
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
@@ -40,7 +45,8 @@ _params_builtin = [
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--save-config', '-s'],
         PARAM_REQUIRED: False,
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: CONFIG_FILE_PARAM_GROUP
     }
 ]
 
@@ -62,6 +68,7 @@ _commands_builtin = [
 ]
 
 add_params(_params_builtin)
+add_params(logging.LOGGING_PARAMS)
 add_commands(_commands_builtin)
 add_pre_parse_actions([load_persistent_config, load_user_config])
 add_post_parse_actions([save_persistent_config, save_user_config])
