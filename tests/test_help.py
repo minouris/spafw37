@@ -28,6 +28,10 @@ def setup_function():
     command._command_queue.clear()
     command._phases.clear()
     command._phases_completed.clear()
+    # Initialize default phase
+    from spafw37.config_consts import PHASE_DEFAULT
+    command._phases[PHASE_DEFAULT] = []
+    command._phase_order = [PHASE_DEFAULT]
 
 
 def test_display_all_help_with_commands(capsys):
@@ -333,3 +337,92 @@ def test_show_help_command(capsys):
     
     captured = capsys.readouterr()
     assert "Usage:" in captured.out
+
+
+def test_has_app_commands_queued_with_app_command():
+    """Test has_app_commands_queued returns True when app command is queued."""
+    setup_function()
+    
+    def test_action():
+        pass
+    
+    command.add_command({
+        COMMAND_NAME: "app-cmd",
+        COMMAND_DESCRIPTION: "App command",
+        COMMAND_ACTION: test_action,
+        COMMAND_REQUIRED_PARAMS: []
+    })
+    
+    command.queue_command("app-cmd")
+    assert command.has_app_commands_queued() is True
+
+
+def test_has_app_commands_queued_with_framework_command():
+    """Test has_app_commands_queued returns False when only framework command is queued."""
+    setup_function()
+    from spafw37.config_consts import COMMAND_FRAMEWORK
+    
+    def test_action():
+        pass
+    
+    command.add_command({
+        COMMAND_NAME: "framework-cmd",
+        COMMAND_DESCRIPTION: "Framework command",
+        COMMAND_ACTION: test_action,
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_FRAMEWORK: True
+    })
+    
+    command.queue_command("framework-cmd")
+    assert command.has_app_commands_queued() is False
+
+
+def test_has_app_commands_queued_no_commands():
+    """Test has_app_commands_queued returns False when no commands are queued."""
+    setup_function()
+    assert command.has_app_commands_queued() is False
+
+
+def test_has_app_commands_queued_mixed_commands():
+    """Test has_app_commands_queued returns True when app and framework commands are queued."""
+    setup_function()
+    from spafw37.config_consts import COMMAND_FRAMEWORK
+    
+    def test_action():
+        pass
+    
+    command.add_command({
+        COMMAND_NAME: "framework-cmd",
+        COMMAND_DESCRIPTION: "Framework command",
+        COMMAND_ACTION: test_action,
+        COMMAND_REQUIRED_PARAMS: [],
+        COMMAND_FRAMEWORK: True
+    })
+    
+    command.add_command({
+        COMMAND_NAME: "app-cmd",
+        COMMAND_DESCRIPTION: "App command",
+        COMMAND_ACTION: test_action,
+        COMMAND_REQUIRED_PARAMS: []
+    })
+    
+    command.queue_command("framework-cmd")
+    command.queue_command("app-cmd")
+    assert command.has_app_commands_queued() is True
+
+
+def test_command_parameter_error_has_command_name():
+    """Test CommandParameterError stores command name."""
+    from spafw37.command import CommandParameterError
+    
+    error = CommandParameterError("Test error", command_name="test-cmd")
+    assert error.command_name == "test-cmd"
+    assert str(error) == "Test error"
+
+
+def test_command_parameter_error_is_value_error():
+    """Test CommandParameterError is a subclass of ValueError."""
+    from spafw37.command import CommandParameterError
+    
+    error = CommandParameterError("Test error")
+    assert isinstance(error, ValueError)
