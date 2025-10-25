@@ -152,7 +152,9 @@ from spafw37.config_consts import (
 }
 ```
 
-Usage: `--input file1.txt file2.txt file3.txt` or `-i file1.txt -i file2.txt`
+Usage (both syntaxes supported):
+- Space-separated: `--input file1.txt file2.txt file3.txt`
+- Repeated flags: `-i file1.txt -i file2.txt -i file3.txt`
 
 #### Parameter Aliases
 
@@ -362,10 +364,10 @@ Execution: build → test → deploy → notify
 
 #### Circular Dependency Detection
 
-The framework detects circular dependencies and raises an error:
+The framework detects circular dependencies and raises a `ValueError`:
 
 ```python
-# This will raise CircularDependencyError:
+# This will raise ValueError with circular dependency message:
 cmd_a = {
     COMMAND_NAME: "cmd-a",
     COMMAND_ACTION: lambda: None,
@@ -687,9 +689,9 @@ python buildtool.py --load-config release.json build
 
 The framework provides specific exceptions:
 
-- `CommandParameterError`: Missing required parameters for a command
-- `CircularDependencyError`: Circular dependencies in command constraints
-- `ValueError`: General validation errors
+- `CommandParameterError`: Missing required parameters for a command (subclass of ValueError)
+- `ValueError`: General validation errors including circular dependencies
+- `KeyError`: Command or parameter not found in registry
 
 ### Help System
 
