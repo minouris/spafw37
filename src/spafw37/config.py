@@ -2,6 +2,7 @@
 from .param import _parse_value, get_bind_name, is_list_param, is_persistence_always, is_persistence_never, is_toggle_param
 from .config_consts import CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM
 import json
+from . import logging
 
 _persistent_config = {}
 
@@ -14,17 +15,37 @@ _non_persisted_config_names = []
 # Config dict to hold runtime parameters
 _config = {}
 
-def set_config_file(config_file: str):
+# Application name for logging and other purposes
+_app_name = 'spafw37'
+
+def set_app_name(name):
+    """Set the application name.
+    
+    Args:
+        name: Application name.
+    """
+    global _app_name
+    _app_name = name
+
+def get_app_name():
+    """Get the application name.
+    
+    Returns:
+        Application name.
+    """
+    return _app_name
+
+def set_config_file(config_file):
     global _config_file
     _config_file = config_file
 
-def update_config(new_config: dict):
+def update_config(new_config):
     _config.update(new_config)
 
-def get_config_value(name: str):
+def get_config_value(name):
     return _config.get(name)
 
-def set_config_value(param: dict, value):
+def set_config_value(param, value):
     bind_name = get_bind_name(param)
     if is_list_param(param):
         set_config_list_value(value, bind_name)
@@ -32,6 +53,7 @@ def set_config_value(param: dict, value):
         _config[bind_name] = bool(value)
     else:
         _config[bind_name] = _parse_value(param,value)
+    logging.log_debug(_message=f"Set param '{bind_name}' = {value}")
     _manage_config_persistence(param, value)
 
 def set_config_list_value(value, bind_name):
@@ -56,7 +78,7 @@ def _manage_config_persistence(param,value):
         _persistent_config[bind_name] = value
 
 
-def load_config(config_file_in: str) -> dict:
+def load_config(config_file_in) -> dict:
     if config_file_in:
         try:
             with open(config_file_in, 'r') as f:
@@ -81,11 +103,11 @@ def load_config(config_file_in: str) -> dict:
 
 
 # Removes temporary params from config
-def filter_temporary_config(config_dict: dict) -> dict:
+def filter_temporary_config(config_dict):
     return {k: v for k, v in config_dict.items() if k not in _non_persisted_config_names}
 
 
-def save_config(config_file_out: str, config_dict: dict):
+def save_config(config_file_out, config_dict):
     if (config_file_out and filter_temporary_config(config_dict)):
         try:
             with open(config_file_out, 'w') as f:
@@ -108,7 +130,7 @@ def load_user_config():
 
 
 # Create a copy of _config excluding non-persisted names
-def get_filtered_config_copy() -> dict:
+def get_filtered_config_copy():
     # Return a shallow copy of _config without keys in _non_persisted_config_names
     return {k: v for k, v in _config.items() if k not in _non_persisted_config_names}
 

@@ -2,6 +2,7 @@
 from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, PHASE_DEFAULT
 from . import config
 from . import param
+from . import logging
 
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
@@ -15,6 +16,34 @@ _phase_order = [ PHASE_DEFAULT]
 _phases = { PHASE_DEFAULT: [] }
 _phases_completed = []
 _command_queue = []
+_current_phase = None
+
+
+# Delegate logging functions that automatically pass the current phase as scope
+def log_trace(_message=''):
+    """Log a TRACE level message with current phase as scope."""
+    logging.log_trace(_scope=_current_phase, _message=_message)
+
+
+def log_debug(_message=''):
+    """Log a DEBUG level message with current phase as scope."""
+    logging.log_debug(_scope=_current_phase, _message=_message)
+
+
+def log_info(_message=''):
+    """Log an INFO level message with current phase as scope."""
+    logging.log_info(_scope=_current_phase, _message=_message)
+
+
+def log_warning(_message=''):
+    """Log a WARNING level message with current phase as scope."""
+    logging.log_warning(_scope=_current_phase, _message=_message)
+
+
+def log_error(_message=''):
+    """Log an ERROR level message with current phase as scope."""
+    logging.log_error(_scope=_current_phase, _message=_message)
+
 
 def set_phases_order(phase_order):
     global _phase_order
@@ -355,20 +384,27 @@ def old_run_command_queue():
 
 def run_command_queue():
     """Execute commands phase by phase according to _phase_order."""
+    global _current_phase
     _recalculate_queue(_phases.get(_phase_order[0]))
     for _current_phase in _phase_order:
+        logging.set_current_scope(_current_phase)
         while _phases.get(_current_phase):
             try:
                 _recalculate_queue(_phases[_current_phase]) # Recalculate queue order after any additions
             except (CircularDependencyError, ValueError) as e:
-                # TODO: Log Error
+                log_error(_message=f"Error in phase {_current_phase}: {e}")
                 _phases_completed.append(_current_phase)
                 break # Break and go on to next phase
             _verify_command_params(_phases[_current_phase][0], _skip_runtime_only=False)
             cmd = _phases[_current_phase].pop(0)
+            cmd_name = cmd.get(COMMAND_NAME)
+            log_info(_message=f"Starting command: {cmd_name}")
             action = cmd.get(COMMAND_ACTION)
             if not callable(action):
-                raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
+                raise ValueError(f"Command '{cmd_name}' has no valid action to execute.")
             action()
-            _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
+            log_info(_message=f"Completed command: {cmd_name}")
+            _record_finished_command(cmd_name) # Note that this command has finished
         _phases_completed.append(_current_phase)
+        logging.set_current_scope(None)
+    _current_phase = None
