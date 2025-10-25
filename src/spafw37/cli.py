@@ -94,10 +94,9 @@ def _parse_command_line(args: list[str]):
 
 def _handle_alias_param(args, _idx, arg):
     _param = get_param_by_alias(arg)
-    test_switch_xor(_param)
     if not _param:
         raise ValueError(f"Unknown parameter alias: {arg}")
-    _param = get_param_by_alias(arg)
+    test_switch_xor(_param)
     if is_toggle_param(_param):
         _value = _parse_value(_param, None)
     else:
