@@ -1,5 +1,7 @@
 # spafw37
 
+Pronounced "spaffoo thirty-seven"
+
 A minimal Python 3.7 framework for building command-line applications with configuration management, parameter parsing, and command execution capabilities.
 
 ## Features
@@ -724,6 +726,8 @@ python myapp.py --verbose build  # Enable verbose logging
 python myapp.py --trace build    # Enable trace logging
 ```
 
+See [LOGGING.md]() for additional details regarding logging.
+
 ## API Reference
 
 ### Core Modules
@@ -733,9 +737,7 @@ python myapp.py --trace build    # Enable trace logging
 - `spafw37.config`: Configuration store access
 - `spafw37.cli`: Command-line argument parsing
 - `spafw37.help`: Help system
-- `spafw37.logging`: Logging utilities
-
-See the [SPEC.md](doc/SPEC.md) for detailed specifications.
+- `spafw37.logging`: Logging utilities 
 
 ## Testing
 
@@ -747,4 +749,4 @@ pytest tests/ -v --cov=spafw37 --cov-report=term-missing
 
 ## License
 
-MIT License
+MIT License - see [LICENSE.md]() for details.
