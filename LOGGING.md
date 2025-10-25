@@ -1,6 +1,6 @@
 # Logging in spafw37
 
-The spafw37 framework includes comprehensive logging functionality with support for custom log levels, phase-based logging, and configurable output destinations.
+The spafw37 framework includes comprehensive logging functionality with support for custom log levels, scope-based logging, and configurable output destinations.
 
 ## Features
 
@@ -17,13 +17,15 @@ The spafw37 framework includes comprehensive logging functionality with support 
 
 All log messages follow this format:
 ```
-[{MM-dd hh:mm:ss.sss}][{phase}][{log_level}] {message}
+[{MM-dd hh:mm:ss.sss}][{scope}][{log_level}] {message}
 ```
 
 Example:
 ```
 [10-24 22:42:24.764][phase-setup][INFO] Starting command: setup
 ```
+
+Note: When using command.py delegate functions, the current phase is automatically passed as the scope.
 
 ### Log Outputs
 
@@ -55,7 +57,7 @@ Example:
 
 - `--log-dir <dir>`: Set the log directory (default: `logs/`, **persistent**)
 - `--log-level <level>`: Set overall log level (TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL)
-- `--phase-log-level <phase> <level>`: Set log level for a specific phase
+- `--phase-log-level <phase> <level>`: Set log level for a specific scope (e.g., phase name)
 
 ### Persistence
 
@@ -84,17 +86,28 @@ logging.log_debug(_message="Debug information")
 logging.log_error(_message="An error occurred")
 ```
 
-### Phase-Based Logging
+### Scope-Based Logging
+
+The logging module uses a generic `scope` parameter that can be any string identifier. When using the logging module directly:
 
 ```python
 from spafw37 import logging
 
-# Set current phase
-logging.set_current_phase("initialization")
+# Set current scope
+logging.set_current_scope("initialization")
 logging.log_info(_message="Initializing resources")
 
-# Log with explicit phase
-logging.log_info(_phase="custom-phase", _message="Processing data")
+# Log with explicit scope
+logging.log_info(_scope="custom-scope", _message="Processing data")
+```
+
+When using command.py delegate functions, the current phase is automatically passed as the scope:
+
+```python
+from spafw37 import command
+
+# Within a command execution context, phase is automatically used as scope
+command.log_info(_message="This will use the current phase as scope")
 ```
 
 ### Configuration
@@ -153,27 +166,41 @@ This will:
 
 ## API Reference
 
-### Main Functions
+### Main Functions (logging module)
 
-- `log(_level=INFO, _phase=None, _message='')`: Log a message at specified level
-- `log_trace(_phase=None, _message='')`: Log at TRACE level
-- `log_debug(_phase=None, _message='')`: Log at DEBUG level
-- `log_info(_phase=None, _message='')`: Log at INFO level
-- `log_warning(_phase=None, _message='')`: Log at WARNING level
-- `log_error(_phase=None, _message='')`: Log at ERROR level
+- `log(_level=INFO, _scope=None, _message='')`: Log a message at specified level
+- `log_trace(_scope=None, _message='')`: Log at TRACE level
+- `log_debug(_scope=None, _message='')`: Log at DEBUG level
+- `log_info(_scope=None, _message='')`: Log at INFO level
+- `log_warning(_scope=None, _message='')`: Log at WARNING level
+- `log_error(_scope=None, _message='')`: Log at ERROR level
+
+### Delegate Functions (command module)
+
+These functions automatically inject the current phase as the scope:
+
+- `command.log_trace(_message='')`: Log at TRACE level with current phase as scope
+- `command.log_debug(_message='')`: Log at DEBUG level with current phase as scope
+- `command.log_info(_message='')`: Log at INFO level with current phase as scope
+- `command.log_warning(_message='')`: Log at WARNING level with current phase as scope
+- `command.log_error(_message='')`: Log at ERROR level with current phase as scope
 
 ### Configuration Functions
 
-- `set_app_name(name)`: Set application name for out-of-phase logging
-- `set_current_phase(phase)`: Set current phase for logging context
+- `set_current_scope(scope)`: Set current scope for logging context
 - `set_log_dir(log_dir)`: Set log directory
 - `set_file_level(level)`: Set file handler log level
 - `set_console_level(level)`: Set console handler log level
 - `set_silent_mode(silent)`: Enable/disable silent mode
 - `set_no_logging_mode(no_logging)`: Enable/disable no-logging mode
 - `set_suppress_errors(suppress)`: Enable/disable error suppression
-- `set_phase_log_level(phase, level)`: Set log level for specific phase
+- `set_scope_log_level(scope, level)`: Set log level for specific scope
 - `apply_logging_config()`: Apply logging configuration from config values
+
+### Config Functions
+
+- `config.set_app_name(name)`: Set application name (used as default scope)
+- `config.get_app_name()`: Get application name
 
 ## Notes
 
