@@ -65,7 +65,7 @@ def main():
     
     # Apply logging configuration
     logging.apply_logging_config()
-    logging.set_app_name("demo-app")
+    config.set_app_name("demo-app")
     
     # Get actual log directory from config
     log_dir = config.get_config_value('log-dir') or 'logs/'

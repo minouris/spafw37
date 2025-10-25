@@ -10,13 +10,10 @@ from spafw37 import logging
 from spafw37.logging import (
     TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL,
     log, log_trace, log_debug, log_info, log_warning, log_error,
-    set_app_name, set_current_phase, set_log_dir,
+    set_current_phase, set_log_dir,
     set_file_level, set_console_level, set_silent_mode,
     set_no_logging_mode, set_suppress_errors, set_phase_log_level,
     get_phase_log_level, LOGGING_PARAMS, apply_logging_config,
-)
-from spafw37 import config, param
-from spafw37.config_consts import (
     LOG_VERBOSE_PARAM,
     LOG_TRACE_PARAM,
     LOG_TRACE_CONSOLE_PARAM,
@@ -27,6 +24,7 @@ from spafw37.config_consts import (
     LOG_LEVEL_PARAM,
     LOG_PHASE_LOG_LEVEL_PARAM,
 )
+from spafw37 import config, param
 
 
 def test_trace_level_exists():
@@ -49,7 +47,7 @@ def test_log_with_phase():
 
 def test_set_app_name():
     """Test setting application name."""
-    set_app_name("test-app")
+    config.set_app_name("test-app")
     log_info(_message="Test message")
 
 

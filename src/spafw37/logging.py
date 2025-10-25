@@ -3,13 +3,10 @@
 This module provides logging functionality with custom TRACE level,
 file and console handlers, and phase-based logging support.
 """
-from __future__ import annotations
-
 import logging as stdlib_logging
 import os
 import sys
 from datetime import datetime
-from typing import Optional
 
 from .config_consts import (
     PARAM_NAME,
@@ -24,16 +21,18 @@ from .config_consts import (
     PARAM_TYPE_TEXT,
     PARAM_TYPE_LIST,
     PARAM_SWITCH_LIST,
-    LOG_VERBOSE_PARAM,
-    LOG_TRACE_PARAM,
-    LOG_TRACE_CONSOLE_PARAM,
-    LOG_SILENT_PARAM,
-    LOG_NO_LOGGING_PARAM,
-    LOG_SUPPRESS_ERRORS_PARAM,
-    LOG_DIR_PARAM,
-    LOG_LEVEL_PARAM,
-    LOG_PHASE_LOG_LEVEL_PARAM,
 )
+
+# Logging Param Names (local to this module)
+LOG_VERBOSE_PARAM = 'log-verbose'
+LOG_TRACE_PARAM = 'log-trace'
+LOG_TRACE_CONSOLE_PARAM = 'log-trace-console'
+LOG_SILENT_PARAM = 'log-silent'
+LOG_NO_LOGGING_PARAM = 'log-no-logging'
+LOG_SUPPRESS_ERRORS_PARAM = 'log-suppress-errors'
+LOG_DIR_PARAM = 'log-dir'
+LOG_LEVEL_PARAM = 'log-level'
+LOG_PHASE_LOG_LEVEL_PARAM = 'log-phase-log-level'
 
 # Custom TRACE log level (below DEBUG)
 TRACE = 5
@@ -52,43 +51,30 @@ _DEFAULT_FILE_LEVEL = DEBUG
 _DEFAULT_CONSOLE_LEVEL = INFO
 
 # Module state
-_logger: Optional[stdlib_logging.Logger] = None
-_file_handler: Optional[stdlib_logging.FileHandler] = None
-_console_handler: Optional[stdlib_logging.StreamHandler] = None
-_error_handler: Optional[stdlib_logging.StreamHandler] = None
-_app_name: str = 'spafw37'
-_current_phase: Optional[str] = None
-_log_dir: str = _DEFAULT_LOG_DIR
-_suppress_errors: bool = False
-_phase_log_levels: dict = {}
+_logger = None
+_file_handler = None
+_console_handler = None
+_error_handler = None
+_current_phase = None
+_log_dir = _DEFAULT_LOG_DIR
+_suppress_errors = False
+_phase_log_levels = {}
 
 
-def _get_timestamp() -> str:
-    """Get current timestamp in the format MM-dd hh:mm:ss.sss.
-    
-    Returns:
-        Formatted timestamp string.
-    """
+def _get_timestamp():
+    """Get current timestamp in the format MM-dd hh:mm:ss.sss."""
     now = datetime.now()
     return now.strftime('%m-%d %H:%M:%S.%f')[:-3]
 
 
-def _get_log_filename() -> str:
-    """Generate log filename with pattern log-{yyyy-MM-dd-hh.mm.ss}.log.
-    
-    Returns:
-        Log filename with timestamp.
-    """
+def _get_log_filename():
+    """Generate log filename with pattern log-{yyyy-MM-dd-hh.mm.ss}.log."""
     now = datetime.now()
     return f"log-{now.strftime('%Y-%m-%d-%H.%M.%S')}.log"
 
 
-def _get_log_filepath() -> str:
-    """Get full path to log file.
-    
-    Returns:
-        Full path to log file.
-    """
+def _get_log_filepath():
+    """Get full path to log file."""
     return os.path.join(_log_dir, _get_log_filename())
 
 
@@ -98,28 +84,18 @@ class CustomFormatter(stdlib_logging.Formatter):
     Format: [{MM-dd hh:mm:ss.sss}][{phase}][{log_level}] {message}
     """
     
-    def format(self, record: stdlib_logging.LogRecord) -> str:
-        """Format log record.
-        
-        Args:
-            record: Log record to format.
-            
-        Returns:
-            Formatted log message.
-        """
+    def format(self, record):
+        """Format log record."""
+        from . import config
         timestamp = _get_timestamp()
-        phase = getattr(record, 'phase', _current_phase or _app_name)
+        phase = getattr(record, 'phase', _current_phase or config.get_app_name())
         level = record.levelname
         message = record.getMessage()
         return f"[{timestamp}][{phase}][{level}] {message}"
 
 
-def _create_file_handler() -> stdlib_logging.FileHandler:
-    """Create and configure file handler.
-    
-    Returns:
-        Configured file handler.
-    """
+def _create_file_handler():
+    """Create and configure file handler."""
     os.makedirs(_log_dir, exist_ok=True)
     handler = stdlib_logging.FileHandler(_get_log_filepath())
     handler.setLevel(_DEFAULT_FILE_LEVEL)
@@ -127,31 +103,23 @@ def _create_file_handler() -> stdlib_logging.FileHandler:
     return handler
 
 
-def _create_console_handler() -> stdlib_logging.StreamHandler:
-    """Create and configure console handler for stdout.
-    
-    Returns:
-        Configured console handler.
-    """
+def _create_console_handler():
+    """Create and configure console handler for stdout."""
     handler = stdlib_logging.StreamHandler(sys.stdout)
     handler.setLevel(_DEFAULT_CONSOLE_LEVEL)
     handler.setFormatter(CustomFormatter())
     return handler
 
 
-def _create_error_handler() -> stdlib_logging.StreamHandler:
-    """Create and configure error handler for stderr.
-    
-    Returns:
-        Configured error handler.
-    """
+def _create_error_handler():
+    """Create and configure error handler for stderr."""
     handler = stdlib_logging.StreamHandler(sys.stderr)
-    handler.setLevel(ERROR)
+    handler.setLevel(stdlib_logging.ERROR)
     handler.setFormatter(CustomFormatter())
     return handler
 
 
-def _init_logger() -> None:
+def _init_logger():
     """Initialize the logger with handlers."""
     global _logger, _file_handler, _console_handler, _error_handler
     
@@ -173,32 +141,14 @@ def _init_logger() -> None:
     _logger.addHandler(_error_handler)
 
 
-def set_app_name(name: str) -> None:
-    """Set the application name for out-of-phase logging.
-    
-    Args:
-        name: Application name.
-    """
-    global _app_name
-    _app_name = name
-
-
-def set_current_phase(phase: Optional[str]) -> None:
-    """Set the current phase for logging.
-    
-    Args:
-        phase: Phase name or None to use app_name.
-    """
+def set_current_phase(phase):
+    """Set the current phase for logging."""
     global _current_phase
     _current_phase = phase
 
 
-def set_log_dir(log_dir: str) -> None:
-    """Set the log directory.
-    
-    Args:
-        log_dir: Path to log directory.
-    """
+def set_log_dir(log_dir):
+    """Set the log directory."""
     global _log_dir, _file_handler, _logger
     
     _log_dir = log_dir
@@ -211,44 +161,28 @@ def set_log_dir(log_dir: str) -> None:
         _logger.addHandler(_file_handler)
 
 
-def set_file_level(level: int) -> None:
-    """Set the file handler log level.
-    
-    Args:
-        level: Log level (TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL).
-    """
+def set_file_level(level):
+    """Set the file handler log level."""
     if _file_handler is not None:
         _file_handler.setLevel(level)
 
 
-def set_console_level(level: int) -> None:
-    """Set the console handler log level.
-    
-    Args:
-        level: Log level (TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL).
-    """
+def set_console_level(level):
+    """Set the console handler log level."""
     if _console_handler is not None:
         _console_handler.setLevel(level)
 
 
-def set_silent_mode(silent: bool) -> None:
-    """Enable or disable silent mode (errors to stderr only).
-    
-    Args:
-        silent: True to enable silent mode.
-    """
+def set_silent_mode(silent):
+    """Enable or disable silent mode (errors to stderr only)."""
     if silent and _console_handler is not None:
         _console_handler.setLevel(stdlib_logging.CRITICAL + 1)
     elif _console_handler is not None:
         _console_handler.setLevel(_DEFAULT_CONSOLE_LEVEL)
 
 
-def set_no_logging_mode(no_logging: bool) -> None:
-    """Enable or disable no-logging mode (errors to stderr only).
-    
-    Args:
-        no_logging: True to disable all logging except errors to stderr.
-    """
+def set_no_logging_mode(no_logging):
+    """Enable or disable no-logging mode (errors to stderr only)."""
     if no_logging:
         if _console_handler is not None:
             _console_handler.setLevel(stdlib_logging.CRITICAL + 1)
@@ -261,56 +195,36 @@ def set_no_logging_mode(no_logging: bool) -> None:
             _file_handler.setLevel(_DEFAULT_FILE_LEVEL)
 
 
-def set_suppress_errors(suppress: bool) -> None:
-    """Enable or disable error suppression.
-    
-    Args:
-        suppress: True to suppress error logging.
-    """
+def set_suppress_errors(suppress):
+    """Enable or disable error suppression."""
     global _suppress_errors
     _suppress_errors = suppress
     if _error_handler is not None:
         if suppress:
             _error_handler.setLevel(stdlib_logging.CRITICAL + 1)
         else:
-            _error_handler.setLevel(ERROR)
+            _error_handler.setLevel(stdlib_logging.ERROR)
 
 
-def set_phase_log_level(phase: str, level: int) -> None:
-    """Set log level for a specific phase.
-    
-    Args:
-        phase: Phase name.
-        level: Log level.
-    """
+def set_phase_log_level(phase, level):
+    """Set log level for a specific phase."""
     _phase_log_levels[phase] = level
 
 
-def get_phase_log_level(phase: str) -> Optional[int]:
-    """Get log level for a specific phase.
-    
-    Args:
-        phase: Phase name.
-        
-    Returns:
-        Log level for the phase or None if not set.
-    """
+def get_phase_log_level(phase):
+    """Get log level for a specific phase."""
     return _phase_log_levels.get(phase)
 
 
-def log(_level: int = INFO, _phase: Optional[str] = None, _message: str = '') -> None:
-    """Log a message.
+def log(_level=INFO, _phase=None, _message=''):
+    """Log a message."""
+    from . import config
     
-    Args:
-        _level: Log level (default: INFO).
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
     if _logger is None:
         _init_logger()
     
     # Check phase-specific log level
-    effective_phase = _phase or _current_phase or _app_name
+    effective_phase = _phase or _current_phase or config.get_app_name()
     phase_level = get_phase_log_level(effective_phase)
     
     if phase_level is not None and _level < phase_level:
@@ -321,53 +235,28 @@ def log(_level: int = INFO, _phase: Optional[str] = None, _message: str = '') ->
     _logger.log(_level, _message, extra=extra)
 
 
-def log_trace(_phase: Optional[str] = None, _message: str = '') -> None:
-    """Log a TRACE level message.
-    
-    Args:
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
+def log_trace(_phase=None, _message=''):
+    """Log a TRACE level message."""
     log(_level=TRACE, _phase=_phase, _message=_message)
 
 
-def log_debug(_phase: Optional[str] = None, _message: str = '') -> None:
-    """Log a DEBUG level message.
-    
-    Args:
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
+def log_debug(_phase=None, _message=''):
+    """Log a DEBUG level message."""
     log(_level=DEBUG, _phase=_phase, _message=_message)
 
 
-def log_info(_phase: Optional[str] = None, _message: str = '') -> None:
-    """Log an INFO level message.
-    
-    Args:
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
+def log_info(_phase=None, _message=''):
+    """Log an INFO level message."""
     log(_level=INFO, _phase=_phase, _message=_message)
 
 
-def log_warning(_phase: Optional[str] = None, _message: str = '') -> None:
-    """Log a WARNING level message.
-    
-    Args:
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
+def log_warning(_phase=None, _message=''):
+    """Log a WARNING level message."""
     log(_level=WARNING, _phase=_phase, _message=_message)
 
 
-def log_error(_phase: Optional[str] = None, _message: str = '') -> None:
-    """Log an ERROR level message.
-    
-    Args:
-        _phase: Phase name (default: current phase or app_name).
-        _message: Message to log.
-    """
+def log_error(_phase=None, _message=''):
+    """Log an ERROR level message."""
     log(_level=ERROR, _phase=_phase, _message=_message)
 
 
@@ -450,15 +339,8 @@ LOGGING_PARAMS = [
 ]
 
 
-def _get_level_from_name(level_name: str) -> int:
-    """Convert level name to level number.
-    
-    Args:
-        level_name: Level name (TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL).
-        
-    Returns:
-        Level number.
-    """
+def _get_level_from_name(level_name):
+    """Convert level name to level number."""
     level_map = {
         'TRACE': TRACE,
         'DEBUG': DEBUG,
@@ -470,7 +352,7 @@ def _get_level_from_name(level_name: str) -> int:
     return level_map.get(level_name.upper(), INFO)
 
 
-def apply_logging_config() -> None:
+def apply_logging_config():
     """Apply logging configuration from config values."""
     from . import config
     
