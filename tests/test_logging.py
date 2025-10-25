@@ -10,10 +10,10 @@ from spafw37 import logging
 from spafw37.logging import (
     TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL,
     log, log_trace, log_debug, log_info, log_warning, log_error,
-    set_current_phase, set_log_dir,
+    set_current_scope, set_log_dir,
     set_file_level, set_console_level, set_silent_mode,
-    set_no_logging_mode, set_suppress_errors, set_phase_log_level,
-    get_phase_log_level, LOGGING_PARAMS, apply_logging_config,
+    set_no_logging_mode, set_suppress_errors, set_scope_log_level,
+    get_scope_log_level, LOGGING_PARAMS, apply_logging_config,
     LOG_VERBOSE_PARAM,
     LOG_TRACE_PARAM,
     LOG_TRACE_CONSOLE_PARAM,
@@ -40,9 +40,9 @@ def test_log_function_basic():
     log_info(_message="Test info message")
 
 
-def test_log_with_phase():
-    """Test logging with phase."""
-    log(_level=INFO, _phase="test-phase", _message="Test message with phase")
+def test_log_with_scope():
+    """Test logging with scope."""
+    log(_level=INFO, _scope="test-scope", _message="Test message with scope")
 
 
 def test_set_app_name():
@@ -51,11 +51,11 @@ def test_set_app_name():
     log_info(_message="Test message")
 
 
-def test_set_current_phase():
-    """Test setting current phase."""
-    set_current_phase("setup-phase")
-    log_info(_message="Test message in phase")
-    set_current_phase(None)
+def test_set_current_scope():
+    """Test setting current scope."""
+    set_current_scope("setup-scope")
+    log_info(_message="Test message in scope")
+    set_current_scope(None)
 
 
 def test_set_log_dir():
@@ -115,16 +115,16 @@ def test_set_suppress_errors():
     set_suppress_errors(False)
 
 
-def test_phase_log_level():
-    """Test phase-specific log levels."""
-    set_phase_log_level("test-phase", WARNING)
-    assert get_phase_log_level("test-phase") == WARNING
+def test_scope_log_level():
+    """Test scope-specific log levels."""
+    set_scope_log_level("test-scope", WARNING)
+    assert get_scope_log_level("test-scope") == WARNING
     
-    # Info level should not log for this phase
-    log(_level=INFO, _phase="test-phase", _message="Should be filtered")
+    # Info level should not log for this scope
+    log(_level=INFO, _scope="test-scope", _message="Should be filtered")
     
     # Warning level should log
-    log(_level=WARNING, _phase="test-phase", _message="Should appear")
+    log(_level=WARNING, _scope="test-scope", _message="Should appear")
 
 
 def test_logging_params_defined():
@@ -196,21 +196,21 @@ def test_apply_logging_config_log_dir():
         assert os.path.exists(test_log_dir)
 
 
-def test_apply_logging_config_phase_log_level():
-    """Test applying phase-specific log level config."""
+def test_apply_logging_config_scope_log_level():
+    """Test applying scope-specific log level config."""
     # Add logging params
     param.add_params(LOGGING_PARAMS)
     
-    # Set phase log level
+    # Set scope log level (using phase-log-level param for backward compatibility)
     phase_param = param.get_param_by_name(LOG_PHASE_LOG_LEVEL_PARAM)
     config.set_config_value(phase_param, ["setup", "WARNING", "execution", "DEBUG"])
     
     # Apply config
     apply_logging_config()
     
-    # Verify phase levels were set
-    assert get_phase_log_level("setup") == WARNING
-    assert get_phase_log_level("execution") == DEBUG
+    # Verify scope levels were set
+    assert get_scope_log_level("setup") == WARNING
+    assert get_scope_log_level("execution") == DEBUG
 
 
 def test_log_file_naming_pattern():

@@ -1,7 +1,7 @@
 """Logging module for spafw37.
 
 This module provides logging functionality with custom TRACE level,
-file and console handlers, and phase-based logging support.
+file and console handlers, and scope-based logging support.
 """
 import logging as stdlib_logging
 import os
@@ -55,10 +55,10 @@ _logger = None
 _file_handler = None
 _console_handler = None
 _error_handler = None
-_current_phase = None
+_current_scope = None
 _log_dir = _DEFAULT_LOG_DIR
 _suppress_errors = False
-_phase_log_levels = {}
+_scope_log_levels = {}
 
 
 def _get_timestamp():
@@ -81,17 +81,17 @@ def _get_log_filepath():
 class CustomFormatter(stdlib_logging.Formatter):
     """Custom formatter for log messages.
     
-    Format: [{MM-dd hh:mm:ss.sss}][{phase}][{log_level}] {message}
+    Format: [{MM-dd hh:mm:ss.sss}][{scope}][{log_level}] {message}
     """
     
     def format(self, record):
         """Format log record."""
         from . import config
         timestamp = _get_timestamp()
-        phase = getattr(record, 'phase', _current_phase or config.get_app_name())
+        scope = getattr(record, 'scope', _current_scope or config.get_app_name())
         level = record.levelname
         message = record.getMessage()
-        return f"[{timestamp}][{phase}][{level}] {message}"
+        return f"[{timestamp}][{scope}][{level}] {message}"
 
 
 def _create_file_handler():
@@ -141,10 +141,10 @@ def _init_logger():
     _logger.addHandler(_error_handler)
 
 
-def set_current_phase(phase):
-    """Set the current phase for logging."""
-    global _current_phase
-    _current_phase = phase
+def set_current_scope(scope):
+    """Set the current scope for logging."""
+    global _current_scope
+    _current_scope = scope
 
 
 def set_log_dir(log_dir):
@@ -206,58 +206,58 @@ def set_suppress_errors(suppress):
             _error_handler.setLevel(stdlib_logging.ERROR)
 
 
-def set_phase_log_level(phase, level):
-    """Set log level for a specific phase."""
-    _phase_log_levels[phase] = level
+def set_scope_log_level(scope, level):
+    """Set log level for a specific scope."""
+    _scope_log_levels[scope] = level
 
 
-def get_phase_log_level(phase):
-    """Get log level for a specific phase."""
-    return _phase_log_levels.get(phase)
+def get_scope_log_level(scope):
+    """Get log level for a specific scope."""
+    return _scope_log_levels.get(scope)
 
 
-def log(_level=INFO, _phase=None, _message=''):
+def log(_level=INFO, _scope=None, _message=''):
     """Log a message."""
     from . import config
     
     if _logger is None:
         _init_logger()
     
-    # Check phase-specific log level
-    effective_phase = _phase or _current_phase or config.get_app_name()
-    phase_level = get_phase_log_level(effective_phase)
+    # Check scope-specific log level
+    effective_scope = _scope or _current_scope or config.get_app_name()
+    scope_level = get_scope_log_level(effective_scope)
     
-    if phase_level is not None and _level < phase_level:
+    if scope_level is not None and _level < scope_level:
         return
     
-    # Create log record with phase information
-    extra = {'phase': effective_phase}
+    # Create log record with scope information
+    extra = {'scope': effective_scope}
     _logger.log(_level, _message, extra=extra)
 
 
-def log_trace(_phase=None, _message=''):
+def log_trace(_scope=None, _message=''):
     """Log a TRACE level message."""
-    log(_level=TRACE, _phase=_phase, _message=_message)
+    log(_level=TRACE, _scope=_scope, _message=_message)
 
 
-def log_debug(_phase=None, _message=''):
+def log_debug(_scope=None, _message=''):
     """Log a DEBUG level message."""
-    log(_level=DEBUG, _phase=_phase, _message=_message)
+    log(_level=DEBUG, _scope=_scope, _message=_message)
 
 
-def log_info(_phase=None, _message=''):
+def log_info(_scope=None, _message=''):
     """Log an INFO level message."""
-    log(_level=INFO, _phase=_phase, _message=_message)
+    log(_level=INFO, _scope=_scope, _message=_message)
 
 
-def log_warning(_phase=None, _message=''):
+def log_warning(_scope=None, _message=''):
     """Log a WARNING level message."""
-    log(_level=WARNING, _phase=_phase, _message=_message)
+    log(_level=WARNING, _scope=_scope, _message=_message)
 
 
-def log_error(_phase=None, _message=''):
+def log_error(_scope=None, _message=''):
     """Log an ERROR level message."""
-    log(_level=ERROR, _phase=_phase, _message=_message)
+    log(_level=ERROR, _scope=_scope, _message=_message)
 
 
 # Define logging parameters
@@ -394,13 +394,13 @@ def apply_logging_config():
         set_file_level(level)
         set_console_level(level)
     
-    # Apply phase-specific log levels
-    phase_log_levels = config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
-    if phase_log_levels:
-        # Format: [phase1, level1, phase2, level2, ...]
-        for i in range(0, len(phase_log_levels), 2):
-            if i + 1 < len(phase_log_levels):
-                phase = phase_log_levels[i]
-                level_name = phase_log_levels[i + 1]
+    # Apply scope-specific log levels (phase-log-level param for backward compatibility)
+    scope_log_levels = config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
+    if scope_log_levels:
+        # Format: [scope1, level1, scope2, level2, ...]
+        for i in range(0, len(scope_log_levels), 2):
+            if i + 1 < len(scope_log_levels):
+                scope = scope_log_levels[i]
+                level_name = scope_log_levels[i + 1]
                 level = _get_level_from_name(level_name)
-                set_phase_log_level(phase, level)
+                set_scope_log_level(scope, level)
