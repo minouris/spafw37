@@ -4,7 +4,7 @@ applyTo: '**/*.py'
 - Ensure that all generated Python 3.7 code is compatible with Python 3.7.0 syntax and features.
 - When creating new functions or classes, be as fine-grained as possible. If an operation requires more than three steps, it should be broken down into smaller helper functions or classes.
 - Use descriptive names for variables, functions, and classes to enhance code readability.
-- Include type hints for function parameters and return types to improve code clarity and facilitate static analysis.
+- Do not include type hints for function parameters and return types - keep args and return types untyped for Python 3.7 compatibility and simplicity.
 - Add docstrings to all functions and classes to explain their purpose, parameters, and return values
 - Do not make any changes to existing code outside of the generated sections.
 - Avoid using external libraries unless absolutely necessary. Prefer standard library solutions when available.

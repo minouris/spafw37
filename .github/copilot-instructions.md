@@ -52,12 +52,11 @@ Some tests may have import issues in certain environments. This is a known issue
 ### General Python Guidelines
 - Follow **PEP 8** style guidelines strictly
 - Use descriptive names for variables, functions, and classes
-- Add type hints for function parameters and return types
+- Do not add type hints for function parameters and return types - keep args and return types untyped for Python 3.7 compatibility and simplicity
 - Include docstrings for all public functions and classes
 - Keep functions small and focused (max 3 steps before breaking into helpers)
 
 ### Imports
-- Use `from __future__ import annotations` for forward-compatible type hints
 - Group imports: standard library, third-party, local modules
 - Avoid external dependencies unless absolutely necessary
 
@@ -84,10 +83,9 @@ For Python files (`**/*.py`), refer to `.github/instructions/python37.instructio
 
 ### When Adding Features
 1. Create fine-grained, focused functions
-2. Add comprehensive type hints
-3. Write docstrings explaining purpose, parameters, and return values
-4. Add unit tests with 90%+ coverage
-5. Verify PEP 8 compliance
+2. Write docstrings explaining purpose, parameters, and return values
+3. Add unit tests with 90%+ coverage
+4. Verify PEP 8 compliance
 
 ### When Fixing Bugs
 1. Identify the root cause

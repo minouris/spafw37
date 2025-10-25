@@ -1,7 +1,3 @@
-from __future__ import annotations
-import sys
-from typing import Optional, Dict, List
-
 from .config_consts import (
     COMMAND_NAME,
     COMMAND_DESCRIPTION,
@@ -35,7 +31,7 @@ def _get_all_params():
     return _params
 
 
-def _get_command_params(command_name: str) -> List[str]:
+def _get_command_params(command_name):
     """Get parameter names required by a command.
     
     Args:
@@ -49,7 +45,7 @@ def _get_command_params(command_name: str) -> List[str]:
     return cmd.get(COMMAND_REQUIRED_PARAMS, [])
 
 
-def _get_param_by_bind_name(bind_name: str) -> Optional[Dict]:
+def _get_param_by_bind_name(bind_name):
     """Get parameter definition by bind name.
     
     Args:
@@ -65,7 +61,7 @@ def _get_param_by_bind_name(bind_name: str) -> Optional[Dict]:
     return None
 
 
-def _format_param_table_row(param: Dict) -> str:
+def _format_param_table_row(param):
     """Format a single parameter as a table row.
     
     Args:
@@ -81,7 +77,7 @@ def _format_param_table_row(param: Dict) -> str:
     return f"  {aliases_str:<20} {name:<25} {description}"
 
 
-def _get_non_command_params() -> List[Dict]:
+def _get_non_command_params():
     """Get parameters that are not directly tied to any command.
     
     Returns:
@@ -106,7 +102,7 @@ def _get_non_command_params() -> List[Dict]:
     return non_command_params
 
 
-def _group_params(params: List[Dict]) -> Dict[Optional[str], List[Dict]]:
+def _group_params(params):
     """Group parameters by their param-group value.
     
     Args:
@@ -166,7 +162,7 @@ def display_all_help():
         print()
 
 
-def display_command_help(command_name: str):
+def display_command_help(command_name):
     """Display help for a specific command.
     
     Args:
@@ -212,7 +208,7 @@ def show_help_command():
     display_all_help()
 
 
-def handle_help_with_arg(args: List[str]):
+def handle_help_with_arg(args):
     """Handle help command with optional command argument.
     
     Args:
