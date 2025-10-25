@@ -52,12 +52,11 @@ Some tests may have import issues in certain environments. This is a known issue
 ### General Python Guidelines
 - Follow **PEP 8** style guidelines strictly
 - Use descriptive names for variables, functions, and classes
-- Add type hints for function parameters and return types
+- Do not add type hints for function parameters and return types - keep args and return types untyped for Python 3.7 compatibility and simplicity
 - Include docstrings for all public functions and classes
 - Keep functions small and focused (max 3 steps before breaking into helpers)
 
 ### Imports
-- Use `from __future__ import annotations` for forward-compatible type hints
 - Group imports: standard library, third-party, local modules
 - Avoid external dependencies unless absolutely necessary
 
