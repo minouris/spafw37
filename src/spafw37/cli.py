@@ -127,6 +127,11 @@ def _set_defaults():
                 set_config_value(_param, get_param_default(_param))
 
 def handle_cli_args(args: list[str]):
+    # Check for help command before processing
+    from .help import handle_help_with_arg
+    if handle_help_with_arg(args):
+        return
+    
     _set_defaults()
     _do_pre_parse_actions()
     _parse_command_line(args)
