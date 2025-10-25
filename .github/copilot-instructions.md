@@ -83,10 +83,9 @@ For Python files (`**/*.py`), refer to `.github/instructions/python37.instructio
 
 ### When Adding Features
 1. Create fine-grained, focused functions
-2. Add comprehensive type hints
-3. Write docstrings explaining purpose, parameters, and return values
-4. Add unit tests with 90%+ coverage
-5. Verify PEP 8 compliance
+2. Write docstrings explaining purpose, parameters, and return values
+3. Add unit tests with 90%+ coverage
+4. Verify PEP 8 compliance
 
 ### When Fixing Bugs
 1. Identify the root cause

@@ -9,6 +9,7 @@ PARAM_PERSISTENCE   = 'persistence'
 PARAM_SWITCH_LIST   = 'switch-list'
 PARAM_DEFAULT       = 'default-value'
 PARAM_RUNTIME_ONLY   = 'runtime-only' # Not persisted, only for runtime use, not checked at startof queue, but checked when a command that uses them is run
+PARAM_GROUP         = 'param-group' # Group name for organizing parameters in help display
 
 
 PARAM_PERSISTENCE_ALWAYS    = 'always'
@@ -30,6 +31,7 @@ CONFIG_OUTFILE_ALIAS = '--load-config'
 COMMAND_NAME = "command-name" # Used on the CLI to queue the command
 COMMAND_REQUIRED_PARAMS = "required-params" # List of param bind names that are required for this command
 COMMAND_DESCRIPTION = "description" # Description of the command
+COMMAND_HELP = "command-help" # Extended help text for the command
 COMMAND_ACTION = "function" # Function to call when the command is run
 COMMAND_GOES_BEFORE = "sequence-before" # List of command names that will be sequenced before this in a queue - user queued
 COMMAND_GOES_AFTER = "sequence-after" # List of command names that will be sequenced after this in a queue - user queued
