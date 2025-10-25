@@ -1,5 +1,5 @@
 # Constants used as keys in command definitions (tests use these constants as keys).
-from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, PHASE_DEFAULT
+from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, COMMAND_FRAMEWORK, PHASE_DEFAULT
 from . import config
 from . import param
 from . import logging
@@ -7,6 +7,17 @@ from . import logging
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
     pass
+
+
+class CommandParameterError(ValueError):
+    """Raised when a command is missing required parameters.
+    
+    Attributes:
+        command_name: Name of the command that is missing parameters.
+    """
+    def __init__(self, message, command_name=None):
+        super().__init__(message)
+        self.command_name = command_name
 
 
 # Module state
@@ -63,6 +74,35 @@ def get_command(name):
 
 def is_command(arg):
     return arg in _commands.keys()
+
+
+def has_app_commands_queued():
+    """Check if any app-defined (non-framework) commands are queued.
+    
+    Returns:
+        True if any app-defined commands are in the queue or phases.
+    """
+    # Check all phases for app commands
+    for phase_name in _phase_order:
+        if phase_name not in _phases_completed:
+            for cmd in _phases.get(phase_name, []):
+                if not cmd.get(COMMAND_FRAMEWORK, False):
+                    return True
+    return False
+
+
+def get_first_queued_command_name():
+    """Get the name of the first queued command across all phases.
+    
+    Returns:
+        Command name string, or None if no commands are queued.
+    """
+    for phase_name in _phase_order:
+        if phase_name not in _phases_completed:
+            phase_cmds = _phases.get(phase_name, [])
+            if phase_cmds:
+                return phase_cmds[0].get(COMMAND_NAME)
+    return None
 
 
 def add_commands(command_list):
@@ -333,7 +373,11 @@ def _verify_command_params(cmd, _skip_runtime_only=True):
         if (_skip_runtime_only and param.is_runtime_only_param(param.get_param_by_name(_param))):
             continue
         if _param not in config.list_config_params():
-            raise ValueError(f"Missing required parameter '{_param}' for command '{cmd.get(COMMAND_NAME)}'")
+            cmd_name = cmd.get(COMMAND_NAME)
+            raise CommandParameterError(
+                f"Missing required parameter '{_param}' for command '{cmd_name}'",
+                command_name=cmd_name
+            )
 
 def _record_finished_command(command_name):
     # Run commands should have their names stored so they don't get re-queued
