@@ -156,10 +156,11 @@ def handle_cli_args(args: list[str]):
         # Register params for this run-level
         build_params_for_run_level(run_level_name)
         
-        # Set defaults from run-level config
-        apply_run_level_config(run_level_name)
-        
+        # Set defaults first
         _set_defaults()
+        
+        # Then apply run-level config (can override defaults)
+        apply_run_level_config(run_level_name)
         
         # Parse command line for this run-level's params
         _parse_command_line(args)
