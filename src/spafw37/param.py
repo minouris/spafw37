@@ -407,14 +407,14 @@ def assign_orphans_to_default_run_level():
     4. Creates bidirectional relationships by updating run-level param/command lists
     """
     from .command import get_all_commands
+    from .config import get_default_run_level
     from .config_consts import COMMAND_NAME, COMMAND_RUN_LEVEL
     
+    # Get the default run-level name
+    default_run_level_name = get_default_run_level()
+    
     # Find the default run-level
-    default_run_level = None
-    for rl in _run_levels:
-        if rl.get(RUN_LEVEL_NAME) == 'default':
-            default_run_level = rl
-            break
+    default_run_level = get_run_level(default_run_level_name)
     
     if not default_run_level:
         # No default run-level found, nothing to do
@@ -433,7 +433,7 @@ def assign_orphans_to_default_run_level():
     for param in _buffered_params:
         if PARAM_RUN_LEVEL not in param or not param[PARAM_RUN_LEVEL]:
             # Assign to default run-level
-            param[PARAM_RUN_LEVEL] = 'default'
+            param[PARAM_RUN_LEVEL] = default_run_level_name
             bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
             
             # Add to default run-level's param list if not already there
@@ -455,7 +455,7 @@ def assign_orphans_to_default_run_level():
     for cmd_name, cmd in all_commands.items():
         if COMMAND_RUN_LEVEL not in cmd or not cmd[COMMAND_RUN_LEVEL]:
             # Assign to default run-level
-            cmd[COMMAND_RUN_LEVEL] = 'default'
+            cmd[COMMAND_RUN_LEVEL] = default_run_level_name
             
             # Add to default run-level's command list if not already there
             if cmd_name not in default_commands:

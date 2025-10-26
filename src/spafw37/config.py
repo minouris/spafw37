@@ -18,6 +18,9 @@ _config = {}
 # Application name for logging and other purposes
 _app_name = 'spafw37'
 
+# Default run-level name
+_default_run_level = 'exec'
+
 def set_app_name(name):
     """Set the application name.
     
@@ -34,6 +37,23 @@ def get_app_name():
         Application name.
     """
     return _app_name
+
+def set_default_run_level(run_level_name):
+    """Set the default run-level name.
+    
+    Args:
+        run_level_name: Name of the run-level to use as default.
+    """
+    global _default_run_level
+    _default_run_level = run_level_name
+
+def get_default_run_level():
+    """Get the default run-level name.
+    
+    Returns:
+        Default run-level name.
+    """
+    return _default_run_level
 
 def set_config_file(config_file):
     global _config_file
