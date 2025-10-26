@@ -9,8 +9,9 @@ from .param import (
     _has_xor_with, _params, get_bind_name, get_param_default, is_alias, 
     is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, 
     is_param_alias, is_toggle_param, param_has_default, build_params_for_run_level,
-    list_run_levels, apply_run_level_defaults
+    get_all_run_levels, apply_run_level_config
 )
+from .config_consts import RUN_LEVEL_NAME, RUN_LEVEL_COMMANDS, RUN_LEVEL_PARAMS
 
 # Functions to run before parsing the command line
 _pre_parse_actions: list[Callable] = []
@@ -131,27 +132,63 @@ def _set_defaults():
                 set_config_value(_param, get_param_default(_param))
 
 def handle_cli_args(args: list[str]):
+    """Handle command-line arguments with run-level processing.
+    
+    Processes run-levels in registration order. Each run-level activates
+    a subset of params/commands and can set config values.
+    """
     # Check for help command before processing
     from .help import handle_help_with_arg, display_all_help
     if handle_help_with_arg(args):
         return
     
-    # First, register buffered params with base defaults
-    build_params_for_run_level()
+    # Process run-levels in registration order
+    run_levels = get_all_run_levels()
     
-    # Then apply run-level defaults in registration order
-    run_level_names = list_run_levels()
-    for run_level in run_level_names:
-        apply_run_level_defaults(run_level)
-    
-    _set_defaults()
-    _do_pre_parse_actions()
-    _parse_command_line(args)
-    _do_post_parse_actions()
-    
-    # Display help if no app-defined commands were queued
-    if not has_app_commands_queued():
-        display_all_help()
-        return
-    
-    run_command_queue()
+    if run_levels:
+        # Process each run-level
+        for run_level in run_levels:
+            run_level_name = run_level.get(RUN_LEVEL_NAME)
+            
+            # Register params for this run-level
+            build_params_for_run_level(run_level_name)
+            
+            # Set defaults from run-level config
+            apply_run_level_config(run_level_name)
+            
+            _set_defaults()
+            _do_pre_parse_actions()
+            
+            # Parse command line for this run-level's params
+            _parse_command_line(args)
+            
+            _do_post_parse_actions()
+            
+            # Queue commands for this run-level
+            if RUN_LEVEL_COMMANDS in run_level:
+                for cmd_name in run_level[RUN_LEVEL_COMMANDS]:
+                    if is_command(cmd_name):
+                        queue_command(cmd_name)
+            
+            # Execute this run-level's command queue
+            run_command_queue()
+        
+        # After all run-levels, display help if no app-defined commands were queued
+        if not has_app_commands_queued():
+            display_all_help()
+            return
+    else:
+        # No run-levels defined - process everything normally
+        build_params_for_run_level()
+        
+        _set_defaults()
+        _do_pre_parse_actions()
+        _parse_command_line(args)
+        _do_post_parse_actions()
+        
+        # Display help if no app-defined commands were queued
+        if not has_app_commands_queued():
+            display_all_help()
+            return
+        
+        run_command_queue()

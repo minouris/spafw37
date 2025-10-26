@@ -29,7 +29,11 @@ CONFIG_INFILE_ALIAS = '--save-config'
 CONFIG_OUTFILE_ALIAS = '--load-config'
 
 # Run-level definitions
-RUN_LEVEL_ERROR_HANDLER = 'run-level-error-handler'  # Property for custom error handler during run-level execution
+RUN_LEVEL_NAME = 'run-level-name'  # Name of the run-level
+RUN_LEVEL_PARAMS = 'run-level-params'  # List of param bind names that are parsed in this run level
+RUN_LEVEL_COMMANDS = 'run-level-commands'  # List of commands that are parsed and executed in this run-level
+RUN_LEVEL_CONFIG = 'run-level-config'  # Dictionary of config name-value pairs to set for this run-level
+RUN_LEVEL_ERROR_HANDLER = 'run-level-error-handler'  # Optional custom error handler for this run-level
 
 # Command Definitions
 COMMAND_NAME = "command-name" # Used on the CLI to queue the command
