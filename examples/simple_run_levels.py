@@ -12,7 +12,7 @@ Pre-defined run-levels are:
 
 from spafw37.param import add_param
 from spafw37.cli import handle_cli_args
-from spafw37.config import get_config_value
+from spafw37.config import get_config_value, RUN_LEVEL_INIT
 from spafw37.config_consts import (
     PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT,
     PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE,
@@ -38,7 +38,7 @@ def main():
         PARAM_ALIASES: ['--log-level', '-l'],
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_DEFAULT: 'info',
-        PARAM_RUN_LEVEL: 'init'  # Explicitly assigned to init
+        PARAM_RUN_LEVEL: RUN_LEVEL_INIT  # Explicitly assigned to init
     })
     
     add_param({
