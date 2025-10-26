@@ -4,6 +4,7 @@ from .config_consts import (
     PARAM_NAME,
     PARAM_BIND_TO,
     PARAM_RUNTIME_ONLY,
+    PARAM_DEFERRED,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,
@@ -130,14 +131,22 @@ def is_param_alias(_param: dict, alias: str) -> bool:
 def add_param(_param: dict):
     """Add a parameter to the buffer for deferred processing.
     
-    All parameters are buffered and processed later when build_params_for_run_level
-    is called during CLI argument parsing.
+    Parameters are buffered by default and processed later when build_params_for_run_level
+    is called during CLI argument parsing. If a parameter has PARAM_DEFERRED set to False,
+    it will be activated immediately instead of being buffered.
     
     Args:
         _param: Parameter definition dictionary with keys like
                 PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
+                Set PARAM_DEFERRED to False to activate immediately (default: True).
     """
-    _buffered_params.append(_param)
+    # Check if this param should be processed immediately
+    if _param.get(PARAM_DEFERRED, True) is False:
+        # Immediately activate this parameter
+        _activate_param(_param)
+    else:
+        # Buffer for later processing
+        _buffered_params.append(_param)
 
 
 def _register_param_alias(param, alias):

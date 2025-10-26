@@ -4,7 +4,7 @@ import pytest
 from spafw37 import cli, config, param, command
 from spafw37.config_consts import (
     PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO,
-    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE
+    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE, PARAM_DEFERRED
 )
 
 
@@ -313,3 +313,65 @@ def test_multiple_params_with_run_level():
     
     assert config.get_config_value('host') == 'prod.example.com'
     assert config.get_config_value('port') == 443
+
+
+def test_param_deferred_false_activates_immediately():
+    """Test that params with PARAM_DEFERRED=False are activated immediately."""
+    setup_function()
+    
+    param.add_param({
+        PARAM_NAME: 'immediate',
+        PARAM_ALIASES: ['--immediate'],
+        PARAM_DEFAULT: 'immediate_value',
+        PARAM_DEFERRED: False
+    })
+    
+    # Should be immediately in _params, not in buffer
+    assert 'immediate' in param._params
+    assert len(param._buffered_params) == 0
+    assert param._params['immediate'][PARAM_DEFAULT] == 'immediate_value'
+
+
+def test_param_deferred_true_buffers():
+    """Test that params with PARAM_DEFERRED=True (or default) are buffered."""
+    setup_function()
+    
+    # Explicit True
+    param.add_param({
+        PARAM_NAME: 'deferred1',
+        PARAM_ALIASES: ['--deferred1'],
+        PARAM_DEFERRED: True
+    })
+    
+    # Default (not specified, should default to True)
+    param.add_param({
+        PARAM_NAME: 'deferred2',
+        PARAM_ALIASES: ['--deferred2']
+    })
+    
+    # Both should be in buffer, not in _params
+    assert 'deferred1' not in param._params
+    assert 'deferred2' not in param._params
+    assert len(param._buffered_params) == 2
+
+
+def test_mixed_deferred_and_immediate_params():
+    """Test mixing immediate and deferred params."""
+    setup_function()
+    
+    param.add_param({
+        PARAM_NAME: 'immediate',
+        PARAM_ALIASES: ['--immediate'],
+        PARAM_DEFERRED: False
+    })
+    
+    param.add_param({
+        PARAM_NAME: 'deferred',
+        PARAM_ALIASES: ['--deferred']
+    })
+    
+    # immediate should be in _params
+    assert 'immediate' in param._params
+    # deferred should be in buffer
+    assert len(param._buffered_params) == 1
+    assert param._buffered_params[0][PARAM_NAME] == 'deferred'
