@@ -15,9 +15,6 @@ from .config_consts import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
-    CONFLICT_POLICY_FIRST,
-    CONFLICT_POLICY_LAST,
-    CONFLICT_POLICY_ERROR,
 )
 
 # RegExp Patterns
@@ -29,9 +26,11 @@ _params = {}
 _param_aliases = {}
 _xor_list = {}
 
-_buffered_registrations = []
+# Buffered parameters for deferred processing
+_buffered_params = []
+
+# Run-level definitions
 _run_levels = {}
-_conflict_policy = CONFLICT_POLICY_FIRST
 
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
@@ -165,89 +164,53 @@ def add_params(params: List[Dict[str, Any]]):
        add_param(param)
 
 
-def register_param(**kwargs):
-    """Buffer a parameter definition for later parser construction.
+def add_buffered_param(param_dict):
+    """Add a parameter to the buffer for deferred processing.
     
-    Semantics mirror add_param but instead of immediately registering,
-    the parameter is buffered until build_parser is called.
-    
-    Accepts both friendly keyword arguments (name, aliases, type, default, etc.)
-    and internal constant keys (PARAM_NAME, PARAM_ALIASES, etc.).
+    Parameters are stored as dictionaries and processed later when
+    build_params_for_run_level is called.
     
     Args:
-        **kwargs: Parameter definition. Can use either friendly names:
-            - name: parameter name
-            - aliases: list of CLI aliases
-            - type: parameter type ('text', 'number', 'toggle', 'list')
-            - default: default value
-            - description: help text
-            - bind_to: config key name
-            - persistence: persistence setting
-            - switch_list: mutually exclusive params
-            - runtime_only: runtime-only flag
-            - group: parameter group
-        Or internal constant keys (PARAM_NAME, PARAM_ALIASES, etc.)
+        param_dict: Parameter definition dictionary with keys like
+                    PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
     """
-    friendly_to_internal = {
-        'name': PARAM_NAME,
-        'aliases': PARAM_ALIASES,
-        'type': PARAM_TYPE,
-        'default': PARAM_DEFAULT,
-        'description': 'description',
-        'bind_to': PARAM_BIND_TO,
-        'persistence': PARAM_PERSISTENCE,
-        'switch_list': PARAM_SWITCH_LIST,
-        'runtime_only': PARAM_RUNTIME_ONLY,
-        'group': 'param-group'
-    }
+    _buffered_params.append(param_dict)
+
+
+def add_buffered_params(params):
+    """Add multiple parameters to the buffer.
     
-    normalized = {}
-    for key, value in kwargs.items():
-        internal_key = friendly_to_internal.get(key, key)
-        normalized[internal_key] = value
-    
-    _buffered_registrations.append(normalized)
+    Args:
+        params: List of parameter definition dictionaries.
+    """
+    for param in params:
+        add_buffered_param(param)
 
 
 def register_run_level(name, defaults):
-    """Define a named run-level with default parameter values.
+    """Register a named run-level with default parameter values.
     
     Args:
-        name: Name of the run-level.
-        defaults: Dictionary mapping parameter dest names to values.
+        name: Name of the run-level (e.g., 'dev', 'prod', 'staging').
+        defaults: Dictionary mapping parameter bind names to default values.
     """
-    if not isinstance(defaults, dict):
-        raise ValueError(f"Run-level defaults must be a dict, got {type(defaults)}")
     _run_levels[name] = defaults
 
 
-def set_conflict_policy(policy):
-    """Set the conflict resolution policy for duplicate parameter registrations.
-    
-    Args:
-        policy: One of CONFLICT_POLICY_FIRST, CONFLICT_POLICY_LAST, CONFLICT_POLICY_ERROR.
-    """
-    global _conflict_policy
-    valid_policies = [CONFLICT_POLICY_FIRST, CONFLICT_POLICY_LAST, CONFLICT_POLICY_ERROR]
-    if policy not in valid_policies:
-        raise ValueError(f"Invalid conflict policy: {policy}. Must be one of {valid_policies}")
-    _conflict_policy = policy
-
-
 def get_run_level(name):
-    """Get a run-level definition by name.
+    """Get the defaults for a named run-level.
     
     Args:
         name: Name of the run-level.
         
     Returns:
-        Dictionary of parameter defaults for the run-level, or None if not found.
+        Dictionary of parameter defaults, or None if run-level not found.
     """
     return _run_levels.get(name)
 
 
 def list_run_levels():
-    """List all registered run-level names.
+    """Get list of all registered run-level names.
     
     Returns:
         List of run-level names.
@@ -255,51 +218,37 @@ def list_run_levels():
     return list(_run_levels.keys())
 
 
-def flush_buffered_registrations():
-    """Process all buffered parameter registrations and add them to params.
+def build_params_for_run_level(run_level=None):
+    """Process buffered parameters and register them.
     
-    This is called by build_parser to convert buffered registrations into
-    actual parameter definitions. Handles conflict detection based on policy.
+    This flushes the buffered parameter list and adds them to the
+    active parameter registry. If a run_level is specified, applies
+    that run-level's defaults.
     
-    Returns:
-        Number of parameters successfully registered.
+    Args:
+        run_level: Name of run-level to apply, or None for base defaults.
     """
-    import warnings
-    
-    registered_count = 0
-    dest_to_registration = {}
-    
-    for buffered_param in _buffered_registrations:
-        param_name = buffered_param.get(PARAM_NAME)
-        if not param_name:
-            warnings.warn(f"Buffered registration missing '{PARAM_NAME}', skipping")
-            continue
-            
-        dest = buffered_param.get(PARAM_BIND_TO, param_name)
+    for param in _buffered_params:
+        param_copy = dict(param)
         
-        if dest in dest_to_registration:
-            if _conflict_policy == CONFLICT_POLICY_ERROR:
-                raise ValueError(f"Duplicate parameter registration for dest '{dest}'")
-            elif _conflict_policy == CONFLICT_POLICY_FIRST:
-                warnings.warn(f"Duplicate registration for '{dest}', keeping first")
-                continue
-            elif _conflict_policy == CONFLICT_POLICY_LAST:
-                warnings.warn(f"Duplicate registration for '{dest}', using last")
+        if run_level:
+            run_level_defaults = get_run_level(run_level)
+            if run_level_defaults:
+                bind_name = param_copy.get(PARAM_BIND_TO, param_copy.get(PARAM_NAME))
+                if bind_name in run_level_defaults:
+                    param_copy[PARAM_DEFAULT] = run_level_defaults[bind_name]
         
-        dest_to_registration[dest] = buffered_param
-        add_param(buffered_param)
-        registered_count += 1
+        add_param(param_copy)
     
-    _buffered_registrations.clear()
-    return registered_count
+    _buffered_params.clear()
 
 
-def get_buffered_registrations():
-    """Get a copy of buffered registrations for inspection.
+def get_buffered_params():
+    """Get the list of buffered parameters.
     
     Returns:
         List of buffered parameter dictionaries.
     """
-    return list(_buffered_registrations)
+    return list(_buffered_params)
 
 

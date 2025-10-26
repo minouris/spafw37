@@ -1,13 +1,10 @@
 """Tests for buffered parameter registration and run-level parsing."""
 
 import pytest
-import warnings
 from spafw37 import cli, config, param, command
 from spafw37.config_consts import (
     PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO,
-    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE, PARAM_TYPE_LIST,
-    CONFLICT_POLICY_FIRST, CONFLICT_POLICY_LAST, CONFLICT_POLICY_ERROR,
-    RUN_LEVELS_ALIAS_LONG, RUN_LEVELS_ALIAS_SHORT
+    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE
 )
 
 
@@ -15,10 +12,9 @@ def setup_function():
     """Reset module state between tests."""
     param._param_aliases.clear()
     param._params.clear()
-    param._buffered_registrations.clear()
+    param._buffered_params.clear()
     param._run_levels.clear()
     param._xor_list.clear()
-    param._conflict_policy = CONFLICT_POLICY_FIRST
     config._non_persisted_config_names.clear()
     config._config.clear()
     config._persistent_config.clear()
@@ -31,401 +27,186 @@ def setup_function():
     command._phases_completed.clear()
 
 
-def test_register_param_buffers_definition():
-    """Test that register_param adds to buffer without immediate registration."""
+def test_add_buffered_param():
+    """Test adding a parameter to the buffer."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'test-param',
-            PARAM_ALIASES: ['--test', '-t'],
-            PARAM_TYPE: PARAM_TYPE_TEXT,
-            PARAM_DEFAULT: 'default_value'
-        }
-    )
+    param_dict = {
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'value'
+    }
     
-    assert len(param._buffered_registrations) == 1
-    assert param._params == {}
-    assert param._param_aliases == {}
+    param.add_buffered_param(param_dict)
+    
+    assert len(param._buffered_params) == 1
+    assert param._buffered_params[0][PARAM_NAME] == 'test'
+    assert len(param._params) == 0
 
 
-def test_build_parser_flushes_buffer():
-    """Test that build_parser processes buffered registrations."""
+def test_build_params_for_run_level_no_level():
+    """Test building params without a run-level."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'param1',
-            PARAM_ALIASES: ['--param1'],
-            PARAM_TYPE: PARAM_TYPE_TEXT
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'param2',
-            PARAM_ALIASES: ['--param2'],
-            PARAM_TYPE: PARAM_TYPE_NUMBER
-        }
-    )
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_DEFAULT: 'base_value'
+    })
     
-    count = cli.build_parser()
+    param.build_params_for_run_level()
     
-    assert count == 2
-    assert len(param._buffered_registrations) == 0
-    assert 'param1' in param._params
-    assert 'param2' in param._params
-    assert '--param1' in param._param_aliases
-    assert '--param2' in param._param_aliases
-
-
-def test_buffered_registration_basic():
-    """Test basic buffered registration workflow."""
-    setup_function()
-    
-    param.register_param(
-        **{
-            PARAM_NAME: 'timeout',
-            PARAM_ALIASES: ['--timeout'],
-            PARAM_TYPE: PARAM_TYPE_NUMBER,
-            PARAM_DEFAULT: 30
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'verbose',
-            PARAM_ALIASES: ['--verbose'],
-            PARAM_TYPE: PARAM_TYPE_TOGGLE,
-            PARAM_DEFAULT: False
-        }
-    )
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['--timeout', '60'])
-    
-    assert effective['timeout'] == 60
-    assert effective['verbose'] is False
-
-
-def test_buffered_registration_conflicts_first_policy():
-    """Test conflict resolution with 'first' policy."""
-    setup_function()
-    
-    param.set_conflict_policy(CONFLICT_POLICY_FIRST)
-    
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'first'
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'second'
-        }
-    )
-    
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        cli.build_parser()
-        assert len(w) == 1
-        assert 'Duplicate' in str(w[0].message)
-    
-    assert param._params['test'][PARAM_DEFAULT] == 'first'
-
-
-def test_buffered_registration_conflicts_last_policy():
-    """Test conflict resolution with 'last' policy."""
-    setup_function()
-    
-    param.set_conflict_policy(CONFLICT_POLICY_LAST)
-    
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'first'
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'second'
-        }
-    )
-    
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        cli.build_parser()
-        assert len(w) == 1
-    
-    assert param._params['test'][PARAM_DEFAULT] == 'second'
-
-
-def test_buffered_registration_conflicts_error_policy():
-    """Test conflict resolution with 'error' policy."""
-    setup_function()
-    
-    param.set_conflict_policy(CONFLICT_POLICY_ERROR)
-    
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'first'
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'test',
-            PARAM_ALIASES: ['--test'],
-            PARAM_DEFAULT: 'second'
-        }
-    )
-    
-    with pytest.raises(ValueError, match="Duplicate parameter registration"):
-        cli.build_parser()
+    assert 'test' in param._params
+    assert param._params['test'][PARAM_DEFAULT] == 'base_value'
+    assert len(param._buffered_params) == 0
 
 
 def test_register_run_level():
-    """Test registering a run-level definition."""
+    """Test registering a run-level."""
     setup_function()
     
-    param.register_run_level('dev', {'log_level': 'debug', 'timeout': 10})
+    param.register_run_level('dev', {
+        'test': 'dev_value',
+        'other': 'dev_other'
+    })
     
     assert 'dev' in param._run_levels
-    assert param._run_levels['dev']['log_level'] == 'debug'
-    assert param._run_levels['dev']['timeout'] == 10
+    assert param._run_levels['dev']['test'] == 'dev_value'
 
 
-def test_register_run_level_invalid_defaults():
-    """Test that non-dict defaults raise an error."""
+def test_build_params_with_run_level():
+    """Test building params with a run-level applied."""
     setup_function()
     
-    with pytest.raises(ValueError, match="Run-level defaults must be a dict"):
-        param.register_run_level('bad', "not a dict")
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_DEFAULT: 'base_value'
+    })
+    
+    param.register_run_level('dev', {'test': 'dev_value'})
+    
+    param.build_params_for_run_level('dev')
+    
+    assert 'test' in param._params
+    assert param._params['test'][PARAM_DEFAULT] == 'dev_value'
 
 
-def test_run_levels_merge_order():
-    """Test that run-levels merge in correct order."""
+def test_multiple_run_levels_override():
+    """Test that later run-levels override earlier ones."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_DEFAULT: 'base_value'
+    })
     
-    param.register_run_level('r1', {'value': 'r1'})
-    param.register_run_level('r2', {'value': 'r2'})
+    param.register_run_level('dev', {'test': 'dev_value'})
+    param.register_run_level('prod', {'test': 'prod_value'})
     
-    cli.build_parser()
+    param.build_params_for_run_level('dev')
     
-    effective, _ = cli.parse_args(['-R', 'r1,r2'])
+    assert param._params['test'][PARAM_DEFAULT] == 'dev_value'
     
-    assert effective['value'] == 'r2'
+    param._params.clear()
+    param._param_aliases.clear()
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_DEFAULT: 'base_value'
+    })
+    
+    param.build_params_for_run_level('prod')
+    
+    assert param._params['test'][PARAM_DEFAULT] == 'prod_value'
 
 
-def test_run_levels_precedence_cli_overrides():
-    """Test that CLI arguments override run-level values."""
+def test_extract_run_levels_single():
+    """Test extracting a single run-level from args."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
+    args = ['-R', 'dev', '--test', 'value']
+    levels = cli._extract_run_levels(args)
     
-    param.register_run_level('prod', {'value': 'prod_value'})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['-R', 'prod', '--value', 'cli_value'])
-    
-    assert effective['value'] == 'cli_value'
+    assert levels == ['dev']
 
 
-def test_run_levels_missing_level():
-    """Test that missing run-level generates warning and is ignored."""
+def test_extract_run_levels_comma_separated():
+    """Test extracting comma-separated run-levels."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
+    args = ['-R', 'dev,staging,prod', '--test', 'value']
+    levels = cli._extract_run_levels(args)
     
-    cli.build_parser()
-    
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        effective, _ = cli.parse_args(['-R', 'nonexistent'])
-        assert len(w) == 1
-        assert 'Unknown run-level' in str(w[0].message)
-    
-    assert effective['value'] == 'base'
+    assert levels == ['dev', 'staging', 'prod']
 
 
-def test_run_levels_comma_separated():
-    """Test that comma-separated run-levels are parsed correctly."""
+def test_extract_run_levels_multiple_flags():
+    """Test extracting run-levels from multiple flags."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'a',
-            PARAM_ALIASES: ['--a'],
-            PARAM_DEFAULT: 'base_a'
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'b',
-            PARAM_ALIASES: ['--b'],
-            PARAM_DEFAULT: 'base_b'
-        }
-    )
+    args = ['-R', 'dev', '--test', 'value', '-R', 'prod']
+    levels = cli._extract_run_levels(args)
     
-    param.register_run_level('r1', {'a': 'r1_a'})
-    param.register_run_level('r2', {'b': 'r2_b'})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['-R', 'r1,r2'])
-    
-    assert effective['a'] == 'r1_a'
-    assert effective['b'] == 'r2_b'
+    assert levels == ['dev', 'prod']
 
 
-def test_run_levels_multiple_flags():
-    """Test that multiple -R flags are processed correctly."""
+def test_extract_run_levels_long_form():
+    """Test extracting run-levels with long form alias."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
+    args = ['--run-levels', 'dev', '--test', 'value']
+    levels = cli._extract_run_levels(args)
     
-    param.register_run_level('r1', {'value': 'r1'})
-    param.register_run_level('r2', {'value': 'r2'})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['-R', 'r1', '-R', 'r2'])
-    
-    assert effective['value'] == 'r2'
+    assert levels == ['dev']
 
 
-def test_run_levels_with_long_alias():
-    """Test using --run-levels long form."""
+def test_filter_run_level_args():
+    """Test filtering run-level arguments from args list."""
     setup_function()
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
+    args = ['-R', 'dev', '--test', 'value', '-R', 'prod', 'command']
+    filtered = cli._filter_run_level_args(args)
     
-    param.register_run_level('test', {'value': 'test_value'})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['--run-levels', 'test'])
-    
-    assert effective['value'] == 'test_value'
+    assert filtered == ['--test', 'value', 'command']
 
 
-def test_normalize_run_levels_input():
-    """Test run-levels input normalization."""
+def test_handle_cli_args_with_run_level():
+    """Test full CLI handling with run-level."""
     setup_function()
     
-    assert cli._normalize_run_levels_input(None) == []
-    assert cli._normalize_run_levels_input([]) == []
-    assert cli._normalize_run_levels_input('dev') == ['dev']
-    assert cli._normalize_run_levels_input('dev,prod') == ['dev', 'prod']
-    assert cli._normalize_run_levels_input(['dev', 'prod']) == ['dev', 'prod']
-    assert cli._normalize_run_levels_input(['dev,stage', 'prod']) == ['dev', 'stage', 'prod']
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'base_value'
+    })
+    
+    param.register_run_level('dev', {'test': 'dev_value'})
+    
+    cli.handle_cli_args(['-R', 'dev', '--test', 'cli_value'])
+    
+    assert config.get_config_value('test') == 'cli_value'
 
 
-def test_merge_run_levels_order():
-    """Test that merge_run_levels applies levels in order."""
+def test_handle_cli_args_run_level_default_used():
+    """Test that run-level default is used when no CLI override."""
     setup_function()
     
-    param.register_run_level('r1', {'a': 'r1_a', 'b': 'r1_b'})
-    param.register_run_level('r2', {'a': 'r2_a'})
+    param.add_buffered_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['--test'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'base_value'
+    })
     
-    base = {'a': 'base_a', 'b': 'base_b', 'c': 'base_c'}
-    result = cli._merge_run_levels(['r1', 'r2'], base)
+    param.register_run_level('dev', {'test': 'dev_value'})
     
-    assert result['a'] == 'r2_a'
-    assert result['b'] == 'r1_b'
-    assert result['c'] == 'base_c'
-
-
-def test_get_effective_config_full_pipeline():
-    """Test complete effective config computation."""
-    setup_function()
+    cli.handle_cli_args(['-R', 'dev'])
     
-    param.register_param(
-        **{
-            PARAM_NAME: 'timeout',
-            PARAM_ALIASES: ['--timeout'],
-            PARAM_TYPE: PARAM_TYPE_NUMBER,
-            PARAM_DEFAULT: 30
-        }
-    )
-    param.register_param(
-        **{
-            PARAM_NAME: 'log_level',
-            PARAM_ALIASES: ['--log-level'],
-            PARAM_DEFAULT: 'info'
-        }
-    )
-    
-    param.register_run_level('dev', {'log_level': 'debug', 'timeout': 10})
-    param.register_run_level('prod', {'log_level': 'error', 'timeout': 60})
-    
-    cli.build_parser()
-    
-    effective = cli.get_effective_config(['-R', 'dev,prod', '--timeout', '45'])
-    
-    assert effective['log_level'] == 'error'
-    assert effective['timeout'] == 45
-
-
-def test_parse_args_without_run_levels():
-    """Test parse_args with merge_run_levels=False."""
-    setup_function()
-    
-    param.register_param(
-        **{
-            PARAM_NAME: 'value',
-            PARAM_ALIASES: ['--value'],
-            PARAM_DEFAULT: 'base'
-        }
-    )
-    
-    param.register_run_level('r1', {'value': 'r1'})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['-R', 'r1'], merge_run_levels=False)
-    
-    assert effective['value'] == 'base'
+    assert config.get_config_value('test') == 'dev_value'
 
 
 def test_list_run_levels():
@@ -434,130 +215,41 @@ def test_list_run_levels():
     
     param.register_run_level('dev', {})
     param.register_run_level('prod', {})
-    param.register_run_level('test', {})
+    param.register_run_level('staging', {})
     
     levels = param.list_run_levels()
     
-    assert set(levels) == {'dev', 'prod', 'test'}
+    assert set(levels) == {'dev', 'prod', 'staging'}
 
 
 def test_get_run_level():
-    """Test retrieving a specific run-level."""
+    """Test getting a specific run-level."""
     setup_function()
     
-    param.register_run_level('dev', {'log_level': 'debug'})
+    param.register_run_level('dev', {'test': 'value'})
     
     level = param.get_run_level('dev')
     
-    assert level == {'log_level': 'debug'}
+    assert level == {'test': 'value'}
     assert param.get_run_level('nonexistent') is None
 
 
-def test_get_buffered_registrations():
-    """Test getting a copy of buffered registrations."""
+def test_get_buffered_params():
+    """Test getting buffered parameters."""
     setup_function()
     
-    param.register_param(**{PARAM_NAME: 'p1'})
-    param.register_param(**{PARAM_NAME: 'p2'})
+    param.add_buffered_param({PARAM_NAME: 'p1'})
+    param.add_buffered_param({PARAM_NAME: 'p2'})
     
-    buffered = param.get_buffered_registrations()
+    buffered = param.get_buffered_params()
     
     assert len(buffered) == 2
     assert buffered[0][PARAM_NAME] == 'p1'
     assert buffered[1][PARAM_NAME] == 'p2'
 
 
-def test_extract_cli_overrides_toggle():
-    """Test extracting toggle parameter overrides."""
-    setup_function()
-    
-    param.add_param({
-        PARAM_NAME: 'verbose',
-        PARAM_ALIASES: ['--verbose'],
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_DEFAULT: False
-    })
-    
-    overrides = cli._extract_cli_overrides(['--verbose'])
-    
-    assert overrides['verbose'] is True
-
-
-def test_extract_cli_overrides_number():
-    """Test extracting number parameter overrides."""
-    setup_function()
-    
-    param.add_param({
-        PARAM_NAME: 'count',
-        PARAM_ALIASES: ['--count'],
-        PARAM_TYPE: PARAM_TYPE_NUMBER
-    })
-    
-    overrides = cli._extract_cli_overrides(['--count', '42'])
-    
-    assert overrides['count'] == 42
-
-
-def test_extract_cli_overrides_with_equals():
-    """Test extracting parameter with equals syntax."""
-    setup_function()
-    
-    param.add_param({
-        PARAM_NAME: 'path',
-        PARAM_ALIASES: ['--path'],
-        PARAM_TYPE: PARAM_TYPE_TEXT
-    })
-    
-    overrides = cli._extract_cli_overrides(['--path=/some/path'])
-    
-    assert overrides['path'] == '/some/path'
-
-
-def test_extract_cli_overrides_skips_run_levels():
-    """Test that run-level flags are skipped during extraction."""
-    setup_function()
-    
-    param.add_param({
-        PARAM_NAME: 'value',
-        PARAM_ALIASES: ['--value'],
-        PARAM_TYPE: PARAM_TYPE_TEXT
-    })
-    
-    overrides = cli._extract_cli_overrides(['-R', 'dev', '--value', 'test'])
-    
-    assert 'run-levels' not in overrides
-    assert overrides['value'] == 'test'
-
-
-def test_get_base_defaults():
-    """Test extracting base defaults from parameters."""
-    setup_function()
-    
-    param.add_param({
-        PARAM_NAME: 'text',
-        PARAM_ALIASES: ['--text'],
-        PARAM_DEFAULT: 'default_text'
-    })
-    param.add_param({
-        PARAM_NAME: 'toggle',
-        PARAM_ALIASES: ['--toggle'],
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_DEFAULT: True
-    })
-    param.add_param({
-        PARAM_NAME: 'no_default',
-        PARAM_ALIASES: ['--no-default']
-    })
-    
-    defaults = cli._get_base_defaults()
-    
-    assert defaults['text'] == 'default_text'
-    assert defaults['toggle'] is True
-    assert 'no_default' not in defaults
-
-
 def test_backward_compatibility_add_param():
-    """Test that existing add_param continues to work."""
+    """Test that existing add_param still works."""
     setup_function()
     
     param.add_param({
@@ -570,141 +262,48 @@ def test_backward_compatibility_add_param():
     assert '--test' in param._param_aliases
 
 
-def test_backward_compatibility_handle_cli_args():
-    """Test that existing handle_cli_args continues to work."""
+def test_cli_override_always_wins():
+    """Test that CLI arguments always override run-level defaults."""
     setup_function()
     
-    param.add_param({
-        PARAM_NAME: 'test',
-        PARAM_ALIASES: ['--test'],
-        PARAM_TYPE: PARAM_TYPE_TEXT
+    param.add_buffered_param({
+        PARAM_NAME: 'value',
+        PARAM_ALIASES: ['--value'],
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_DEFAULT: 10
     })
     
-    cli.handle_cli_args(['--test', 'value'])
+    param.register_run_level('dev', {'value': 20})
+    param.register_run_level('prod', {'value': 30})
     
-    assert config.get_config_value('test') == 'value'
+    cli.handle_cli_args(['-R', 'dev,prod', '--value', '50'])
+    
+    assert config.get_config_value('value') == 50
 
 
-def test_complex_scenario_multiple_run_levels_and_overrides():
-    """Test a complex scenario with multiple run-levels and CLI overrides."""
+def test_multiple_params_with_run_level():
+    """Test multiple parameters with run-level."""
     setup_function()
     
-    param.register_param(**{
+    param.add_buffered_param({
         PARAM_NAME: 'host',
         PARAM_ALIASES: ['--host'],
         PARAM_DEFAULT: 'localhost'
     })
-    param.register_param(**{
+    
+    param.add_buffered_param({
         PARAM_NAME: 'port',
         PARAM_ALIASES: ['--port'],
         PARAM_TYPE: PARAM_TYPE_NUMBER,
         PARAM_DEFAULT: 8000
     })
-    param.register_param(**{
-        PARAM_NAME: 'debug',
-        PARAM_ALIASES: ['--debug'],
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_DEFAULT: False
+    
+    param.register_run_level('prod', {
+        'host': 'prod.example.com',
+        'port': 443
     })
     
-    param.register_run_level('base', {'host': 'base.local'})
-    param.register_run_level('dev', {'port': 3000, 'debug': True})
-    param.register_run_level('prod', {'host': 'prod.example.com', 'port': 443})
+    cli.handle_cli_args(['-R', 'prod'])
     
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args([
-        '-R', 'base',
-        '-R', 'dev',
-        '--host', 'custom.host'
-    ])
-    
-    assert effective['host'] == 'custom.host'
-    assert effective['port'] == 3000
-    assert effective['debug'] is True
-
-
-def test_set_conflict_policy_invalid():
-    """Test that invalid conflict policy raises error."""
-    setup_function()
-    
-    with pytest.raises(ValueError, match="Invalid conflict policy"):
-        param.set_conflict_policy('invalid')
-
-
-def test_run_levels_with_list_params():
-    """Test run-levels work with list parameters."""
-    setup_function()
-    
-    param.register_param(**{
-        PARAM_NAME: 'tags',
-        PARAM_ALIASES: ['--tags'],
-        PARAM_TYPE: PARAM_TYPE_LIST,
-        PARAM_DEFAULT: []
-    })
-    
-    param.register_run_level('dev', {'tags': ['dev', 'local']})
-    
-    cli.build_parser()
-    
-    effective, _ = cli.parse_args(['-R', 'dev'])
-    
-    assert effective['tags'] == ['dev', 'local']
-
-
-def test_buffered_missing_name_warning():
-    """Test that buffered registration without name generates warning."""
-    setup_function()
-    
-    param.register_param(**{
-        PARAM_ALIASES: ['--test']
-    })
-    
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        count = cli.build_parser()
-        assert count == 0
-        assert len(w) == 1
-        assert 'missing' in str(w[0].message).lower()
-
-
-def test_register_param_friendly_kwargs():
-    """Test that register_param accepts friendly keyword arguments."""
-    setup_function()
-    
-    param.register_param(
-        name='test',
-        aliases=['--test'],
-        type='text',
-        default='value',
-        description='Test parameter'
-    )
-    
-    cli.build_parser()
-    
-    assert 'test' in param._params
-    test_param = param._params['test']
-    assert test_param[PARAM_NAME] == 'test'
-    assert test_param[PARAM_ALIASES] == ['--test']
-    assert test_param[PARAM_TYPE] == PARAM_TYPE_TEXT
-    assert test_param[PARAM_DEFAULT] == 'value'
-
-
-def test_register_param_mixed_kwargs():
-    """Test that register_param accepts mix of friendly and internal kwargs."""
-    setup_function()
-    
-    param.register_param(
-        name='test',
-        **{PARAM_ALIASES: ['--test']},
-        default='value'
-    )
-    
-    cli.build_parser()
-    
-    assert 'test' in param._params
-    test_param = param._params['test']
-    assert test_param[PARAM_NAME] == 'test'
-    assert test_param[PARAM_ALIASES] == ['--test']
-    assert test_param[PARAM_DEFAULT] == 'value'
-
+    assert config.get_config_value('host') == 'prod.example.com'
+    assert config.get_config_value('port') == 443

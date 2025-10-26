@@ -1,48 +1,66 @@
-"""Simple example of buffered registration and run-levels.
+"""Simple example of buffered parameter registration with run-levels.
 
-This demonstrates the basic usage pattern for the new buffered registration API.
+This demonstrates how modules can register parameters as dictionaries
+and how run-levels can be used to provide different default configurations.
 """
 
-from spafw37 import register_param, register_run_level, build_parser, get_effective_config
+from spafw37.param import add_buffered_param, register_run_level
+from spafw37.cli import handle_cli_args
+from spafw37.config import get_config_value
+from spafw37.config_consts import (
+    PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT,
+    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE
+)
 
 
 def main():
     """Example application entry point."""
     
-    register_param(
-        name='timeout',
-        aliases=['--timeout', '-t'],
-        type='number',
-        default=30,
-        description='Request timeout in seconds'
-    )
+    # Register parameters as dictionaries (structs)
+    add_buffered_param({
+        PARAM_NAME: 'host',
+        PARAM_ALIASES: ['--host', '-h'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'localhost'
+    })
     
-    register_param(
-        name='log-level',
-        aliases=['--log-level', '-l'],
-        type='text',
-        default='info',
-        description='Logging level'
-    )
+    add_buffered_param({
+        PARAM_NAME: 'port',
+        PARAM_ALIASES: ['--port', '-p'],
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_DEFAULT: 8000
+    })
     
+    add_buffered_param({
+        PARAM_NAME: 'debug',
+        PARAM_ALIASES: ['--debug', '-d'],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False
+    })
+    
+    # Register run-levels
     register_run_level('dev', {
-        'timeout': 10,
-        'log-level': 'debug'
+        'host': 'dev.local',
+        'port': 3000,
+        'debug': True
     })
     
     register_run_level('prod', {
-        'timeout': 60,
-        'log-level': 'error'
+        'host': 'prod.example.com',
+        'port': 443,
+        'debug': False
     })
     
-    build_parser()
-    
+    # Parse command-line arguments
+    # Run-levels are automatically extracted and applied
     import sys
-    effective = get_effective_config(sys.argv[1:])
+    handle_cli_args(sys.argv[1:])
     
+    # Get configuration values (after run-level merging and CLI overrides)
     print("Configuration:")
-    for key, value in sorted(effective.items()):
-        print(f"  {key}: {value}")
+    print(f"  host: {get_config_value('host')}")
+    print(f"  port: {get_config_value('port')}")
+    print(f"  debug: {get_config_value('debug')}")
 
 
 if __name__ == '__main__':
