@@ -157,12 +157,9 @@ def handle_cli_args(args: list[str]):
             apply_run_level_config(run_level_name)
             
             _set_defaults()
-            _do_pre_parse_actions()
             
             # Parse command line for this run-level's params
             _parse_command_line(args)
-            
-            _do_post_parse_actions()
             
             # Queue commands for this run-level
             if RUN_LEVEL_COMMANDS in run_level:
