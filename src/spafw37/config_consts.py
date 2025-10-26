@@ -27,6 +27,14 @@ CONFIG_OUTFILE_PARAM='config-outfile'
 CONFIG_INFILE_ALIAS = '--save-config'
 CONFIG_OUTFILE_ALIAS = '--load-config'
 
+# Run-level definitions
+RUN_LEVELS_PARAM = 'run-levels'
+RUN_LEVELS_ALIAS_LONG = '--run-levels'
+RUN_LEVELS_ALIAS_SHORT = '-R'
+CONFLICT_POLICY_FIRST = 'first'
+CONFLICT_POLICY_LAST = 'last'
+CONFLICT_POLICY_ERROR = 'error'
+
 # Command Definitions
 COMMAND_NAME = "command-name" # Used on the CLI to queue the command
 COMMAND_REQUIRED_PARAMS = "required-params" # List of param bind names that are required for this command

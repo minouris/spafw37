@@ -15,6 +15,9 @@ from .config_consts import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
+    CONFLICT_POLICY_FIRST,
+    CONFLICT_POLICY_LAST,
+    CONFLICT_POLICY_ERROR,
 )
 
 # RegExp Patterns
@@ -25,6 +28,10 @@ PATTERN_SHORT_ALIAS = r"^-\w{1,2}$"
 _params = {}
 _param_aliases = {}
 _xor_list = {}
+
+_buffered_registrations = []
+_run_levels = {}
+_conflict_policy = CONFLICT_POLICY_FIRST
 
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
@@ -156,4 +163,111 @@ def add_params(params: List[Dict[str, Any]]):
     """
     for param in params:
        add_param(param)
+
+
+def register_param(**kwargs):
+    """Buffer a parameter definition for later parser construction.
+    
+    Semantics mirror add_param but instead of immediately registering,
+    the parameter is buffered until build_parser is called.
+    
+    Args:
+        **kwargs: Parameter definition matching add_param format.
+    """
+    _buffered_registrations.append(kwargs)
+
+
+def register_run_level(name, defaults):
+    """Define a named run-level with default parameter values.
+    
+    Args:
+        name: Name of the run-level.
+        defaults: Dictionary mapping parameter dest names to values.
+    """
+    if not isinstance(defaults, dict):
+        raise ValueError(f"Run-level defaults must be a dict, got {type(defaults)}")
+    _run_levels[name] = defaults
+
+
+def set_conflict_policy(policy):
+    """Set the conflict resolution policy for duplicate parameter registrations.
+    
+    Args:
+        policy: One of CONFLICT_POLICY_FIRST, CONFLICT_POLICY_LAST, CONFLICT_POLICY_ERROR.
+    """
+    global _conflict_policy
+    valid_policies = [CONFLICT_POLICY_FIRST, CONFLICT_POLICY_LAST, CONFLICT_POLICY_ERROR]
+    if policy not in valid_policies:
+        raise ValueError(f"Invalid conflict policy: {policy}. Must be one of {valid_policies}")
+    _conflict_policy = policy
+
+
+def get_run_level(name):
+    """Get a run-level definition by name.
+    
+    Args:
+        name: Name of the run-level.
+        
+    Returns:
+        Dictionary of parameter defaults for the run-level, or None if not found.
+    """
+    return _run_levels.get(name)
+
+
+def list_run_levels():
+    """List all registered run-level names.
+    
+    Returns:
+        List of run-level names.
+    """
+    return list(_run_levels.keys())
+
+
+def flush_buffered_registrations():
+    """Process all buffered parameter registrations and add them to params.
+    
+    This is called by build_parser to convert buffered registrations into
+    actual parameter definitions. Handles conflict detection based on policy.
+    
+    Returns:
+        Number of parameters successfully registered.
+    """
+    import warnings
+    
+    registered_count = 0
+    dest_to_registration = {}
+    
+    for buffered_param in _buffered_registrations:
+        param_name = buffered_param.get(PARAM_NAME)
+        if not param_name:
+            warnings.warn(f"Buffered registration missing '{PARAM_NAME}', skipping")
+            continue
+            
+        dest = buffered_param.get(PARAM_BIND_TO, param_name)
+        
+        if dest in dest_to_registration:
+            if _conflict_policy == CONFLICT_POLICY_ERROR:
+                raise ValueError(f"Duplicate parameter registration for dest '{dest}'")
+            elif _conflict_policy == CONFLICT_POLICY_FIRST:
+                warnings.warn(f"Duplicate registration for '{dest}', keeping first")
+                continue
+            elif _conflict_policy == CONFLICT_POLICY_LAST:
+                warnings.warn(f"Duplicate registration for '{dest}', using last")
+        
+        dest_to_registration[dest] = buffered_param
+        add_param(buffered_param)
+        registered_count += 1
+    
+    _buffered_registrations.clear()
+    return registered_count
+
+
+def get_buffered_registrations():
+    """Get a copy of buffered registrations for inspection.
+    
+    Returns:
+        List of buffered parameter dictionaries.
+    """
+    return list(_buffered_registrations)
+
 
