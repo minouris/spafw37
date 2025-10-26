@@ -4,7 +4,7 @@ This demonstrates how modules can register parameters as dictionaries
 and how run-levels can be used to provide different default configurations.
 """
 
-from spafw37.param import add_buffered_param, register_run_level
+from spafw37.param import add_param, register_run_level
 from spafw37.cli import handle_cli_args
 from spafw37.config import get_config_value
 from spafw37.config_consts import (
@@ -17,21 +17,21 @@ def main():
     """Example application entry point."""
     
     # Register parameters as dictionaries (structs)
-    add_buffered_param({
+    add_param({
         PARAM_NAME: 'host',
         PARAM_ALIASES: ['--host', '-h'],
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_DEFAULT: 'localhost'
     })
     
-    add_buffered_param({
+    add_param({
         PARAM_NAME: 'port',
         PARAM_ALIASES: ['--port', '-p'],
         PARAM_TYPE: PARAM_TYPE_NUMBER,
         PARAM_DEFAULT: 8000
     })
     
-    add_buffered_param({
+    add_param({
         PARAM_NAME: 'debug',
         PARAM_ALIASES: ['--debug', '-d'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,

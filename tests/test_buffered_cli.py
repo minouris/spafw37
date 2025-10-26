@@ -38,7 +38,7 @@ def test_add_buffered_param():
         PARAM_DEFAULT: 'value'
     }
     
-    param.add_buffered_param(param_dict)
+    param.add_param(param_dict)
     
     assert len(param._buffered_params) == 1
     assert param._buffered_params[0][PARAM_NAME] == 'test'
@@ -49,7 +49,7 @@ def test_build_params_for_run_level_no_level():
     """Test building params without a run-level."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_DEFAULT: 'base_value'
@@ -79,7 +79,7 @@ def test_build_params_with_run_level():
     """Test building params with a run-level applied."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_DEFAULT: 'base_value'
@@ -97,7 +97,7 @@ def test_multiple_run_levels_override():
     """Test that later run-levels override earlier ones."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_DEFAULT: 'base_value'
@@ -112,7 +112,7 @@ def test_multiple_run_levels_override():
     
     param._params.clear()
     param._param_aliases.clear()
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_DEFAULT: 'base_value'
@@ -177,7 +177,7 @@ def test_handle_cli_args_with_run_level():
     """Test full CLI handling with run-level."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_TYPE: PARAM_TYPE_TEXT,
@@ -195,7 +195,7 @@ def test_handle_cli_args_run_level_default_used():
     """Test that run-level default is used when no CLI override."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'test',
         PARAM_ALIASES: ['--test'],
         PARAM_TYPE: PARAM_TYPE_TEXT,
@@ -238,8 +238,8 @@ def test_get_buffered_params():
     """Test getting buffered parameters."""
     setup_function()
     
-    param.add_buffered_param({PARAM_NAME: 'p1'})
-    param.add_buffered_param({PARAM_NAME: 'p2'})
+    param.add_param({PARAM_NAME: 'p1'})
+    param.add_param({PARAM_NAME: 'p2'})
     
     buffered = param.get_buffered_params()
     
@@ -249,7 +249,7 @@ def test_get_buffered_params():
 
 
 def test_backward_compatibility_add_param():
-    """Test that existing add_param still works."""
+    """Test that add_param now buffers parameters."""
     setup_function()
     
     param.add_param({
@@ -258,6 +258,12 @@ def test_backward_compatibility_add_param():
         PARAM_DEFAULT: 'value'
     })
     
+    # Should be in buffer, not yet in _params
+    assert len(param._buffered_params) == 1
+    assert 'test' not in param._params
+    
+    # After building, should be in _params
+    param.build_params_for_run_level()
     assert 'test' in param._params
     assert '--test' in param._param_aliases
 
@@ -266,7 +272,7 @@ def test_cli_override_always_wins():
     """Test that CLI arguments always override run-level defaults."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'value',
         PARAM_ALIASES: ['--value'],
         PARAM_TYPE: PARAM_TYPE_NUMBER,
@@ -285,13 +291,13 @@ def test_multiple_params_with_run_level():
     """Test multiple parameters with run-level."""
     setup_function()
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'host',
         PARAM_ALIASES: ['--host'],
         PARAM_DEFAULT: 'localhost'
     })
     
-    param.add_buffered_param({
+    param.add_param({
         PARAM_NAME: 'port',
         PARAM_ALIASES: ['--port'],
         PARAM_TYPE: PARAM_TYPE_NUMBER,

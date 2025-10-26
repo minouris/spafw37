@@ -261,4 +261,7 @@ def test_runtime_only_param_set_never_persisted():
         PARAM_RUNTIME_ONLY: True
     }
     param.add_param(runtime_only_param)
-    assert config.is_persistence_never(runtime_only_param) is True
+    param.build_params_for_run_level()
+    # Get the activated param from _params
+    activated_param = param._params["runtime_only_param"]
+    assert config.is_persistence_never(activated_param) is True

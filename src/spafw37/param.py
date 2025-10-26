@@ -128,6 +128,39 @@ def is_param_alias(_param: dict, alias: str) -> bool:
     return alias in aliases
 
 def add_param(_param: dict):
+    """Add a parameter to the buffer for deferred processing.
+    
+    All parameters are buffered and processed later when build_params_for_run_level
+    is called during CLI argument parsing.
+    
+    Args:
+        _param: Parameter definition dictionary with keys like
+                PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
+    """
+    _buffered_params.append(_param)
+
+
+def _register_param_alias(param, alias):
+    """Register an alias for a parameter.
+    
+    Args:
+        param: Parameter dictionary.
+        alias: Alias string to register.
+    """
+    if not is_alias(alias):
+        raise ValueError(f"Invalid alias format: {alias}")
+    _param_aliases[alias] = param[PARAM_NAME]
+
+
+def _activate_param(_param):
+    """Activate a parameter by adding it to the active registry.
+    
+    This is called internally during build_params_for_run_level to process
+    buffered parameters.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
     _param_name = _param.get(PARAM_NAME)
     if PARAM_ALIASES in _param:
         for alias in _param.get(PARAM_ALIASES, []):
@@ -137,12 +170,6 @@ def add_param(_param: dict):
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
     _params[_param_name] = _param
-
-
-def _register_param_alias(param, alias):
-    if not is_alias(alias):
-        raise ValueError(f"Invalid alias format: {alias}")
-    _param_aliases[alias] = param[PARAM_NAME]
 
 
 def get_bind_name(param: dict) -> str:
@@ -162,29 +189,6 @@ def add_params(params: List[Dict[str, Any]]):
     """
     for param in params:
        add_param(param)
-
-
-def add_buffered_param(param_dict):
-    """Add a parameter to the buffer for deferred processing.
-    
-    Parameters are stored as dictionaries and processed later when
-    build_params_for_run_level is called.
-    
-    Args:
-        param_dict: Parameter definition dictionary with keys like
-                    PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
-    """
-    _buffered_params.append(param_dict)
-
-
-def add_buffered_params(params):
-    """Add multiple parameters to the buffer.
-    
-    Args:
-        params: List of parameter definition dictionaries.
-    """
-    for param in params:
-        add_buffered_param(param)
 
 
 def register_run_level(name, defaults):
@@ -238,7 +242,7 @@ def build_params_for_run_level(run_level=None):
                 if bind_name in run_level_defaults:
                     param_copy[PARAM_DEFAULT] = run_level_defaults[bind_name]
         
-        add_param(param_copy)
+        _activate_param(param_copy)
     
     _buffered_params.clear()
 
