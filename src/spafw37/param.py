@@ -317,7 +317,10 @@ def build_params_for_run_level(run_level_name=None):
         # Get the list of params to register for this run-level
         allowed_params = None
         if run_level and RUN_LEVEL_PARAMS in run_level:
-            allowed_params = set(run_level[RUN_LEVEL_PARAMS])
+            param_list = run_level[RUN_LEVEL_PARAMS]
+            # Empty list means all params, non-empty list filters
+            if param_list:
+                allowed_params = set(param_list)
         
         for param in _buffered_params:
             bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))

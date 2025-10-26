@@ -1,7 +1,7 @@
 # Configures configuration parameters for the application
 from spafw37 import logging
 from .config import load_persistent_config, save_persistent_config, load_user_config, save_user_config, set_config_file
-from .param import add_params
+from .param import add_params, add_run_level
 from .cli import add_post_parse_actions, add_pre_parse_actions
 from .command import add_commands
 from .help import show_help_command
@@ -22,7 +22,11 @@ from .config_consts import (
     COMMAND_DESCRIPTION,
     COMMAND_ACTION,
     COMMAND_FRAMEWORK,
-    PARAM_TYPE_TEXT
+    PARAM_TYPE_TEXT,
+    RUN_LEVEL_NAME,
+    RUN_LEVEL_PARAMS,
+    RUN_LEVEL_COMMANDS,
+    RUN_LEVEL_CONFIG
 )
 
 CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
@@ -72,3 +76,11 @@ add_params(logging.LOGGING_PARAMS)
 add_commands(_commands_builtin)
 add_pre_parse_actions([load_persistent_config, load_user_config])
 add_post_parse_actions([save_persistent_config, save_user_config])
+
+# Define default run-level that processes all params and commands
+add_run_level({
+    RUN_LEVEL_NAME: 'default',
+    RUN_LEVEL_PARAMS: [],  # Empty list means all params
+    RUN_LEVEL_COMMANDS: [],  # Empty list means all commands
+    RUN_LEVEL_CONFIG: {}
+})
