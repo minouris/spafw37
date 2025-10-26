@@ -8,9 +8,9 @@ from .config import list_config_params, set_config_value
 from .param import (
     _has_xor_with, _params, get_bind_name, get_param_default, is_alias, 
     is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, 
-    is_param_alias, is_toggle_param, param_has_default, build_params_for_run_level
+    is_param_alias, is_toggle_param, param_has_default, build_params_for_run_level,
+    list_run_levels, apply_run_level_defaults
 )
-from .config_consts import RUN_LEVELS_ALIAS_LONG, RUN_LEVELS_ALIAS_SHORT
 
 # Functions to run before parsing the command line
 _pre_parse_actions: list[Callable] = []
@@ -130,81 +130,23 @@ def _set_defaults():
             if param_has_default(_param):
                 set_config_value(_param, get_param_default(_param))
 
-def _extract_run_levels(args):
-    """Extract run-levels from command-line arguments.
-    
-    Looks for -R or --run-levels flags and extracts the run-level names.
-    Supports comma-separated values and multiple flags.
-    
-    Args:
-        args: List of command-line arguments.
-        
-    Returns:
-        List of run-level names in order, or empty list if none specified.
-    """
-    run_levels = []
-    idx = 0
-    
-    while idx < len(args):
-        arg = args[idx]
-        if arg in [RUN_LEVELS_ALIAS_SHORT, RUN_LEVELS_ALIAS_LONG]:
-            if idx + 1 < len(args):
-                level_value = args[idx + 1]
-                if ',' in level_value:
-                    run_levels.extend([level.strip() for level in level_value.split(',')])
-                else:
-                    run_levels.append(level_value.strip())
-                idx += 2
-            else:
-                idx += 1
-        else:
-            idx += 1
-    
-    return run_levels
-
-
-def _filter_run_level_args(args):
-    """Remove run-level arguments from the argument list.
-    
-    Args:
-        args: List of command-line arguments.
-        
-    Returns:
-        New list with run-level arguments removed.
-    """
-    filtered = []
-    idx = 0
-    
-    while idx < len(args):
-        arg = args[idx]
-        if arg in [RUN_LEVELS_ALIAS_SHORT, RUN_LEVELS_ALIAS_LONG]:
-            idx += 2
-        else:
-            filtered.append(arg)
-            idx += 1
-    
-    return filtered
-
-
 def handle_cli_args(args: list[str]):
     # Check for help command before processing
     from .help import handle_help_with_arg, display_all_help
     if handle_help_with_arg(args):
         return
     
-    run_levels = _extract_run_levels(args)
+    # First, register buffered params with base defaults
+    build_params_for_run_level()
     
-    if run_levels:
-        for run_level in run_levels:
-            build_params_for_run_level(run_level)
-    else:
-        build_params_for_run_level()
-    
-    filtered_args = _filter_run_level_args(args)
+    # Then apply run-level defaults in registration order
+    run_level_names = list_run_levels()
+    for run_level in run_level_names:
+        apply_run_level_defaults(run_level)
     
     _set_defaults()
     _do_pre_parse_actions()
-    _parse_command_line(filtered_args)
+    _parse_command_line(args)
     _do_post_parse_actions()
     
     # Display help if no app-defined commands were queued
@@ -213,4 +155,3 @@ def handle_cli_args(args: list[str]):
         return
     
     run_command_queue()
-

@@ -299,6 +299,28 @@ def build_params_for_run_level(run_level=None):
             raise
 
 
+def apply_run_level_defaults(run_level):
+    """Apply run-level defaults to already-registered parameters.
+    
+    This updates the default values of registered params without
+    re-registering them.
+    
+    Args:
+        run_level: Name of run-level to apply.
+    """
+    try:
+        run_level_defaults = get_run_level(run_level)
+        if not run_level_defaults:
+            return
+        
+        for param_name, param in _params.items():
+            bind_name = param.get(PARAM_BIND_TO, param_name)
+            if bind_name in run_level_defaults:
+                param[PARAM_DEFAULT] = run_level_defaults[bind_name]
+    except Exception as e:
+        _run_level_error_handler(run_level, e)
+
+
 def get_buffered_params():
     """Get the list of buffered parameters.
     

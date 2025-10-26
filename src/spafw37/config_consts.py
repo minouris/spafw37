@@ -29,8 +29,6 @@ CONFIG_INFILE_ALIAS = '--save-config'
 CONFIG_OUTFILE_ALIAS = '--load-config'
 
 # Run-level definitions
-RUN_LEVELS_ALIAS_LONG = '--run-levels'
-RUN_LEVELS_ALIAS_SHORT = '-R'
 RUN_LEVEL_ERROR_HANDLER = 'run-level-error-handler'  # Property for custom error handler during run-level execution
 
 # Command Definitions

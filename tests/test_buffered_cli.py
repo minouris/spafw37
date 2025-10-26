@@ -123,56 +123,6 @@ def test_multiple_run_levels_override():
     assert param._params['test'][PARAM_DEFAULT] == 'prod_value'
 
 
-def test_extract_run_levels_single():
-    """Test extracting a single run-level from args."""
-    setup_function()
-    
-    args = ['-R', 'dev', '--test', 'value']
-    levels = cli._extract_run_levels(args)
-    
-    assert levels == ['dev']
-
-
-def test_extract_run_levels_comma_separated():
-    """Test extracting comma-separated run-levels."""
-    setup_function()
-    
-    args = ['-R', 'dev,staging,prod', '--test', 'value']
-    levels = cli._extract_run_levels(args)
-    
-    assert levels == ['dev', 'staging', 'prod']
-
-
-def test_extract_run_levels_multiple_flags():
-    """Test extracting run-levels from multiple flags."""
-    setup_function()
-    
-    args = ['-R', 'dev', '--test', 'value', '-R', 'prod']
-    levels = cli._extract_run_levels(args)
-    
-    assert levels == ['dev', 'prod']
-
-
-def test_extract_run_levels_long_form():
-    """Test extracting run-levels with long form alias."""
-    setup_function()
-    
-    args = ['--run-levels', 'dev', '--test', 'value']
-    levels = cli._extract_run_levels(args)
-    
-    assert levels == ['dev']
-
-
-def test_filter_run_level_args():
-    """Test filtering run-level arguments from args list."""
-    setup_function()
-    
-    args = ['-R', 'dev', '--test', 'value', '-R', 'prod', 'command']
-    filtered = cli._filter_run_level_args(args)
-    
-    assert filtered == ['--test', 'value', 'command']
-
-
 def test_handle_cli_args_with_run_level():
     """Test full CLI handling with run-level."""
     setup_function()
@@ -186,7 +136,7 @@ def test_handle_cli_args_with_run_level():
     
     param.register_run_level('dev', {'test': 'dev_value'})
     
-    cli.handle_cli_args(['-R', 'dev', '--test', 'cli_value'])
+    cli.handle_cli_args(['--test', 'cli_value'])
     
     assert config.get_config_value('test') == 'cli_value'
 
@@ -204,7 +154,7 @@ def test_handle_cli_args_run_level_default_used():
     
     param.register_run_level('dev', {'test': 'dev_value'})
     
-    cli.handle_cli_args(['-R', 'dev'])
+    cli.handle_cli_args([])
     
     assert config.get_config_value('test') == 'dev_value'
 
@@ -282,7 +232,7 @@ def test_cli_override_always_wins():
     param.register_run_level('dev', {'value': 20})
     param.register_run_level('prod', {'value': 30})
     
-    cli.handle_cli_args(['-R', 'dev,prod', '--value', '50'])
+    cli.handle_cli_args(['--value', '50'])
     
     assert config.get_config_value('value') == 50
 
@@ -309,7 +259,7 @@ def test_multiple_params_with_run_level():
         'port': 443
     })
     
-    cli.handle_cli_args(['-R', 'prod'])
+    cli.handle_cli_args([])
     
     assert config.get_config_value('host') == 'prod.example.com'
     assert config.get_config_value('port') == 443

@@ -2,6 +2,7 @@
 
 This demonstrates how modules can register parameters as dictionaries
 and how run-levels can be used to provide different default configurations.
+Run-levels are executed automatically in registration order.
 """
 
 from spafw37.param import add_param, register_run_level
@@ -39,6 +40,8 @@ def main():
     })
     
     # Register run-levels
+    # These will be executed in registration order (dev, then prod)
+    # Later run-levels override earlier ones
     register_run_level('dev', {
         'host': 'dev.local',
         'port': 3000,
@@ -52,11 +55,14 @@ def main():
     })
     
     # Parse command-line arguments
-    # Run-levels are automatically extracted and applied
+    # Run-levels are automatically processed in registration order
+    # CLI arguments override run-level defaults
     import sys
     handle_cli_args(sys.argv[1:])
     
     # Get configuration values (after run-level merging and CLI overrides)
+    # Since 'prod' is registered after 'dev', prod defaults will be used
+    # unless overridden by CLI args
     print("Configuration:")
     print(f"  host: {get_config_value('host')}")
     print(f"  port: {get_config_value('port')}")
