@@ -375,3 +375,73 @@ def test_mixed_deferred_and_immediate_params():
     # deferred should be in buffer
     assert len(param._buffered_params) == 1
     assert param._buffered_params[0][PARAM_NAME] == 'deferred'
+
+
+def test_run_level_error_handler_default():
+    """Test default error handler logs and re-raises."""
+    setup_function()
+    
+    # Add a param that will cause an error during activation
+    param.add_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['invalid-alias']  # Invalid alias format
+    })
+    
+    param.register_run_level('bad', {'test': 'value'})
+    
+    # Should raise ValueError through default error handler
+    try:
+        param.build_params_for_run_level('bad')
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert 'Invalid alias format' in str(e)
+
+
+def test_run_level_error_handler_custom():
+    """Test custom error handler."""
+    setup_function()
+    
+    errors_caught = []
+    
+    def custom_handler(run_level, error):
+        errors_caught.append((run_level, str(error)))
+        # Don't re-raise, just log
+    
+    param.set_run_level_error_handler(custom_handler)
+    
+    # Add a param that will cause an error
+    param.add_param({
+        PARAM_NAME: 'test',
+        PARAM_ALIASES: ['invalid-alias']
+    })
+    
+    param.register_run_level('bad', {'test': 'value'})
+    
+    # Should NOT raise because custom handler doesn't re-raise
+    param.build_params_for_run_level('bad')
+    
+    assert len(errors_caught) == 1
+    assert errors_caught[0][0] == 'bad'
+    assert 'Invalid alias format' in errors_caught[0][1]
+    
+    # Reset to default
+    param.set_run_level_error_handler(param._default_run_level_error_handler)
+
+
+def test_run_level_get_error_handler():
+    """Test getting the current error handler."""
+    setup_function()
+    
+    # Should return default handler
+    handler = param.get_run_level_error_handler()
+    assert handler == param._default_run_level_error_handler
+    
+    # Set custom and verify
+    def custom_handler(run_level, error):
+        pass
+    
+    param.set_run_level_error_handler(custom_handler)
+    assert param.get_run_level_error_handler() == custom_handler
+    
+    # Reset
+    param.set_run_level_error_handler(param._default_run_level_error_handler)

@@ -33,6 +33,43 @@ _buffered_params = []
 # Run-level definitions
 _run_levels = {}
 
+# Default error handler for run-level processing
+def _default_run_level_error_handler(run_level, error):
+    """Default error handler for run-level execution.
+    
+    Logs the error and re-raises it.
+    
+    Args:
+        run_level: Name of the run-level being processed.
+        error: The exception that occurred.
+    """
+    import sys
+    print(f"Error processing run-level '{run_level}': {error}", file=sys.stderr)
+    raise error
+
+# Current error handler (can be customized)
+_run_level_error_handler = _default_run_level_error_handler
+
+
+def set_run_level_error_handler(handler):
+    """Set a custom error handler for run-level processing.
+    
+    Args:
+        handler: A callable that takes (run_level, error) and handles the error.
+    """
+    global _run_level_error_handler
+    _run_level_error_handler = handler
+
+
+def get_run_level_error_handler():
+    """Get the current run-level error handler.
+    
+    Returns:
+        The current error handler function.
+    """
+    return _run_level_error_handler
+
+
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
 
@@ -241,19 +278,25 @@ def build_params_for_run_level(run_level=None):
     Args:
         run_level: Name of run-level to apply, or None for base defaults.
     """
-    for param in _buffered_params:
-        param_copy = dict(param)
+    try:
+        for param in _buffered_params:
+            param_copy = dict(param)
+            
+            if run_level:
+                run_level_defaults = get_run_level(run_level)
+                if run_level_defaults:
+                    bind_name = param_copy.get(PARAM_BIND_TO, param_copy.get(PARAM_NAME))
+                    if bind_name in run_level_defaults:
+                        param_copy[PARAM_DEFAULT] = run_level_defaults[bind_name]
+            
+            _activate_param(param_copy)
         
+        _buffered_params.clear()
+    except Exception as e:
         if run_level:
-            run_level_defaults = get_run_level(run_level)
-            if run_level_defaults:
-                bind_name = param_copy.get(PARAM_BIND_TO, param_copy.get(PARAM_NAME))
-                if bind_name in run_level_defaults:
-                    param_copy[PARAM_DEFAULT] = run_level_defaults[bind_name]
-        
-        _activate_param(param_copy)
-    
-    _buffered_params.clear()
+            _run_level_error_handler(run_level, e)
+        else:
+            raise
 
 
 def get_buffered_params():
