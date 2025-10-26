@@ -469,6 +469,10 @@ def assign_orphans_to_default_run_level():
                     run_level[RUN_LEVEL_COMMANDS] = []
                 if cmd_name not in run_level[RUN_LEVEL_COMMANDS]:
                     run_level[RUN_LEVEL_COMMANDS].append(cmd_name)
+    
+    # Validate that commands don't have cross-run-level dependencies
+    from .command import validate_no_cross_run_level_dependencies
+    validate_no_cross_run_level_dependencies()
 
 
 
