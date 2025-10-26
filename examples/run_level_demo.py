@@ -7,54 +7,50 @@ merging.
 
 from spafw37.param import register_param, register_run_level
 from spafw37.cli import build_parser, parse_args, get_effective_config
-from spafw37.config_consts import (
-    PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_DESCRIPTION,
-    PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE
-)
 
 
 def setup_parameters():
     """Register parameters using buffered registration API."""
     
-    register_param(**{
-        PARAM_NAME: 'host',
-        PARAM_ALIASES: ['--host', '-h'],
-        PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_DEFAULT: 'localhost',
-        PARAM_DESCRIPTION: 'Server host address'
-    })
+    register_param(
+        name='host',
+        aliases=['--host', '-h'],
+        type='text',
+        default='localhost',
+        description='Server host address'
+    )
     
-    register_param(**{
-        PARAM_NAME: 'port',
-        PARAM_ALIASES: ['--port', '-p'],
-        PARAM_TYPE: PARAM_TYPE_NUMBER,
-        PARAM_DEFAULT: 8000,
-        PARAM_DESCRIPTION: 'Server port number'
-    })
+    register_param(
+        name='port',
+        aliases=['--port', '-p'],
+        type='number',
+        default=8000,
+        description='Server port number'
+    )
     
-    register_param(**{
-        PARAM_NAME: 'debug',
-        PARAM_ALIASES: ['--debug', '-d'],
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_DEFAULT: False,
-        PARAM_DESCRIPTION: 'Enable debug mode'
-    })
+    register_param(
+        name='debug',
+        aliases=['--debug', '-d'],
+        type='toggle',
+        default=False,
+        description='Enable debug mode'
+    )
     
-    register_param(**{
-        PARAM_NAME: 'log_level',
-        PARAM_ALIASES: ['--log-level', '-l'],
-        PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_DEFAULT: 'info',
-        PARAM_DESCRIPTION: 'Logging level'
-    })
+    register_param(
+        name='log_level',
+        aliases=['--log-level', '-l'],
+        type='text',
+        default='info',
+        description='Logging level'
+    )
     
-    register_param(**{
-        PARAM_NAME: 'workers',
-        PARAM_ALIASES: ['--workers', '-w'],
-        PARAM_TYPE: PARAM_TYPE_NUMBER,
-        PARAM_DEFAULT: 4,
-        PARAM_DESCRIPTION: 'Number of worker processes'
-    })
+    register_param(
+        name='workers',
+        aliases=['--workers', '-w'],
+        type='number',
+        default=4,
+        description='Number of worker processes'
+    )
 
 
 def setup_run_levels():

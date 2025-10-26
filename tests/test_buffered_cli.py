@@ -666,3 +666,45 @@ def test_buffered_missing_name_warning():
         assert count == 0
         assert len(w) == 1
         assert 'missing' in str(w[0].message).lower()
+
+
+def test_register_param_friendly_kwargs():
+    """Test that register_param accepts friendly keyword arguments."""
+    setup_function()
+    
+    param.register_param(
+        name='test',
+        aliases=['--test'],
+        type='text',
+        default='value',
+        description='Test parameter'
+    )
+    
+    cli.build_parser()
+    
+    assert 'test' in param._params
+    test_param = param._params['test']
+    assert test_param[PARAM_NAME] == 'test'
+    assert test_param[PARAM_ALIASES] == ['--test']
+    assert test_param[PARAM_TYPE] == PARAM_TYPE_TEXT
+    assert test_param[PARAM_DEFAULT] == 'value'
+
+
+def test_register_param_mixed_kwargs():
+    """Test that register_param accepts mix of friendly and internal kwargs."""
+    setup_function()
+    
+    param.register_param(
+        name='test',
+        **{PARAM_ALIASES: ['--test']},
+        default='value'
+    )
+    
+    cli.build_parser()
+    
+    assert 'test' in param._params
+    test_param = param._params['test']
+    assert test_param[PARAM_NAME] == 'test'
+    assert test_param[PARAM_ALIASES] == ['--test']
+    assert test_param[PARAM_DEFAULT] == 'value'
+

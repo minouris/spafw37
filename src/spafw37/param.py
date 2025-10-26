@@ -171,10 +171,42 @@ def register_param(**kwargs):
     Semantics mirror add_param but instead of immediately registering,
     the parameter is buffered until build_parser is called.
     
+    Accepts both friendly keyword arguments (name, aliases, type, default, etc.)
+    and internal constant keys (PARAM_NAME, PARAM_ALIASES, etc.).
+    
     Args:
-        **kwargs: Parameter definition matching add_param format.
+        **kwargs: Parameter definition. Can use either friendly names:
+            - name: parameter name
+            - aliases: list of CLI aliases
+            - type: parameter type ('text', 'number', 'toggle', 'list')
+            - default: default value
+            - description: help text
+            - bind_to: config key name
+            - persistence: persistence setting
+            - switch_list: mutually exclusive params
+            - runtime_only: runtime-only flag
+            - group: parameter group
+        Or internal constant keys (PARAM_NAME, PARAM_ALIASES, etc.)
     """
-    _buffered_registrations.append(kwargs)
+    friendly_to_internal = {
+        'name': PARAM_NAME,
+        'aliases': PARAM_ALIASES,
+        'type': PARAM_TYPE,
+        'default': PARAM_DEFAULT,
+        'description': 'description',
+        'bind_to': PARAM_BIND_TO,
+        'persistence': PARAM_PERSISTENCE,
+        'switch_list': PARAM_SWITCH_LIST,
+        'runtime_only': PARAM_RUNTIME_ONLY,
+        'group': 'param-group'
+    }
+    
+    normalized = {}
+    for key, value in kwargs.items():
+        internal_key = friendly_to_internal.get(key, key)
+        normalized[internal_key] = value
+    
+    _buffered_registrations.append(normalized)
 
 
 def register_run_level(name, defaults):
