@@ -72,6 +72,16 @@ def get_command(name):
     """Return the command dict for name or None if missing."""
     return _commands.get(name)
 
+
+def get_all_commands():
+    """Return all registered commands.
+    
+    Returns:
+        Dictionary of all registered commands {command_name: command_dict}.
+    """
+    return dict(_commands)
+
+
 def is_command(arg):
     return arg in _commands.keys()
 

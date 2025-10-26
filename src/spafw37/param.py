@@ -5,6 +5,7 @@ from .config_consts import (
     PARAM_BIND_TO,
     PARAM_RUNTIME_ONLY,
     PARAM_DEFERRED,
+    PARAM_RUN_LEVEL,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,
@@ -394,5 +395,80 @@ def get_buffered_params():
         List of buffered parameter dictionaries.
     """
     return list(_buffered_params)
+
+
+def assign_orphans_to_default_run_level():
+    """Pre-parse check that assigns orphan params/commands to default run-level.
+    
+    This function:
+    1. Finds the default run-level
+    2. For each buffered param without PARAM_RUN_LEVEL, assigns it to default
+    3. For each command without COMMAND_RUN_LEVEL, assigns it to default
+    4. Creates bidirectional relationships by updating run-level param/command lists
+    """
+    from .command import get_all_commands
+    from .config_consts import COMMAND_NAME, COMMAND_RUN_LEVEL
+    
+    # Find the default run-level
+    default_run_level = None
+    for rl in _run_levels:
+        if rl.get(RUN_LEVEL_NAME) == 'default':
+            default_run_level = rl
+            break
+    
+    if not default_run_level:
+        # No default run-level found, nothing to do
+        return
+    
+    # Get or initialize param/command lists
+    if RUN_LEVEL_PARAMS not in default_run_level:
+        default_run_level[RUN_LEVEL_PARAMS] = []
+    if RUN_LEVEL_COMMANDS not in default_run_level:
+        default_run_level[RUN_LEVEL_COMMANDS] = []
+    
+    default_params = default_run_level[RUN_LEVEL_PARAMS]
+    default_commands = default_run_level[RUN_LEVEL_COMMANDS]
+    
+    # Process buffered params
+    for param in _buffered_params:
+        if PARAM_RUN_LEVEL not in param or not param[PARAM_RUN_LEVEL]:
+            # Assign to default run-level
+            param[PARAM_RUN_LEVEL] = 'default'
+            bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+            
+            # Add to default run-level's param list if not already there
+            if bind_name and bind_name not in default_params:
+                default_params.append(bind_name)
+        else:
+            # Param has explicit run-level - add to that run-level's list
+            run_level_name = param[PARAM_RUN_LEVEL]
+            run_level = get_run_level(run_level_name)
+            if run_level:
+                if RUN_LEVEL_PARAMS not in run_level:
+                    run_level[RUN_LEVEL_PARAMS] = []
+                bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+                if bind_name and bind_name not in run_level[RUN_LEVEL_PARAMS]:
+                    run_level[RUN_LEVEL_PARAMS].append(bind_name)
+    
+    # Process commands
+    all_commands = get_all_commands()
+    for cmd_name, cmd in all_commands.items():
+        if COMMAND_RUN_LEVEL not in cmd or not cmd[COMMAND_RUN_LEVEL]:
+            # Assign to default run-level
+            cmd[COMMAND_RUN_LEVEL] = 'default'
+            
+            # Add to default run-level's command list if not already there
+            if cmd_name not in default_commands:
+                default_commands.append(cmd_name)
+        else:
+            # Command has explicit run-level - add to that run-level's list
+            run_level_name = cmd[COMMAND_RUN_LEVEL]
+            run_level = get_run_level(run_level_name)
+            if run_level:
+                if RUN_LEVEL_COMMANDS not in run_level:
+                    run_level[RUN_LEVEL_COMMANDS] = []
+                if cmd_name not in run_level[RUN_LEVEL_COMMANDS]:
+                    run_level[RUN_LEVEL_COMMANDS].append(cmd_name)
+
 
 

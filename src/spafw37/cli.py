@@ -9,7 +9,7 @@ from .param import (
     _has_xor_with, _params, get_bind_name, get_param_default, is_alias, 
     is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, 
     is_param_alias, is_toggle_param, param_has_default, build_params_for_run_level,
-    get_all_run_levels, apply_run_level_config
+    get_all_run_levels, apply_run_level_config, assign_orphans_to_default_run_level
 )
 from .config_consts import RUN_LEVEL_NAME, RUN_LEVEL_COMMANDS, RUN_LEVEL_PARAMS
 
@@ -141,6 +141,10 @@ def handle_cli_args(args: list[str]):
     from .help import handle_help_with_arg, display_all_help
     if handle_help_with_arg(args):
         return
+    
+    # Pre-parse: assign orphan params/commands to default run-level
+    # and create bidirectional relationships
+    assign_orphans_to_default_run_level()
     
     # Process run-levels in registration order
     run_levels = get_all_run_levels()

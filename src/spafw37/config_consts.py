@@ -10,6 +10,7 @@ PARAM_SWITCH_LIST   = 'switch-list'
 PARAM_DEFAULT       = 'default-value'
 PARAM_RUNTIME_ONLY   = 'runtime-only' # Not persisted, only for runtime use, not checked at startof queue, but checked when a command that uses them is run
 PARAM_DEFERRED       = 'deferred' # When False, param should be processed immediately instead of being buffered (default: True for all params)
+PARAM_RUN_LEVEL      = 'param-run-level' # Run-level this param belongs to (can be set at definition or auto-assigned)
 PARAM_GROUP         = 'param-group' # Group name for organizing parameters in help display
 
 
@@ -47,6 +48,7 @@ COMMAND_REQUIRE_BEFORE = "require-before" # List of command names that must be c
 COMMAND_NEXT_COMMANDS = "next-commands" # List of command names that will be automatically queued after this command is run
 COMMAND_TRIGGER_PARAM = "trigger-param" # Param bind name that triggers this command when set
 COMMAND_PHASE = "command-phase" # Phase in which this command should be run
+COMMAND_RUN_LEVEL = "command-run-level" # Run-level this command belongs to (can be set at definition or auto-assigned)
 COMMAND_FRAMEWORK = "framework" # True if this is a framework-defined command (vs app-defined)
 
 # Command Phases
