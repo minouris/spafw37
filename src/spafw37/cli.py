@@ -162,17 +162,17 @@ def handle_cli_args(args: list[str]):
         # Then apply run-level config (can override defaults)
         apply_run_level_config(run_level_name)
         
-        # Parse command line for this run-level's params
-        _parse_command_line(args)
-        
-        # Queue and execute commands for this run-level
+        # Queue commands specified in run-level definition
         if RUN_LEVEL_COMMANDS in run_level:
             for cmd_name in run_level[RUN_LEVEL_COMMANDS]:
                 if is_command(cmd_name):
                     queue_command(cmd_name)
-            
-            # Execute this run-level's command queue
-            run_command_queue()
+        
+        # Parse command line for this run-level's params and commands
+        _parse_command_line(args)
+        
+        # Execute this run-level's command queue
+        run_command_queue()
     
     # After all run-levels, display help if no app-defined commands were queued
     if not has_app_commands_queued():
