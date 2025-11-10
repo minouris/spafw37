@@ -4,7 +4,6 @@ Enhanced test application demonstrating help/usage features.
 from spafw37.config import set_config_file
 from spafw37.param import add_params
 from spafw37.command import add_commands
-import spafw37.configure
 
 from spafw37.config_consts import (
     PARAM_NAME,
@@ -142,28 +141,6 @@ Use --verbose to see detailed test output.
 add_params(demo_params)
 add_commands(demo_commands)
 
-
 if __name__ == "__main__":
-    import sys
-    import spafw37.cli as cli
-    from spafw37.command import CommandParameterError
-    from spafw37.help import display_all_help, display_command_help
-    
-    # Pass user-provided command-line arguments (excluding program name)
-    try:
-        cli.handle_cli_args(sys.argv[1:])
-    except CommandParameterError as e:
-        # On command parameter error, display help for that specific command
-        print(f"Error: {e}")
-        print()
-        if e.command_name:
-            display_command_help(e.command_name)
-        else:
-            display_all_help()
-        sys.exit(1)
-    except ValueError as e:
-        # On other errors, display general help
-        print(f"Error: {e}")
-        print()
-        display_all_help()
-        sys.exit(1)
+    from spafw37 import core
+    core.run_cli()
