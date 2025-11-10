@@ -430,29 +430,15 @@ def assign_orphans_to_default_run_level():
                 if bind_name and bind_name not in run_level[RUN_LEVEL_PARAMS]:
                     run_level[RUN_LEVEL_PARAMS].append(bind_name)
     
-    # Process commands
+    # Process commands: assign them to run-levels but don't auto-queue them
     all_commands = get_all_commands()
     for cmd_name, cmd in all_commands.items():
-        # Skip framework commands - they should only run when explicitly triggered
-        if cmd.get(COMMAND_FRAMEWORK, False):
-            continue
-            
+        # Assign commands to a run-level for categorization, but don't add them
+        # to RUN_LEVEL_COMMANDS lists (which would cause them to auto-execute).
+        # Commands should only execute when explicitly invoked on command line.
         if COMMAND_RUN_LEVEL not in cmd or not cmd[COMMAND_RUN_LEVEL]:
-            # Assign to default run-level
+            # Assign to default run-level for categorization
             cmd[COMMAND_RUN_LEVEL] = default_run_level_name
-            
-            # Add to default run-level's command list if not already there
-            if cmd_name not in default_commands:
-                default_commands.append(cmd_name)
-        else:
-            # Command has explicit run-level - add to that run-level's list
-            run_level_name = cmd[COMMAND_RUN_LEVEL]
-            run_level = get_run_level(run_level_name)
-            if run_level:
-                if RUN_LEVEL_COMMANDS not in run_level:
-                    run_level[RUN_LEVEL_COMMANDS] = []
-                if cmd_name not in run_level[RUN_LEVEL_COMMANDS]:
-                    run_level[RUN_LEVEL_COMMANDS].append(cmd_name)
     
     # Validate that commands don't have cross-run-level dependencies
     from .command import validate_no_cross_run_level_dependencies

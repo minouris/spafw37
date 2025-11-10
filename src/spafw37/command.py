@@ -175,11 +175,17 @@ def is_command(arg):
 
 
 def has_app_commands_queued():
-    """Check if any app-defined (non-framework) commands are queued.
+    """Check if any app-defined (non-framework) commands are queued or executed.
     
     Returns:
-        True if any app-defined commands are in the queue or phases.
+        True if any app-defined commands are in the queue, phases, or finished.
     """
+    # Check finished commands for app commands
+    for cmd_name in _finished_commands:
+        cmd = get_command(cmd_name)
+        if cmd and not cmd.get(COMMAND_FRAMEWORK, False):
+            return True
+    
     # Check all phases for app commands
     for phase_name in _phase_order:
         if phase_name not in _phases_completed:
