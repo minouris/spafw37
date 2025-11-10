@@ -1,6 +1,7 @@
 import pytest
 from spafw37 import cli, config, param, command
 from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_INFILE_ALIAS, CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
+import spafw37.configure
 from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
 from unittest.mock import patch, mock_open
@@ -13,6 +14,7 @@ def setup_function():
     param._param_aliases.clear()
     param._params.clear()
     param._preparse_args.clear()
+    param._run_levels.clear()
     try:
         config._non_persisted_config_names.clear()
         config._config.clear()

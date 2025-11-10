@@ -82,6 +82,30 @@ def set_config_value(param, value):
     logging.log_debug(_message=f"Set param '{bind_name}' = {value}")
     _manage_config_persistence(param, value)
 
+def set_config_value_from_cmdline(param, value):
+    """Set config value from command line, handling toggle switching.
+    
+    When setting a toggle param from command line, unset conflicting toggles.
+    
+    Args:
+        param: Parameter definition dict.
+        value: Value to set.
+    """
+    from .param import get_xor_params
+    
+    bind_name = get_bind_name(param)
+    
+    # If it's a toggle, unset conflicting toggles
+    if is_toggle_param(param):
+        xor_params = get_xor_params(bind_name)
+        for xor_param in xor_params:
+            if xor_param in _config:
+                _config[xor_param] = False
+                logging.log_debug(_message=f"Unsetting conflicting toggle '{xor_param}'")
+    
+    # Set the value
+    set_config_value(param, value)
+
 def set_config_list_value(value, bind_name):
     if bind_name not in _config:
         _config[bind_name] = []

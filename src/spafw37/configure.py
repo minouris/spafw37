@@ -1,8 +1,8 @@
 # Configures configuration parameters for the application
 from spafw37 import logging
 from .config import (
-    load_persistent_config, 
-    save_persistent_config, 
+    load_persistent_config,
+    save_persistent_config,
     load_user_config, 
     save_user_config, 
     set_config_file, 
@@ -12,7 +12,7 @@ from .config import (
     RUN_LEVEL_EXEC,
     RUN_LEVEL_CLEANUP
 )
-from .param import add_params, add_run_level
+from .param import add_params, add_run_level, add_pre_parse_args
 from .cli import add_post_parse_actions, add_pre_parse_actions
 from .command import add_commands
 from .help import show_help_command
@@ -117,24 +117,14 @@ _commands_builtin = [
 add_params(_params_builtin)
 add_params(logging.LOGGING_PARAMS)
 add_commands(_commands_builtin)
-add_pre_parse_actions([load_persistent_config, load_user_config])
-add_post_parse_actions([save_persistent_config, save_user_config])
+add_pre_parse_actions([load_persistent_config])
+add_post_parse_actions([save_persistent_config])
 
 # Define run-levels for different execution phases
 # init: sets up logging, determines output verbosity/silent, log levels, etc
 add_run_level({
     RUN_LEVEL_NAME: RUN_LEVEL_INIT,
-    RUN_LEVEL_PARAMS: [
-        logging.LOG_VERBOSE_PARAM,
-        logging.LOG_TRACE_PARAM,
-        logging.LOG_TRACE_CONSOLE_PARAM,
-        logging.LOG_SILENT_PARAM,
-        logging.LOG_NO_LOGGING_PARAM,
-        logging.LOG_SUPPRESS_ERRORS_PARAM,
-        logging.LOG_DIR_PARAM,
-        logging.LOG_LEVEL_PARAM,
-        logging.LOG_PHASE_LOG_LEVEL_PARAM
-    ],
+    RUN_LEVEL_PARAMS: [],
     RUN_LEVEL_COMMANDS: [],
     RUN_LEVEL_CONFIG: {
         logging.LOG_SILENT_PARAM: True
@@ -167,3 +157,16 @@ add_run_level({
 
 # Set the default run-level
 set_default_run_level(RUN_LEVEL_EXEC)
+
+# Register pre-parse arguments (params to parse before main CLI parsing)
+add_pre_parse_args([
+    logging.LOG_VERBOSE_PARAM,
+    logging.LOG_TRACE_PARAM,
+    logging.LOG_TRACE_CONSOLE_PARAM,
+    logging.LOG_SILENT_PARAM,
+    logging.LOG_NO_LOGGING_PARAM,
+    logging.LOG_SUPPRESS_ERRORS_PARAM,
+    logging.LOG_DIR_PARAM,
+    logging.LOG_LEVEL_PARAM,
+    logging.LOG_PHASE_LOG_LEVEL_PARAM
+])

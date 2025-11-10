@@ -1,5 +1,6 @@
 import re
 from typing import List, Dict, Any, Optional
+
 from .config_consts import (
     PARAM_NAME,
     PARAM_BIND_TO,
@@ -150,6 +151,17 @@ def _has_xor_with(param_name: str, other_param_name: str) -> bool:
     xor_list = _xor_list.get(param_name, [])
     return other_param_name in xor_list
 
+def get_xor_params(param_name: str):
+    """Get list of params that are mutually exclusive with given param.
+    
+    Args:
+        param_name: Bind name of the parameter.
+        
+    Returns:
+        List of param names that are mutually exclusive with this param.
+    """
+    return _xor_list.get(param_name, [])
+
 def _set_param_xor_list(param_name: str, xor_list: list):
     for xor_param_name in xor_list:
         _add_param_xor(param_name, xor_param_name)
@@ -172,6 +184,28 @@ def get_param_by_alias(alias: str) -> dict:
 def is_param_alias(_param: dict, alias: str) -> bool:
     aliases = _param.get(PARAM_ALIASES, [])
     return alias in aliases
+
+def param_in_args(param_name, args):
+    """Check if a parameter appears in the command-line args.
+    
+    Args:
+        param_name: Bind name of the parameter.
+        args: List of command-line arguments.
+        
+    Returns:
+        True if any alias of the param is in args.
+    """
+    param = get_param_by_name(param_name)
+    if not param:
+        return False
+    
+    aliases = param.get(PARAM_ALIASES, [])
+    for arg in args:
+        # Check exact match or --param=value format
+        for alias in aliases:
+            if arg == alias or arg.startswith(alias + '='):
+                return True
+    return False
 
 def add_param(_param: dict):
     """Add a parameter and activate it immediately.
@@ -463,9 +497,15 @@ def get_pre_parse_args():
     """Get the list of registered pre-parse params.
     
     Returns:
-        List of pre-parse param definitions.
+        List of pre-parse param definitions (full param dicts).
     """
-    return list(_preparse_args)
+    # Convert param names to full param definitions
+    result = []
+    for param_name in _preparse_args:
+        param_def = get_param_by_name(param_name)
+        if param_def:
+            result.append(param_def)
+    return result
 
 
 

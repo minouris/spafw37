@@ -1,13 +1,13 @@
 import sys
 
 from .command import run_command_queue, get_command, is_command, queue_command, has_app_commands_queued, CommandParameterError
-from .config import list_config_params, set_config_value
+from .config import list_config_params, set_config_value, set_config_value_from_cmdline
 from .param import (
     _has_xor_with, _params, get_bind_name, get_param_default, is_alias, 
     is_list_param, is_long_alias_with_value, get_param_by_alias, _parse_value, 
     is_param_alias, is_toggle_param, param_has_default, build_params_for_run_level,
     get_all_run_levels, apply_run_level_config, assign_orphans_to_default_run_level,
-    get_pre_parse_args
+    get_pre_parse_args, param_in_args
 )
 from .config_consts import RUN_LEVEL_NAME, RUN_LEVEL_COMMANDS, RUN_LEVEL_PARAMS, PARAM_NAME, PARAM_HAS_VALUE
 
@@ -86,19 +86,34 @@ def capture_param_values(args, param_definition):
     
     return base_offset + argument_index, values
 
-def test_switch_xor(param_definition):
+# Module-level variable to hold original args for conflict checking
+_current_args = []
+
+def test_switch_xor(param_definition, args):
     """Test for mutually exclusive parameter conflicts.
+    
+    Only raises error if BOTH conflicting params were explicitly provided
+    in the command-line args (not just defaults).
     
     Args:
         param_definition: Parameter definition to check for XOR conflicts.
+        args: Command-line arguments list.
         
     Raises:
-        ValueError: If conflicting parameters are both set.
+        ValueError: If conflicting parameters are both in args.
     """
+    current_param_name = get_bind_name(param_definition)
+    
+    # Only check for conflicts if this param is in the args
+    if not param_in_args(current_param_name, args):
+        return
+    
     for bind_name in list_config_params():
-        if _has_xor_with(get_bind_name(param_definition), bind_name):
-            param_name = param_definition.get('name')
-            raise ValueError(f"Conflicting parameters provided: {param_name} and {bind_name}")
+        if _has_xor_with(current_param_name, bind_name):
+            # Only raise error if the conflicting param is also in args
+            if param_in_args(bind_name, args):
+                param_name = param_definition.get('name')
+                raise ValueError(f"Conflicting parameters provided: {param_name} and {bind_name}")
 
 def _parse_command_line(args):
     """Parse command-line arguments and execute commands.
@@ -108,6 +123,9 @@ def _parse_command_line(args):
     Args:
         args: List of command-line argument strings.
     """
+    global _current_args
+    _current_args = args  # Store for conflict checking
+    
     argument_index = 0
     arguments_count = len(args)
     param_definition = None
@@ -130,7 +148,7 @@ def _parse_command_line(args):
                 raise ValueError(f"Unknown argument or command: {argument}")
             
             if param_definition and param_value is not None:
-                set_config_value(param_definition, param_value)
+                set_config_value_from_cmdline(param_definition, param_value)
 
 def _handle_alias_param(args, argument_index, argument):
     """Handle a parameter alias argument.
@@ -147,7 +165,7 @@ def _handle_alias_param(args, argument_index, argument):
     if not param_definition:
         raise ValueError(f"Unknown parameter alias: {argument}")
     
-    test_switch_xor(param_definition)
+    test_switch_xor(param_definition, _current_args)
     
     if is_toggle_param(param_definition):
         param_value = _parse_value(param_definition, None)
@@ -169,10 +187,11 @@ def _handle_long_alias_param(argument):
     """
     param_alias, raw_value = argument.split('=', 1)
     param_definition = get_param_by_alias(param_alias)
-    test_switch_xor(param_definition)
     
     if not param_definition:
         raise ValueError(f"Unknown parameter alias: {param_alias}")
+    
+    test_switch_xor(param_definition, _current_args)
     
     return _parse_value(param_definition, raw_value), param_definition
 
@@ -310,7 +329,7 @@ def _apply_preparse_value_to_config(argument, param_definition, parsed_value):
     alias = _extract_alias_from_argument(argument)
     param = get_param_by_alias(alias)
     if param:
-        set_config_value(param, parsed_value)
+        set_config_value_from_cmdline(param, parsed_value)
 
 def _pre_parse_params(arguments):
     """Silently parse pre-registered params before main CLI parsing.
@@ -321,6 +340,9 @@ def _pre_parse_params(arguments):
     Args:
         arguments: Command-line arguments list.
     """
+    global _current_args
+    _current_args = arguments  # Store for conflict checking
+    
     preparse_definitions = get_pre_parse_args()
     if not preparse_definitions:
         return
@@ -366,6 +388,9 @@ def handle_cli_args(args):
     if handle_help_with_arg(args):
         return
     
+    # Execute pre-parse actions (e.g., load persistent config)
+    _do_pre_parse_actions()
+    
     # Pre-parse specific params (e.g., logging/verbosity controls)
     # before main parsing to configure behavior
     _pre_parse_params(args)
@@ -408,6 +433,9 @@ def handle_cli_args(args):
         
         # Execute this run-level's command queue
         run_command_queue()
+    
+    # Execute post-parse actions (e.g., save persistent config)
+    _do_post_parse_actions()
     
     # After all run-levels, display help if no app-defined commands were queued
     if not has_app_commands_queued():
