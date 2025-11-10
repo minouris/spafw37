@@ -4,6 +4,8 @@ from .config_consts import (
     PARAM_NAME,
     PARAM_BIND_TO,
     PARAM_RUNTIME_ONLY,
+    PARAM_DEFERRED,
+    PARAM_RUN_LEVEL,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,
@@ -15,6 +17,11 @@ from .config_consts import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
+    RUN_LEVEL_NAME,
+    RUN_LEVEL_PARAMS,
+    RUN_LEVEL_COMMANDS,
+    RUN_LEVEL_CONFIG,
+    RUN_LEVEL_ERROR_HANDLER,
 )
 
 # RegExp Patterns
@@ -25,6 +32,49 @@ PATTERN_SHORT_ALIAS = r"^-\w{1,2}$"
 _params = {}
 _param_aliases = {}
 _xor_list = {}
+
+# Buffered parameters for deferred processing
+_buffered_params = []
+
+# Run-level definitions (list to maintain order)
+_run_levels = []
+
+# Default error handler for run-level processing
+def _default_run_level_error_handler(run_level_name, error):
+    """Default error handler for run-level execution.
+    
+    Logs the error and re-raises it.
+    
+    Args:
+        run_level_name: Name of the run-level being processed.
+        error: The exception that occurred.
+    """
+    import sys
+    print(f"Error processing run-level '{run_level_name}': {error}", file=sys.stderr)
+    raise error
+
+# Current error handler (can be customized)
+_run_level_error_handler = _default_run_level_error_handler
+
+
+def set_run_level_error_handler(handler):
+    """Set a custom error handler for run-level processing.
+    
+    Args:
+        handler: A callable that takes (run_level, error) and handles the error.
+    """
+    global _run_level_error_handler
+    _run_level_error_handler = handler
+
+
+def get_run_level_error_handler():
+    """Get the current run-level error handler.
+    
+    Returns:
+        The current error handler function.
+    """
+    return _run_level_error_handler
+
 
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
@@ -122,6 +172,47 @@ def is_param_alias(_param: dict, alias: str) -> bool:
     return alias in aliases
 
 def add_param(_param: dict):
+    """Add a parameter to the buffer for deferred processing.
+    
+    Parameters are buffered by default and processed later when build_params_for_run_level
+    is called during CLI argument parsing. If a parameter has PARAM_DEFERRED set to False,
+    it will be activated immediately instead of being buffered.
+    
+    Args:
+        _param: Parameter definition dictionary with keys like
+                PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
+                Set PARAM_DEFERRED to False to activate immediately (default: True).
+    """
+    # Check if this param should be processed immediately
+    if _param.get(PARAM_DEFERRED, True) is False:
+        # Immediately activate this parameter
+        _activate_param(_param)
+    else:
+        # Buffer for later processing
+        _buffered_params.append(_param)
+
+
+def _register_param_alias(param, alias):
+    """Register an alias for a parameter.
+    
+    Args:
+        param: Parameter dictionary.
+        alias: Alias string to register.
+    """
+    if not is_alias(alias):
+        raise ValueError(f"Invalid alias format: {alias}")
+    _param_aliases[alias] = param[PARAM_NAME]
+
+
+def _activate_param(_param):
+    """Activate a parameter by adding it to the active registry.
+    
+    This is called internally during build_params_for_run_level to process
+    buffered parameters.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
     _param_name = _param.get(PARAM_NAME)
     if PARAM_ALIASES in _param:
         for alias in _param.get(PARAM_ALIASES, []):
@@ -131,12 +222,6 @@ def add_param(_param: dict):
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
     _params[_param_name] = _param
-
-
-def _register_param_alias(param, alias):
-    if not is_alias(alias):
-        raise ValueError(f"Invalid alias format: {alias}")
-    _param_aliases[alias] = param[PARAM_NAME]
 
 
 def get_bind_name(param: dict) -> str:
@@ -156,4 +241,238 @@ def add_params(params: List[Dict[str, Any]]):
     """
     for param in params:
        add_param(param)
+
+
+def add_run_level(run_level_dict):
+    """Register a run-level definition.
+    
+    A run-level sandboxes parts of configuration to run in isolation with
+    defined sets of params, commands, and preset config values.
+    
+    Args:
+        run_level_dict: Dictionary with structure:
+            {
+                RUN_LEVEL_NAME: 'name',
+                RUN_LEVEL_PARAMS: [],  # List of param bind names for this level
+                RUN_LEVEL_COMMANDS: [],  # List of commands for this level
+                RUN_LEVEL_CONFIG: {},  # Dict of config name-value pairs
+                RUN_LEVEL_ERROR_HANDLER: handler_func  # Optional
+            }
+    """
+    if RUN_LEVEL_NAME not in run_level_dict:
+        raise ValueError("Run-level definition must include RUN_LEVEL_NAME")
+    
+    _run_levels.append(dict(run_level_dict))
+
+
+def get_run_level(name):
+    """Get a run-level definition by name.
+    
+    Args:
+        name: Name of the run-level.
+        
+    Returns:
+        Run-level dictionary, or None if not found.
+    """
+    for run_level in _run_levels:
+        if run_level.get(RUN_LEVEL_NAME) == name:
+            return run_level
+    return None
+
+
+def list_run_levels():
+    """Get list of all registered run-level names in order.
+    
+    Returns:
+        List of run-level names in registration order.
+    """
+    return [rl.get(RUN_LEVEL_NAME) for rl in _run_levels]
+
+
+def get_all_run_levels():
+    """Get all run-level definitions in order.
+    
+    Returns:
+        List of run-level dictionaries in registration order.
+    """
+    return list(_run_levels)
+
+
+def build_params_for_run_level(run_level_name=None):
+    """Process buffered parameters and register them.
+    
+    This flushes the buffered parameter list and adds them to the
+    active parameter registry. If a run_level_name is specified, only
+    registers params listed in that run-level's RUN_LEVEL_PARAMS.
+    
+    Args:
+        run_level_name: Name of run-level, or None to register all buffered params.
+    """
+    run_level = get_run_level(run_level_name) if run_level_name else None
+    error_handler = _run_level_error_handler
+    
+    if run_level and RUN_LEVEL_ERROR_HANDLER in run_level:
+        error_handler = run_level[RUN_LEVEL_ERROR_HANDLER]
+    
+    try:
+        # Get the list of params to register for this run-level
+        allowed_params = None
+        if run_level and RUN_LEVEL_PARAMS in run_level:
+            param_list = run_level[RUN_LEVEL_PARAMS]
+            # Empty list means all params, non-empty list filters
+            if param_list:
+                allowed_params = set(param_list)
+        
+        for param in _buffered_params:
+            bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+            
+            # Skip params not in this run-level's param list
+            if allowed_params is not None and bind_name not in allowed_params:
+                continue
+            
+            param_copy = dict(param)
+            
+            # Apply run-level config defaults if specified
+            if run_level and RUN_LEVEL_CONFIG in run_level:
+                config = run_level[RUN_LEVEL_CONFIG]
+                if bind_name in config:
+                    param_copy[PARAM_DEFAULT] = config[bind_name]
+            
+            _activate_param(param_copy)
+        
+        # Only clear buffer if we processed all params (no run-level filter)
+        if allowed_params is None:
+            _buffered_params.clear()
+    except Exception as e:
+        if run_level_name:
+            error_handler(run_level_name, e)
+        else:
+            raise
+
+
+def apply_run_level_config(run_level_name):
+    """Apply run-level config values to already-registered parameters.
+    
+    This updates the default values of registered params without
+    re-registering them. Only affects params listed in the run-level's
+    RUN_LEVEL_PARAMS (if specified).
+    
+    Args:
+        run_level_name: Name of run-level to apply.
+    """
+    run_level = get_run_level(run_level_name)
+    if not run_level:
+        return
+    
+    error_handler = _run_level_error_handler
+    if RUN_LEVEL_ERROR_HANDLER in run_level:
+        error_handler = run_level[RUN_LEVEL_ERROR_HANDLER]
+    
+    try:
+        config = run_level.get(RUN_LEVEL_CONFIG, {})
+        if not config:
+            return
+        
+        allowed_params = set(run_level.get(RUN_LEVEL_PARAMS, [])) if RUN_LEVEL_PARAMS in run_level else None
+        
+        for param_name, param in _params.items():
+            bind_name = param.get(PARAM_BIND_TO, param_name)
+            
+            # Skip params not in this run-level's param list
+            if allowed_params is not None and bind_name not in allowed_params:
+                continue
+            
+            if bind_name in config:
+                param[PARAM_DEFAULT] = config[bind_name]
+    except Exception as e:
+        error_handler(run_level_name, e)
+
+
+def get_buffered_params():
+    """Get the list of buffered parameters.
+    
+    Returns:
+        List of buffered parameter dictionaries.
+    """
+    return list(_buffered_params)
+
+
+def assign_orphans_to_default_run_level():
+    """Pre-parse check that assigns orphan params/commands to default run-level.
+    
+    This function:
+    1. Finds the default run-level
+    2. For each buffered param without PARAM_RUN_LEVEL, assigns it to default
+    3. For each command without COMMAND_RUN_LEVEL, assigns it to default
+    4. Creates bidirectional relationships by updating run-level param/command lists
+    """
+    from .command import get_all_commands
+    from .config import get_default_run_level
+    from .config_consts import COMMAND_NAME, COMMAND_RUN_LEVEL
+    
+    # Get the default run-level name
+    default_run_level_name = get_default_run_level()
+    
+    # Find the default run-level
+    default_run_level = get_run_level(default_run_level_name)
+    
+    if not default_run_level:
+        # No default run-level found, nothing to do
+        return
+    
+    # Get or initialize param/command lists
+    if RUN_LEVEL_PARAMS not in default_run_level:
+        default_run_level[RUN_LEVEL_PARAMS] = []
+    if RUN_LEVEL_COMMANDS not in default_run_level:
+        default_run_level[RUN_LEVEL_COMMANDS] = []
+    
+    default_params = default_run_level[RUN_LEVEL_PARAMS]
+    default_commands = default_run_level[RUN_LEVEL_COMMANDS]
+    
+    # Process buffered params
+    for param in _buffered_params:
+        if PARAM_RUN_LEVEL not in param or not param[PARAM_RUN_LEVEL]:
+            # Assign to default run-level
+            param[PARAM_RUN_LEVEL] = default_run_level_name
+            bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+            
+            # Add to default run-level's param list if not already there
+            if bind_name and bind_name not in default_params:
+                default_params.append(bind_name)
+        else:
+            # Param has explicit run-level - add to that run-level's list
+            run_level_name = param[PARAM_RUN_LEVEL]
+            run_level = get_run_level(run_level_name)
+            if run_level:
+                if RUN_LEVEL_PARAMS not in run_level:
+                    run_level[RUN_LEVEL_PARAMS] = []
+                bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+                if bind_name and bind_name not in run_level[RUN_LEVEL_PARAMS]:
+                    run_level[RUN_LEVEL_PARAMS].append(bind_name)
+    
+    # Process commands
+    all_commands = get_all_commands()
+    for cmd_name, cmd in all_commands.items():
+        if COMMAND_RUN_LEVEL not in cmd or not cmd[COMMAND_RUN_LEVEL]:
+            # Assign to default run-level
+            cmd[COMMAND_RUN_LEVEL] = default_run_level_name
+            
+            # Add to default run-level's command list if not already there
+            if cmd_name not in default_commands:
+                default_commands.append(cmd_name)
+        else:
+            # Command has explicit run-level - add to that run-level's list
+            run_level_name = cmd[COMMAND_RUN_LEVEL]
+            run_level = get_run_level(run_level_name)
+            if run_level:
+                if RUN_LEVEL_COMMANDS not in run_level:
+                    run_level[RUN_LEVEL_COMMANDS] = []
+                if cmd_name not in run_level[RUN_LEVEL_COMMANDS]:
+                    run_level[RUN_LEVEL_COMMANDS].append(cmd_name)
+    
+    # Validate that commands don't have cross-run-level dependencies
+    from .command import validate_no_cross_run_level_dependencies
+    validate_no_cross_run_level_dependencies()
+
+
 

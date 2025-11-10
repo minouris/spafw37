@@ -150,6 +150,7 @@ def test_apply_logging_config_verbose():
     """Test applying verbose logging config."""
     # Add logging params
     param.add_params(LOGGING_PARAMS)
+    param.build_params_for_run_level()
     
     # Set verbose flag
     verbose_param = param.get_param_by_name(LOG_VERBOSE_PARAM)
@@ -166,6 +167,7 @@ def test_apply_logging_config_trace():
     """Test applying trace logging config."""
     # Add logging params
     param.add_params(LOGGING_PARAMS)
+    param.build_params_for_run_level()
     
     # Set trace flag
     trace_param = param.get_param_by_name(LOG_TRACE_PARAM)
@@ -180,6 +182,7 @@ def test_apply_logging_config_log_dir():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Add logging params
         param.add_params(LOGGING_PARAMS)
+        param.build_params_for_run_level()
         
         # Set log dir
         test_log_dir = os.path.join(temp_dir, "config_logs")
@@ -200,6 +203,7 @@ def test_apply_logging_config_scope_log_level():
     """Test applying scope-specific log level config."""
     # Add logging params
     param.add_params(LOGGING_PARAMS)
+    param.build_params_for_run_level()
     
     # Set scope log level (using phase-log-level param for backward compatibility)
     phase_param = param.get_param_by_name(LOG_PHASE_LOG_LEVEL_PARAM)

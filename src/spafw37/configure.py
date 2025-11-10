@@ -1,7 +1,18 @@
 # Configures configuration parameters for the application
 from spafw37 import logging
-from .config import load_persistent_config, save_persistent_config, load_user_config, save_user_config, set_config_file
-from .param import add_params
+from .config import (
+    load_persistent_config, 
+    save_persistent_config, 
+    load_user_config, 
+    save_user_config, 
+    set_config_file, 
+    set_default_run_level,
+    RUN_LEVEL_INIT,
+    RUN_LEVEL_CONFIG as RUN_LEVEL_CONFIG_NAME,
+    RUN_LEVEL_EXEC,
+    RUN_LEVEL_CLEANUP
+)
+from .param import add_params, add_run_level
 from .cli import add_post_parse_actions, add_pre_parse_actions
 from .command import add_commands
 from .help import show_help_command
@@ -22,7 +33,13 @@ from .config_consts import (
     COMMAND_DESCRIPTION,
     COMMAND_ACTION,
     COMMAND_FRAMEWORK,
-    PARAM_TYPE_TEXT
+    PARAM_TYPE_TEXT,
+    RUN_LEVEL_NAME,
+    RUN_LEVEL_PARAMS,
+    RUN_LEVEL_COMMANDS,
+    RUN_LEVEL_CONFIG,
+    COMMAND_RUN_LEVEL,
+    PARAM_RUN_LEVEL
 )
 
 CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
@@ -72,3 +89,39 @@ add_params(logging.LOGGING_PARAMS)
 add_commands(_commands_builtin)
 add_pre_parse_actions([load_persistent_config, load_user_config])
 add_post_parse_actions([save_persistent_config, save_user_config])
+
+# Define run-levels for different execution phases
+# init: sets up logging, determines output verbosity/silent, log levels, etc
+add_run_level({
+    RUN_LEVEL_NAME: RUN_LEVEL_INIT,
+    RUN_LEVEL_PARAMS: [],
+    RUN_LEVEL_COMMANDS: [],
+    RUN_LEVEL_CONFIG: {}
+})
+
+# config: loads/saves configuration in external files
+add_run_level({
+    RUN_LEVEL_NAME: RUN_LEVEL_CONFIG_NAME,
+    RUN_LEVEL_PARAMS: [],
+    RUN_LEVEL_COMMANDS: [],
+    RUN_LEVEL_CONFIG: {}
+})
+
+# exec: executes the bulk of application commands (DEFAULT)
+add_run_level({
+    RUN_LEVEL_NAME: RUN_LEVEL_EXEC,
+    RUN_LEVEL_PARAMS: [],
+    RUN_LEVEL_COMMANDS: [],
+    RUN_LEVEL_CONFIG: {}
+})
+
+# cleanup: does any cleanup tasks
+add_run_level({
+    RUN_LEVEL_NAME: RUN_LEVEL_CLEANUP,
+    RUN_LEVEL_PARAMS: [],
+    RUN_LEVEL_COMMANDS: [],
+    RUN_LEVEL_CONFIG: {}
+})
+
+# Set the default run-level
+set_default_run_level(RUN_LEVEL_EXEC)

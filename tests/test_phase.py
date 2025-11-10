@@ -136,6 +136,7 @@ def test_triggered_command_added_to_correct_phase():
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     param.add_params([_trigger_param])
+    param.build_params_for_run_level()
     command.set_phases_order(phases)
     trigger_param_name = _trigger_param_name
     triggered_command_name = "triggered-phase-command"

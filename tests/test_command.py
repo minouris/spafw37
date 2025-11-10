@@ -495,7 +495,7 @@ def test_runtime_only_params_in_verify_required_params():
     try:
         command._verify_required_params()
     except ValueError as e:
-        assert str(e) == "Missing required parameter: runtime-only-param"
+        assert str(e) == f"Missing required parameter '{runtime_param_name}' for command 'runtime-test-command'"
     with pytest.raises(ValueError, match=f"Missing required parameter '{runtime_param_name}' for command 'runtime-test-command'"):
         command._verify_required_params(_exclude_runtime_only=False)
 
