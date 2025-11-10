@@ -12,7 +12,7 @@ def setup_function():
     # reset module state between tests
     param._param_aliases.clear()
     param._params.clear()
-    param._buffered_params.clear()
+    param._preparse_args.clear()
     try:
         config._non_persisted_config_names.clear()
         config._config.clear()
@@ -44,12 +44,8 @@ def test_register_param_alias_invalid_raises():
         param.PARAM_NAME: 'test_param',
         param.PARAM_ALIASES: [invalid_alias]
     }
-    param.add_param(_param)
-    try:
-        param.build_params_for_run_level()
-        assert False, "Expected ValueError for invalid alias format"
-    except ValueError as e:
-        assert str(e) == f"Invalid alias format: {invalid_alias}"
+    with pytest.raises(ValueError, match="Invalid alias format"):
+        param.add_param(_param)
 
 def test_is_alias_format():
     setup_function()

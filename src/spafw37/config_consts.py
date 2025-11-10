@@ -8,6 +8,7 @@ PARAM_REQUIRED      = 'required'
 PARAM_PERSISTENCE   = 'persistence'
 PARAM_SWITCH_LIST   = 'switch-list'
 PARAM_DEFAULT       = 'default-value'
+PARAM_HAS_VALUE     = 'has-value'  # For pre-parse params: True if param takes a value, False if toggle
 PARAM_RUNTIME_ONLY   = 'runtime-only' # Not persisted, only for runtime use, not checked at startof queue, but checked when a command that uses them is run
 PARAM_DEFERRED       = 'deferred' # When False, param should be processed immediately instead of being buffered (default: True for all params)
 PARAM_RUN_LEVEL      = 'param-run-level' # Run-level this param belongs to (can be set at definition or auto-assigned)
@@ -56,6 +57,7 @@ COMMAND_TRIGGER_PARAM = "trigger-param" # Param bind name that triggers this com
 COMMAND_PHASE = "command-phase" # Phase in which this command should be run
 COMMAND_RUN_LEVEL = "command-run-level" # Run-level this command belongs to (can be set at definition or auto-assigned)
 COMMAND_FRAMEWORK = "framework" # True if this is a framework-defined command (vs app-defined)
+COMMAND_EXCLUDE_FROM_HELP = "exclude-from-help" # True if this command should be excluded from help displays
 
 # Command Phases
 PHASE_SETUP = "phase-setup" # Phase where config commands and suchlike happen

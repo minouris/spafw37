@@ -11,12 +11,14 @@ from .config_consts import (
     PARAM_PERSISTENCE,
     PARAM_SWITCH_LIST,
     PARAM_DEFAULT,
+    PARAM_HAS_VALUE,
     PARAM_PERSISTENCE_ALWAYS,
     PARAM_PERSISTENCE_NEVER,
     PARAM_TYPE_TEXT,
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
+    COMMAND_FRAMEWORK,
     RUN_LEVEL_NAME,
     RUN_LEVEL_PARAMS,
     RUN_LEVEL_COMMANDS,
@@ -33,8 +35,8 @@ _params = {}
 _param_aliases = {}
 _xor_list = {}
 
-# Buffered parameters for deferred processing
-_buffered_params = []
+# Pre-parse arguments (params to parse before main CLI parsing)
+_preparse_args = []
 
 # Run-level definitions (list to maintain order)
 _run_levels = []
@@ -172,24 +174,13 @@ def is_param_alias(_param: dict, alias: str) -> bool:
     return alias in aliases
 
 def add_param(_param: dict):
-    """Add a parameter to the buffer for deferred processing.
-    
-    Parameters are buffered by default and processed later when build_params_for_run_level
-    is called during CLI argument parsing. If a parameter has PARAM_DEFERRED set to False,
-    it will be activated immediately instead of being buffered.
+    """Add a parameter and activate it immediately.
     
     Args:
         _param: Parameter definition dictionary with keys like
                 PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
-                Set PARAM_DEFERRED to False to activate immediately (default: True).
     """
-    # Check if this param should be processed immediately
-    if _param.get(PARAM_DEFERRED, True) is False:
-        # Immediately activate this parameter
-        _activate_param(_param)
-    else:
-        # Buffer for later processing
-        _buffered_params.append(_param)
+    _activate_param(_param)
 
 
 def _register_param_alias(param, alias):
@@ -323,26 +314,10 @@ def build_params_for_run_level(run_level_name=None):
             if param_list:
                 allowed_params = set(param_list)
         
-        for param in _buffered_params:
-            bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
-            
-            # Skip params not in this run-level's param list
-            if allowed_params is not None and bind_name not in allowed_params:
-                continue
-            
-            param_copy = dict(param)
-            
-            # Apply run-level config defaults if specified
-            if run_level and RUN_LEVEL_CONFIG in run_level:
-                config = run_level[RUN_LEVEL_CONFIG]
-                if bind_name in config:
-                    param_copy[PARAM_DEFAULT] = config[bind_name]
-            
-            _activate_param(param_copy)
+        # Note: All params are now activated immediately by add_param,
+        # so this function no longer needs to activate buffered params.
+        # It only validates run-level configuration.
         
-        # Only clear buffer if we processed all params (no run-level filter)
-        if allowed_params is None:
-            _buffered_params.clear()
     except Exception as e:
         if run_level_name:
             error_handler(run_level_name, e)
@@ -391,10 +366,13 @@ def apply_run_level_config(run_level_name):
 def get_buffered_params():
     """Get the list of buffered parameters.
     
+    Note: Buffered params concept has been removed. This function
+    now returns an empty list for backwards compatibility.
+    
     Returns:
-        List of buffered parameter dictionaries.
+        Empty list.
     """
-    return list(_buffered_params)
+    return []
 
 
 def assign_orphans_to_default_run_level():
@@ -402,9 +380,11 @@ def assign_orphans_to_default_run_level():
     
     This function:
     1. Finds the default run-level
-    2. For each buffered param without PARAM_RUN_LEVEL, assigns it to default
+    2. For each param without PARAM_RUN_LEVEL, assigns it to default
     3. For each command without COMMAND_RUN_LEVEL, assigns it to default
     4. Creates bidirectional relationships by updating run-level param/command lists
+    
+    Note: Now that params are activated immediately, this processes already-activated params.
     """
     from .command import get_all_commands
     from .config import get_default_run_level
@@ -429,8 +409,8 @@ def assign_orphans_to_default_run_level():
     default_params = default_run_level[RUN_LEVEL_PARAMS]
     default_commands = default_run_level[RUN_LEVEL_COMMANDS]
     
-    # Process buffered params
-    for param in _buffered_params:
+    # Process all activated params
+    for param_name, param in _params.items():
         if PARAM_RUN_LEVEL not in param or not param[PARAM_RUN_LEVEL]:
             # Assign to default run-level
             param[PARAM_RUN_LEVEL] = default_run_level_name
@@ -453,6 +433,10 @@ def assign_orphans_to_default_run_level():
     # Process commands
     all_commands = get_all_commands()
     for cmd_name, cmd in all_commands.items():
+        # Skip framework commands - they should only run when explicitly triggered
+        if cmd.get(COMMAND_FRAMEWORK, False):
+            continue
+            
         if COMMAND_RUN_LEVEL not in cmd or not cmd[COMMAND_RUN_LEVEL]:
             # Assign to default run-level
             cmd[COMMAND_RUN_LEVEL] = default_run_level_name
@@ -473,6 +457,29 @@ def assign_orphans_to_default_run_level():
     # Validate that commands don't have cross-run-level dependencies
     from .command import validate_no_cross_run_level_dependencies
     validate_no_cross_run_level_dependencies()
+
+
+def add_pre_parse_args(preparse_args):
+    """Register params to be parsed before main CLI parsing.
+    
+    Pre-parse params are typically used for logging/verbosity control
+    to configure logging before parsing other params.
+    
+    Args:
+        preparse_args: List of dicts with PARAM_NAME and PARAM_HAS_VALUE keys.
+                      Example: [{PARAM_NAME: "silent", PARAM_HAS_VALUE: False}]
+    """
+    global _preparse_args
+    _preparse_args.extend(preparse_args)
+
+
+def get_pre_parse_args():
+    """Get the list of registered pre-parse params.
+    
+    Returns:
+        List of pre-parse param definitions.
+    """
+    return list(_preparse_args)
 
 
 

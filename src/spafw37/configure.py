@@ -17,6 +17,8 @@ from .cli import add_post_parse_actions, add_pre_parse_actions
 from .command import add_commands
 from .help import show_help_command
 from .config_consts import (
+    COMMAND_EXCLUDE_FROM_HELP,
+    COMMAND_TRIGGER_PARAM,
     PARAM_GROUP,
     PARAM_NAME,
     PARAM_DESCRIPTION,
@@ -43,6 +45,7 @@ from .config_consts import (
 )
 
 CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
+HELP_PARAM = 'help'
 
 _params_builtin = [
     {
@@ -64,6 +67,17 @@ _params_builtin = [
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
         PARAM_GROUP: CONFIG_FILE_PARAM_GROUP
+    },
+    {
+        PARAM_NAME: HELP_PARAM,
+        PARAM_DESCRIPTION: 'Display help information',
+        PARAM_BIND_TO: 'help',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALIASES: ['--help', '-h'],
+        PARAM_REQUIRED: False,
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: 'General Options',
+        PARAM_RUN_LEVEL: RUN_LEVEL_INIT
     }
 ]
 
@@ -73,14 +87,30 @@ _commands_builtin = [
         COMMAND_REQUIRED_PARAMS: [],
         COMMAND_DESCRIPTION: "Display help information",
         COMMAND_ACTION: show_help_command,
-        COMMAND_FRAMEWORK: True
+        COMMAND_TRIGGER_PARAM: HELP_PARAM,
+        COMMAND_RUN_LEVEL: RUN_LEVEL_INIT,
+        COMMAND_FRAMEWORK: True,
+        COMMAND_EXCLUDE_FROM_HELP: True
     },
     {
         COMMAND_NAME: "save-user-config",
         COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
+        COMMAND_TRIGGER_PARAM: CONFIG_OUTFILE_PARAM,
+        COMMAND_RUN_LEVEL: RUN_LEVEL_CONFIG_NAME,
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
         COMMAND_ACTION: save_user_config,
-        COMMAND_FRAMEWORK: True
+        COMMAND_FRAMEWORK: True,
+        COMMAND_EXCLUDE_FROM_HELP: True
+    },
+    {
+        COMMAND_NAME: "load-user-config",
+        COMMAND_REQUIRED_PARAMS: [ CONFIG_INFILE_PARAM ],
+        COMMAND_TRIGGER_PARAM: CONFIG_INFILE_PARAM,
+        COMMAND_RUN_LEVEL: RUN_LEVEL_CONFIG_NAME,
+        COMMAND_DESCRIPTION: "Loads user configuration from a file",
+        COMMAND_ACTION: load_user_config,
+        COMMAND_FRAMEWORK: True,
+        COMMAND_EXCLUDE_FROM_HELP: True
     }
 ]
 
@@ -94,9 +124,21 @@ add_post_parse_actions([save_persistent_config, save_user_config])
 # init: sets up logging, determines output verbosity/silent, log levels, etc
 add_run_level({
     RUN_LEVEL_NAME: RUN_LEVEL_INIT,
-    RUN_LEVEL_PARAMS: [],
+    RUN_LEVEL_PARAMS: [
+        logging.LOG_VERBOSE_PARAM,
+        logging.LOG_TRACE_PARAM,
+        logging.LOG_TRACE_CONSOLE_PARAM,
+        logging.LOG_SILENT_PARAM,
+        logging.LOG_NO_LOGGING_PARAM,
+        logging.LOG_SUPPRESS_ERRORS_PARAM,
+        logging.LOG_DIR_PARAM,
+        logging.LOG_LEVEL_PARAM,
+        logging.LOG_PHASE_LOG_LEVEL_PARAM
+    ],
     RUN_LEVEL_COMMANDS: [],
-    RUN_LEVEL_CONFIG: {}
+    RUN_LEVEL_CONFIG: {
+        logging.LOG_SILENT_PARAM: True
+    }
 })
 
 # config: loads/saves configuration in external files

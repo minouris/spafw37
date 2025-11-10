@@ -1,8 +1,12 @@
+import sys
+import os
 from .config_consts import (
     COMMAND_NAME,
     COMMAND_DESCRIPTION,
     COMMAND_HELP,
     COMMAND_REQUIRED_PARAMS,
+    COMMAND_EXCLUDE_FROM_HELP,
+    PARAM_DESCRIPTION,
     PARAM_NAME,
     PARAM_DESCRIPTION,
     PARAM_ALIASES,
@@ -125,7 +129,9 @@ def display_all_help():
     commands = _get_all_commands()
     non_command_params = _get_non_command_params()
     
-    print("Usage: python -m <app> [command] [options]")
+    script_name = os.path.basename(sys.argv[0]) if sys.argv else '<app>'
+    print()
+    print(f"Usage: python {script_name} [command] [options]")
     print()
     
     # Display commands
@@ -134,9 +140,10 @@ def display_all_help():
         print(f"  {'Command':<25} {'Description'}")
         print(f"  {'-' * 25} {'-' * 50}")
         for cmd_name in sorted(commands.keys()):
-            cmd = commands[cmd_name]
-            description = cmd.get(COMMAND_DESCRIPTION, '')
-            print(f"  {cmd_name:<25} {description}")
+            if not commands[cmd_name].get(COMMAND_EXCLUDE_FROM_HELP, False):
+                cmd = commands[cmd_name]
+                description = cmd.get(COMMAND_DESCRIPTION, '')
+                print(f"  {cmd_name:<25} {description}")
         print()
     
     # Display non-command parameters grouped
@@ -213,14 +220,17 @@ def handle_help_with_arg(args):
     
     Args:
         args: Command line arguments, where args[0] might be 'help'.
+        
+    Returns:
+        True if help was displayed, False otherwise.
     """
-    if len(args) > 1 and args[0] == 'help':
-        # help <command>
-        command_name = args[1]
-        display_command_help(command_name)
-        return True
-    elif len(args) > 0 and args[0] == 'help':
-        # just help
-        display_all_help()
+    if len(args) > 0 and args[0] == 'help':
+        if len(args) > 1:
+            # help <command>
+            command_name = args[1]
+            display_command_help(command_name)
+        else:
+            # just "help" with no args
+            display_all_help()
         return True
     return False

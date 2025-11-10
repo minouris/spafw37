@@ -1,0 +1,239 @@
+# Architecture Design Instructions
+
+## Context
+
+This instructions file applies to work in the `doc/architecture/**` folder. We are designing a **fresh implementation** of the embedded Python debugger from the ground up, without assumptions from the previous implementation.
+
+## Core Principles
+
+### Clean Slate Design
+- **No legacy assumptions**: Do not assume the new design must match the current implementation
+- **Protocol-agnostic**: Do not assume DAP, debugpy, or any specific front-side protocol
+- **Fresh thinking**: Question all previous design decisions and evaluate alternatives
+- **Ground-up rebuild**: Start from requirements and design the optimal solution
+
+### Design-First Approach
+- **Design before implementation**: Complete architectural design before writing any code
+- **Documentation-driven**: All design decisions must be documented before implementation
+- **Iterative refinement**: Designs evolve through discussion and review
+- **Validate assumptions**: Question and verify all design assumptions
+
+## Design Workflow
+
+### 1. Start High-Level
+- Begin with conceptual models and system boundaries
+- Define responsibilities and interfaces before internal details
+- Use the glossary (`glossary.md`) to establish shared vocabulary
+- Reference the index (`index.md`) to maintain document structure
+
+### 2. Progressive Elaboration
+- **Do NOT run ahead**: Wait for user direction before adding details
+- Start with high-level concepts and flesh them out fully before drilling down
+- Move from abstract to concrete only when explicitly requested
+- Ask clarifying questions rather than making assumptions
+
+### 3. Suggest, Don't Assume
+- Offer design alternatives and trade-offs
+- Present options rather than making unilateral decisions
+- Explain reasoning behind recommendations
+- Wait for user acceptance before proceeding
+
+## Documentation Standards
+
+### Architecture Documents
+- **Location**: `doc/architecture/` directory. Create new documents under this directory
+- **Format**: Markdown with Mermaid diagrams
+- **Structure**: Modular files discussing different aspects
+- **Navigation**: Maintain `index.md` and cross-references
+
+### Mermaid Diagrams
+- **Required**: Use Mermaid for all architectural diagrams
+- **Style guide**: Follow `doc/architecture/reference.md` color palette and conventions
+- **Consistency**: Use the same colors for the same concepts across all diagrams
+- **Clarity**: Create small, focused diagrams rather than monolithic ones
+- **Dark mode**: Use dark backgrounds with white text (`color:#fff`) as specified in reference.md
+
+### Color Palette (from reference.md)
+- **Client/External Layer**: Dark red/pink tones
+- **FrontSide Adapter Layer**: Dark blue tones
+- **Central Control Layer**: Dark purple tones
+- **Backend/Tracer Layer**: Dark green tones
+- **Supporting Components**: Dark magenta/purple tones
+- **Synchronization**: Locks (red), Conditions (blue), Queues (magenta), Events (amber)
+
+All nodes must explicitly set:
+```
+style NodeName fill:#1565c0,stroke:#333,stroke-width:2px,color:#fff
+```
+
+### Document Organization
+- **Glossary**: Define all terms in `glossary.md` before using them
+- **Index**: Update `index.md` when adding new documents
+- **Cross-references**: Link related concepts across documents
+- **Versioning**: Note design version and date in each document
+
+## Design Artifacts
+
+### Required Deliverables
+1. **High-level architecture** - System boundaries, major components, responsibilities
+2. **Component diagrams** - Internal structure, relationships, interfaces
+3. **Interaction diagrams** - Message flows, sequence diagrams, state machines
+4. **Design patterns** - Document patterns used and why
+5. **Trade-off analysis** - Document alternatives considered and decisions made
+
+### Code Examples in Architecture Documents
+
+**CRITICAL RULE: NO CODE IMPLEMENTATIONS IN ARCHITECTURE DOCUMENTS**
+
+Architecture documents are for **design**, not implementation. Code examples are **FORBIDDEN** unless:
+
+1. **Explicitly requested** by the user with clear permission
+2. **Absolutely minimal** - showing ONLY:
+   - Function/method signatures (first line only)
+   - Class definition headers (class name and inheritance only)
+   - Interface contracts (method names and parameters only)
+3. **Context-specific** - illustrating ONLY the concept being discussed in that specific section
+4. **Never include**:
+   - Implementation details (method bodies, logic, algorithms)
+   - Multiple methods or functions in one example
+   - Usage examples or instantiation code
+   - Import statements or setup code
+   - Comments explaining implementation
+
+**USE DIAGRAMS INSTEAD:**
+- Class diagrams for structure
+- Sequence diagrams for interactions
+- State diagrams for behavior
+- Flowcharts for logic
+
+**Example of ACCEPTABLE minimal code** (only when explicitly requested):
+```python
+def create_listener_tracer(base_class, listener_config=None):
+    class ListenerTracer(base_class):
+        # Implementation details omitted
+
+    return ListenerTracer
+```
+
+**Example of FORBIDDEN code** (NEVER include):
+```python
+def create_listener_tracer(base_class, listener_config=None):
+    class ListenerTracer(base_class):
+        def __init__(self):
+            super().__init__()
+            self._call_listener = Listener(**config)
+            # ... more implementation
+        
+        def user_call(self, frame, arg):
+            self._call_listener.dispatch(frame, arg)
+            # ... more implementation
+```
+
+**When in doubt: Use a diagram. Never use code.**
+
+### Diagram Types
+- **Context diagrams**: System boundaries and external actors
+- **Component diagrams**: Static structure and relationships
+- **Sequence diagrams**: Temporal interactions and message flows
+- **State diagrams**: Component lifecycle and state transitions
+- **Deployment diagrams**: Runtime organization (if applicable)
+
+## Design Considerations
+
+### Protocol Independence
+- **No protocol assumptions**: Design should support multiple front-side protocols (DAP, CDP, custom)
+- **Adapter pattern**: Use adapters to isolate protocol specifics
+- **Canonical models**: Define protocol-independent internal models (Command, Event, etc.)
+- **Extensibility**: Design for easy addition of new protocols
+
+### Embedded Environment Constraints
+- **Python 3.7.9 compatibility**: All designs must work with Python 3.7 stdlib only
+- **No external dependencies**: Cannot rely on pip packages or external libraries
+- **Minimal footprint**: Must run efficiently in embedded/constrained environments
+- **Fault isolation**: Debugger failures must not crash the host application
+- **Standard library only**: All functionality using Python 3.7 standard library
+
+### Deployment Flexibility
+- **Compressed packages**: May run from zip/compressed archives
+- **Custom loaders**: Host may use non-standard import mechanisms
+- **No subprocesses**: Cannot spawn external processes
+- **Thread-safe**: Must coexist with host's threading model
+
+## Design Patterns to Consider
+
+### Recommended Patterns
+- **Adapter**: Isolate protocol and platform specifics
+- **Mediator**: Central control coordinating components
+- **Observer/Listener**: Event-driven communication
+- **Command**: Encapsulate operations as objects
+- **Factory**: Enable dependency injection and testing
+- **State**: Model component lifecycle
+- **Strategy**: Pluggable algorithms (e.g., stepping strategies)
+
+### Anti-Patterns to Avoid
+- **God Object**: Distribute responsibilities appropriately
+- **Tight Coupling**: Use interfaces and dependency injection
+- **Premature Optimization**: Design for clarity first
+- **Feature Creep**: Focus on core requirements
+- **Monolithic Components**: Favor small, focused components
+
+## Design Review Checklist
+
+Before finalizing any design:
+
+- [ ] All terms defined in glossary
+- [ ] Mermaid diagrams follow style guide
+- [ ] Protocol independence maintained
+- [ ] Python 3.7 constraints respected
+- [ ] Standard library only (no external deps)
+- [ ] Embedded environment constraints addressed
+- [ ] Thread safety considered
+- [ ] Fault isolation ensured
+- [ ] Design alternatives documented
+- [ ] Trade-offs explained
+- [ ] Component responsibilities clear
+- [ ] Interfaces well-defined
+- [ ] Index updated with new documents
+
+## Interaction Style
+
+### DO
+- Ask clarifying questions before making design decisions
+- Present multiple options with trade-offs
+- Explain reasoning behind recommendations
+- Start high-level and wait for direction to elaborate
+- Use the established glossary and terminology
+- Create focused, modular diagrams
+- Document alternatives considered
+- Follow the Mermaid style guide religiously
+- **Use diagrams to illustrate all design concepts**
+- **Show only minimal function/class signatures if explicitly requested**
+
+### DON'T
+- Provide code implementations (this is design work only)
+- **Include ANY code examples unless explicitly requested and approved**
+- **Show implementation details, method bodies, or logic in code**
+- Assume DAP or any specific protocol
+- Make assumptions based on the old implementation
+- Add features or details without being asked
+- Create monolithic diagrams trying to show everything
+- Use light backgrounds or light text (breaks dark mode)
+- Skip glossary definitions
+- Anticipate or assume next steps
+
+## Success Criteria
+
+A good architecture design:
+
+1. **Clear**: Easy to understand and communicate
+2. **Modular**: Components have well-defined boundaries and responsibilities
+3. **Flexible**: Can accommodate change and new requirements
+4. **Testable**: Components can be tested in isolation
+5. **Documented**: Decisions and trade-offs are recorded
+6. **Protocol-agnostic**: Not tied to any specific front-side protocol
+7. **Constraint-aware**: Respects Python 3.7 and embedded environment limits
+8. **Maintainable**: Future developers can understand and modify
+
+---
+
+**Remember**: We are designing a new debugger from scratch. Question everything. Document thoroughly. Wait for user direction.

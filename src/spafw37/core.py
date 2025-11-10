@@ -26,8 +26,7 @@ def run_cli():
             display_all_help()
         sys.exit(1)
     except ValueError as e:
-        # On other errors, display general help
         print(f"Error: {e}")
         print()
-        display_all_help()
+        # display_all_help()
         sys.exit(1)
