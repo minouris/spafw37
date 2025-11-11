@@ -17,6 +17,7 @@ from spafw37.constants.phase import (
 from spafw37 import config as config
 from spafw37 import param
 from spafw37 import logging
+from spafw37 import cycle
 
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
@@ -97,7 +98,10 @@ def get_all_commands():
 
 
 def is_command(arg):
-    return arg in _commands.keys()
+    if arg not in _commands.keys():
+        return False
+    cmd = _commands[arg]
+    return cycle.is_command_invocable(cmd)
 
 
 def has_app_commands_queued():
@@ -169,6 +173,22 @@ def add_command(cmd):
     if not cmd.get(COMMAND_PHASE):
         cmd[COMMAND_PHASE] = PHASE_DEFAULT
     _commands[name] = cmd
+    
+    # Register cycle if present
+    cycle.register_cycle(cmd, _commands)
+
+
+def _execute_command(cmd):
+    """Execute a single command's action function.
+    
+    Args:
+        cmd: Command definition dict
+    """
+    cmd_name = cmd.get(COMMAND_NAME)
+    action = cmd.get(COMMAND_ACTION)
+    if not callable(action):
+        raise ValueError("Command '{}' has no valid action to execute.".format(cmd_name))
+    action()
 
 
 def _queue_add(name, queued):
@@ -436,26 +456,6 @@ def _add_triggered_commands():
                 if cmd not in _command_queue:
                     _queue_add(cmd.get(COMMAND_NAME), set())
 
-def old_run_command_queue():
-    """
-    Execute all commands in the _command_queue in order.
-    
-    .. deprecated:: 
-        Use :func:`run_phased_command_queue` instead. This function will be 
-        removed in a future version.
-    """
-    _recalculate_queue(_command_queue)
-    _verify_required_params()
-    while _command_queue:
-        _recalculate_queue(_command_queue) # Recalculate queue order after any additions
-        _verify_command_params(_command_queue[0], _skip_runtime_only=False)
-        cmd = _command_queue.pop(0)
-        action = cmd.get(COMMAND_ACTION)
-        if not callable(action):
-            raise ValueError(f"Command '{cmd.get(COMMAND_NAME)}' has no valid action to execute.")
-        action()
-        _record_finished_command(cmd.get(COMMAND_NAME)) # Note that this command has finished
-
 def run_command_queue():
     """Execute commands phase by phase according to _phase_order."""
     global _current_phase
@@ -479,6 +479,23 @@ def run_command_queue():
             action()
             log_info(_message=f"Completed command: {cmd_name}")
             _record_finished_command(cmd_name) # Note that this command has finished
+            
+            # Execute cycle if present - provide simplified wrappers
+            def _cycle_queue_add(cmd_def, temp_queue, commands_dict):
+                """Build a temp queue for cycle execution."""
+                temp_queue.append(cmd_def[COMMAND_NAME])
+            
+            def _cycle_sort_queue(temp_queue, commands_dict):
+                """Sort temp queue based on dependencies."""
+                # Convert names back to command defs for sorting
+                cmd_list = [commands_dict[name] for name in temp_queue if name in commands_dict]
+                _sort_command_queue(cmd_list)
+                # cmd_list is sorted in-place, return as names
+                return [c.get(COMMAND_NAME) for c in cmd_list]
+            
+            cycle.execute_cycle(
+                cmd, _commands, _execute_command, _cycle_queue_add, _cycle_sort_queue
+            )
         _phases_completed.append(_current_phase)
         logging.set_current_scope(None)
     _current_phase = None

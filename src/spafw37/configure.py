@@ -18,7 +18,7 @@ from spafw37.constants.param import (
     PARAM_TYPE_TEXT,
 )
 from spafw37.constants.command import (
-    COMMAND_EXCLUDE_FROM_HELP,
+    COMMAND_EXCLUDE_HELP,
     COMMAND_TRIGGER_PARAM,
     COMMAND_NAME,
     COMMAND_REQUIRED_PARAMS,
@@ -75,7 +75,7 @@ _commands_builtin = [
         COMMAND_ACTION: help_module.show_help_command,
         COMMAND_TRIGGER_PARAM: HELP_PARAM,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_FROM_HELP: True
+        COMMAND_EXCLUDE_HELP: True
     },
     {
         COMMAND_NAME: "save-user-config",
@@ -84,7 +84,7 @@ _commands_builtin = [
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
         COMMAND_ACTION: config.save_user_config,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_FROM_HELP: True
+        COMMAND_EXCLUDE_HELP: True
     },
     {
         COMMAND_NAME: "load-user-config",
@@ -93,7 +93,7 @@ _commands_builtin = [
         COMMAND_DESCRIPTION: "Loads user configuration from a file",
         COMMAND_ACTION: config.load_user_config,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_FROM_HELP: True
+        COMMAND_EXCLUDE_HELP: True
     }
 ]
 

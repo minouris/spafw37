@@ -13,8 +13,9 @@ from spafw37.constants.command import (
     COMMAND_DESCRIPTION,
     COMMAND_HELP,
     COMMAND_REQUIRED_PARAMS,
-    COMMAND_EXCLUDE_FROM_HELP,
+    COMMAND_EXCLUDE_HELP,
 )
+from spafw37 import cycle
 
 
 def _get_all_commands():
@@ -142,8 +143,8 @@ def display_all_help():
         print(f"  {'Command':<25} {'Description'}")
         print(f"  {'-' * 25} {'-' * 50}")
         for cmd_name in sorted(commands.keys()):
-            if not commands[cmd_name].get(COMMAND_EXCLUDE_FROM_HELP, False):
-                cmd = commands[cmd_name]
+            cmd = commands[cmd_name]
+            if not cmd.get(COMMAND_EXCLUDE_HELP, False) and cycle.is_command_invocable(cmd):
                 description = cmd.get(COMMAND_DESCRIPTION, '')
                 print(f"  {cmd_name:<25} {description}")
         print()
@@ -210,6 +211,42 @@ def display_command_help(command_name):
             if param:
                 print(_format_param_table_row(param))
         print()
+    
+    # Display cycle commands if this command has a cycle
+    cycle_commands = cycle.get_cycle_commands(cmd)
+    if cycle_commands:
+        commands = _get_all_commands()
+        print("Cycle Commands:")
+        print("  (Use 'help <command>' to see full details for nested commands)")
+        print()
+        print(f"  {'Command':<25} {'Description'}")
+        print(f"  {'-' * 25} {'-' * 50}")
+        _display_cycle_commands_recursive(cycle_commands, commands, indent=2)
+        print()
+
+
+def _display_cycle_commands_recursive(cycle_cmd_names, commands, indent=2):
+    """Display cycle commands recursively with indentation for nested cycles.
+    
+    Args:
+        cycle_cmd_names: List of command names in the cycle
+        commands: Dict of all registered commands
+        indent: Current indentation level (spaces)
+    """
+    indent_str = ' ' * indent
+    
+    for cycle_cmd_name in cycle_cmd_names:
+        cycle_cmd = commands.get(cycle_cmd_name)
+        if cycle_cmd:
+            desc = cycle_cmd.get(COMMAND_DESCRIPTION, '')
+            # Calculate available space for command name (accounting for indent)
+            name_width = 25 - indent
+            print(f"{indent_str}{cycle_cmd_name:<{name_width}} {desc}")
+            
+            # Check if this command has nested cycles
+            nested_cycle_cmds = cycle.get_cycle_commands(cycle_cmd)
+            if nested_cycle_cmds:
+                _display_cycle_commands_recursive(nested_cycle_cmds, commands, indent + 2)
 
 
 def show_help_command():
