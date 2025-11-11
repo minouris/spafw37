@@ -1,0 +1,137 @@
+"""Logging parameter configuration.
+
+This module defines the logging parameters that can be registered
+before the logging system is initialized. This allows for proper
+bootstrapping of the parameter system.
+"""
+
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_GROUP,
+    PARAM_DESCRIPTION,
+    PARAM_CONFIG_NAME,
+    PARAM_TYPE,
+    PARAM_ALIASES,
+    PARAM_PERSISTENCE,
+    PARAM_PERSISTENCE_ALWAYS,
+    PARAM_PERSISTENCE_NEVER,
+    PARAM_TYPE_TOGGLE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_LIST,
+    PARAM_SWITCH_LIST,
+)
+
+# Logging Parameter Names
+LOG_VERBOSE_PARAM = 'log-verbose'
+LOG_TRACE_PARAM = 'log-trace'
+LOG_TRACE_CONSOLE_PARAM = 'log-trace-console'
+LOG_SILENT_PARAM = 'log-silent'
+LOG_NO_LOGGING_PARAM = 'log-no-logging'
+LOG_NO_FILE_LOGGING_PARAM = 'log-no-file-logging'
+LOG_SUPPRESS_ERRORS_PARAM = 'log-suppress-errors'
+LOG_DIR_PARAM = 'log-dir'
+LOG_LEVEL_PARAM = 'log-level'
+LOG_PHASE_LOG_LEVEL_PARAM = 'log-phase-log-level'
+
+# Help grouping
+LOGGING_HELP_GROUP = 'Logging Options'
+
+# Define logging parameters
+LOGGING_PARAMS = [
+    {
+        PARAM_NAME: LOG_VERBOSE_PARAM,
+        PARAM_DESCRIPTION: 'Enable verbose logging (console to DEBUG)',
+        PARAM_CONFIG_NAME: LOG_VERBOSE_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--verbose', '-v'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_TRACE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_SILENT_PARAM, LOG_NO_LOGGING_PARAM, LOG_LEVEL_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_TRACE_PARAM,
+        PARAM_DESCRIPTION: 'Set log level to TRACE (console and file)',
+        PARAM_CONFIG_NAME: LOG_TRACE_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--trace'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_SILENT_PARAM, LOG_NO_LOGGING_PARAM, LOG_LEVEL_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_TRACE_CONSOLE_PARAM,
+        PARAM_DESCRIPTION: 'Set console log level to TRACE',
+        PARAM_CONFIG_NAME: LOG_TRACE_CONSOLE_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--trace-console'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_PARAM, LOG_SILENT_PARAM, LOG_NO_LOGGING_PARAM, LOG_LEVEL_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_SILENT_PARAM,
+        PARAM_DESCRIPTION: 'Suppress all console logging (errors to stderr only)',
+        PARAM_CONFIG_NAME: LOG_SILENT_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--silent'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_NO_LOGGING_PARAM, LOG_LEVEL_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_NO_LOGGING_PARAM,
+        PARAM_DESCRIPTION: 'Suppress all logging to console and file (errors to stderr only)',
+        PARAM_CONFIG_NAME: LOG_NO_LOGGING_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--no-logging'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_SILENT_PARAM, LOG_LEVEL_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_NO_FILE_LOGGING_PARAM,
+        PARAM_DESCRIPTION: 'Suppress file logging (console continues)',
+        PARAM_CONFIG_NAME: LOG_NO_FILE_LOGGING_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--no-file-logging'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_SUPPRESS_ERRORS_PARAM,
+        PARAM_DESCRIPTION: 'Disable error logging',
+        PARAM_CONFIG_NAME: LOG_SUPPRESS_ERRORS_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--suppress-errors'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_DIR_PARAM,
+        PARAM_DESCRIPTION: 'Set directory for log files',
+        PARAM_CONFIG_NAME: LOG_DIR_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALIASES: ['--log-dir'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS,
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_LEVEL_PARAM,
+        PARAM_DESCRIPTION: 'Set overall log level',
+        PARAM_CONFIG_NAME: LOG_LEVEL_PARAM,
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALIASES: ['--log-level'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_SILENT_PARAM, LOG_NO_LOGGING_PARAM],
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+    {
+        PARAM_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
+        PARAM_DESCRIPTION: 'Set log level for a specific phase',
+        PARAM_CONFIG_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
+        PARAM_TYPE: PARAM_TYPE_LIST,
+        PARAM_ALIASES: ['--phase-log-level'],
+        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
+        PARAM_GROUP: LOGGING_HELP_GROUP
+    },
+]

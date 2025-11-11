@@ -1,5 +1,6 @@
 # Configures configuration parameters for the application
 from spafw37 import logging
+from spafw37 import logging_config
 from spafw37 import config_func as config
 from spafw37 import param
 from spafw37 import cli
@@ -116,7 +117,7 @@ _commands_builtin = [
 ]
 
 param.add_params(_params_builtin)
-param.add_params(logging.LOGGING_PARAMS)
+param.add_params(logging_config.LOGGING_PARAMS)
 command.add_commands(_commands_builtin)
 cli.add_pre_parse_actions([config.load_persistent_config])
 cli.add_post_parse_actions([config.save_persistent_config])

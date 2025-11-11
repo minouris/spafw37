@@ -19,6 +19,7 @@ from spafw37.logging import (
     LOG_TRACE_CONSOLE_PARAM,
     LOG_SILENT_PARAM,
     LOG_NO_LOGGING_PARAM,
+    LOG_NO_FILE_LOGGING_PARAM,
     LOG_SUPPRESS_ERRORS_PARAM,
     LOG_DIR_PARAM,
     LOG_LEVEL_PARAM,
@@ -130,7 +131,7 @@ def test_scope_log_level():
 
 def test_logging_params_defined():
     """Test that all logging params are defined."""
-    assert len(LOGGING_PARAMS) == 9
+    assert len(LOGGING_PARAMS) == 10
     
     param_names = {p['name'] for p in LOGGING_PARAMS}
     expected_params = {
@@ -139,6 +140,7 @@ def test_logging_params_defined():
         LOG_TRACE_CONSOLE_PARAM,
         LOG_SILENT_PARAM,
         LOG_NO_LOGGING_PARAM,
+        LOG_NO_FILE_LOGGING_PARAM,
         LOG_SUPPRESS_ERRORS_PARAM,
         LOG_DIR_PARAM,
         LOG_LEVEL_PARAM,

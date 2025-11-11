@@ -140,6 +140,7 @@ Use --verbose to see detailed test output.
 # Register params and commands
 spafw37.add_params(demo_params)
 spafw37.add_commands(demo_commands)
+spafw37.set_app_name("demo-app")
 
 if __name__ == "__main__":
     spafw37.run_cli()

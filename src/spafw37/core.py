@@ -110,3 +110,87 @@ def set_config_value(config_key, value):
     """
     from spafw37 import config
     config.set_config_value(config_key, value)
+
+
+# Logging delegates
+
+def set_log_dir(log_dir):
+    """
+    Set the log directory.
+    
+    Args:
+        log_dir: Directory path for log files.
+    """
+    from spafw37 import logging
+    logging.set_log_dir(log_dir)
+
+
+def log_trace(_scope=None, _message=''):
+    """
+    Log a message at TRACE level.
+    
+    Args:
+        _scope: Optional scope for the log message.
+        _message: The message to log.
+    """
+    from spafw37 import logging
+    logging.log_trace(_scope=_scope, _message=_message)
+
+
+def log_debug(_scope=None, _message=''):
+    """
+    Log a message at DEBUG level.
+    
+    Args:
+        _scope: Optional scope for the log message.
+        _message: The message to log.
+    """
+    from spafw37 import logging
+    logging.log_debug(_scope=_scope, _message=_message)
+
+
+def log_info(_scope=None, _message=''):
+    """
+    Log a message at INFO level.
+    
+    Args:
+        _scope: Optional scope for the log message.
+        _message: The message to log.
+    """
+    from spafw37 import logging
+    logging.log_info(_scope=_scope, _message=_message)
+
+
+def log_warning(_scope=None, _message=''):
+    """
+    Log a message at WARNING level.
+    
+    Args:
+        _scope: Optional scope for the log message.
+        _message: The message to log.
+    """
+    from spafw37 import logging
+    logging.log_warning(_scope=_scope, _message=_message)
+
+
+def log_error(_scope=None, _message=''):
+    """
+    Log a message at ERROR level.
+    
+    Args:
+        _scope: Optional scope for the log message.
+        _message: The message to log.
+    """
+    from spafw37 import logging
+    logging.log_error(_scope=_scope, _message=_message)
+
+
+def set_current_scope(scope):
+    """
+    Set the current logging scope.
+    
+    Args:
+        scope: The scope name to use for subsequent log messages.
+    """
+    from spafw37 import logging
+    logging.set_current_scope(scope)

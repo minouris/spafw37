@@ -8,36 +8,21 @@ import os
 import sys
 from datetime import datetime
 
-import spafw37.config
-from spafw37.constants.param import (
-    PARAM_NAME,
-    PARAM_GROUP,
-    PARAM_DESCRIPTION,
-    PARAM_CONFIG_NAME,
-    PARAM_TYPE,
-    PARAM_ALIASES,
-    PARAM_PERSISTENCE,
-    PARAM_PERSISTENCE_ALWAYS,
-    PARAM_PERSISTENCE_NEVER,
-    PARAM_TYPE_TOGGLE,
-    PARAM_TYPE_TEXT,
-    PARAM_TYPE_LIST,
-    PARAM_SWITCH_LIST,
+from spafw37 import config
+from spafw37 import config_func
+from spafw37.logging_config import (
+    LOG_VERBOSE_PARAM,
+    LOG_TRACE_PARAM,
+    LOG_TRACE_CONSOLE_PARAM,
+    LOG_SILENT_PARAM,
+    LOG_NO_LOGGING_PARAM,
+    LOG_NO_FILE_LOGGING_PARAM,
+    LOG_SUPPRESS_ERRORS_PARAM,
+    LOG_DIR_PARAM,
+    LOG_LEVEL_PARAM,
+    LOG_PHASE_LOG_LEVEL_PARAM,
+    LOGGING_PARAMS,
 )
-
-# Logging Param Names (local to this module)
-LOG_VERBOSE_PARAM = 'log-verbose'
-LOG_TRACE_PARAM = 'log-trace'
-LOG_TRACE_CONSOLE_PARAM = 'log-trace-console'
-LOG_SILENT_PARAM = 'log-silent'
-LOG_NO_LOGGING_PARAM = 'log-no-logging'
-LOG_SUPPRESS_ERRORS_PARAM = 'log-suppress-errors'
-LOG_DIR_PARAM = 'log-dir'
-LOG_LEVEL_PARAM = 'log-level'
-LOG_PHASE_LOG_LEVEL_PARAM = 'log-phase-log-level'
-
-# Help grouping
-LOGGING_HELP_GROUP = 'Logging Options'
 
 # Custom TRACE log level (below DEBUG)
 TRACE = 5
@@ -91,9 +76,8 @@ class CustomFormatter(stdlib_logging.Formatter):
     
     def format(self, record):
         """Format log record."""
-        from spafw37 import config_func as config
         timestamp = _get_timestamp()
-        scope = getattr(record, 'scope', _current_scope or config.get_app_name())
+        scope = getattr(record, 'scope', _current_scope or config_func.get_app_name())
         level = record.levelname
         message = record.getMessage()
         return f"[{timestamp}][{scope}][{level}] {message}"
@@ -223,13 +207,11 @@ def get_scope_log_level(scope):
 
 def log(_level=INFO, _scope=None, _message=''):
     """Log a message."""
-    from . import config_func as config
-    
     if _logger is None:
         _init_logger()
     
     # Check scope-specific log level
-    effective_scope = _scope or _current_scope or config.get_app_name()
+    effective_scope = _scope or _current_scope or config_func.get_app_name()
     scope_level = get_scope_log_level(effective_scope)
     
     if scope_level is not None and _level < scope_level:
@@ -265,94 +247,6 @@ def log_error(_scope=None, _message=''):
     log(_level=ERROR, _scope=_scope, _message=_message)
 
 
-# Define logging parameters
-LOGGING_PARAMS = [
-    {
-        PARAM_NAME: LOG_VERBOSE_PARAM,
-        PARAM_DESCRIPTION: 'Enable verbose logging (console to DEBUG)',
-        PARAM_CONFIG_NAME: LOG_VERBOSE_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--verbose', '-v'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_TRACE_PARAM,
-        PARAM_DESCRIPTION: 'Set file log level to TRACE',
-        PARAM_CONFIG_NAME: LOG_TRACE_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--trace'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_TRACE_CONSOLE_PARAM,
-        PARAM_DESCRIPTION: 'Set console log level to TRACE',
-        PARAM_CONFIG_NAME: LOG_TRACE_CONSOLE_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--trace-console'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_SILENT_PARAM,
-        PARAM_DESCRIPTION: 'Suppress all console logging (errors to stderr only)',
-        PARAM_CONFIG_NAME: LOG_SILENT_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--silent'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_NO_LOGGING_PARAM],
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_NO_LOGGING_PARAM,
-        PARAM_DESCRIPTION: 'Suppress all logging to console and file (errors to stderr only)',
-        PARAM_CONFIG_NAME: LOG_NO_LOGGING_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--no-logging'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_SWITCH_LIST: [LOG_VERBOSE_PARAM, LOG_TRACE_PARAM, LOG_TRACE_CONSOLE_PARAM, LOG_SILENT_PARAM],
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_SUPPRESS_ERRORS_PARAM,
-        PARAM_DESCRIPTION: 'Disable error logging',
-        PARAM_CONFIG_NAME: LOG_SUPPRESS_ERRORS_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--suppress-errors'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_DIR_PARAM,
-        PARAM_DESCRIPTION: 'Set directory for log files',
-        PARAM_CONFIG_NAME: LOG_DIR_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_ALIASES: ['--log-dir'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_LEVEL_PARAM,
-        PARAM_DESCRIPTION: 'Set overall log level',
-        PARAM_CONFIG_NAME: LOG_LEVEL_PARAM,
-        PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_ALIASES: ['--log-level'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-    {
-        PARAM_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
-        PARAM_DESCRIPTION: 'Set log level for a specific phase',
-        PARAM_CONFIG_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
-        PARAM_TYPE: PARAM_TYPE_LIST,
-        PARAM_ALIASES: ['--phase-log-level'],
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
-        PARAM_GROUP: LOGGING_HELP_GROUP
-    },
-]
-
-
 def _get_level_from_name(level_name):
     """Convert level name to level number."""
     level_map = {
@@ -367,49 +261,69 @@ def _get_level_from_name(level_name):
 
 
 def apply_logging_config():
-    """Apply logging configuration from config values."""
-    from . import config_func as config
+    """Apply logging configuration from config values.
     
+    Starts with default handler levels and applies only the enabled flags.
+    All log level flags are mutually exclusive.
+    """
     # Initialize logger
     _init_logger()
     
-    # Apply verbose flag
-    if spafw37.config.get_config_value(LOG_VERBOSE_PARAM):
-        set_console_level(DEBUG)
+    # Start with default levels
+    file_level = _DEFAULT_FILE_LEVEL  # DEBUG
+    console_level = _DEFAULT_CONSOLE_LEVEL  # INFO
     
-    # Apply trace flags
-    if spafw37.config.get_config_value(LOG_TRACE_PARAM):
-        set_file_level(TRACE)
+    # Apply log level flags (mutually exclusive, only one should be set)
+    # Priority: explicit log-level > trace > verbose > silent/no-logging
     
-    if spafw37.config.get_config_value(LOG_TRACE_CONSOLE_PARAM):
-        set_console_level(TRACE)
-    
-    # Apply silent mode
-    if spafw37.config.get_config_value(LOG_SILENT_PARAM):
-        set_silent_mode(True)
-    
-    # Apply no-logging mode
-    if spafw37.config.get_config_value(LOG_NO_LOGGING_PARAM):
-        set_no_logging_mode(True)
-    
-    # Apply suppress errors
-    if spafw37.config.get_config_value(LOG_SUPPRESS_ERRORS_PARAM):
-        set_suppress_errors(True)
-    
-    # Apply log directory
-    log_dir = spafw37.config.get_config_value(LOG_DIR_PARAM)
-    if log_dir:
-        set_log_dir(log_dir)
-    
-    # Apply log level
-    log_level = spafw37.config.get_config_value(LOG_LEVEL_PARAM)
+    # Check for explicit log level first (overrides everything)
+    log_level = config.get_config_value(LOG_LEVEL_PARAM)
     if log_level:
         level = _get_level_from_name(log_level)
-        set_file_level(level)
-        set_console_level(level)
+        file_level = level
+        console_level = level
+    
+    # Check for trace (both console and file to TRACE)
+    elif config.get_config_value(LOG_TRACE_PARAM):
+        file_level = TRACE
+        console_level = TRACE
+    
+    # Check for trace-console (only console to TRACE)
+    elif config.get_config_value(LOG_TRACE_CONSOLE_PARAM):
+        console_level = TRACE
+    
+    # Check for verbose (console to DEBUG)
+    elif config.get_config_value(LOG_VERBOSE_PARAM):
+        console_level = DEBUG
+    
+    # Check for silent mode (console effectively disabled)
+    elif config.get_config_value(LOG_SILENT_PARAM):
+        console_level = stdlib_logging.CRITICAL + 1  # Above all levels
+    
+    # Check for no-logging mode (both handlers disabled)
+    elif config.get_config_value(LOG_NO_LOGGING_PARAM):
+        console_level = stdlib_logging.CRITICAL + 1
+        file_level = stdlib_logging.CRITICAL + 1
+    
+    # Apply the determined levels to handlers
+    set_file_level(file_level)
+    set_console_level(console_level)
+    
+    # Check for no-file-logging mode (takes precedence over log-dir)
+    if config.get_config_value(LOG_NO_FILE_LOGGING_PARAM):
+        set_file_level(stdlib_logging.CRITICAL + 1)  # Disable file logging
+    else:
+        # Apply log directory only if file logging is not disabled
+        log_dir = config.get_config_value(LOG_DIR_PARAM)
+        if log_dir:
+            set_log_dir(log_dir)
+    
+    # Apply suppress errors
+    if config.get_config_value(LOG_SUPPRESS_ERRORS_PARAM):
+        set_suppress_errors(True)
     
     # Apply scope-specific log levels (phase-log-level param for backward compatibility)
-    scope_log_levels = spafw37.config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
+    scope_log_levels = config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
     if scope_log_levels:
         # Format: [scope1, level1, scope2, level2, ...]
         for i in range(0, len(scope_log_levels), 2):
