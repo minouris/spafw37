@@ -37,7 +37,6 @@ def setup_function():
     param._param_aliases.clear()
     param._params.clear()
     param._preparse_args.clear()
-    param._run_levels.clear()
     try:
         config._non_persisted_config_names.clear()
         spafw37.config._config.clear()
@@ -58,7 +57,6 @@ def test_register_param_alias_valid():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias1, alias2]
     })
-    param.build_params_for_run_level()
     assert param._param_aliases[alias1] == param_name
     assert param._param_aliases[alias2] == param_name
 
@@ -90,7 +88,6 @@ def test_is_param_alias_true():
         param.PARAM_ALIASES: [alias]
     }
     param.add_param(_param)
-    param.build_params_for_run_level()
     assert param.is_param_alias(_param, alias) is True
 
 def test_is_param_alias_false():
@@ -102,7 +99,6 @@ def test_is_param_alias_false():
         param.PARAM_ALIASES: [alias]
     }
     param.add_param(_param)
-    param.build_params_for_run_level()
     # alias does not belong to the param
     assert param.is_param_alias(_param, '--other-alias') is False
 
@@ -116,7 +112,6 @@ def test_add_param_multiple_aliases():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: aliases
     })
-    param.build_params_for_run_level()
     assert param._param_aliases[alias1] == param_name
     assert param._param_aliases[alias2] == param_name
 
@@ -135,7 +130,6 @@ def test_get_param_by_alias_known_returns_param():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias]
     })
-    param.build_params_for_run_level()
     _param = param.get_param_by_alias(alias)
     assert _param.get(param_consts.PARAM_NAME) == param_name
 
@@ -148,7 +142,6 @@ def test_set_default_param_values():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
-    param.build_params_for_run_level()
     cli._set_defaults()
     assert spafw37.config._config[bind_name] == 'default_value'
 
@@ -162,7 +155,6 @@ def test_set_default_param_toggle_with_default_true():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_DEFAULT: True
     })
-    param.build_params_for_run_level()
     cli._set_defaults()
     assert spafw37.config._config[bind_name] is True
 
@@ -175,7 +167,6 @@ def test_set_default_param_toggle_with_no_default():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     })
-    param.build_params_for_run_level()
     cli._set_defaults()
     assert spafw37.config._config[bind_name] is False
 
@@ -218,7 +209,6 @@ def test_set_param_xor_list_full_set():
         param.PARAM_SWITCH_LIST: [ option1, option2 ]
     }
     ])
-    param.build_params_for_run_level()
     assert param.has_xor_with(option1, option2)
     assert param.has_xor_with(option1, option3)
     assert param.has_xor_with(option2, option1)
@@ -245,7 +235,6 @@ def test_set_param_xor_list_partial_set():
         param.PARAM_SWITCH_LIST: [ option1 ]
     }
     ])
-    param.build_params_for_run_level()
     assert param.has_xor_with(option1, option2)
     assert param.has_xor_with(option1, option3)
     assert param.has_xor_with(option2, option1)
@@ -304,7 +293,6 @@ def test_parse_command_line_toggle_param():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--verbose', '-v']
     }])
-    param.build_params_for_run_level()
     args = ["--some-flag", "-v"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["some_flag"] is True
@@ -317,7 +305,6 @@ def test_parse_command_line_param_with_text_value():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--output-file', '-o']
     }])
-    param.build_params_for_run_level()
     args = ["--output-file", "result.txt"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["output_file"] == "result.txt"
@@ -329,7 +316,6 @@ def test_parse_command_line_param_with_number_value():
         param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
         param.PARAM_ALIASES: ['--max-retries', '-m']
     }])
-    param.build_params_for_run_level()
     args = ["--max-retries", "5"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["max_retries"] == 5
@@ -341,7 +327,6 @@ def test_parse_command_line_param_with_list_value():
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--input-files', '-i']
     }])
-    param.build_params_for_run_level()
     args = ["--input-files", "file1.txt", "file2.txt"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["input_files"] == ["file1.txt", "file2.txt"]
@@ -353,7 +338,6 @@ def test_parse_command_line_param_with_list_value_across_multi_params():
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--input-files', '-i']
     }])
-    param.build_params_for_run_level()
     args = ["--input-files", "file1.txt", "--input-files", "file2.txt"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["input_files"] == ["file1.txt", "file2.txt"]
@@ -370,7 +354,6 @@ def test_parse_command_line_param_with_toggle_value():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--verbose', '-v']
     }])
-    param.build_params_for_run_level()
     args = ["--some-flag", "-v"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["some_flag"] is False
@@ -383,7 +366,6 @@ def test_parse_command_line_param_with_equals_value():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--config-path', '-c']
     }])
-    param.build_params_for_run_level()
     args = ["--config-path=/etc/config.json"]
     cli.handle_cli_args(args)
     assert spafw37.config._config["config_path"] == "/etc/config.json"
@@ -419,7 +401,6 @@ def test_xor_clashing_params_raise_error():
         param.PARAM_SWITCH_LIST: [ "option1" ],
         param.PARAM_DEFAULT: False
     }])
-    param.build_params_for_run_level()
     args = ["--option1", "--option2"]
     try:
         cli.handle_cli_args(args)
@@ -441,7 +422,6 @@ def test_xor_with_non_toggle_text_params():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_SWITCH_LIST: ["format"]
     }])
-    param.build_params_for_run_level()
     
     # Test 1: Both params explicitly set should raise error
     args = ["--format", "json", "--output-type", "csv"]
@@ -464,7 +444,6 @@ def test_xor_with_non_toggle_text_params():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_SWITCH_LIST: ["format"]
     }])
-    param.build_params_for_run_level()
     
     # Test 2: Only one param set should work
     args = ["--format", "json"]
@@ -486,7 +465,6 @@ def test_xor_with_non_toggle_number_params():
         param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
         param.PARAM_SWITCH_LIST: ["max-count"]
     }])
-    param.build_params_for_run_level()
     
     # Test 1: Both params explicitly set should raise error
     args = ["--max-count", "100", "--limit", "50"]
@@ -509,7 +487,6 @@ def test_xor_with_non_toggle_number_params():
         param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
         param.PARAM_SWITCH_LIST: ["max-count"]
     }])
-    param.build_params_for_run_level()
     
     # Test 2: Only one param set should work
     args = ["--max-count", "100"]
@@ -531,7 +508,6 @@ def test_xor_with_mixed_param_types():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_SWITCH_LIST: ["count"]
     }])
-    param.build_params_for_run_level()
     
     # Both params explicitly set should raise error even with different types
     args = ["--count", "42", "--size", "large"]
@@ -572,7 +548,6 @@ def test_handle_command():
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     })
-    param.build_params_for_run_level()
     args = ["save-user-config", CONFIG_INFILE_ALIAS, "config.json"]
     cli.handle_cli_args(args)
     assert command._is_command_finished("save-user-config")
@@ -595,7 +570,6 @@ def test_handle_command_missing_required_param_raises():
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     })
-    param.build_params_for_run_level()
     args = ["save-user-config"]
     with pytest.raises(ValueError, match=f"Missing required parameter '{CONFIG_OUTFILE_PARAM}' for command 'save-user-config'"):
         cli.handle_cli_args(args)
@@ -637,7 +611,6 @@ def test_capture_param_values_two_aliases_breaks_out():
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--second', '-s']
     }])
-    param.build_params_for_run_level()
     # Capture values for the first param but provide the second param's alias immediately after
     _param = param.get_param_by_alias('--first')
     result = cli.capture_param_values(['--first', '--second'], _param)
@@ -661,7 +634,6 @@ def test_capture_param_values_breaks_on_command():
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--files', '-f']
     })
-    param.build_params_for_run_level()
 
     _param = param.get_param_by_alias('--files')
     # Simulate args where the command appears right after the alias
@@ -870,7 +842,6 @@ def test_handle_cli_args_sets_defaults():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
-    param.build_params_for_run_level()
     # calling handle_cli_args with no args should set defaults
     cli.handle_cli_args([])
     assert spafw37.config._config[bind_name] == 'default_value'

@@ -17,7 +17,6 @@ PARAM_DEFAULT = 'default-value'  # Default value for the param if not set. A par
 PARAM_HAS_VALUE = 'has-value'  # For pre-parse params: True if param takes a value, False if toggle
 PARAM_RUNTIME_ONLY = 'runtime-only'  # Not persisted, only for runtime use, not checked at start of queue, but checked when a command that uses them is run
 PARAM_DEFERRED = 'deferred'  # When False, param should be processed immediately instead of being buffered (default: True for all params)
-PARAM_RUN_LEVEL = 'param-run-level'  # Run-level this param belongs to (can be set at definition or auto-assigned)
 PARAM_GROUP = 'param-group'  # Group name for organizing parameters in help display
 
 # Param Persistence Options

@@ -10,7 +10,6 @@ from spafw37.constants.command import (
     COMMAND_REQUIRE_BEFORE,
     COMMAND_TRIGGER_PARAM,
     COMMAND_FRAMEWORK,
-    COMMAND_RUN_LEVEL,
 )
 from spafw37.constants.phase import (
     PHASE_DEFAULT,
@@ -95,92 +94,6 @@ def get_all_commands():
         Dictionary of all registered commands {command_name: command_dict}.
     """
     return dict(_commands)
-
-
-def validate_no_cross_run_level_dependencies():
-    """Validate that commands don't have dependencies on commands in other run-levels.
-    
-    Raises:
-        ValueError: If a command references a command from a different run-level
-                   via COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, etc.
-    """
-    for cmd_name, cmd in _commands.items():
-        cmd_run_level = cmd.get(COMMAND_RUN_LEVEL)
-        
-        if not cmd_run_level:
-            continue
-        
-        # Check COMMAND_GOES_AFTER dependencies
-        goes_after = cmd.get(COMMAND_GOES_AFTER, [])
-        if goes_after:
-            if isinstance(goes_after, str):
-                goes_after = [goes_after]
-            for dep_name in goes_after:
-                dep_cmd = _commands.get(dep_name)
-                if dep_cmd:
-                    dep_run_level = dep_cmd.get(COMMAND_RUN_LEVEL)
-                    if dep_run_level and dep_run_level != cmd_run_level:
-                        raise ValueError(
-                            "Command '{}' (run-level '{}') references command '{}' "
-                            "(run-level '{}') via COMMAND_GOES_AFTER. Commands cannot "
-                            "have dependencies across run-levels.".format(
-                                cmd_name, cmd_run_level, dep_name, dep_run_level
-                            )
-                        )
-        
-        # Check COMMAND_GOES_BEFORE dependencies
-        goes_before = cmd.get(COMMAND_GOES_BEFORE, [])
-        if goes_before:
-            if isinstance(goes_before, str):
-                goes_before = [goes_before]
-            for dep_name in goes_before:
-                dep_cmd = _commands.get(dep_name)
-                if dep_cmd:
-                    dep_run_level = dep_cmd.get(COMMAND_RUN_LEVEL)
-                    if dep_run_level and dep_run_level != cmd_run_level:
-                        raise ValueError(
-                            "Command '{}' (run-level '{}') references command '{}' "
-                            "(run-level '{}') via COMMAND_GOES_BEFORE. Commands cannot "
-                            "have dependencies across run-levels.".format(
-                                cmd_name, cmd_run_level, dep_name, dep_run_level
-                            )
-                        )
-        
-        # Check COMMAND_NEXT_COMMANDS dependencies
-        next_commands = cmd.get(COMMAND_NEXT_COMMANDS, [])
-        if next_commands:
-            if isinstance(next_commands, str):
-                next_commands = [next_commands]
-            for dep_name in next_commands:
-                dep_cmd = _commands.get(dep_name)
-                if dep_cmd:
-                    dep_run_level = dep_cmd.get(COMMAND_RUN_LEVEL)
-                    if dep_run_level and dep_run_level != cmd_run_level:
-                        raise ValueError(
-                            "Command '{}' (run-level '{}') references command '{}' "
-                            "(run-level '{}') via COMMAND_NEXT_COMMANDS. Commands cannot "
-                            "have dependencies across run-levels.".format(
-                                cmd_name, cmd_run_level, dep_name, dep_run_level
-                            )
-                        )
-        
-        # Check COMMAND_REQUIRE_BEFORE dependencies
-        require_before = cmd.get(COMMAND_REQUIRE_BEFORE, [])
-        if require_before:
-            if isinstance(require_before, str):
-                require_before = [require_before]
-            for dep_name in require_before:
-                dep_cmd = _commands.get(dep_name)
-                if dep_cmd:
-                    dep_run_level = dep_cmd.get(COMMAND_RUN_LEVEL)
-                    if dep_run_level and dep_run_level != cmd_run_level:
-                        raise ValueError(
-                            "Command '{}' (run-level '{}') references command '{}' "
-                            "(run-level '{}') via COMMAND_REQUIRE_BEFORE. Commands cannot "
-                            "have dependencies across run-levels.".format(
-                                cmd_name, cmd_run_level, dep_name, dep_run_level
-                            )
-                        )
 
 
 def is_command(arg):

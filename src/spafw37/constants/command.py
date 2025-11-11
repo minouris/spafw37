@@ -17,6 +17,5 @@ COMMAND_REQUIRE_BEFORE = "require-before"  # List of command names that must be 
 COMMAND_NEXT_COMMANDS = "next-commands"  # List of command names that will be automatically queued after this command is run
 COMMAND_TRIGGER_PARAM = "trigger-param"  # Param bind name that triggers this command when set
 COMMAND_PHASE = "command-phase"  # Phase in which this command should be run
-COMMAND_RUN_LEVEL = "command-run-level"  # Run-level this command belongs to (can be set at definition or auto-assigned)
 COMMAND_FRAMEWORK = "framework"  # True if this is a framework-defined command (vs app-defined)
 COMMAND_EXCLUDE_FROM_HELP = "exclude-from-help"  # True if this command should be excluded from help displays

@@ -68,7 +68,6 @@ def test_display_all_help_with_params(capsys):
         PARAM_DESCRIPTION: "A test parameter",
         PARAM_ALIASES: ["--test", "-t"]
     })
-    param.build_params_for_run_level()
     
     help.display_all_help()
     
@@ -92,7 +91,6 @@ def test_display_all_help_filters_command_params(capsys):
         PARAM_ALIASES: ["--cmd-param"],
         PARAM_CONFIG_NAME: "cmd-param"
     })
-    param.build_params_for_run_level()
     
     param.add_param({
         PARAM_NAME: "general-param",
@@ -100,7 +98,6 @@ def test_display_all_help_filters_command_params(capsys):
         PARAM_ALIASES: ["--gen"],
         PARAM_CONFIG_NAME: "general-param"
     })
-    param.build_params_for_run_level()
     
     command.add_command({
         COMMAND_NAME: "test-cmd",
@@ -138,7 +135,6 @@ def test_display_command_help_valid_command(capsys):
         PARAM_ALIASES: ["--req"],
         PARAM_CONFIG_NAME: "req-param"
     })
-    param.build_params_for_run_level()
     
     command.add_command({
         COMMAND_NAME: "build",
@@ -202,7 +198,6 @@ def test_grouped_params(capsys):
         PARAM_ALIASES: ["--input1"],
         PARAM_GROUP: "Input Options"
     })
-    param.build_params_for_run_level()
     
     param.add_param({
         PARAM_NAME: "input2",
@@ -210,7 +205,6 @@ def test_grouped_params(capsys):
         PARAM_ALIASES: ["--input2"],
         PARAM_GROUP: "Input Options"
     })
-    param.build_params_for_run_level()
     
     param.add_param({
         PARAM_NAME: "output",
@@ -218,14 +212,12 @@ def test_grouped_params(capsys):
         PARAM_ALIASES: ["--output"],
         PARAM_GROUP: "Output Options"
     })
-    param.build_params_for_run_level()
     
     param.add_param({
         PARAM_NAME: "verbose",
         PARAM_DESCRIPTION: "Verbose mode",
         PARAM_ALIASES: ["--verbose"]
     })
-    param.build_params_for_run_level()
     
     help.display_all_help()
     
@@ -296,8 +288,6 @@ def test_get_param_by_bind_name():
         PARAM_CONFIG_NAME: "test_bind",
         PARAM_ALIASES: ["--test"]
     })
-    param.build_params_for_run_level()
-    param.build_params_for_run_level()
     
     result = help._get_param_by_bind_name("test_bind")
     assert result is not None
@@ -320,7 +310,6 @@ def test_get_param_by_bind_name_uses_name_as_default():
         PARAM_NAME: "simple",
         PARAM_ALIASES: ["--simple"]
     })
-    param.build_params_for_run_level()
     
     result = help._get_param_by_bind_name("simple")
     assert result is not None

@@ -4,10 +4,6 @@ from spafw37 import command
 from spafw37 import config_func as config
 from spafw37 import param
 import spafw37.config
-from spafw37.constants.runlevel import (
-    RUN_LEVEL_NAME,
-    RUN_LEVEL_COMMANDS,
-)
 from spafw37.constants.param import (
     PARAM_HAS_VALUE,
     PARAM_NAME,
@@ -380,10 +376,9 @@ def _pre_parse_params(arguments):
 
 
 def handle_cli_args(args):
-    """Handle command-line arguments with run-level processing.
+    """Handle command-line arguments.
     
-    Processes run-levels in registration order. Each run-level activates
-    a subset of params/commands and can set config values.
+    Processes command-line arguments, setting config values and executing commands.
     """
     # Check for help command before processing
     from spafw37 import help as help_module
@@ -397,44 +392,14 @@ def handle_cli_args(args):
     # before main parsing to configure behavior
     _pre_parse_params(args)
     
-    # Pre-parse: assign orphan params/commands to default run-level
-    # and create bidirectional relationships
-    param.assign_orphans_to_default_run_level()
+    # Set defaults for all parameters
+    _set_defaults()
     
-    # Process run-levels in registration order
-    run_levels = param.get_all_run_levels()
+    # Parse command line arguments
+    _parse_command_line(args)
     
-    # If no run levels defined, create a default one for processing
-    if not run_levels:
-        run_levels = [{}]
-    
-    # Process each run-level
-    for run_level in run_levels:
-        run_level_name = run_level.get(RUN_LEVEL_NAME)
-        
-        # Register params for this run-level
-        param.build_params_for_run_level(run_level_name)
-        
-        # Set defaults first
-        _set_defaults()
-        
-        # Then apply run-level config (can override defaults)
-        if run_level_name:
-            param.apply_run_level_config(run_level_name)
-        
-        # Queue commands specified in run-level definition
-        if RUN_LEVEL_COMMANDS in run_level:
-            cmd_list = run_level[RUN_LEVEL_COMMANDS]
-            if cmd_list:  # Only process if list is not empty
-                for cmd_name in cmd_list:
-                    if command.is_command(cmd_name):
-                        command.queue_command(cmd_name)
-        
-        # Parse command line for this run-level's params and commands
-        _parse_command_line(args)
-        
-        # Execute this run-level's command queue
-        command.run_command_queue()
+    # Execute queued commands
+    command.run_command_queue()
     
     # Execute post-parse actions (e.g., save persistent config)
     _do_post_parse_actions()
