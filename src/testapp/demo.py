@@ -1,11 +1,16 @@
 """
 Enhanced test application demonstrating help/usage features.
 """
-from spafw37.config import set_config_file
-from spafw37.param import add_params
-from spafw37.command import add_commands
+from spafw37 import core as spafw37
 
-from spafw37.config_consts import (
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_DESCRIPTION,
+    COMMAND_HELP,
+    COMMAND_ACTION,
+    COMMAND_REQUIRED_PARAMS,
+)
+from spafw37.constants.param import (
     PARAM_NAME,
     PARAM_DESCRIPTION,
     PARAM_ALIASES,
@@ -14,14 +19,9 @@ from spafw37.config_consts import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_GROUP,
-    COMMAND_NAME,
-    COMMAND_DESCRIPTION,
-    COMMAND_HELP,
-    COMMAND_ACTION,
-    COMMAND_REQUIRED_PARAMS,
 )
 
-set_config_file('demo_config.json')
+spafw37.set_config_file('demo_config.json')
 
 
 def build_action():
@@ -138,9 +138,8 @@ Use --verbose to see detailed test output.
 ]
 
 # Register params and commands
-add_params(demo_params)
-add_commands(demo_commands)
+spafw37.add_params(demo_params)
+spafw37.add_commands(demo_commands)
 
 if __name__ == "__main__":
-    from spafw37 import core
-    core.run_cli()
+    spafw37.run_cli()

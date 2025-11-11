@@ -1,9 +1,9 @@
 import re
 from typing import List, Dict, Any, Optional
 
-from .config_consts import (
+from spafw37.constants.param import (
     PARAM_NAME,
-    PARAM_BIND_TO,
+    PARAM_CONFIG_NAME,
     PARAM_RUNTIME_ONLY,
     PARAM_DEFERRED,
     PARAM_RUN_LEVEL,
@@ -19,7 +19,11 @@ from .config_consts import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
+)
+from spafw37.constants.command import (
     COMMAND_FRAMEWORK,
+)
+from spafw37.constants.runlevel import (
     RUN_LEVEL_NAME,
     RUN_LEVEL_PARAMS,
     RUN_LEVEL_COMMANDS,
@@ -147,7 +151,7 @@ def _add_param_xor(param_name: str, xor_param_name: str):
     if xor_param_name not in _xor_list[param_name]:
         _xor_list[param_name].append(xor_param_name)
 
-def _has_xor_with(param_name: str, other_param_name: str) -> bool:
+def has_xor_with(param_name: str, other_param_name: str) -> bool:
     xor_list = _xor_list.get(param_name, [])
     return other_param_name in xor_list
 
@@ -250,7 +254,7 @@ def _activate_param(_param):
 
 
 def get_bind_name(param: dict) -> str:
-    return param.get(PARAM_BIND_TO, param[PARAM_NAME])
+    return param.get(PARAM_CONFIG_NAME, param[PARAM_NAME])
 
 def get_param_default(_param: dict, default=None):
     return _param.get(PARAM_DEFAULT, default)
@@ -385,7 +389,7 @@ def apply_run_level_config(run_level_name):
         allowed_params = set(run_level.get(RUN_LEVEL_PARAMS, [])) if RUN_LEVEL_PARAMS in run_level else None
         
         for param_name, param in _params.items():
-            bind_name = param.get(PARAM_BIND_TO, param_name)
+            bind_name = param.get(PARAM_CONFIG_NAME, param_name)
             
             # Skip params not in this run-level's param list
             if allowed_params is not None and bind_name not in allowed_params:
@@ -421,8 +425,8 @@ def assign_orphans_to_default_run_level():
     Note: Now that params are activated immediately, this processes already-activated params.
     """
     from .command import get_all_commands
-    from .config import get_default_run_level
-    from .config_consts import COMMAND_NAME, COMMAND_RUN_LEVEL
+    from .config_func import get_default_run_level
+    from .constants.command import COMMAND_NAME, COMMAND_RUN_LEVEL
     
     # Get the default run-level name
     default_run_level_name = get_default_run_level()
@@ -448,7 +452,7 @@ def assign_orphans_to_default_run_level():
         if PARAM_RUN_LEVEL not in param or not param[PARAM_RUN_LEVEL]:
             # Assign to default run-level
             param[PARAM_RUN_LEVEL] = default_run_level_name
-            bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+            bind_name = param.get(PARAM_CONFIG_NAME, param.get(PARAM_NAME))
             
             # Add to default run-level's param list if not already there
             if bind_name and bind_name not in default_params:
@@ -460,7 +464,7 @@ def assign_orphans_to_default_run_level():
             if run_level:
                 if RUN_LEVEL_PARAMS not in run_level:
                     run_level[RUN_LEVEL_PARAMS] = []
-                bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+                bind_name = param.get(PARAM_CONFIG_NAME, param.get(PARAM_NAME))
                 if bind_name and bind_name not in run_level[RUN_LEVEL_PARAMS]:
                     run_level[RUN_LEVEL_PARAMS].append(bind_name)
     
@@ -506,6 +510,11 @@ def get_pre_parse_args():
         if param_def:
             result.append(param_def)
     return result
+
+
+def get_all_param_definitions():
+    """Accessor function to retrieve all parameter definitions."""
+    return _params.values()
 
 
 

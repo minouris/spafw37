@@ -1,4 +1,4 @@
-from spafw37.config import set_config_file
+from spafw37.config_func import set_config_file
 
 set_config_file('config.json')
 

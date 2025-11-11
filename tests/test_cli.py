@@ -1,8 +1,31 @@
 import pytest
-from spafw37 import cli, config, param, command
-from spafw37.config_consts import COMMAND_ACTION, COMMAND_DESCRIPTION, COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_REQUIRED_PARAMS, CONFIG_INFILE_ALIAS, CONFIG_INFILE_PARAM, CONFIG_OUTFILE_PARAM, PARAM_DESCRIPTION, PARAM_PERSISTENCE, PARAM_PERSISTENCE_NEVER, PARAM_REQUIRED
+from spafw37 import cli, config_func as config, param, command
+import spafw37.config
+from spafw37.constants.command import (
+    COMMAND_ACTION,
+    COMMAND_DESCRIPTION,
+    COMMAND_NAME,
+    COMMAND_REQUIRED_PARAMS,
+)
+from spafw37.constants.config import (
+    CONFIG_INFILE_ALIAS,
+    CONFIG_INFILE_PARAM,
+    CONFIG_OUTFILE_PARAM,
+)
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_DESCRIPTION,
+    PARAM_PERSISTENCE,
+    PARAM_PERSISTENCE_NEVER,
+    PARAM_REQUIRED,
+    PARAM_ALIASES,
+    PARAM_TYPE,
+    PARAM_DEFAULT,
+    PARAM_CONFIG_NAME,
+    PARAM_SWITCH_LIST,
+)
+import spafw37.constants.param as param_consts
 import spafw37.configure
-from spafw37.param import PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT, PARAM_BIND_TO, PARAM_SWITCH_LIST
 import re
 from unittest.mock import patch, mock_open
 import json
@@ -17,7 +40,7 @@ def setup_function():
     param._run_levels.clear()
     try:
         config._non_persisted_config_names.clear()
-        config._config.clear()
+        spafw37.config._config.clear()
         config._persistent_config.clear()
         param._xor_list.clear()
         cli._pre_parse_actions.clear()
@@ -32,7 +55,7 @@ def test_register_param_alias_valid():
     alias2 = '-t'
     param_name = 'test_param'
     param.add_param({
-        param.PARAM_NAME: param_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias1, alias2]
     })
     param.build_params_for_run_level()
@@ -43,7 +66,7 @@ def test_register_param_alias_invalid_raises():
     setup_function()
     invalid_alias = 'invalid-alias'  # Missing leading dashes
     _param = {
-        param.PARAM_NAME: 'test_param',
+        param_consts.PARAM_NAME: 'test_param',
         param.PARAM_ALIASES: [invalid_alias]
     }
     with pytest.raises(ValueError, match="Invalid alias format"):
@@ -63,7 +86,7 @@ def test_is_param_alias_true():
     alias = '--my-alias'
     param_name = 'my_param'
     _param = {
-        param.PARAM_NAME: param_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias]
     }
     param.add_param(_param)
@@ -75,7 +98,7 @@ def test_is_param_alias_false():
     alias = '--my-alias'
     param_name = 'my_param'
     _param = {
-        param.PARAM_NAME: param_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias]
     }
     param.add_param(_param)
@@ -90,7 +113,7 @@ def test_add_param_multiple_aliases():
     param_name = 'test_alias_param'
     aliases = [alias1, alias2]
     param.add_param({
-        param.PARAM_NAME: param_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: aliases
     })
     param.build_params_for_run_level()
@@ -109,52 +132,52 @@ def test_get_param_by_alias_known_returns_param():
     alias = '--known-alias'
     param_name = 'known_param'
     param.add_param({
-        param.PARAM_NAME: param_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_ALIASES: [alias]
     })
     param.build_params_for_run_level()
     _param = param.get_param_by_alias(alias)
-    assert _param.get(param.PARAM_NAME) == param_name
+    assert _param.get(param_consts.PARAM_NAME) == param_name
 
 def test_set_default_param_values():
     setup_function()
     bind_name = 'test_bind'
     param_name = 'test_param'
     param.add_param({
-        param.PARAM_BIND_TO: bind_name,
-        param.PARAM_NAME: param_name,
+        param.PARAM_CONFIG_NAME: bind_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
     param.build_params_for_run_level()
     cli._set_defaults()
-    assert config._config[bind_name] == 'default_value'
+    assert spafw37.config._config[bind_name] == 'default_value'
 
 def test_set_default_param_toggle_with_default_true():
     setup_function()
     bind_name = 'toggle_param'
     param_name = 'toggle_param_name'
     param.add_param({
-        param.PARAM_BIND_TO: bind_name,
-        param.PARAM_NAME: param_name,
+        param.PARAM_CONFIG_NAME: bind_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_DEFAULT: True
     })
     param.build_params_for_run_level()
     cli._set_defaults()
-    assert config._config[bind_name] is True
+    assert spafw37.config._config[bind_name] is True
 
 def test_set_default_param_toggle_with_no_default():
     setup_function()
     bind_name = 'toggle_no_default'
     param_name = 'toggle_no_default_name'
     param.add_param({
-        param.PARAM_BIND_TO: bind_name,
-        param.PARAM_NAME: param_name,
+        param.PARAM_CONFIG_NAME: bind_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     })
     param.build_params_for_run_level()
     cli._set_defaults()
-    assert config._config[bind_name] is False
+    assert spafw37.config._config[bind_name] is False
 
 def test_is_toggle_param_true():
     setup_function()
@@ -173,7 +196,7 @@ def test_is_toggle_param_false():
 def test_is_toggle_param_default_false():
     setup_function()
     _param = {
-        param.PARAM_NAME: 'some_param'
+        param_consts.PARAM_NAME: 'some_param'
     }
     assert param.is_toggle_param(_param) is False
 
@@ -185,23 +208,23 @@ def test_set_param_xor_list_full_set():
     option2 = "option2"
     option3 = "option3"
     param.add_params([{
-        param.PARAM_NAME: option1,
+        param_consts.PARAM_NAME: option1,
         param.PARAM_SWITCH_LIST: [ option2, option3 ]
     },{
-        param.PARAM_NAME: option2,
+        param_consts.PARAM_NAME: option2,
         param.PARAM_SWITCH_LIST: [ option1, option3 ]
     },{
-        param.PARAM_NAME: option3,
+        param_consts.PARAM_NAME: option3,
         param.PARAM_SWITCH_LIST: [ option1, option2 ]
     }
     ])
     param.build_params_for_run_level()
-    assert param._has_xor_with(option1, option2)
-    assert param._has_xor_with(option1, option3)
-    assert param._has_xor_with(option2, option1)
-    assert param._has_xor_with(option2, option3)
-    assert param._has_xor_with(option3, option1)
-    assert param._has_xor_with(option3, option2)
+    assert param.has_xor_with(option1, option2)
+    assert param.has_xor_with(option1, option3)
+    assert param.has_xor_with(option2, option1)
+    assert param.has_xor_with(option2, option3)
+    assert param.has_xor_with(option3, option1)
+    assert param.has_xor_with(option3, option2)
 
 def test_set_param_xor_list_partial_set():
     """
@@ -212,23 +235,23 @@ def test_set_param_xor_list_partial_set():
     option2 = "option2"
     option3 = "option3"
     param.add_params([{
-        param.PARAM_NAME: option1,
+        param_consts.PARAM_NAME: option1,
         param.PARAM_SWITCH_LIST: [ option2 ]
     },{
-        param.PARAM_NAME: option2,
+        param_consts.PARAM_NAME: option2,
         param.PARAM_SWITCH_LIST: [ option3 ]
     },{
-        param.PARAM_NAME: option3,
+        param_consts.PARAM_NAME: option3,
         param.PARAM_SWITCH_LIST: [ option1 ]
     }
     ])
     param.build_params_for_run_level()
-    assert param._has_xor_with(option1, option2)
-    assert param._has_xor_with(option1, option3)
-    assert param._has_xor_with(option2, option1)
-    assert param._has_xor_with(option2, option3)
-    assert param._has_xor_with(option3, option1)
-    assert param._has_xor_with(option3, option2)
+    assert param.has_xor_with(option1, option2)
+    assert param.has_xor_with(option1, option3)
+    assert param.has_xor_with(option2, option1)
+    assert param.has_xor_with(option2, option3)
+    assert param.has_xor_with(option3, option1)
+    assert param.has_xor_with(option3, option2)
 
 
 def test_parse_value_number_int():
@@ -273,97 +296,97 @@ def test_parse_value_default_returns_value():
 def test_parse_command_line_toggle_param():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "some_flag",
+        param_consts.PARAM_NAME: "some_flag",
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--some-flag', '-s']
     },{
-        param.PARAM_NAME: "verbose",
+        param_consts.PARAM_NAME: "verbose",
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--verbose', '-v']
     }])
     param.build_params_for_run_level()
     args = ["--some-flag", "-v"]
     cli.handle_cli_args(args)
-    assert config._config["some_flag"] is True
-    assert config._config["verbose"] is True
+    assert spafw37.config._config["some_flag"] is True
+    assert spafw37.config._config["verbose"] is True
 
 def test_parse_command_line_param_with_text_value():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "output_file",
+        param_consts.PARAM_NAME: "output_file",
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--output-file', '-o']
     }])
     param.build_params_for_run_level()
     args = ["--output-file", "result.txt"]
     cli.handle_cli_args(args)
-    assert config._config["output_file"] == "result.txt"
+    assert spafw37.config._config["output_file"] == "result.txt"
 
 def test_parse_command_line_param_with_number_value():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "max_retries",
+        param_consts.PARAM_NAME: "max_retries",
         param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
         param.PARAM_ALIASES: ['--max-retries', '-m']
     }])
     param.build_params_for_run_level()
     args = ["--max-retries", "5"]
     cli.handle_cli_args(args)
-    assert config._config["max_retries"] == 5
+    assert spafw37.config._config["max_retries"] == 5
 
 def test_parse_command_line_param_with_list_value():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "input_files",
+        param_consts.PARAM_NAME: "input_files",
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--input-files', '-i']
     }])
     param.build_params_for_run_level()
     args = ["--input-files", "file1.txt", "file2.txt"]
     cli.handle_cli_args(args)
-    assert config._config["input_files"] == ["file1.txt", "file2.txt"]
+    assert spafw37.config._config["input_files"] == ["file1.txt", "file2.txt"]
 
 def test_parse_command_line_param_with_list_value_across_multi_params():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "input_files",
+        param_consts.PARAM_NAME: "input_files",
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--input-files', '-i']
     }])
     param.build_params_for_run_level()
     args = ["--input-files", "file1.txt", "--input-files", "file2.txt"]
     cli.handle_cli_args(args)
-    assert config._config["input_files"] == ["file1.txt", "file2.txt"]
+    assert spafw37.config._config["input_files"] == ["file1.txt", "file2.txt"]
 
 def test_parse_command_line_param_with_toggle_value():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "some_flag",
+        param_consts.PARAM_NAME: "some_flag",
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--some-flag', '-s'],
         param.PARAM_DEFAULT: True
     },{
-        param.PARAM_NAME: "verbose",
+        param_consts.PARAM_NAME: "verbose",
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_ALIASES: ['--verbose', '-v']
     }])
     param.build_params_for_run_level()
     args = ["--some-flag", "-v"]
     cli.handle_cli_args(args)
-    assert config._config["some_flag"] is False
-    assert config._config["verbose"] is True
+    assert spafw37.config._config["some_flag"] is False
+    assert spafw37.config._config["verbose"] is True
 
 def test_parse_command_line_param_with_equals_value():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "config_path",
+        param_consts.PARAM_NAME: "config_path",
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--config-path', '-c']
     }])
     param.build_params_for_run_level()
     args = ["--config-path=/etc/config.json"]
     cli.handle_cli_args(args)
-    assert config._config["config_path"] == "/etc/config.json"
+    assert spafw37.config._config["config_path"] == "/etc/config.json"
 
 def test_add_pre_parse_actions():
     setup_function()
@@ -386,12 +409,12 @@ def test_add_post_parse_actions():
 def test_xor_clashing_params_raise_error():
     setup_function()
     param.add_params([{
-        param.PARAM_NAME: "option1",
+        param_consts.PARAM_NAME: "option1",
         param.PARAM_ALIASES: ["--option1"],
         param.PARAM_SWITCH_LIST: [ "option2" ],
         param.PARAM_DEFAULT: False
     },{
-        param.PARAM_NAME: "option2",
+        param_consts.PARAM_NAME: "option2",
         param.PARAM_ALIASES: ["--option2"],
         param.PARAM_SWITCH_LIST: [ "option1" ],
         param.PARAM_DEFAULT: False
@@ -403,6 +426,120 @@ def test_xor_clashing_params_raise_error():
         assert False, "Expected ValueError for clashing xor params"
     except ValueError as e:
         assert str(e) == "Conflicting parameters provided: option1 and option2"
+
+def test_xor_with_non_toggle_text_params():
+    """Test that switch-list works correctly with TEXT type params."""
+    setup_function()
+    param.add_params([{
+        param_consts.PARAM_NAME: "format",
+        param.PARAM_ALIASES: ["--format"],
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_SWITCH_LIST: ["output-type"]
+    },{
+        param_consts.PARAM_NAME: "output-type",
+        param.PARAM_ALIASES: ["--output-type"],
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_SWITCH_LIST: ["format"]
+    }])
+    param.build_params_for_run_level()
+    
+    # Test 1: Both params explicitly set should raise error
+    args = ["--format", "json", "--output-type", "csv"]
+    try:
+        cli.handle_cli_args(args)
+        assert False, "Expected ValueError for conflicting text params"
+    except ValueError as e:
+        assert "Conflicting parameters provided" in str(e)
+    
+    # Reset for next test
+    setup_function()
+    param.add_params([{
+        param_consts.PARAM_NAME: "format",
+        param.PARAM_ALIASES: ["--format"],
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_SWITCH_LIST: ["output-type"]
+    },{
+        param_consts.PARAM_NAME: "output-type",
+        param.PARAM_ALIASES: ["--output-type"],
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_SWITCH_LIST: ["format"]
+    }])
+    param.build_params_for_run_level()
+    
+    # Test 2: Only one param set should work
+    args = ["--format", "json"]
+    cli.handle_cli_args(args)
+    assert spafw37.config._config.get("format") == "json"
+    assert spafw37.config._config.get("output-type") is None
+
+def test_xor_with_non_toggle_number_params():
+    """Test that switch-list works correctly with NUMBER type params."""
+    setup_function()
+    param.add_params([{
+        param_consts.PARAM_NAME: "max-count",
+        param.PARAM_ALIASES: ["--max-count"],
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_SWITCH_LIST: ["limit"]
+    },{
+        param_consts.PARAM_NAME: "limit",
+        param.PARAM_ALIASES: ["--limit"],
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_SWITCH_LIST: ["max-count"]
+    }])
+    param.build_params_for_run_level()
+    
+    # Test 1: Both params explicitly set should raise error
+    args = ["--max-count", "100", "--limit", "50"]
+    try:
+        cli.handle_cli_args(args)
+        assert False, "Expected ValueError for conflicting number params"
+    except ValueError as e:
+        assert "Conflicting parameters provided" in str(e)
+    
+    # Reset for next test
+    setup_function()
+    param.add_params([{
+        param_consts.PARAM_NAME: "max-count",
+        param.PARAM_ALIASES: ["--max-count"],
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_SWITCH_LIST: ["limit"]
+    },{
+        param_consts.PARAM_NAME: "limit",
+        param.PARAM_ALIASES: ["--limit"],
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_SWITCH_LIST: ["max-count"]
+    }])
+    param.build_params_for_run_level()
+    
+    # Test 2: Only one param set should work
+    args = ["--max-count", "100"]
+    cli.handle_cli_args(args)
+    assert spafw37.config._config.get("max-count") == 100
+    assert spafw37.config._config.get("limit") is None
+
+def test_xor_with_mixed_param_types():
+    """Test that switch-list works with mixed parameter types (TEXT and NUMBER)."""
+    setup_function()
+    param.add_params([{
+        param_consts.PARAM_NAME: "count",
+        param.PARAM_ALIASES: ["--count"],
+        param.PARAM_TYPE: param.PARAM_TYPE_NUMBER,
+        param.PARAM_SWITCH_LIST: ["size"]
+    },{
+        param_consts.PARAM_NAME: "size",
+        param.PARAM_ALIASES: ["--size"],
+        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
+        param.PARAM_SWITCH_LIST: ["count"]
+    }])
+    param.build_params_for_run_level()
+    
+    # Both params explicitly set should raise error even with different types
+    args = ["--count", "42", "--size", "large"]
+    try:
+        cli.handle_cli_args(args)
+        assert False, "Expected ValueError for conflicting mixed-type params"
+    except ValueError as e:
+        assert "Conflicting parameters provided" in str(e)
 
 def test_add_command_registers_command():
     setup_function()
@@ -429,7 +566,7 @@ def test_handle_command():
     param.add_param({
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
-        PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
+        PARAM_CONFIG_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_TYPE: 'string',
         PARAM_ALIASES: [CONFIG_INFILE_ALIAS,'-s'],
         PARAM_REQUIRED: False,
@@ -452,7 +589,7 @@ def test_handle_command_missing_required_param_raises():
     param.add_param({
         PARAM_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_DESCRIPTION: 'A JSON file to save configuration to',
-        PARAM_BIND_TO: CONFIG_OUTFILE_PARAM,
+        PARAM_CONFIG_NAME: CONFIG_OUTFILE_PARAM,
         PARAM_TYPE: 'string',
         PARAM_ALIASES: ['--save-config','-s'],
         PARAM_REQUIRED: False,
@@ -492,11 +629,11 @@ def test_capture_param_values_two_aliases_breaks_out():
     setup_function()
     # Register two params with distinct aliases
     param.add_params([{
-        param.PARAM_NAME: "first",
+        param_consts.PARAM_NAME: "first",
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--first', '-f']
     },{
-        param.PARAM_NAME: "second",
+        param_consts.PARAM_NAME: "second",
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
         param.PARAM_ALIASES: ['--second', '-s']
     }])
@@ -520,7 +657,7 @@ def test_capture_param_values_breaks_on_command():
 
     # Register a list param with an alias
     param.add_param({
-        param.PARAM_NAME: "files",
+        param_consts.PARAM_NAME: "files",
         param.PARAM_TYPE: param.PARAM_TYPE_LIST,
         param.PARAM_ALIASES: ['--files', '-f']
     })
@@ -609,21 +746,21 @@ def test_parse_command_line_unknown_argument_raises():
 
 def test_load_user_config_file_not_found():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
     with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
         with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.json' not found"):
              config.load_user_config()
 
 def test_load_user_config_permission_denied():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "restricted.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         with pytest.raises(PermissionError, match="Permission denied for config file 'restricted.json'"):
              config.load_user_config()
 
 def test_load_user_config_invalid_json():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "invalid.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "invalid.json"
     invalid_json = "{ invalid json content"
     with patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'invalid.json'"):
@@ -631,14 +768,14 @@ def test_load_user_config_invalid_json():
 
 def test_load_persistent_config_file_not_found():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
     with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
         with pytest.raises(FileNotFoundError, match="Config file 'config.json' not found"):
              config.load_persistent_config()
 
 def test_load_persistent_config_permission_denied():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "restricted.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         try:
             config.load_persistent_config()
@@ -648,7 +785,7 @@ def test_load_persistent_config_permission_denied():
 
 def test_load_persistent_config_invalid_json():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "invalid.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "invalid.json"
     invalid_json = "{ malformed json"
     with patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'config.json'"):
@@ -656,16 +793,16 @@ def test_load_persistent_config_invalid_json():
 
 def test_save_user_config_permission_denied():
     setup_function()
-    config._config["test_key"] = "test_value"
-    config._config[CONFIG_OUTFILE_PARAM] = "restricted.json"
+    spafw37.config._config["test_key"] = "test_value"
+    spafw37.config._config[CONFIG_OUTFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         with pytest.raises(IOError, match="Error writing to config file 'restricted.json': Permission denied"):
              config.save_user_config()
 
 def test_save_user_config_invalid_path():
     setup_function()
-    config._config["test_key"] = "test_value"
-    config._config[CONFIG_OUTFILE_PARAM] = "/invalid/path/config.json"
+    spafw37.config._config["test_key"] = "test_value"
+    spafw37.config._config[CONFIG_OUTFILE_PARAM] = "/invalid/path/config.json"
     with patch('builtins.open', side_effect=OSError("Invalid path")):
         with pytest.raises(IOError, match="Error writing to config file '/invalid/path/config.json': Invalid path"):
              config.save_user_config()
@@ -680,14 +817,14 @@ def test_save_persistent_config_permission_denied():
 def test_save_persistent_config_disk_full():
     setup_function()
     config._persistent_config["key"] = "value"
-    config._config[CONFIG_OUTFILE_PARAM] = "config.json"
+    spafw37.config._config[CONFIG_OUTFILE_PARAM] = "config.json"
     with patch('builtins.open', side_effect=OSError("No space left on device")):
         with pytest.raises(IOError, match="Error writing to config file 'config.json': No space left on device"):
              config.save_persistent_config()
 
 def test_load_config_empty_file():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "empty.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "empty.json"
     with patch('builtins.open', mock_open(read_data="")):
         with pytest.raises(ValueError, match="Config file 'empty.json' is empty"):
              config.load_user_config()
@@ -696,8 +833,8 @@ def test_save_config_json_serialization_error():
     setup_function()
     # Create an object that can't be JSON serialized
     import datetime
-    config._config["non_serializable"] = datetime.datetime.now()
-    config._config[CONFIG_OUTFILE_PARAM] = "test.json"
+    spafw37.config._config["non_serializable"] = datetime.datetime.now()
+    spafw37.config._config[CONFIG_OUTFILE_PARAM] = "test.json"
     
     with patch('builtins.open', mock_open()):
         with pytest.raises(TypeError, match="Object of type datetime is not JSON serializable"):
@@ -705,7 +842,7 @@ def test_save_config_json_serialization_error():
 
 def test_load_config_unicode_decode_error():
     setup_function()
-    config._config[CONFIG_INFILE_PARAM] = "bad_encoding.json"
+    spafw37.config._config[CONFIG_INFILE_PARAM] = "bad_encoding.json"
     # Simulate a file with invalid UTF-8 encoding
     with patch('builtins.open', side_effect=UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')):
         with pytest.raises(UnicodeDecodeError, match="Unicode decode error in config file 'bad_encoding.json': invalid start byte"):
@@ -713,8 +850,8 @@ def test_load_config_unicode_decode_error():
 
 def test_save_config_write_error_during_operation():
     setup_function()
-    config._config["test"] = "value"
-    config._config[CONFIG_OUTFILE_PARAM] = "test.json"
+    spafw37.config._config["test"] = "value"
+    spafw37.config._config[CONFIG_OUTFILE_PARAM] = "test.json"
     
     # Mock open to succeed but file.write to fail
     mock_file = mock_open()
@@ -729,14 +866,14 @@ def test_handle_cli_args_sets_defaults():
     bind_name = 'default_bind'
     param_name = 'default_param'
     param.add_param({
-        param.PARAM_BIND_TO: bind_name,
-        param.PARAM_NAME: param_name,
+        param.PARAM_CONFIG_NAME: bind_name,
+        param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
     param.build_params_for_run_level()
     # calling handle_cli_args with no args should set defaults
     cli.handle_cli_args([])
-    assert config._config[bind_name] == 'default_value'
+    assert spafw37.config._config[bind_name] == 'default_value'
 
 
 def test_handle_cli_args_shows_help_when_no_app_commands(capsys):
@@ -753,7 +890,7 @@ def test_handle_cli_args_shows_help_when_no_app_commands(capsys):
 def test_handle_cli_args_shows_help_with_only_framework_commands(capsys):
     """Test that help is shown when only framework commands are queued."""
     setup_function()
-    from spafw37.config_consts import COMMAND_FRAMEWORK
+    from spafw37.constants.command import COMMAND_FRAMEWORK
     
     def framework_action():
         pass

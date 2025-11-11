@@ -1,3 +1,10 @@
+"""
+Core facade for the spafw37 application framework.
+
+This module provides a high-level interface for interacting with the
+spafw37 application framework, including configuration management,
+command registration, and parameter handling.
+"""
 
 
 def run_cli():
@@ -11,7 +18,7 @@ def run_cli():
     import spafw37.configure  # Ensure configuration is set up
     import spafw37.cli as cli
     from spafw37.command import CommandParameterError
-    from spafw37.help import display_all_help, display_command_help
+    from spafw37 import help
     
     # Pass user-provided command-line arguments (excluding program name)
     try:
@@ -21,12 +28,85 @@ def run_cli():
         print(f"Error: {e}")
         print()
         if e.command_name:
-            display_command_help(e.command_name)
+            help.display_command_help(e.command_name)
         else:
-            display_all_help()
+            help.display_all_help()
         sys.exit(1)
     except ValueError as e:
         print(f"Error: {e}")
         print()
         # display_all_help()
         sys.exit(1)
+
+
+def set_config_file(file_path):
+    """
+    Set the configuration file.
+    """
+    from spafw37 import config_func
+    config_func.set_config_file(file_path)
+
+
+def set_app_name(name):
+    """
+    Set the application name.
+    
+    Args:
+        name: Application name.
+    """
+    from spafw37 import config_func
+    config_func.set_app_name(name)
+
+
+def get_app_name():
+    """
+    Get the application name.
+    
+    Returns:
+        Application name.
+    """
+    from spafw37 import config_func
+    return config_func.get_app_name()
+
+
+def add_params(params):
+    """
+    Add parameters.
+    """
+    from spafw37 import param
+    param.add_params(params)
+
+def add_param(_param):
+    """
+    Add a single parameter.
+    """
+    from spafw37 import param
+    param.add_param(_param)
+
+def add_commands(commands):
+    """
+    Add commands.
+    """
+    from spafw37 import command 
+    command.add_commands(commands)
+
+def add_command(_command):
+    """
+    Add a single command.
+    """
+    from spafw37 import command 
+    command.add_command(_command)
+
+def get_config_value(config_key):
+    """
+    Get a configuration value.
+    """
+    from spafw37 import config
+    return config.get_config_value(config_key)
+
+def set_config_value(config_key, value):
+    """
+    Set a configuration value.
+    """
+    from spafw37 import config
+    config.set_config_value(config_key, value)

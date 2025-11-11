@@ -1,23 +1,27 @@
 from spafw37 import command as command, param
-from spafw37 import config
-from spafw37.config import set_config_value
-from spafw37.config_consts import (
+from spafw37 import config_func as config
+from spafw37.config_func import set_config_value
+from spafw37.constants.command import (
     COMMAND_GOES_BEFORE,
     COMMAND_NAME,
     COMMAND_ACTION,
     COMMAND_PHASE,
     COMMAND_TRIGGER_PARAM,
-    PARAM_BIND_TO,
+)
+from spafw37.constants.phase import (
+    PHASE_DEFAULT,
+    PHASE_EXECUTION,
+    PHASE_SETUP,
+    PHASE_TEARDOWN,
+)
+from spafw37.constants.param import (
     PARAM_NAME,
+    PARAM_CONFIG_NAME,
     PARAM_PERSISTENCE,
     PARAM_PERSISTENCE_NEVER,
     PARAM_REQUIRED,
     PARAM_TYPE,
     PARAM_TYPE_TEXT,
-    PHASE_DEFAULT,
-    PHASE_EXECUTION,
-    PHASE_SETUP,
-    PHASE_TEARDOWN
 )
 import pytest
 from tests.test_command import _queue_names, _reset_command_module 
@@ -130,7 +134,7 @@ def test_triggered_command_added_to_correct_phase():
     _trigger_param_name = "trigger-param"
     _trigger_param = {
         PARAM_NAME: _trigger_param_name,
-        PARAM_BIND_TO: _trigger_param_name,
+        PARAM_CONFIG_NAME: _trigger_param_name,
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_REQUIRED: False,
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER

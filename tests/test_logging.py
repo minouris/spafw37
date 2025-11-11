@@ -24,7 +24,8 @@ from spafw37.logging import (
     LOG_LEVEL_PARAM,
     LOG_PHASE_LOG_LEVEL_PARAM,
 )
-from spafw37 import config, param
+from spafw37 import config_func as config, param
+from spafw37.constants.param import PARAM_NAME
 
 
 def test_trace_level_exists():
@@ -258,9 +259,10 @@ def test_switch_list_conflicts():
 def test_command_execution_logging():
     """Test that command execution produces INFO level logs."""
     from spafw37 import command
-    from spafw37.config_consts import (
-        COMMAND_NAME, COMMAND_ACTION, COMMAND_PHASE, PHASE_EXECUTION
+    from spafw37.constants.command import (
+        COMMAND_NAME, COMMAND_ACTION, COMMAND_PHASE
     )
+    from spafw37.constants.phase import PHASE_EXECUTION
     
     # Set up test environment
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -306,7 +308,7 @@ def test_command_execution_logging():
 
 def test_param_setting_logging():
     """Test that param value setting produces DEBUG level logs."""
-    from spafw37.config_consts import PARAM_NAME, PARAM_BIND_TO, PARAM_TYPE
+    from spafw37.constants.param import PARAM_CONFIG_NAME, PARAM_TYPE
     
     with tempfile.TemporaryDirectory() as temp_dir:
         set_log_dir(temp_dir)
@@ -315,7 +317,7 @@ def test_param_setting_logging():
         # Create a test param
         test_param = {
             PARAM_NAME: 'test-param-log',
-            PARAM_BIND_TO: 'test-param-log',
+            PARAM_CONFIG_NAME: 'test-param-log',
             PARAM_TYPE: 'text',
         }
         

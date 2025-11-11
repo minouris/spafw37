@@ -1,9 +1,16 @@
-from spafw37.config_consts import *
+from spafw37.constants.command import *
+from spafw37.constants.phase import PHASE_EXECUTION
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_CONFIG_NAME,
+    PARAM_TYPE,
+    PARAM_RUNTIME_ONLY,
+)
 import pytest
 
 from spafw37 import command as command
 from spafw37 import param
-from spafw37 import config
+from spafw37 import config_func as config
 from spafw37.command import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
 
 def simple_action():
@@ -469,14 +476,14 @@ def test_runtime_only_params_in_verify_required_params():
     runtime_param_name = "runtime-only-param"
     runtime_param = {
         PARAM_NAME: runtime_param_name,
-        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_CONFIG_NAME: "runtime-only-param",
         PARAM_TYPE: "text",
         PARAM_RUNTIME_ONLY: True
     }
     regular_param_name = "regular-param"
     regular_param = {
         PARAM_NAME: regular_param_name,
-        PARAM_BIND_TO: "regular-param",
+        PARAM_CONFIG_NAME: "regular-param",
         PARAM_TYPE: "text"
     }
     param.add_param(runtime_param)
@@ -489,7 +496,7 @@ def test_runtime_only_params_in_verify_required_params():
     command.add_command(runtime_command)
     command.queue_command("runtime-test-command")
     # Simulate config with only regular param set
-    from spafw37 import config
+    from spafw37 import config_func as config
     config.set_config_value(regular_param, "regular_value")
     # This should NOT raise an error about the runtime-only param missing
     try:
@@ -506,7 +513,7 @@ def test_runtime_only_params_in_command_queue_fail():
     runtime_param_name = "runtime-only-param"
     runtime_param = {
         PARAM_NAME: runtime_param_name,
-        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_CONFIG_NAME: "runtime-only-param",
         PARAM_TYPE: "text",
         PARAM_RUNTIME_ONLY: True
     }
@@ -530,7 +537,7 @@ def test_non_runtime_only_params_pass():
     runtime_param_name = "runtime-only-param"
     runtime_param = {
         PARAM_NAME: runtime_param_name,
-        PARAM_BIND_TO: "runtime-only-param",
+        PARAM_CONFIG_NAME: "runtime-only-param",
         PARAM_TYPE: "text",
         PARAM_RUNTIME_ONLY: True
     }

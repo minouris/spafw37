@@ -10,13 +10,14 @@ Pre-defined run-levels are:
 - cleanup: does any cleanup tasks
 """
 
+from spafw37.config import get_config_value
 from spafw37.param import add_param
 from spafw37.cli import handle_cli_args
-from spafw37.config import get_config_value, RUN_LEVEL_INIT
-from spafw37.config_consts import (
-    PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT,
+from spafw37.config_func import RUN_LEVEL_INIT
+from spafw37.constants.param import (
+    PARAM_ALIASES, PARAM_TYPE, PARAM_DEFAULT,
     PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_TOGGLE,
-    PARAM_RUN_LEVEL
+    PARAM_RUN_LEVEL, PARAM_NAME,
 )
 
 

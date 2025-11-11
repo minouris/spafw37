@@ -6,10 +6,13 @@ Run this script from the project root directory:
 """
 from __future__ import annotations
 
-from spafw37 import logging, param, command, config
+from spafw37 import logging, param, command, config_func as config
+import spafw37.config
 from spafw37.logging import LOGGING_PARAMS
-from spafw37.config_consts import (
+from spafw37.constants.command import (
     COMMAND_NAME, COMMAND_ACTION, COMMAND_PHASE,
+)
+from spafw37.constants.phase import (
     PHASE_SETUP, PHASE_EXECUTION, PHASE_CLEANUP,
 )
 
@@ -68,7 +71,7 @@ def main():
     config.set_app_name("demo-app")
     
     # Get actual log directory from config
-    log_dir = config.get_config_value('log-dir') or 'logs/'
+    log_dir = spafw37.config.get_config_value('log-dir') or 'logs/'
     
     print("Logging configuration applied:")
     print(f"  - Log directory: {log_dir}")

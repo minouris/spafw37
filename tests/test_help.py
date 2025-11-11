@@ -1,16 +1,19 @@
 import pytest
-from spafw37 import help, param, command, config
-from spafw37.config_consts import (
+from spafw37 import help, param, command, config_func as config
+import spafw37.config
+from spafw37.constants.command import (
     COMMAND_NAME,
     COMMAND_DESCRIPTION,
     COMMAND_HELP,
     COMMAND_REQUIRED_PARAMS,
     COMMAND_ACTION,
+)
+from spafw37.constants.param import (
     PARAM_NAME,
     PARAM_DESCRIPTION,
     PARAM_ALIASES,
     PARAM_GROUP,
-    PARAM_BIND_TO,
+    PARAM_CONFIG_NAME,
 )
 from io import StringIO
 import sys
@@ -20,7 +23,7 @@ def setup_function():
     """Reset module state between tests."""
     param._param_aliases.clear()
     param._params.clear()
-    config._config.clear()
+    spafw37.config._config.clear()
     config._non_persisted_config_names.clear()
     config._persistent_config.clear()
     command._commands.clear()
@@ -29,7 +32,7 @@ def setup_function():
     command._phases.clear()
     command._phases_completed.clear()
     # Initialize default phase
-    from spafw37.config_consts import PHASE_DEFAULT
+    from spafw37.constants.phase import PHASE_DEFAULT
     command._phases[PHASE_DEFAULT] = []
     command._phase_order = [PHASE_DEFAULT]
 
@@ -87,7 +90,7 @@ def test_display_all_help_filters_command_params(capsys):
         PARAM_NAME: "cmd-param",
         PARAM_DESCRIPTION: "Command parameter",
         PARAM_ALIASES: ["--cmd-param"],
-        PARAM_BIND_TO: "cmd-param"
+        PARAM_CONFIG_NAME: "cmd-param"
     })
     param.build_params_for_run_level()
     
@@ -95,7 +98,7 @@ def test_display_all_help_filters_command_params(capsys):
         PARAM_NAME: "general-param",
         PARAM_DESCRIPTION: "General parameter",
         PARAM_ALIASES: ["--gen"],
-        PARAM_BIND_TO: "general-param"
+        PARAM_CONFIG_NAME: "general-param"
     })
     param.build_params_for_run_level()
     
@@ -133,7 +136,7 @@ def test_display_command_help_valid_command(capsys):
         PARAM_NAME: "req-param",
         PARAM_DESCRIPTION: "Required parameter",
         PARAM_ALIASES: ["--req"],
-        PARAM_BIND_TO: "req-param"
+        PARAM_CONFIG_NAME: "req-param"
     })
     param.build_params_for_run_level()
     
@@ -290,7 +293,7 @@ def test_get_param_by_bind_name():
     
     param.add_param({
         PARAM_NAME: "test-param",
-        PARAM_BIND_TO: "test_bind",
+        PARAM_CONFIG_NAME: "test_bind",
         PARAM_ALIASES: ["--test"]
     })
     param.build_params_for_run_level()
@@ -371,7 +374,7 @@ def test_has_app_commands_queued_with_app_command():
 def test_has_app_commands_queued_with_framework_command():
     """Test has_app_commands_queued returns False when only framework command is queued."""
     setup_function()
-    from spafw37.config_consts import COMMAND_FRAMEWORK
+    from spafw37.constants.command import COMMAND_FRAMEWORK
     
     def test_action():
         pass
@@ -397,7 +400,7 @@ def test_has_app_commands_queued_no_commands():
 def test_has_app_commands_queued_mixed_commands():
     """Test has_app_commands_queued returns True when app and framework commands are queued."""
     setup_function()
-    from spafw37.config_consts import COMMAND_FRAMEWORK
+    from spafw37.constants.command import COMMAND_FRAMEWORK
     
     def test_action():
         pass

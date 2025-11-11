@@ -1,41 +1,43 @@
-from spafw37 import config, param
-from spafw37.config import _persistent_config
-from spafw37.config_consts import (
-    PARAM_PERSISTENCE_ALWAYS, 
-    PARAM_PERSISTENCE_NEVER, 
-    PARAM_NAME, 
-    PARAM_BIND_TO, 
-    PARAM_RUNTIME_ONLY, 
-    PARAM_TYPE, 
-    PARAM_PERSISTENCE, 
-    PARAM_DEFAULT)
+from spafw37 import config_func as config, param
+import spafw37.config
+from spafw37.config_func import _persistent_config
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PERSISTENCE_ALWAYS,
+    PARAM_PERSISTENCE_NEVER,
+    PARAM_CONFIG_NAME,
+    PARAM_RUNTIME_ONLY,
+    PARAM_TYPE,
+    PARAM_PERSISTENCE,
+    PARAM_DEFAULT,
+)
 
 def test_set_and_get_config_value():
     test_param = {
         PARAM_NAME: "test_param",
-        PARAM_BIND_TO: "test_param_bind",
+        PARAM_CONFIG_NAME: "test_param_bind",
         PARAM_TYPE: "string"
     }
     test_value = "test_value"
     config.set_config_value(test_param, test_value)
-    retrieved_value = config.get_config_value("test_param_bind")
+    retrieved_value = spafw37.config.get_config_value("test_param_bind")
     assert retrieved_value == test_value
 
 def test_set_config_list_value():
     test_param = {
         PARAM_NAME: "list_param",
-        PARAM_BIND_TO: "list_param_bind",
+        PARAM_CONFIG_NAME: "list_param_bind",
         PARAM_TYPE: "list"
     }
     config.set_config_value(test_param, "value1")
     config.set_config_value(test_param, ["value2", "value3"])
-    retrieved_value = config.get_config_value("list_param_bind")
+    retrieved_value = spafw37.config.get_config_value("list_param_bind")
     assert retrieved_value == ["value1", "value2", "value3"]
 
 def test_non_persistent_param():
     test_param = {
         PARAM_NAME: "non_persistent_param",
-        PARAM_BIND_TO: "non_persistent_param_bind",
+        PARAM_CONFIG_NAME: "non_persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
@@ -59,17 +61,17 @@ def test_load_config_file(tmp_path):
 def test_save_and_load_user_config(tmp_path):
     test_param = {
         PARAM_NAME: "user_param",
-        PARAM_BIND_TO: "user_param_bind",
+        PARAM_CONFIG_NAME: "user_param_bind",
         PARAM_TYPE: "string"
     }
     file_param_in = {
         PARAM_NAME: config.CONFIG_INFILE_PARAM,
-        PARAM_BIND_TO: config.CONFIG_INFILE_PARAM,
+        PARAM_CONFIG_NAME: config.CONFIG_INFILE_PARAM,
         PARAM_TYPE: "string"
     }
     file_param_out = {
         PARAM_NAME: config.CONFIG_OUTFILE_PARAM,
-        PARAM_BIND_TO: config.CONFIG_OUTFILE_PARAM,
+        PARAM_CONFIG_NAME: config.CONFIG_OUTFILE_PARAM,
         PARAM_TYPE: "string"
     }
     test_value = "user_value"
@@ -80,29 +82,29 @@ def test_save_and_load_user_config(tmp_path):
     config.save_user_config()
     
     # Clear current config and load from file
-    config._config = {}
+    spafw37.config._config = {}
     config.set_config_value(file_param_in, str(tmp_path / "user_config.json"))
     config.load_user_config()
     
-    retrieved_value = config.get_config_value("user_param_bind")
+    retrieved_value = spafw37.config.get_config_value("user_param_bind")
     assert retrieved_value == test_value
 
 def test_filter_temporary_config():
     temp_param = {
         PARAM_NAME: "temp_param",
-        PARAM_BIND_TO: "temp_param_bind",
+        PARAM_CONFIG_NAME: "temp_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string"
     }
     config.set_config_value(temp_param, "temp_value")
     config.set_config_value(persistent_param, "persistent_value")
     
-    full_config = config._config
+    full_config = spafw37.config._config
     filtered_config = config.filter_temporary_config(full_config)
     
     assert "temp_param_bind" not in filtered_config
@@ -112,26 +114,26 @@ def test_filter_temporary_config():
 def test_manage_config_persistence():
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS
     }
     non_persistent_param = {
         PARAM_NAME: "non_persistent_param",
-        PARAM_BIND_TO: "non_persistent_param_bind",
+        PARAM_CONFIG_NAME: "non_persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     config.set_config_value(persistent_param, "persistent_value")
     config.set_config_value(non_persistent_param, "non_persistent_value")
 
-    assert non_persistent_param[PARAM_BIND_TO] in config._non_persisted_config_names
-    assert _persistent_config.get(persistent_param[PARAM_BIND_TO]) == "persistent_value"
+    assert non_persistent_param[PARAM_CONFIG_NAME] in config._non_persisted_config_names
+    assert _persistent_config.get(persistent_param[PARAM_CONFIG_NAME]) == "persistent_value"
 
 def test_load_persistent_config(tmp_path):
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS
     }
@@ -143,19 +145,19 @@ def test_load_persistent_config(tmp_path):
     config.save_persistent_config()
     
     # Clear current config and persistent config
-    config._config = {}
+    spafw37.config._config = {}
     _persistent_config.clear()
     
     # Load persistent config from file
     config.load_persistent_config()
     
-    retrieved_value = config.get_config_value("persistent_param_bind")
+    retrieved_value = spafw37.config.get_config_value("persistent_param_bind")
     assert retrieved_value == "persistent_value"
 
 def test_save_persistent_config(tmp_path):
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS
     }
@@ -176,13 +178,13 @@ def test_save_persistent_config(tmp_path):
 def test_not_save_non_persistent_config(tmp_path):
     non_persistent_param = {
         PARAM_NAME: "non_persistent_param",
-        PARAM_BIND_TO: "non_persistent_param_bind",
+        PARAM_CONFIG_NAME: "non_persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS
     }
@@ -205,7 +207,7 @@ def test_not_save_non_persistent_config(tmp_path):
 def test_non_persistent_param_not_in_persistent_config():
     test_param = {
         PARAM_NAME: "non_persistent_param",
-        PARAM_BIND_TO: "non_persistent_param_bind",
+        PARAM_CONFIG_NAME: "non_persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
@@ -216,19 +218,19 @@ def test_non_persistent_param_not_in_persistent_config():
 def test_non_persistent_param_not_saved_in_user_save(tmp_path):
     test_param = {
         PARAM_NAME: "user_param",
-        PARAM_BIND_TO: "user_param_bind",
+        PARAM_CONFIG_NAME: "user_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     file_param_out = {
         PARAM_NAME: config.CONFIG_OUTFILE_PARAM,
-        PARAM_BIND_TO: config.CONFIG_OUTFILE_PARAM,
+        PARAM_CONFIG_NAME: config.CONFIG_OUTFILE_PARAM,
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }
     persistent_param = {
         PARAM_NAME: "persistent_param",
-        PARAM_BIND_TO: "persistent_param_bind",
+        PARAM_CONFIG_NAME: "persistent_param_bind",
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS
     }
@@ -239,24 +241,24 @@ def test_non_persistent_param_not_saved_in_user_save(tmp_path):
     config.set_config_value(file_param_out, str(config_file))
     config.save_user_config()
     # Clear current config and load from file
-    config._config = {}
+    spafw37.config._config = {}
     config.set_config_value({
         PARAM_NAME: config.CONFIG_INFILE_PARAM,
-        PARAM_BIND_TO: config.CONFIG_INFILE_PARAM,
+        PARAM_CONFIG_NAME: config.CONFIG_INFILE_PARAM,
         PARAM_TYPE: "string",
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
     }, str(config_file))
     config.load_user_config()
-    retrieved_value = config.get_config_value("user_param_bind")
+    retrieved_value = spafw37.config.get_config_value("user_param_bind")
     assert retrieved_value is None
-    retrieved_persistent_value = config.get_config_value("persistent_param_bind")
+    retrieved_persistent_value = spafw37.config.get_config_value("persistent_param_bind")
     assert retrieved_persistent_value == "persistent_value"
 
 # test that a RUNTIME_ONLY param is marked as NEVER persisted
 def test_runtime_only_param_set_never_persisted():
     runtime_only_param = {
         PARAM_NAME: "runtime_only_param",
-        PARAM_BIND_TO: "runtime_only_param_bind",
+        PARAM_CONFIG_NAME: "runtime_only_param_bind",
         PARAM_TYPE: "string",
         PARAM_RUNTIME_ONLY: True
     }
@@ -264,4 +266,4 @@ def test_runtime_only_param_set_never_persisted():
     param.build_params_for_run_level()
     # Get the activated param from _params
     activated_param = param._params["runtime_only_param"]
-    assert config.is_persistence_never(activated_param) is True
+    assert param.is_persistence_never(activated_param) is True

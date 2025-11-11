@@ -8,11 +8,12 @@ import os
 import sys
 from datetime import datetime
 
-from .config_consts import (
-    PARAM_GROUP,
+import spafw37.config
+from spafw37.constants.param import (
     PARAM_NAME,
+    PARAM_GROUP,
     PARAM_DESCRIPTION,
-    PARAM_BIND_TO,
+    PARAM_CONFIG_NAME,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,
@@ -90,7 +91,7 @@ class CustomFormatter(stdlib_logging.Formatter):
     
     def format(self, record):
         """Format log record."""
-        from . import config
+        from spafw37 import config_func as config
         timestamp = _get_timestamp()
         scope = getattr(record, 'scope', _current_scope or config.get_app_name())
         level = record.levelname
@@ -222,7 +223,7 @@ def get_scope_log_level(scope):
 
 def log(_level=INFO, _scope=None, _message=''):
     """Log a message."""
-    from . import config
+    from . import config_func as config
     
     if _logger is None:
         _init_logger()
@@ -236,7 +237,7 @@ def log(_level=INFO, _scope=None, _message=''):
     
     # Create log record with scope information
     extra = {'scope': effective_scope}
-    _logger.log(_level, _message, extra=extra)
+    _logger.log(_level, _message, extra=extra) # type: ignore
 
 
 def log_trace(_scope=None, _message=''):
@@ -269,7 +270,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_VERBOSE_PARAM,
         PARAM_DESCRIPTION: 'Enable verbose logging (console to DEBUG)',
-        PARAM_BIND_TO: LOG_VERBOSE_PARAM,
+        PARAM_CONFIG_NAME: LOG_VERBOSE_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--verbose', '-v'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -278,7 +279,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_TRACE_PARAM,
         PARAM_DESCRIPTION: 'Set file log level to TRACE',
-        PARAM_BIND_TO: LOG_TRACE_PARAM,
+        PARAM_CONFIG_NAME: LOG_TRACE_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--trace'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -287,7 +288,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_TRACE_CONSOLE_PARAM,
         PARAM_DESCRIPTION: 'Set console log level to TRACE',
-        PARAM_BIND_TO: LOG_TRACE_CONSOLE_PARAM,
+        PARAM_CONFIG_NAME: LOG_TRACE_CONSOLE_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--trace-console'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -296,7 +297,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_SILENT_PARAM,
         PARAM_DESCRIPTION: 'Suppress all console logging (errors to stderr only)',
-        PARAM_BIND_TO: LOG_SILENT_PARAM,
+        PARAM_CONFIG_NAME: LOG_SILENT_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--silent'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -306,7 +307,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_NO_LOGGING_PARAM,
         PARAM_DESCRIPTION: 'Suppress all logging to console and file (errors to stderr only)',
-        PARAM_BIND_TO: LOG_NO_LOGGING_PARAM,
+        PARAM_CONFIG_NAME: LOG_NO_LOGGING_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--no-logging'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -316,7 +317,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_SUPPRESS_ERRORS_PARAM,
         PARAM_DESCRIPTION: 'Disable error logging',
-        PARAM_BIND_TO: LOG_SUPPRESS_ERRORS_PARAM,
+        PARAM_CONFIG_NAME: LOG_SUPPRESS_ERRORS_PARAM,
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
         PARAM_ALIASES: ['--suppress-errors'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -325,7 +326,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_DIR_PARAM,
         PARAM_DESCRIPTION: 'Set directory for log files',
-        PARAM_BIND_TO: LOG_DIR_PARAM,
+        PARAM_CONFIG_NAME: LOG_DIR_PARAM,
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--log-dir'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS,
@@ -334,7 +335,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_LEVEL_PARAM,
         PARAM_DESCRIPTION: 'Set overall log level',
-        PARAM_BIND_TO: LOG_LEVEL_PARAM,
+        PARAM_CONFIG_NAME: LOG_LEVEL_PARAM,
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_ALIASES: ['--log-level'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -343,7 +344,7 @@ LOGGING_PARAMS = [
     {
         PARAM_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
         PARAM_DESCRIPTION: 'Set log level for a specific phase',
-        PARAM_BIND_TO: LOG_PHASE_LOG_LEVEL_PARAM,
+        PARAM_CONFIG_NAME: LOG_PHASE_LOG_LEVEL_PARAM,
         PARAM_TYPE: PARAM_TYPE_LIST,
         PARAM_ALIASES: ['--phase-log-level'],
         PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER,
@@ -367,48 +368,48 @@ def _get_level_from_name(level_name):
 
 def apply_logging_config():
     """Apply logging configuration from config values."""
-    from . import config
+    from . import config_func as config
     
     # Initialize logger
     _init_logger()
     
     # Apply verbose flag
-    if config.get_config_value(LOG_VERBOSE_PARAM):
+    if spafw37.config.get_config_value(LOG_VERBOSE_PARAM):
         set_console_level(DEBUG)
     
     # Apply trace flags
-    if config.get_config_value(LOG_TRACE_PARAM):
+    if spafw37.config.get_config_value(LOG_TRACE_PARAM):
         set_file_level(TRACE)
     
-    if config.get_config_value(LOG_TRACE_CONSOLE_PARAM):
+    if spafw37.config.get_config_value(LOG_TRACE_CONSOLE_PARAM):
         set_console_level(TRACE)
     
     # Apply silent mode
-    if config.get_config_value(LOG_SILENT_PARAM):
+    if spafw37.config.get_config_value(LOG_SILENT_PARAM):
         set_silent_mode(True)
     
     # Apply no-logging mode
-    if config.get_config_value(LOG_NO_LOGGING_PARAM):
+    if spafw37.config.get_config_value(LOG_NO_LOGGING_PARAM):
         set_no_logging_mode(True)
     
     # Apply suppress errors
-    if config.get_config_value(LOG_SUPPRESS_ERRORS_PARAM):
+    if spafw37.config.get_config_value(LOG_SUPPRESS_ERRORS_PARAM):
         set_suppress_errors(True)
     
     # Apply log directory
-    log_dir = config.get_config_value(LOG_DIR_PARAM)
+    log_dir = spafw37.config.get_config_value(LOG_DIR_PARAM)
     if log_dir:
         set_log_dir(log_dir)
     
     # Apply log level
-    log_level = config.get_config_value(LOG_LEVEL_PARAM)
+    log_level = spafw37.config.get_config_value(LOG_LEVEL_PARAM)
     if log_level:
         level = _get_level_from_name(log_level)
         set_file_level(level)
         set_console_level(level)
     
     # Apply scope-specific log levels (phase-log-level param for backward compatibility)
-    scope_log_levels = config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
+    scope_log_levels = spafw37.config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
     if scope_log_levels:
         # Format: [scope1, level1, scope2, level2, ...]
         for i in range(0, len(scope_log_levels), 2):

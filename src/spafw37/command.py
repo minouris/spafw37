@@ -1,8 +1,23 @@
 # Constants used as keys in command definitions (tests use these constants as keys).
-from .config_consts import COMMAND_NAME, COMMAND_PHASE, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE, COMMAND_TRIGGER_PARAM, COMMAND_FRAMEWORK, PHASE_DEFAULT
-from . import config
-from . import param
-from . import logging
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_PHASE,
+    COMMAND_REQUIRED_PARAMS,
+    COMMAND_ACTION,
+    COMMAND_GOES_AFTER,
+    COMMAND_GOES_BEFORE,
+    COMMAND_NEXT_COMMANDS,
+    COMMAND_REQUIRE_BEFORE,
+    COMMAND_TRIGGER_PARAM,
+    COMMAND_FRAMEWORK,
+    COMMAND_RUN_LEVEL,
+)
+from spafw37.constants.phase import (
+    PHASE_DEFAULT,
+)
+from spafw37 import config as config
+from spafw37 import param
+from spafw37 import logging
 
 class CircularDependencyError(Exception):
     """Raised when circular dependencies are detected in command definitions."""
@@ -89,8 +104,6 @@ def validate_no_cross_run_level_dependencies():
         ValueError: If a command references a command from a different run-level
                    via COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, etc.
     """
-    from .config_consts import COMMAND_RUN_LEVEL
-    
     for cmd_name, cmd in _commands.items():
         cmd_run_level = cmd.get(COMMAND_RUN_LEVEL)
         

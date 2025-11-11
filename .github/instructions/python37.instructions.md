@@ -65,6 +65,68 @@ The following rules are part of the repository's coding standards. Apply them to
 - Use an owner prefix only when it avoids genuine ambiguity (for example, when two different collaborators exposed to the same scope naturally have the same noun and a prefix prevents confusion).
 - **Tests are NOT EXEMPT from these naming requirements** - test code must follow the same naming standards as production code.
 
+### Import Rules
+- Prefer absolute imports for all modules within the package, rather than relative (dot) notation: use `from parent import child` rather than `from .child`.
+- For constants (UPPER_SNAKE_CASE), import them directly into the module namespace to improve readability: use `from module import CONSTANT_NAME` rather than `import module` followed by `module.CONSTANT_NAME`.
+- For importing multiple items from the same module, group them in a single import statement using parentheses, with subimports indented on a new line, for clarity:
+    ```python
+    from module import (
+        CONSTANT_ONE,
+        CONSTANT_TWO,
+        CONSTANT_THREE,
+    )
+    ```
+- For non-constant imports (classes, functions), prefer importing the immediate parent module and accessing members via the module namespace to improve clarity: use `from spafw37 import param` followed by `param.ParamClass()` (when used later in code). This ensures references are concise and clear. Only include the top-level namespace in references if ambiguity arises (e.g., when importing `param` from multiple sources). For example:
+    ```python
+    # Preferred:
+    from spafw37 import param
+    param_instance = param.ParamClass()
+
+    # Avoid:
+    from spafw37.param import ParamClass
+    param_instance = ParamClass()
+
+    # If ambiguity arises:
+    import spafw37.param
+    param_instance = spafw37.param.ParamClass()
+    ```
+- **NEVER import functions directly** - always import the module and call functions with the module prefix. Imported functions must never appear to be local functions. This prevents namespace collisions and makes it immediately clear where each function originates. For example:
+    ```python
+    # Correct:
+    from spafw37 import param
+    param.add_param(my_param)
+    
+    # Wrong - function appears to be local:
+    from spafw37.param import add_param
+    add_param(my_param)
+    ```
+- When importing modules with common names (like `core`, `utils`, `config`) that might conflict with application code, use an alias that clearly identifies the package to prevent namespace collisions:
+    ```python
+    # Preferred for demo/example code to prevent collisions:
+    from spafw37 import core as spafw37
+    spafw37.run_cli()
+    
+    # Also acceptable but less clear in user code:
+    from spafw37 import core
+    core.run_cli()
+    ```
+
+### Architectural Patterns
+
+- **Facade Pattern**: The `core.py` module serves as the public API facade for spafw37. Application code should import from `core` (aliased as `spafw37`) and use its delegate methods, not directly import internal modules like `param`, `command`, or `config`.
+    ```python
+    # Correct - using the facade:
+    from spafw37 import core as spafw37
+    spafw37.add_params(params)
+    spafw37.run_cli()
+    
+    # Wrong - bypassing the facade:
+    from spafw37 import param, command
+    param.add_params(params)
+    ```
+- **Respect Existing Architecture**: When modifying code, always understand the architectural intent before making changes. If a module uses a facade pattern, dependency injection, or other architectural patterns, preserve them. Do not mechanically apply import rules without considering the broader design.
+- **Internal vs. Public APIs**: Modules like `param`, `command`, `config`, etc. are internal implementation details. The public API is exposed through `core.py`. Example/demo code should only use the public API to demonstrate the intended usage pattern for framework consumers.
+
 ### Additional coding standards
 These rules are enforced by code review and should guide refactorings and new code. If a proposed extraction would introduce excessive API churn or duplicate logic, prefer small, well-documented helpers and add a short comment describing the reason.
 - Use descriptive names for variables, functions, and classes to enhance code readability.

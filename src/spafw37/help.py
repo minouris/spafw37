@@ -1,17 +1,19 @@
 import sys
 import os
-from .config_consts import (
+
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_DESCRIPTION,
+    PARAM_ALIASES,
+    PARAM_GROUP,
+    PARAM_CONFIG_NAME,
+)
+from spafw37.constants.command import (
     COMMAND_NAME,
     COMMAND_DESCRIPTION,
     COMMAND_HELP,
     COMMAND_REQUIRED_PARAMS,
     COMMAND_EXCLUDE_FROM_HELP,
-    PARAM_DESCRIPTION,
-    PARAM_NAME,
-    PARAM_DESCRIPTION,
-    PARAM_ALIASES,
-    PARAM_GROUP,
-    PARAM_BIND_TO,
 )
 
 
@@ -21,8 +23,8 @@ def _get_all_commands():
     Returns:
         dict: Dictionary of all registered commands.
     """
-    from .command import _commands
-    return _commands
+    from spafw37 import command
+    return command._commands
 
 
 def _get_all_params():
@@ -31,8 +33,8 @@ def _get_all_params():
     Returns:
         dict: Dictionary of all registered parameters.
     """
-    from .param import _params
-    return _params
+    from spafw37 import param
+    return param._params
 
 
 def _get_command_params(command_name):
@@ -60,7 +62,7 @@ def _get_param_by_bind_name(bind_name):
     """
     all_params = _get_all_params()
     for param in all_params.values():
-        if param.get(PARAM_BIND_TO, param.get(PARAM_NAME)) == bind_name:
+        if param.get(PARAM_CONFIG_NAME, param.get(PARAM_NAME)) == bind_name:
             return param
     return None
 
@@ -99,7 +101,7 @@ def _get_non_command_params():
     # Filter params not used by commands
     non_command_params = []
     for param in all_params.values():
-        bind_name = param.get(PARAM_BIND_TO, param.get(PARAM_NAME))
+        bind_name = param.get(PARAM_CONFIG_NAME, param.get(PARAM_NAME))
         if bind_name not in command_param_binds:
             non_command_params.append(param)
     
