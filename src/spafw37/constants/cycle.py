@@ -21,12 +21,8 @@ it should be defined as a prerequisite for the command that defines the cycle, n
 
 """
 
-CYCLE_COMMAND = "cycle-command" # Attaches a cycle to a command, from the cycle side
+CYCLE_COMMAND = "cycle-command"         # Attaches a cycle to a command, from the cycle side
 
-
-                                        # regular commands, false for cycle-internal commands. Will need to be added to regular
-                                        # processing rules, and to help displays - should not be shown in help, but command help text will
-                                        # be shown as part of the help for the parent command.
 
 CYCLE_NAME = "cycle-name"               # Provide a name for the cycle for references and logging
 CYCLE_INIT = "cycle-init-function"      # Function to initialize resources for this cycle - runs after the command action, if one is defined
