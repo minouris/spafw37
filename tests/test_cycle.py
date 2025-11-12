@@ -21,6 +21,7 @@ from spafw37.constants.cycle import (
     CYCLE_NAME,
     CYCLE_INIT,
     CYCLE_LOOP,
+    CYCLE_LOOP_START,
     CYCLE_END,
     CYCLE_COMMANDS,
 )
@@ -947,6 +948,49 @@ class TestCycleExecution:
         )
         
         assert len(run_called) == 0
+    
+    def test_execute_cycle_runs_loop_start_function(self):
+        """
+        Test that CYCLE_LOOP_START function runs after CYCLE_LOOP returns True.
+        The loop start function should execute before commands each iteration.
+        This is expected to support data preparation separated from loop condition.
+        """
+        loop_start_calls = []
+        iteration_count = [0]
+        
+        def loop_func():
+            iteration_count[0] += 1
+            return iteration_count[0] <= 2
+        
+        def loop_start_func():
+            loop_start_calls.append(iteration_count[0])
+        
+        commands = {}
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_START: loop_start_func,
+                CYCLE_COMMANDS: []
+            }
+        }
+        
+        def mock_run(cmd_def):
+            pass
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            pass
+        
+        def mock_sort(queue, cmd_dict):
+            return []
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        assert len(loop_start_calls) == 2
+        assert loop_start_calls == [1, 2]
 
 
 class TestCycleCommandRetrieval:

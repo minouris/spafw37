@@ -30,6 +30,7 @@ from spafw37.constants.config import (
     CONFIG_INFILE_PARAM,
     CONFIG_OUTFILE_PARAM,
 )
+from spafw37.constants.phase import PHASE_ORDER
 
 CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
 HELP_PARAM = 'help'
@@ -100,6 +101,7 @@ _commands_builtin = [
 param.add_params(_params_builtin)
 param.add_params(logging.LOGGING_PARAMS)
 command.add_commands(_commands_builtin)
+command.set_phases_order(PHASE_ORDER)
 cli.add_pre_parse_actions([config.load_persistent_config])
 cli.add_post_parse_actions([config.save_persistent_config])
 

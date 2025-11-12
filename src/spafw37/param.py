@@ -5,7 +5,6 @@ from spafw37.constants.param import (
     PARAM_NAME,
     PARAM_CONFIG_NAME,
     PARAM_RUNTIME_ONLY,
-    PARAM_DEFERRED,
     PARAM_TYPE,
     PARAM_ALIASES,
     PARAM_PERSISTENCE,

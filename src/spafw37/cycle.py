@@ -25,6 +25,7 @@ from spafw37.constants.cycle import (
     CYCLE_NAME,
     CYCLE_INIT,
     CYCLE_LOOP,
+    CYCLE_LOOP_START,
     CYCLE_END,
     CYCLE_COMMANDS,
 )
@@ -391,6 +392,7 @@ def execute_cycle(command_def, commands_dict, run_command_func,
         
         # Execute loop
         loop_func = cycle_def.get(CYCLE_LOOP)
+        loop_start_func = cycle_def.get(CYCLE_LOOP_START)
         iteration_count = 0
         
         while callable(loop_func) and loop_func():
@@ -401,6 +403,14 @@ def execute_cycle(command_def, commands_dict, run_command_func,
                     cycle_name, iteration_count
                 )
             )
+            
+            # Run loop start function if present
+            if loop_start_func and callable(loop_start_func):
+                logging.log_debug(
+                    _scope='cycle',
+                    _message='Running loop start function for cycle {}'.format(cycle_name)
+                )
+                loop_start_func()
             
             _execute_cycle_iteration(
                 command_queue, commands_dict, run_command_func,

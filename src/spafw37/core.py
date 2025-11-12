@@ -97,6 +97,16 @@ def add_command(_command):
     from spafw37 import command 
     command.add_command(_command)
 
+def set_phases_order(phase_order):
+    """
+    Set the execution order for phases.
+    
+    Args:
+        phase_order: List of phase names in execution order.
+    """
+    from spafw37 import command
+    command.set_phases_order(phase_order)
+
 def get_config_value(config_key):
     """
     Get a configuration value.

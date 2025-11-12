@@ -1,4 +1,4 @@
-# SPAFW37 (Spaffoo Thirty-Seven)
+# SPAFW37 User Guide
 
 **A lightweight Python 3.7+ framework for building command-line applications with advanced configuration management, command orchestration, and execution control.**
 
@@ -6,8 +6,8 @@
 
 SPAFW37 provides a declarative approach to building CLI applications by defining commands and parameters as structured dictionaries. The framework handles:
 
-- **Command Registration & Execution** - Define commands with actions, dependencies, and sequencing
 - **Parameter Management** - Flexible parameter system with aliases, types, and validation
+- **Command Registration & Execution** - Define commands with actions, dependencies, and sequencing
 - **Configuration Management** - Persistent and runtime configuration with file I/O
 - **Command Orchestration** - Automatic dependency resolution and topological sorting
 - **Phase-based Execution** - Multi-phase command execution with lifecycle control
@@ -142,6 +142,20 @@ python my_app.py help greet
 
 ## Key Features
 
+### Flexible Parameter System
+
+Parameters support multiple aliases, types, and automatic configuration binding:
+
+```python
+{
+    PARAM_NAME: 'input-file',
+    PARAM_DESCRIPTION: 'Input file to process',
+    PARAM_ALIASES: ['--input', '-i'],
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_GROUP: 'Input/Output Options',  # Grouped in help
+}
+```
+
 ### Declarative Command Definition
 
 Commands are defined as dictionaries with clear, self-documenting structure:
@@ -154,20 +168,6 @@ Commands are defined as dictionaries with clear, self-documenting structure:
     COMMAND_REQUIRED_PARAMS: ['build-type', 'target'],
     COMMAND_GOES_AFTER: ['setup'],  # Sequencing
     COMMAND_REQUIRE_BEFORE: ['clean'],  # Dependencies
-}
-```
-
-### Flexible Parameter System
-
-Parameters support multiple aliases, types, and automatic configuration binding:
-
-```python
-{
-    PARAM_NAME: 'input-file',
-    PARAM_DESCRIPTION: 'Input file to process',
-    PARAM_ALIASES: ['--input', '-i'],
-    PARAM_TYPE: PARAM_TYPE_TEXT,
-    PARAM_GROUP: 'Input/Output Options',  # Grouped in help
 }
 ```
 
@@ -239,8 +239,8 @@ The framework maintains separate persistent and runtime-only configuration, allo
 
 ## Documentation
 
-- **[Commands Guide](commands.md)** - Detailed command system documentation
 - **[Parameters Guide](parameters.md)** - Parameter definition and usage
+- **[Commands Guide](commands.md)** - Detailed command system documentation
 - **[Configuration Guide](configuration.md)** - Configuration management
 - **[Cycles Guide](cycles.md)** - Repeating command sequences
 - **[Phases Guide](phases.md)** - Multi-phase execution control
