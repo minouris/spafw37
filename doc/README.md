@@ -1,6 +1,27 @@
 # SPAFW37 User Guide
 
+[Index](README.md#documentation) | [Parameters Guide →](parameters.md)
+
 **A lightweight Python 3.7+ framework for building command-line applications with advanced configuration management, command orchestration, and execution control.**
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+  - [Creating Your First Application](#creating-your-first-application)
+  - [Running Your Application](#running-your-application)
+- [Key Features](#key-features)
+  - [Flexible Parameter System](#flexible-parameter-system)
+  - [Declarative Command Definition](#declarative-command-definition)
+  - [Command Orchestration](#command-orchestration)
+  - [Multi-Phase Execution](#multi-phase-execution)
+  - [Cycle Support](#cycle-support)
+  - [Configuration Management](#configuration-management)
+  - [Integrated Logging](#integrated-logging)
+- [Documentation](#documentation)
+- [Examples](#examples)
+- [Requirements](#requirements)
+- [License](#license)
 
 ## Overview
 
@@ -121,10 +142,11 @@ spafw37.add_commands(commands)
 spafw37.set_app_name('my-app')
 
 if __name__ == '__main__':
+    # Call run_cli() LAST, after all setup is complete
     spafw37.run_cli()
 ```
 
-Register your parameters and commands, then call `run_cli()` to parse arguments and execute.
+**Important:** Call `run_cli()` **after** registering all parameters, commands, cycles, and phases. This function parses command-line arguments and executes commands, so everything must be set up first.
 
 ### Running Your Application
 
@@ -239,11 +261,12 @@ The framework maintains separate persistent and runtime-only configuration, allo
 
 ## Documentation
 
+- **[User Guide](README.md)** - Overview and quick start
 - **[Parameters Guide](parameters.md)** - Parameter definition and usage
-- **[Commands Guide](commands.md)** - Detailed command system documentation
-- **[Configuration Guide](configuration.md)** - Configuration management
-- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Commands Guide](commands.md)** - Command system and dependencies
 - **[Phases Guide](phases.md)** - Multi-phase execution control
+- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Configuration Guide](configuration.md)** - Configuration management
 - **[Logging Guide](logging.md)** - Built-in logging system
 - **[API Reference](api-reference.md)** - Complete API documentation
 
@@ -263,3 +286,6 @@ See the `src/testapp/` directory for complete example applications:
 
 MIT License - See LICENSE.md for details
 
+---
+
+[Index](README.md#documentation) | [Parameters Guide →](parameters.md)

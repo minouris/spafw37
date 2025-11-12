@@ -1,5 +1,7 @@
 # Parameters Guide
 
+[← README](README.md) | [Index](README.md#documentation) | [Commands Guide →](commands.md)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -25,7 +27,7 @@ Key capabilities:
 - Persistence control (always saved, never saved, or user-config only)
 - Mutual exclusion (switch lists)
 - Parameter grouping for organized help display
-- Runtime-only parameters that aren't validated upfront
+- Runtime-only parameters for shared internal state that commands can read and write during execution
 
 ## Parameter Definition Constants
 
@@ -61,12 +63,6 @@ Parameters are defined as dictionaries using these constants as keys:
 |----------|-------------|
 | `PARAM_SWITCH_LIST` | Identifies a list of params that are mutually exclusive with this one - only one param in this list can be set at a time. |
 | `PARAM_GROUP` | Group name for organizing parameters in help display |
-
-### Internal Use
-
-| Constant | Description |
-|----------|-------------|
-| `PARAM_HAS_VALUE` | For pre-parse params: True if param takes a value, False if toggle |
 
 ### Persistence Options
 
@@ -418,7 +414,7 @@ def use_session_command():
 Runtime-only parameters are useful for:
 - Session identifiers
 - Temporary file paths generated during execution
-- State flags set by one command and read by another
+- Data set by one command and read by another
 - Internal counters or tracking values
 
 ## Accessing Parameter Values
@@ -441,15 +437,15 @@ def process_command():
 
 ## Documentation
 
-- **[Parameters Guide](parameters.md)** - Parameter definition and usage
-- **[Commands Guide](commands.md)** - Detailed command system documentation
-- **[Configuration Guide](configuration.md)** - Configuration management
-- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[User Guide](README.md)** - Overview and quick start
+- **Parameters Guide** - Parameter definition and usage
+- **[Commands Guide](commands.md)** - Command system and dependencies
 - **[Phases Guide](phases.md)** - Multi-phase execution control
+- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Configuration Guide](configuration.md)** - Configuration management
 - **[Logging Guide](logging.md)** - Built-in logging system
 - **[API Reference](api-reference.md)** - Complete API documentation
 
 ---
 
-**Previous:** [← Back to README](README.md)  
-**Next:** [Commands Guide →](commands.md)
+[← README](README.md) | [Index](README.md#documentation) | [Commands Guide →](commands.md)

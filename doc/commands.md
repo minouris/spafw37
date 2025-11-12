@@ -1,5 +1,7 @@
 # Commands Guide
 
+[← Parameters Guide](parameters.md) | [Index](README.md#documentation) | [Phases Guide →](phases.md)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -399,15 +401,15 @@ For more advanced command features, see:
 
 ## Documentation
 
+- **[User Guide](README.md)** - Overview and quick start
 - **[Parameters Guide](parameters.md)** - Parameter definition and usage
-- **[Commands Guide](commands.md)** - Detailed command system documentation
-- **[Configuration Guide](configuration.md)** - Configuration management
-- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **Commands Guide** - Command system and dependencies
 - **[Phases Guide](phases.md)** - Multi-phase execution control
+- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Configuration Guide](configuration.md)** - Configuration management
 - **[Logging Guide](logging.md)** - Built-in logging system
 - **[API Reference](api-reference.md)** - Complete API documentation
 
 ---
 
-**Previous:** [← Parameters Guide](parameters.md)  
-**Next:** [Configuration Guide →](configuration.md)
+[← Parameters Guide](parameters.md) | [Index](README.md#documentation) | [Phases Guide →](phases.md)

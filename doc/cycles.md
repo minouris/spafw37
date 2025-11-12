@@ -1,5 +1,7 @@
 # Cycles Guide
 
+[← Phases Guide](phases.md) | [Index](README.md#documentation) | [Configuration Guide →](configuration.md)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -103,15 +105,11 @@ Cycle functions share state to exchange data between control functions and comma
 First, define runtime-only parameters for your cycle state:
 
 ```python
-from spafw37 import core as spafw37
-from spafw37.constants.param import PARAM_NAME, PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY
-
-# Define runtime params for internal cycle state
 params = [
     {
         PARAM_NAME: 'file-list',
         PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_RUNTIME_ONLY: True  # Not exposed to CLI, internal state only
+        PARAM_RUNTIME_ONLY: True
     },
     {
         PARAM_NAME: 'file-index',
@@ -132,46 +130,36 @@ Then use these parameters in your cycle functions:
 
 ```python
 def init_files():
-    """Initialize file list before processing."""
-    file_list = ['file1.txt', 'file2.txt', 'file3.txt']
-    spafw37.set_config_value('file-list', file_list)
+    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
     spafw37.set_config_value('file-index', 0)
-    print(f"Initialized {len(file_list)} files for processing")
 
 def has_more_files():
-    """Check if there are more files to process."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    """Prepare the next file for processing."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
-    current_file = file_list[file_index]
-    spafw37.set_config_value('current-file', current_file)
+    spafw37.set_config_value('current-file', file_list[file_index])
 
 def finalize_files():
-    """Report processing results."""
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed processing {file_index} files")
+    print(f"Completed {file_index} files")
 
 def process_file():
-    """Process the current file from config."""
     current_file = spafw37.get_config_value('current-file')
+    # ... process current_file ...
     file_index = spafw37.get_config_value('file-index')
-    print(f"Processing {current_file}")
     spafw37.set_config_value('file-index', file_index + 1)
 ```
 
-**Only use module-level variables if you need truly local state** that shouldn't be saved or shared outside the module. Never use `global` keyword at function scope - declare variables at module level instead:
+**Only use module-level variables for truly local state** that shouldn't be saved or shared:
 
 ```python
-# Acceptable for module-private counters/flags only
-_iteration_count = 0  # Leading underscore indicates module-private
+_iteration_count = 0  # Module-private
 
 def init_cycle():
-    """Initialize cycle state."""
     global _iteration_count
     _iteration_count = 0
 ```
@@ -182,11 +170,8 @@ Sets up resources and state before the loop begins:
 
 ```python
 def init_files():
-    """Initialize file list before processing."""
-    file_list = ['file1.txt', 'file2.txt', 'file3.txt']
-    spafw37.set_config_value('file-list', file_list)
+    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
     spafw37.set_config_value('file-index', 0)
-    print(f"Initialized {len(file_list)} files for processing")
 ```
 
 ### Loop Condition Function
@@ -195,7 +180,6 @@ Checks if iteration should continue:
 
 ```python
 def has_more_files():
-    """Check if there are more files to process."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
     return file_index < len(file_list)
@@ -207,11 +191,9 @@ Prepares data for the next iteration:
 
 ```python
 def prepare_next_file():
-    """Prepare the next file for processing."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
-    current_file = file_list[file_index]
-    spafw37.set_config_value('current-file', current_file)
+    spafw37.set_config_value('current-file', file_list[file_index])
 ```
 
 ### Finalization Function
@@ -220,9 +202,8 @@ Cleans up resources and reports results after the loop completes:
 
 ```python
 def finalize_files():
-    """Report processing results."""
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed processing {file_index} files")
+    print(f"Completed {file_index} files")
 ```
 
 ### Cycle Commands
@@ -231,10 +212,9 @@ Define the commands that execute each iteration:
 
 ```python
 def process_file():
-    """Process the current file from config."""
     current_file = spafw37.get_config_value('current-file')
+    # ... process current_file ...
     file_index = spafw37.get_config_value('file-index')
-    print(f"Processing {current_file}")
     spafw37.set_config_value('file-index', file_index + 1)
 
 cycle_commands = [
@@ -283,59 +263,47 @@ params = [
 
 spafw37.add_params(params)
 
-# Cycle control functions using the runtime params
+# Cycle control functions
 def init_files():
-    """Initialize file list before processing."""
-    file_list = ['file1.txt', 'file2.txt', 'file3.txt']
-    spafw37.set_config_value('file-list', file_list)
+    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
     spafw37.set_config_value('file-index', 0)
-    print(f"Initialized {len(file_list)} files for processing")
 
 def has_more_files():
-    """Check if there are more files to process."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    """Prepare the next file for processing."""
     file_list = spafw37.get_config_value('file-list')
     file_index = spafw37.get_config_value('file-index')
-    current_file = file_list[file_index]
-    spafw37.set_config_value('current-file', current_file)
+    spafw37.set_config_value('current-file', file_list[file_index])
 
 def finalize_files():
-    """Report processing results."""
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed processing {file_index} files")
+    print(f"Completed {file_index} files")
 
 def process_file():
-    """Process the current file from config."""
     current_file = spafw37.get_config_value('current-file')
+    # ... process current_file ...
     file_index = spafw37.get_config_value('file-index')
-    print(f"Processing {current_file}")
     spafw37.set_config_value('file-index', file_index + 1)
-
-# Define cycle commands
-cycle_commands = [
-    {
-        COMMAND_NAME: 'process-file',
-        COMMAND_ACTION: process_file
-    }
-]
 
 # Define parent command with cycle
 commands = [
     {
         COMMAND_NAME: 'process-all-files',
-        COMMAND_ACTION: lambda: print("Starting file processing"),
         COMMAND_CYCLE: {
             CYCLE_NAME: 'file-processing',
             CYCLE_INIT: init_files,
             CYCLE_LOOP: has_more_files,
             CYCLE_LOOP_START: prepare_next_file,
             CYCLE_END: finalize_files,
-            CYCLE_COMMANDS: cycle_commands
+            CYCLE_COMMANDS: [
+                {
+                    COMMAND_NAME: 'process-file',
+                    COMMAND_ACTION: process_file
+                }
+            ]
         }
     }
 ]
@@ -507,93 +475,50 @@ from spafw37.constants.cycle import (
 params = [
     {PARAM_NAME: 'batches', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True},
     {PARAM_NAME: 'batch-index', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True},
-    {PARAM_NAME: 'current-batch', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True},
     {PARAM_NAME: 'items', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True},
-    {PARAM_NAME: 'item-index', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True},
-    {PARAM_NAME: 'current-item', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True}
+    {PARAM_NAME: 'item-index', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_RUNTIME_ONLY: True}
 ]
 
 spafw37.add_params(params)
 
+# Outer cycle functions
 def init_batches():
-    """Initialize batch list."""
-    batches = ['batch-A', 'batch-B']
-    spafw37.set_config_value('batches', batches)
+    # Initialize batch list and index
+    spafw37.set_config_value('batches', ['batch-A', 'batch-B'])
     spafw37.set_config_value('batch-index', 0)
 
 def has_more_batches():
-    """Check for more batches."""
+    # Check if more batches remain
     batches = spafw37.get_config_value('batches')
     batch_index = spafw37.get_config_value('batch-index')
     return batch_index < len(batches)
 
 def prepare_next_batch():
-    """Prepare next batch for processing."""
-    batches = spafw37.get_config_value('batches')
+    # Set current batch and increment index
     batch_index = spafw37.get_config_value('batch-index')
-    current_batch = batches[batch_index]
-    spafw37.set_config_value('current-batch', current_batch)
+    spafw37.set_config_value('batch-index', batch_index + 1)
 
-def finalize_batches():
-    """Report batch processing results."""
-    batch_index = spafw37.get_config_value('batch-index')
-    print(f"Processed {batch_index} batches")
-
+# Inner cycle functions
 def init_items():
-    """Initialize items for current batch."""
-    current_batch = spafw37.get_config_value('current-batch')
-    items = [f'{current_batch}-item1', f'{current_batch}-item2']
-    spafw37.set_config_value('items', items)
+    # Initialize items for current batch
+    spafw37.set_config_value('items', ['item1', 'item2'])
     spafw37.set_config_value('item-index', 0)
-    print(f"Processing {current_batch} with {len(items)} items")
 
 def has_more_items():
-    """Check for more items."""
+    # Check if more items remain
     items = spafw37.get_config_value('items')
     item_index = spafw37.get_config_value('item-index')
     return item_index < len(items)
 
 def prepare_next_item():
-    """Prepare next item for processing."""
-    items = spafw37.get_config_value('items')
+    # Increment item index
     item_index = spafw37.get_config_value('item-index')
-    current_item = items[item_index]
-    spafw37.set_config_value('current-item', current_item)
-
-def finalize_items():
-    """Complete item processing and advance batch."""
-    batch_index = spafw37.get_config_value('batch-index')
-    spafw37.set_config_value('batch-index', batch_index + 1)
-
-def process_item():
-    """Process the current item."""
-    current_item = spafw37.get_config_value('current-item')
-    item_index = spafw37.get_config_value('item-index')
-    print(f"  Processing {current_item}")
     spafw37.set_config_value('item-index', item_index + 1)
 
-# Inner cycle: process items
-item_commands = [
-    {
-        COMMAND_NAME: 'process-item',
-        COMMAND_ACTION: process_item
-    }
-]
-
-# Outer cycle: process batches (contains inner cycle)
-batch_commands = [
-    {
-        COMMAND_NAME: 'process-batch-items',
-        COMMAND_CYCLE: {
-            CYCLE_NAME: 'item-cycle',
-            CYCLE_INIT: init_items,
-            CYCLE_LOOP: has_more_items,
-            CYCLE_LOOP_START: prepare_next_item,
-            CYCLE_END: finalize_items,
-            CYCLE_COMMANDS: item_commands
-        }
-    }
-]
+def process_item():
+    # Process current item
+    item_index = spafw37.get_config_value('item-index')
+    print(f"Processing item {item_index}")
 
 # Top-level command with nested cycles
 commands = [
@@ -604,24 +529,28 @@ commands = [
             CYCLE_INIT: init_batches,
             CYCLE_LOOP: has_more_batches,
             CYCLE_LOOP_START: prepare_next_batch,
-            CYCLE_END: finalize_batches,
-            CYCLE_COMMANDS: batch_commands
+            CYCLE_COMMANDS: [
+                {
+                    COMMAND_NAME: 'process-batch-items',
+                    COMMAND_CYCLE: {
+                        CYCLE_NAME: 'item-cycle',
+                        CYCLE_INIT: init_items,
+                        CYCLE_LOOP: has_more_items,
+                        CYCLE_LOOP_START: prepare_next_item,
+                        CYCLE_COMMANDS: [
+                            {
+                                COMMAND_NAME: 'process-item',
+                                COMMAND_ACTION: process_item
+                            }
+                        ]
+                    }
+                }
+            ]
         }
     }
 ]
 
 spafw37.add_commands(commands)
-```
-
-Output:
-```
-Processing batch-A with 2 items
-  Processing batch-A-item1
-  Processing batch-A-item2
-Processing batch-B with 2 items
-  Processing batch-B-item1
-  Processing batch-B-item2
-Processed 2 batches
 ```
 
 ## Command Invocability
@@ -915,15 +844,15 @@ The parent command's `COMMAND_ACTION` is optional when using a cycle. Use it onl
 
 ## Documentation
 
+- **[User Guide](README.md)** - Overview and quick start
 - **[Parameters Guide](parameters.md)** - Parameter definition and usage
-- **[Commands Guide](commands.md)** - Detailed command system documentation
-- **[Configuration Guide](configuration.md)** - Configuration management
-- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Commands Guide](commands.md)** - Command system and dependencies
 - **[Phases Guide](phases.md)** - Multi-phase execution control
+- **Cycles Guide** - Repeating command sequences
+- **[Configuration Guide](configuration.md)** - Configuration management
 - **[Logging Guide](logging.md)** - Built-in logging system
 - **[API Reference](api-reference.md)** - Complete API documentation
 
 ---
 
-**Previous:** [← Phases Guide](phases.md)  
-**Next:** [Configuration Guide →](configuration.md)
+[← Phases Guide](phases.md) | [Index](README.md#documentation) | [Configuration Guide →](configuration.md)

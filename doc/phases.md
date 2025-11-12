@@ -1,5 +1,7 @@
 # Phases
 
+[← Commands Guide](commands.md) | [Index](README.md#documentation) | [Cycles Guide →](cycles.md)
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -21,20 +23,13 @@ By default, all commands run in the `PHASE_EXECUTION` phase. You can customize t
 
 ### Phase Definitions
 
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `PHASE_SETUP` | `"phase-setup"` | Initialize resources, establish connections, validate preconditions |
-| `PHASE_CLEANUP` | `"phase-cleanup"` | Prepare environment, remove temporary artifacts, reset state |
-| `PHASE_EXECUTION` | `"phase-execution"` | Run primary application logic and main operations |
-| `PHASE_TEARDOWN` | `"phase-teardown"` | Release resources, close connections, finalize operations |
-| `PHASE_END` | `"phase-end"` | Perform final shutdown tasks and reporting |
-
-### Configuration
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `PHASE_DEFAULT` | `PHASE_EXECUTION` | Default phase assigned to commands without explicit phase |
-| `PHASE_ORDER` | `[PHASE_SETUP, PHASE_CLEANUP, PHASE_EXECUTION, PHASE_TEARDOWN, PHASE_END]` | Recommended execution order for all phases |
+| Constant | Purpose |
+|----------|---------|
+| `PHASE_SETUP` | Initialize resources, establish connections, validate preconditions |
+| `PHASE_CLEANUP` | Prepare environment, remove temporary artifacts, reset state |
+| `PHASE_EXECUTION` | Run primary application logic and main operations |
+| `PHASE_TEARDOWN` | Release resources, close connections, finalize operations |
+| `PHASE_END` | Perform final shutdown tasks and reporting |
 
 ## Phase Lifecycle
 
@@ -245,31 +240,54 @@ Use `COMMAND_REQUIRED_COMMANDS` for dependencies within a phase. Dependencies ac
 
 ### Phase Completion
 
-Once a phase completes, you cannot add more commands to it. The framework raises an error if you try. Queue all necessary commands before execution begins:
+Once a phase completes, you cannot add more commands to it. The framework raises an error if you try to queue a command to a completed phase:
 
 ```python
 from spafw37 import core as spafw37
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_ACTION,
+    COMMAND_PHASE,
+    COMMAND_NEXT,
+)
+from spafw37.constants.phase import PHASE_SETUP, PHASE_EXECUTION
 
-# Good - all commands registered before running
-spafw37.add_commands(all_commands)
-spafw37.run_cli()
+def execution_action():
+    """Runs in PHASE_EXECUTION."""
+    print("Running execution...")
 
-# Bad - trying to queue commands after phase starts
+commands = [
+    {
+        COMMAND_NAME: 'setup-db',
+        COMMAND_ACTION: lambda: print("Setting up database"),
+        COMMAND_PHASE: PHASE_SETUP,
+    },
+    {
+        COMMAND_NAME: 'process',
+        COMMAND_ACTION: execution_action,
+        COMMAND_PHASE: PHASE_EXECUTION,
+        # Bad - trying to queue a command to PHASE_SETUP after it's completed
+        COMMAND_NEXT: ['setup-db']  # Error: PHASE_SETUP already finished
+    }
+]
+
+spafw37.add_commands(commands)
 spafw37.run_cli()
-queue_command("late-setup")  # Error if SETUP phase already completed
 ```
+
+All commands must be registered upfront with `add_commands()` before calling `run_cli()`.
 
 ## Documentation
 
+- **[User Guide](README.md)** - Overview and quick start
 - **[Parameters Guide](parameters.md)** - Parameter definition and usage
-- **[Commands Guide](commands.md)** - Detailed command system documentation
-- **[Configuration Guide](configuration.md)** - Configuration management
+- **[Commands Guide](commands.md)** - Command system and dependencies
+- **Phases Guide** - Multi-phase execution control
 - **[Cycles Guide](cycles.md)** - Repeating command sequences
-- **[Phases Guide](phases.md)** - Multi-phase execution control
+- **[Configuration Guide](configuration.md)** - Configuration management
 - **[Logging Guide](logging.md)** - Built-in logging system
 - **[API Reference](api-reference.md)** - Complete API documentation
 
 ---
 
-**Previous:** [← Commands Guide](commands.md)  
-**Next:** [Cycles Guide →](cycles.md)
+[← Commands Guide](commands.md) | [Index](README.md#documentation) | [Cycles Guide →](cycles.md)
