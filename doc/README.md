@@ -1,117 +1,265 @@
-# spafw37 Documentation
+# SPAFW37 (Spaffoo Thirty-Seven)
 
-Welcome to the user guide for **spafw37**, a minimal Python 3.7 framework for building structured command-line applications.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Getting Started](#getting-started)
-- [Application Flow](#application-flow)
-- [Parameters](#parameters)
-
-def process():
-
-- [Configuration & Shared State](#configuration--shared-state)
-- [Phases & Run Levels](#phases--run-levels)
-- [Extending the Framework](#extending-the-framework)
-- [Examples](#examples)
-
-*Sections will be populated as the guide is developed.*
-
----
+**A lightweight Python 3.7+ framework for building command-line applications with advanced configuration management, command orchestration, and execution control.**
 
 ## Overview
 
-**spafw37** enables developers to:
+SPAFW37 provides a declarative approach to building CLI applications by defining commands and parameters as structured dictionaries. The framework handles:
 
-- **Add custom parameters and commands** that are set and invoked via the command line.
-- **Maintain shared state** across commands and phases using the configuration module.
-- **Execute commands in sequences** divided into distinct phases for clear separation of logic.
-- **Use run levels** to organize and separate larger concerns or lifecycle stages within an application.
+- **Command Registration & Execution** - Define commands with actions, dependencies, and sequencing
+- **Parameter Management** - Flexible parameter system with aliases, types, and validation
+- **Configuration Management** - Persistent and runtime configuration with file I/O
+- **Command Orchestration** - Automatic dependency resolution and topological sorting
+- **Phase-based Execution** - Multi-phase command execution with lifecycle control
+- **Cycle Support** - Repeating command sequences with init/loop/end functions
+- **Integrated Help System** - Automatic help generation for commands and parameters
+- **Logging Framework** - Built-in logging with levels, scopes, and file/console output
 
-This approach allows you to build robust CLI tools with:
-- Fine-grained control over argument parsing and configuration
-- Modular command registration and execution
-- Flexible phase-based execution and sandboxing
-- Structured run-level management for complex workflows
+## Quick Start
 
----
+### Creating Your First Application
 
-Continue to the next section for a quick start, or use the TOC above to jump to a topic.
----
+Let's build a simple CLI application that greets users by name. We'll walk through each part of the code.
 
-## Getting Started (Quick Start)
+#### Step 1: Import the Framework
 
-This section walks you through building a simple CLI app using spafw37, step by step.
-
-def greet():
-def process():
-
-### Step 1: Create Your App File
-
-Create a new Python file, e.g. `main.py`:
+Access the framework's core functionality.
 
 ```python
-# main.py
-from spafw37.cli import run_cli
-
-if __name__ == "__main__":
-	run_cli()
+"""my_app.py - A simple SPAFW37 application"""
+from spafw37 import core as spafw37
 ```
 
-### Step 2: Define and Register a Command
+The `core` module is your main entry point. Import it as `spafw37` for convenience.
 
-Commands are actions your app can perform. Define and register a simple command using a `dict`:
+#### Step 2: Import Constants
+
+Import the constants needed to define your parameters and commands.
 
 ```python
-# main.py
-from spafw37.command import add_command
-from spafw37.config_consts import COMMAND_NAME, COMMAND_ACTION, COMMAND_DESCRIPTION
-
-def greet_command():
-	print("Hello!")
-
-add_command({
-	COMMAND_NAME: "greet",
-	COMMAND_ACTION: greet_command,
-	COMMAND_DESCRIPTION: "Greet the user"})
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_DESCRIPTION,
+    COMMAND_ACTION,
+    COMMAND_REQUIRED_PARAMS,
+)
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_DESCRIPTION,
+    PARAM_ALIASES,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+)
 ```
 
-### Step 3: Define and Register Parameters
+These constants are used as keys in command and parameter dictionaries.
 
-Add parameters to your app so users can pass values on the command line:
+#### Step 3: Define Parameters
+
+Define what command-line arguments your application accepts.
 
 ```python
-from spafw37.param import add_param
-from spafw37.config_consts import PARAM_NAME, PARAM_TYPE, PARAM_DEFAULT, PARAM_ALIASES
-
-add_param({
-	PARAM_NAME: "input",
-	PARAM_TYPE: "text",
-	PARAM_DEFAULT: "data.txt",
-	PARAM_ALIASES: ["--input", "-i"]
-})
+params = [
+    {
+        PARAM_NAME: 'user-name',
+        PARAM_DESCRIPTION: 'Name of the user to greet',
+        PARAM_ALIASES: ['--name', '-n'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+    }
+]
 ```
 
-### Step 5: Run Your App
+Each parameter definition includes:
+- **`PARAM_NAME`** - Internal name used with `get_config()`
+- **`PARAM_DESCRIPTION`** - Shown in help text
+- **`PARAM_ALIASES`** - CLI flags (e.g., `--name` or `-n`)
+- **`PARAM_TYPE`** - Type of value (e.g., `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`)
 
-Run your app from the command line, specifying the commands you want to execute:
+When parameter values are set from the command line, they are stored in the configuration store and can be retrieved by commands using `get_config()`.
+
+#### Step 4: Define Your Command Action
+
+Write the function that will execute when your command runs.
+
+```python
+def greet_action():
+    """Greet the user by name."""
+    name = spafw37.get_config('user-name')
+    print(f"Hello, {name}!")
+```
+
+Command actions are regular Python functions. Use `spafw37.get_config()` to retrieve parameter values that were set from the command line.
+
+#### Step 5: Define Commands
+
+Define what commands your application provides and link them to their actions.
+
+```python
+commands = [
+    {
+        COMMAND_NAME: 'greet',
+        COMMAND_DESCRIPTION: 'Greet the user',
+        COMMAND_ACTION: greet_action,
+        COMMAND_REQUIRED_PARAMS: ['user-name'],
+    }
+]
+```
+
+Commands specify:
+- **`COMMAND_NAME`** - Name used on the CLI (e.g., `python my_app.py greet`)
+- **`COMMAND_DESCRIPTION`** - Shown in help listings
+- **`COMMAND_ACTION`** - Function to call when command executes
+- **`COMMAND_REQUIRED_PARAMS`** - Parameters that must be provided to run this command (uses internal parameter names)
+
+#### Step 6: Register and Run
+
+Register everything with the framework and start processing command-line arguments.
+
+```python
+spafw37.add_params(params)
+spafw37.add_commands(commands)
+spafw37.set_app_name('my-app')
+
+if __name__ == '__main__':
+    spafw37.run_cli()
+```
+
+Register your parameters and commands, then call `run_cli()` to parse arguments and execute.
+
+### Running Your Application
 
 ```bash
-python main.py greet process --input=myfile.txt --mode=slow
+# Display help
+python my_app.py help
+
+# Run the greet command
+python my_app.py greet --name Alice
+# Output: Hello, Alice!
+
+# Get help for a specific command
+python my_app.py help greet
 ```
 
-Only the commands listed (`greet` and `process`) will execute their associated functions. Parameters (`--input`, `--mode`) provide values to those commands, but do not trigger execution themselves.
+## Key Features
 
-If both commands are invoked, and your `process()` function fetches parameter values correctly, you should see output similar to:
+### Declarative Command Definition
 
+Commands are defined as dictionaries with clear, self-documenting structure:
+
+```python
+{
+    COMMAND_NAME: 'build',
+    COMMAND_DESCRIPTION: 'Build the project',
+    COMMAND_ACTION: build_function,
+    COMMAND_REQUIRED_PARAMS: ['build-type', 'target'],
+    COMMAND_GOES_AFTER: ['setup'],  # Sequencing
+    COMMAND_REQUIRE_BEFORE: ['clean'],  # Dependencies
+}
 ```
-Hello!
-Processing myfile.txt in slow mode
+
+### Flexible Parameter System
+
+Parameters support multiple aliases, types, and automatic configuration binding:
+
+```python
+{
+    PARAM_NAME: 'input-file',
+    PARAM_DESCRIPTION: 'Input file to process',
+    PARAM_ALIASES: ['--input', '-i'],
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_GROUP: 'Input/Output Options',  # Grouped in help
+}
 ```
 
----
+### Command Orchestration
 
-This example demonstrates the basics: defining params, registering commands, and executing them in sequence via CLI. See later sections for phases, configuration, and advanced features.
+Define complex workflows with automatic dependency resolution:
+
+```python
+commands = [
+    {COMMAND_NAME: 'clean', ...},
+    {
+        COMMAND_NAME: 'build',
+        COMMAND_REQUIRE_BEFORE: ['clean'],  # Auto-queues clean
+        COMMAND_NEXT_COMMANDS: ['test'],     # Auto-queues test after
+        ...
+    },
+    {COMMAND_NAME: 'test', ...},
+]
+```
+
+### Cycle Support
+
+Create repeating command sequences for batch processing:
+
+```python
+{
+    COMMAND_NAME: 'process-files',
+    COMMAND_ACTION: lambda: None,
+    COMMAND_CYCLE: {
+        CYCLE_NAME: 'file-processing',
+        CYCLE_INIT: initialize_files,      # Called once before loop
+        CYCLE_LOOP: has_more_files,        # Returns True to continue
+        CYCLE_END: finalize_processing,    # Called once after loop
+        CYCLE_COMMANDS: ['validate', 'transform', 'save'],
+    }
+}
+```
+
+### Configuration Management
+
+Access configuration values set by parameters or loaded from files:
+
+```python
+# In your command action
+def process_action():
+    input_file = spafw37.get_config('input-file')
+    verbose = spafw37.get_config('verbose', default=False)
+    # ... process ...
+```
+
+Set a central configuration file for your application:
+
+```python
+# The framework automatically saves and loads important values to this file
+spafw37.set_config_file('my_app_config.json')
+```
+
+Save and load configuration files on demand:
+
+```python
+# Load configuration from a specific file
+python my_app.py --load-user-config custom_config.json
+
+# Save current configuration to a specific file
+python my_app.py --save-user-config output_config.json
+```
+
+The framework maintains separate persistent and runtime-only configuration, allowing you to control what gets saved.
+
+## Documentation
+
+- **[Commands Guide](commands.md)** - Detailed command system documentation
+- **[Parameters Guide](parameters.md)** - Parameter definition and usage
+- **[Configuration Guide](configuration.md)** - Configuration management
+- **[Cycles Guide](cycles.md)** - Repeating command sequences
+- **[Phases Guide](phases.md)** - Multi-phase execution control
+- **[Logging Guide](logging.md)** - Built-in logging system
+- **[API Reference](api-reference.md)** - Complete API documentation
+
+## Examples
+
+See the `src/testapp/` directory for complete example applications:
+
+- **`demo.py`** - Basic application with commands and parameters
+- **`cycle_demo.py`** - Advanced cycles with nesting and dependencies
+
+## Requirements
+
+- Python 3.7.0 or higher
+- No external dependencies (uses Python standard library only)
+
+## License
+
+MIT License - See LICENSE.md for details
+
