@@ -66,6 +66,48 @@ def process_file():
         output_dir = '.'
 ```
 
+#### Typed Configuration Getters
+
+For better type safety and linter support, use typed getters that cast values to specific types:
+
+```python
+from spafw37 import core as spafw37
+
+def process_files():
+    # Get integer values with defaults
+    max_workers = spafw37.get_config_int('max-workers', 4)
+    file_index = spafw37.get_config_int('file-index')  # default: 0
+    
+    # Get string values
+    project_dir = spafw37.get_config_str('project-dir', './project')
+    author = spafw37.get_config_str('author')  # default: ''
+    
+    # Get boolean values
+    verbose = spafw37.get_config_bool('verbose')  # default: False
+    is_enabled = spafw37.get_config_bool('feature-enabled', True)
+    
+    # Get float values
+    timeout = spafw37.get_config_float('timeout', 30.0)
+    threshold = spafw37.get_config_float('threshold')  # default: 0.0
+    
+    # Get list values
+    tags = spafw37.get_config_list('tags')  # default: []
+    files = spafw37.get_config_list('files', [])
+```
+
+**Available typed getters:**
+- `get_config_int(config_key, default=0)` - Returns integer
+- `get_config_str(config_key, default='')` - Returns string
+- `get_config_bool(config_key, default=False)` - Returns boolean
+- `get_config_float(config_key, default=0.0)` - Returns float
+- `get_config_list(config_key, default=None)` - Returns list (wraps single values)
+
+**Benefits:**
+- Eliminates linter warnings about None types
+- Provides sensible defaults automatically
+- Makes type expectations explicit
+- Simplifies type-dependent operations (arithmetic, string formatting, etc.)
+
 ### Setting Configuration Values
 
 Use `set_config_value()` to set parameter values programmatically:

@@ -266,3 +266,92 @@ def test_runtime_only_param_set_never_persisted():
     # Get the activated param from _params
     activated_param = param._params["runtime_only_param"]
     assert param.is_persistence_never(activated_param) is True
+
+
+# Tests for typed config getters
+
+def test_get_config_int():
+    """Test get_config_int with various input types."""
+    # Test with integer value
+    spafw37.config.set_config_value('test_int', 42)
+    assert spafw37.config.get_config_int('test_int') == 42
+    
+    # Test with string that can be converted to int
+    spafw37.config.set_config_value('test_int_str', '123')
+    assert spafw37.config.get_config_int('test_int_str') == 123
+    
+    # Test with None (should return default)
+    assert spafw37.config.get_config_int('nonexistent') == 0
+    assert spafw37.config.get_config_int('nonexistent', 99) == 99
+
+
+def test_get_config_str():
+    """Test get_config_str with various input types."""
+    # Test with string value
+    spafw37.config.set_config_value('test_str', 'hello')
+    assert spafw37.config.get_config_str('test_str') == 'hello'
+    
+    # Test with number that can be converted to string
+    spafw37.config.set_config_value('test_num_str', 456)
+    assert spafw37.config.get_config_str('test_num_str') == '456'
+    
+    # Test with None (should return default)
+    assert spafw37.config.get_config_str('nonexistent') == ''
+    assert spafw37.config.get_config_str('nonexistent', 'default') == 'default'
+
+
+def test_get_config_bool():
+    """Test get_config_bool with various input types."""
+    # Test with boolean value
+    spafw37.config.set_config_value('test_bool_true', True)
+    assert spafw37.config.get_config_bool('test_bool_true') is True
+    
+    spafw37.config.set_config_value('test_bool_false', False)
+    assert spafw37.config.get_config_bool('test_bool_false') is False
+    
+    # Test with truthy/falsy values
+    spafw37.config.set_config_value('test_truthy', 1)
+    assert spafw37.config.get_config_bool('test_truthy') is True
+    
+    spafw37.config.set_config_value('test_falsy', 0)
+    assert spafw37.config.get_config_bool('test_falsy') is False
+    
+    # Test with None (should return default)
+    assert spafw37.config.get_config_bool('nonexistent') is False
+    assert spafw37.config.get_config_bool('nonexistent', True) is True
+
+
+def test_get_config_float():
+    """Test get_config_float with various input types."""
+    # Test with float value
+    spafw37.config.set_config_value('test_float', 3.14)
+    assert spafw37.config.get_config_float('test_float') == 3.14
+    
+    # Test with int that can be converted to float
+    spafw37.config.set_config_value('test_int_float', 42)
+    assert spafw37.config.get_config_float('test_int_float') == 42.0
+    
+    # Test with string that can be converted to float
+    spafw37.config.set_config_value('test_str_float', '2.718')
+    assert spafw37.config.get_config_float('test_str_float') == 2.718
+    
+    # Test with None (should return default)
+    assert spafw37.config.get_config_float('nonexistent') == 0.0
+    assert spafw37.config.get_config_float('nonexistent', 9.99) == 9.99
+
+
+def test_get_config_list():
+    """Test get_config_list with various input types."""
+    # Test with list value
+    spafw37.config.set_config_value('test_list', ['a', 'b', 'c'])
+    assert spafw37.config.get_config_list('test_list') == ['a', 'b', 'c']
+    
+    # Test with single value (should be wrapped in list)
+    spafw37.config.set_config_value('test_single', 'single')
+    assert spafw37.config.get_config_list('test_single') == ['single']
+    
+    # Test with None (should return empty list)
+    assert spafw37.config.get_config_list('nonexistent') == []
+    
+    # Test with custom default
+    assert spafw37.config.get_config_list('nonexistent', ['default']) == ['default']

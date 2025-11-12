@@ -114,6 +114,82 @@ def get_config_value(config_key):
     from spafw37 import config
     return config.get_config_value(config_key)
 
+
+def get_config_int(config_key, default=0):
+    """
+    Get a configuration value as integer.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Integer configuration value or default.
+    """
+    from spafw37 import config
+    return config.get_config_int(config_key, default)
+
+
+def get_config_str(config_key, default=''):
+    """
+    Get a configuration value as string.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        String configuration value or default.
+    """
+    from spafw37 import config
+    return config.get_config_str(config_key, default)
+
+
+def get_config_bool(config_key, default=False):
+    """
+    Get a configuration value as boolean.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Boolean configuration value or default.
+    """
+    from spafw37 import config
+    return config.get_config_bool(config_key, default)
+
+
+def get_config_float(config_key, default=0.0):
+    """
+    Get a configuration value as float.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Float configuration value or default.
+    """
+    from spafw37 import config
+    return config.get_config_float(config_key, default)
+
+
+def get_config_list(config_key, default=None):
+    """
+    Get a configuration value as list.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        List configuration value or default (empty list if default is None).
+    """
+    from spafw37 import config
+    return config.get_config_list(config_key, default)
+
+
 def set_config_value(config_key, value):
     """
     Set a configuration value.

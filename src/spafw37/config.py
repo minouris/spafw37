@@ -6,6 +6,89 @@ _config = {
 def get_config_value(name):
     return _config.get(name)
 
+
+def get_config_int(name, default=0):
+    """Get configuration value as integer.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Integer configuration value or default.
+    """
+    value = _config.get(name)
+    if value is None:
+        return default
+    return int(value)
+
+
+def get_config_str(name, default=''):
+    """Get configuration value as string.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        String configuration value or default.
+    """
+    value = _config.get(name)
+    if value is None:
+        return default
+    return str(value)
+
+
+def get_config_bool(name, default=False):
+    """Get configuration value as boolean.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Boolean configuration value or default.
+    """
+    value = _config.get(name)
+    if value is None:
+        return default
+    return bool(value)
+
+
+def get_config_float(name, default=0.0):
+    """Get configuration value as float.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Float configuration value or default.
+    """
+    value = _config.get(name)
+    if value is None:
+        return default
+    return float(value)
+
+
+def get_config_list(name, default=None):
+    """Get configuration value as list.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        List configuration value or default (empty list if default is None).
+    """
+    value = _config.get(name)
+    if value is None:
+        return default if default is not None else []
+    if not isinstance(value, list):
+        return [value]
+    return value
+
+
 def set_config_value(name, value):
     _config[name] = value
 

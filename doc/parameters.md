@@ -417,6 +417,84 @@ Runtime-only parameters are useful for:
 - Data set by one command and read by another
 - Internal counters or tracking values
 
+## Best Practices and Anti-Patterns
+
+### DO: Use Framework Features
+
+The framework provides built-in parameters for common needs. **Always use these instead of creating your own:**
+
+| Framework Parameter | Purpose | Your Code Should |
+|---------------------|---------|------------------|
+| `--verbose`, `-v` | Enable verbose framework logging | Use `print()` for application output |
+| `--silent` | Suppress framework console logging | Use `print()` for application output |
+| `--no-logging` | Disable all framework logging | Use `print()` for application output |
+| `--log-level LEVEL` | Set framework log level | Use `print()` for application output |
+| `--help`, `-h` | Display help | Let framework handle help |
+| `--save-config FILE` | Save user config | Let framework handle persistence |
+| `--load-config FILE` | Load user config | Let framework handle persistence |
+
+### DON'T: Duplicate Framework Functionality
+
+**Anti-Pattern Example:**
+```python
+# ❌ WRONG: Duplicating framework logging control
+params = [
+    {
+        PARAM_NAME: 'verbose-mode',
+        PARAM_ALIASES: ['--verbose', '-v'],  # Conflicts with framework!
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+    },
+    {
+        PARAM_NAME: 'quiet-mode',
+        PARAM_ALIASES: ['--quiet', '-q'],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+    }
+]
+
+def my_command():
+    verbose = spafw37.get_config_bool('verbose-mode')
+    quiet = spafw37.get_config_bool('quiet-mode')
+    
+    if verbose:
+        print("[VERBOSE] Processing...")  # Don't do this!
+    if not quiet:
+        print("Processing...")  # Overly complex!
+```
+
+**Correct Pattern:**
+```python
+# ✅ CORRECT: Simple application output, let framework handle logging
+# No custom verbose/quiet parameters needed!
+
+def my_command():
+    # Just print application output normally
+    print("Processing...")
+    print("  Item 1 complete")
+    print("Done!")
+    
+    # Users control framework logging independently:
+    # --verbose shows framework DEBUG messages
+    # --silent suppresses framework console output
+    # Application output (print) is unaffected
+```
+
+### Key Principles
+
+1. **Application Output vs. Framework Logging**
+   - Use `print()` for application output (results, progress, user-facing messages)
+   - Framework logging (`--verbose`, `--silent`) controls diagnostic framework messages
+   - These are independent - users can suppress framework logging while seeing application output
+
+2. **Don't Reinvent Built-In Parameters**
+   - Check existing framework parameters before creating new ones
+   - Reuse established patterns (e.g., `--input`, `--output` common aliases)
+   - Avoid conflicts with framework parameter aliases
+
+3. **Keep Parameters Application-Specific**
+   - Define parameters for domain-specific needs (e.g., `--max-retries`, `--timeout`)
+   - Don't create parameters for cross-cutting concerns the framework already handles
+   - Focus on what makes your application unique
+
 ## Accessing Parameter Values
 
 In command actions, retrieve parameter values from configuration:

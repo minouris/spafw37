@@ -195,7 +195,7 @@ from spafw37.constants.param import (
     PARAM_NAME,
     PARAM_TYPE,
     PARAM_TYPE_TEXT,
-    PARAM_TYPE_TOGGLE,
+    PARAM_TYPE_NUMBER,
     PARAM_ALIASES,
     PARAM_DESCRIPTION,
 )
@@ -208,9 +208,10 @@ params = [
         PARAM_DESCRIPTION: 'Input file path'
     },
     {
-        PARAM_NAME: 'verbose',
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_ALIASES: ['--verbose', '-v']
+        PARAM_NAME: 'max-retries',
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_ALIASES: ['--max-retries', '-r'],
+        PARAM_DESCRIPTION: 'Maximum retry attempts'
     }
 ]
 
@@ -219,6 +220,8 @@ spafw37.add_params(params)
 
 **Args:**
 - `params` (list[dict]) - List of parameter definition dictionaries
+
+**Important:** Do NOT duplicate framework parameters like `--verbose`, `--silent`, `--help`, `--log-level`, etc. The framework already provides these. See [Parameters Guide - Best Practices](parameters.md#best-practices-and-anti-patterns) for details.
 
 **See:** [Parameters Guide](parameters.md) for complete parameter definition reference.
 
@@ -343,6 +346,90 @@ verbose = spafw37.get_config_value('verbose')
 - Accessing parameter values in command actions
 - Reading cycle state in CYCLE_LOOP functions
 - Getting user preferences
+
+#### Typed Configuration Getters
+
+For better type safety and linter support, use typed getters that cast values to specific types:
+
+#### `get_config_int(config_key, default=0)`
+
+Get a configuration value as integer.
+
+```python
+max_workers = spafw37.get_config_int('max-workers', 4)
+file_index = spafw37.get_config_int('file-index')
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (int) - Default value if not found (default: 0)
+
+**Returns:**
+- Integer value or default
+
+#### `get_config_str(config_key, default='')`
+
+Get a configuration value as string.
+
+```python
+project_dir = spafw37.get_config_str('project-dir', './project')
+author = spafw37.get_config_str('author')
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (str) - Default value if not found (default: '')
+
+**Returns:**
+- String value or default
+
+#### `get_config_bool(config_key, default=False)`
+
+Get a configuration value as boolean.
+
+```python
+verbose = spafw37.get_config_bool('verbose')
+is_enabled = spafw37.get_config_bool('feature-enabled', True)
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (bool) - Default value if not found (default: False)
+
+**Returns:**
+- Boolean value or default
+
+#### `get_config_float(config_key, default=0.0)`
+
+Get a configuration value as float.
+
+```python
+timeout = spafw37.get_config_float('timeout', 30.0)
+threshold = spafw37.get_config_float('threshold')
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (float) - Default value if not found (default: 0.0)
+
+**Returns:**
+- Float value or default
+
+#### `get_config_list(config_key, default=None)`
+
+Get a configuration value as list.
+
+```python
+tags = spafw37.get_config_list('tags')
+files = spafw37.get_config_list('files', [])
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (list) - Default value if not found (default: empty list)
+
+**Returns:**
+- List value or default. Single values are automatically wrapped in a list.
 
 #### `set_config_value(config_key, value)`
 
