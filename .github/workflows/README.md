@@ -15,8 +15,15 @@ Runs on every push to `main` branch (typically after merging PRs).
 - Calls the test.yml workflow first (must pass)
 - Builds the package
 - Publishes to TestPyPI (dev repository)
-- Auto-increments the dev version number
-- Commits the version bump back to the repository
+- Calls increment-version.yml workflow after successful publish
+
+### increment-version.yml
+Auto-increments the dev version number and commits it back.
+- Can be called by other workflows (reusable workflow)
+- Can be triggered manually via workflow_dispatch
+- Reuses the same Python cache as other workflows
+- Increments version in setup.cfg (e.g., 1.0.0.dev0 → 1.0.0.dev1)
+- Commits changes with `[skip ci]` to avoid triggering another workflow run
 
 ## Setup Instructions
 
@@ -44,10 +51,18 @@ The version in `setup.cfg` follows the format: `X.Y.Z.devN`
 - **Dev increments**: When code is pushed to `main`, the publish workflow automatically increments the dev number (`.dev0` → `.dev1` → `.dev2`, etc.)
 - **Base version changes**: When you manually update the base version (e.g., `1.0.0` → `1.1.0`), the dev counter automatically resets to `.dev0`
 
-#### Manual Version Increment (Optional)
+#### Manual Version Increment
 
-You can also increment the version locally:
+You can increment the version in three ways:
 
+**1. Automatically after publish** (default):
+- The publish workflow automatically calls increment-version.yml after successful publish
+
+**2. Manually trigger workflow**:
+- Go to Actions → Increment Version → Run workflow
+- Select branch and click "Run workflow"
+
+**3. Run script locally**:
 ```bash
 # Increment dev version
 python3 .github/scripts/increment_version.py

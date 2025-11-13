@@ -1,17 +1,21 @@
-name: Publish to TestPyPI (Dev)
+name: Increment Version
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_call:
+    outputs:
+      new_version:
+        description: "The new version number after increment"
+        value: ${{ jobs.increment.outputs.new_version }}
   workflow_dispatch:  # Allow manual trigger
 
-jobs:
-  test:
-    uses: ./.github/workflows/test.yml
+permissions:
+  contents: write  # Allow workflow to commit and push
 
-  publish:
-    needs: test
+jobs:
+  increment:
     runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.increment.outputs.new_version }}
     env:
       PYTHON_VERSION: '3.7.9'
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
@@ -22,6 +26,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Ensure cache directories exist
       run: |
@@ -67,30 +72,25 @@ jobs:
     - name: Verify Python
       run: |
         python3 --version
-        python3 -m pip --version
 
-    - name: Install package and build tools
+    - name: Increment dev version
+      id: increment
       run: |
-        python3 -m pip install --upgrade pip setuptools wheel
-        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
-        python3 -m pip install -e .
-        python3 -m pip install --upgrade build twine
+        # Make script executable
+        chmod +x .github/scripts/increment_version.py
+        
+        # Run version increment script and capture output
+        output=$(.github/scripts/increment_version.py)
+        echo "$output"
+        
+        # Extract new version for GitHub Actions output
+        new_version=$(echo "$output" | grep "^new_version=" | cut -d= -f2)
+        echo "new_version=$new_version" >> $GITHUB_OUTPUT
 
-    - name: Install build tools
+    - name: Commit version bump
       run: |
-        python3 -m pip install --upgrade build twine
-
-    - name: Build package
-      run: |
-        python3 -m build
-
-    - name: Publish to TestPyPI
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      run: |
-        python3 -m twine upload --repository testpypi dist/*
-
-  increment-version:
-    needs: publish
-    uses: ./.github/workflows/increment-version.yml
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add setup.cfg
+        git commit -m "chore: bump version to ${{ steps.increment.outputs.new_version }} [skip ci]"
+        git push
