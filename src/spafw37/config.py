@@ -110,6 +110,24 @@ def get_config_list(name, default=None):
     return value
 
 
+def get_config_dict(name, default=None):
+    """Get configuration value as dictionary.
+    
+    Args:
+        name: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Dictionary configuration value or default (empty dict if default is None).
+    """
+    value = _config.get(name)
+    if value is None:
+        return default if default is not None else {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Configuration value '{name}' is not a dictionary")
+    return value
+
+
 def set_config_value(name, value):
     _config[name] = value
 

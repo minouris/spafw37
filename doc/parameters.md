@@ -81,6 +81,7 @@ Parameters are defined as dictionaries using these constants as keys:
 | `PARAM_TYPE_NUMBER` | Numeric value (int or float) |
 | `PARAM_TYPE_TOGGLE` | Boolean flag that flips from its default value (typically False by default, True when present) |
 | `PARAM_TYPE_LIST` | List of values (e.g., multiple file paths, tags, or options) |
+| `PARAM_TYPE_DICT` | Dictionary/object value (JSON format) |
 
 ## Basic Parameter Definition
 
@@ -205,6 +206,133 @@ Usage:
 ```bash
 python my_app.py command --file data1.txt --file data2.txt -f data3.txt
 ```
+
+### Dict Parameters
+
+Accept dictionary/object values in JSON format. Useful for API payloads, database query filters, or structured test data:
+
+```python
+{
+    PARAM_NAME: 'payload',
+    PARAM_DESCRIPTION: 'API request payload',
+    PARAM_ALIASES: ['--payload', '-p'],
+    PARAM_TYPE: PARAM_TYPE_DICT,
+}
+```
+
+**Inline JSON:**
+```bash
+python my_app.py api-call --payload '{"user":"alice","action":"login"}'
+python my_app.py api-call --payload={"key":"value"}
+```
+
+**Multi-token JSON** (when shell splits the JSON):
+```bash
+python my_app.py api-call --payload { "user":"alice" "action":"login" }
+```
+
+**From file** (see [@file Syntax](#file-syntax) below):
+```bash
+python my_app.py api-call --payload @request.json
+```
+
+The value must be a valid JSON object (dictionary). Arrays, primitives, and invalid JSON will cause an error.
+
+## @file Syntax
+
+All parameter types (except toggles) support loading values from files using the `@file` syntax. This is useful for:
+- Large or complex values that are unwieldy on the command line
+- Reusing the same values across multiple runs
+- Version controlling parameter values
+- Sensitive data that shouldn't appear in shell history
+
+### Text Parameters with @file
+
+Load text content from a file:
+
+```bash
+# Create a file with the content
+echo "SELECT * FROM users WHERE active = true" > query.sql
+
+# Load it as a parameter value
+python my_app.py execute-query --sql @query.sql
+```
+
+The entire file content becomes the parameter value.
+
+### Number Parameters with @file
+
+Load numeric values from files:
+
+```bash
+echo "42" > count.txt
+python my_app.py process --count @count.txt
+```
+
+### List Parameters with @file
+
+Load list items from a file. The file contents are split on whitespace, with support for quoted strings:
+
+```bash
+# File: items.txt
+one two three
+four five
+
+# Usage
+python my_app.py process --items @items.txt
+# Result: ['one', 'two', 'three', 'four', 'five']
+```
+
+**Quoted strings with spaces are preserved:**
+
+```bash
+# File: files.txt
+file1.txt "my document.pdf" file2.txt "another file.doc"
+
+# Usage
+python my_app.py process --files @files.txt
+# Result: ['file1.txt', 'my document.pdf', 'file2.txt', 'another file.doc']
+```
+
+### Dict Parameters with @file
+
+Load JSON objects from files:
+
+```bash
+# File: payload.json
+{
+  "user": "alice",
+  "action": "create_order",
+  "data": {
+    "items": [
+      {"product_id": "PROD-123", "quantity": 2}
+    ]
+  }
+}
+
+# Usage
+python my_app.py api-call --payload @payload.json
+```
+
+### @file with --param=value Syntax
+
+The `@file` syntax works with both separated and embedded value formats:
+
+```bash
+# Separated
+python my_app.py command --input @data.txt
+
+# Embedded with equals
+python my_app.py command --input=@data.txt
+python my_app.py command --config=@settings.json
+```
+
+### Best Practices for @file
+
+- **Use absolute paths or paths relative to CWD** - The framework expands `~` for home directory
+- **Quote file paths with spaces** - `python my_app.py --data @"my file.txt"`
+- **Version control your files** - Great for config files, SQL queries, templates
+- **Don't use @file for sensitive data in production** - File paths appear in logs; use environment variables or secure vaults instead
 
 ## Default Values
 

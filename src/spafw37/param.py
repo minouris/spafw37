@@ -1,4 +1,6 @@
 import re
+import json
+import os
 from typing import List, Dict, Any, Optional
 
 from spafw37.constants.param import (
@@ -17,6 +19,7 @@ from spafw37.constants.param import (
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
+    PARAM_TYPE_DICT,
 )
 from spafw37.constants.command import (
     COMMAND_FRAMEWORK,
@@ -53,6 +56,17 @@ def is_number_param(param: dict) -> bool:
 def is_list_param(param: dict) -> bool:
     return is_param_type(param, PARAM_TYPE_LIST)
 
+def is_dict_param(param: dict) -> bool:
+    """Return True if the parameter definition indicates a dict type.
+
+    Args:
+        param: Parameter definition dict.
+
+    Returns:
+        True if the param's type is PARAM_TYPE_DICT, False otherwise.
+    """
+    return is_param_type(param, PARAM_TYPE_DICT)
+
 def is_toggle_param(param: dict) -> bool:
     return is_param_type(param, PARAM_TYPE_TOGGLE)
 
@@ -85,6 +99,34 @@ def _parse_number(value, default=0):
                 return default
 
 def _parse_value(param, value):
+    """Parse and coerce a raw parameter value according to param type.
+
+    This function handles number, toggle, list and dict types. For dict
+    parameters the accepted input forms are:
+      - a Python dict (returned as-is)
+      - a JSON string representing an object
+      - a file reference using the @path notation (file must contain JSON object)
+
+    Args:
+        param: Parameter definition dict.
+        value: Raw value (string, list of tokens, dict, etc.).
+
+    Returns:
+        Parsed/coerced value appropriate for the param type.
+
+    Raises:
+        ValueError, FileNotFoundError, PermissionError for invalid inputs.
+    """
+    # If caller provided multiple tokens (list) for a non-list param,
+    # normalize into a single string here. This normalization applies to
+    # text/number/toggle/dict params and keeps parsing logic simpler.
+    if isinstance(value, list) and not is_list_param(param):
+        value = ' '.join(value)
+
+    # NOTE: file (@path) handling is performed during argument capture in the
+    # CLI layer so that the parser receives the file contents at the appropriate
+    # time. Do not read files here; this function only parses values.
+
     if is_number_param(param):
         return _parse_number(value)
     elif is_toggle_param(param):
@@ -93,6 +135,22 @@ def _parse_value(param, value):
         if not isinstance(value, list):
             return [value]
         return value
+    elif is_dict_param(param):
+        # Accept dict value directly
+        if isinstance(value, dict):
+            return value
+
+        # Normalize raw input into a single JSON text string
+        json_text = _normalize_dict_input(value)
+        # File reference notation: @/path/to/file.json
+        if json_text.startswith('@'):
+            return _load_json_file(json_text[1:])
+
+        # JSON object string
+        if json_text.startswith('{'):
+            return _parse_json_text(json_text)
+        # Fallback: treat as plain string (not allowed for dict)
+        raise ValueError("Dict parameter expects JSON object or @file reference")
     else:
         return value
 
@@ -256,6 +314,91 @@ def get_pre_parse_args():
 def get_all_param_definitions():
     """Accessor function to retrieve all parameter definitions."""
     return _params.values()
+
+
+# Helper functions ---------------------------------------------------------
+def _load_json_file(path: str) -> dict:
+    """Load and parse JSON from a file path.
+
+    Args:
+        path: Path to JSON file (tilde expansion performed).
+
+    Returns:
+        Parsed JSON as dict.
+
+    Raises:
+        FileNotFoundError, PermissionError, ValueError on parse errors.
+    """
+    file_path = os.path.expanduser(path)
+    try:
+        with open(file_path, 'r') as f:
+            file_content = f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Dict param file not found: {file_path}")
+    except PermissionError:
+        raise PermissionError(f"Permission denied reading dict param file: {file_path}")
+    try:
+        parsed_json = json.loads(file_content)
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON in dict param file: {file_path}")
+    if not isinstance(parsed_json, dict):
+        raise ValueError("Dict param file must contain a JSON object")
+    return parsed_json
+
+
+def _parse_json_text(text: str) -> dict:
+    """Parse a JSON string and validate it is an object.
+
+    Args:
+        text: JSON string.
+
+    Returns:
+        Parsed dict.
+
+    Raises:
+        ValueError if JSON invalid or not an object.
+    """
+    try:
+        parsed_json = json.loads(text)
+    except json.JSONDecodeError:
+        raise ValueError("Invalid JSON for dict parameter; quote your JSON or use @file")
+    if not isinstance(parsed_json, dict):
+        raise ValueError("Provided JSON must be an object for dict parameter")
+    return parsed_json
+
+
+def _normalize_dict_input(value) -> str:
+    """Normalize raw dict parameter input into a JSON text string.
+
+    Accepts a list of tokens or a single-string token and returns a
+    stripped JSON text string. Raises ValueError for unsupported types.
+
+    Args:
+        value: Raw value provided from the CLI (str or list).
+
+    Returns:
+        A stripped string containing JSON text or an @file reference.
+    """
+    # After higher-level normalization, value should be a string here.
+    if not isinstance(value, str):
+        raise ValueError("Invalid dict parameter value")
+    return value.strip()
+
+
+def _read_file_raw(path: str) -> str:
+    """Read a file and return its raw contents as a string.
+
+    This helper expands user (~) paths and raises clear exceptions on
+    common IO errors.
+    """
+    file_path = os.path.expanduser(path)
+    try:
+        with open(file_path, 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Parameter file not found: {file_path}")
+    except PermissionError:
+        raise PermissionError(f"Permission denied reading parameter file: {file_path}")
 
 
 

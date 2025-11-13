@@ -1,4 +1,6 @@
 import sys
+import json
+import shlex
 
 from spafw37 import command
 from spafw37 import config_func as config
@@ -63,24 +65,56 @@ def capture_param_values(args, param_definition):
     argument_index = 0
     base_offset = 1
     arguments_count = len(args)
-    
+
     while argument_index < arguments_count:
         argument = args[argument_index]
+        # If this argument is a file reference (@path), load the file immediately
+        # and treat its contents as if they were a single argument token.
+        if isinstance(argument, str) and argument.startswith('@'):
+            # Use the param module's helper to read raw file contents
+            file_contents = param._read_file_raw(argument[1:])
+            # Replace in the args list so downstream logic sees the file content
+            args[argument_index] = file_contents
+            argument = file_contents
         
         if command.is_command(argument) or param.is_long_alias_with_value(argument):
             break  # Done processing values
         
         if param.is_alias(argument):
-            if not param.is_param_alias(param_definition, argument):
-                break  # Done processing values for this param
-            # We are capturing for the correct param, values start on next arg
-            argument_index += 1
-            continue
+            # If the argument is a quoted string that looks like an alias (e.g. '"-x"'),
+            # treat it as a value rather than an alias. Shells usually remove quotes, but
+            # tests or other frontends may preserve them.
+            if _is_quoted_token(argument):
+                # treat quoted alias-like token as a value
+                pass
+            else:
+                if not param.is_param_alias(param_definition, argument):
+                    break  # Done processing values for this param
+                # We are capturing for the correct param, values start on next arg
+                argument_index += 1
+                continue
         
+        # Handle dict type specially (JSON capture / @file capture)
+        if param.is_dict_param(param_definition):
+            return _accumulate_json_for_dict_param(args, argument_index, base_offset, arguments_count, param, command, _is_quoted_token)
+
         if not param.is_list_param(param_definition):
             return base_offset + argument_index, argument
         
-        values.extend([argument])
+        # For list params, if the captured argument is a string that came from
+        # a file or otherwise contains whitespace, split it into separate list
+        # items so files holding space-separated values behave like multiple
+        # CLI tokens.
+        if isinstance(argument, str) and (" " in argument or "\n" in argument or "\t" in argument):
+            # Use shlex.split so that quoted substrings containing spaces are
+            # preserved as single items (e.g. '"hello world"' -> ['hello world']).
+            parts = shlex.split(argument)
+            values.extend(parts)
+        elif isinstance(argument, str) and argument == '':
+            # Skip empty strings for list params (e.g., from empty files)
+            pass
+        else:
+            values.append(argument)
         argument_index += 1
     
     return argument_index, values
@@ -191,7 +225,10 @@ def _handle_long_alias_param(argument):
         raise ValueError(f"Unknown parameter alias: {param_alias}")
     
     test_switch_xor(param_definition, _current_args)
-    
+    # If the embedded value is a file reference, load it now so parsing gets
+    # the file contents rather than the '@path' token.
+    if isinstance(raw_value, str) and raw_value.startswith('@'):
+        raw_value = param._read_file_raw(raw_value[1:])
     return param._parse_value(param_definition, raw_value), param_definition
 
 def _handle_command(argument):
@@ -398,7 +435,7 @@ def handle_cli_args(args):
     
     # Set defaults for all parameters
     _set_defaults()
-    
+
     # Parse command line arguments
     _parse_command_line(args)
     
@@ -412,3 +449,59 @@ def handle_cli_args(args):
     if not command.has_app_commands_queued():
         help_module.display_all_help()
         return
+
+
+# Helper functions ---------------------------------------------------------
+def _is_quoted_token(token):
+    """Return True when a token is a quoted string (e.g. '"value"' or "'value'").
+
+    This helps recognize values that look like aliases but were intentionally
+    quoted by the caller. Shells normally strip quotes; this is primarily for
+    testing or frontends that preserve quote characters.
+    """
+    return (isinstance(token, str)
+            and len(token) >= 2
+            and ((token[0] == token[-1]) and token[0] in ('"', "'")))
+
+
+def _accumulate_json_for_dict_param(args, start_index, base_offset, arguments_count, param_module, command_module, is_quoted_fn):
+    """Accumulate tokens starting at start_index to form a valid JSON object.
+
+    Returns (offset, value) where offset is the total args consumed (base_offset + index)
+    and value is the joined JSON string or single-token file reference.
+    """
+    argument = args[start_index]
+    # If it starts with '@' -> file reference single token
+    if isinstance(argument, str) and argument.startswith('@'):
+        return base_offset + start_index, argument
+
+    # If looks like JSON start, try to accumulate tokens until valid JSON is parsed
+    if isinstance(argument, str) and argument.lstrip().startswith('{'):
+        token_parts = [argument]
+        token_index = start_index + 1
+        while token_index < arguments_count:
+            next_argument = args[token_index]
+            # stop if next token is an alias for another param or a command
+            if param_module.is_alias(next_argument) and not is_quoted_fn(next_argument):
+                break
+            if command_module.is_command(next_argument):
+                break
+            token_parts.append(next_argument)
+            candidate_json = ' '.join(token_parts)
+            try:
+                json.loads(candidate_json)
+                # success
+                return base_offset + token_index, candidate_json
+            except (json.JSONDecodeError, ValueError):
+                token_index += 1
+                continue
+        # If we fall out without successful parse, try one final join attempt
+        candidate_json = ' '.join(token_parts)
+        try:
+            json.loads(candidate_json)
+            return base_offset + (start_index + len(token_parts) - 1), candidate_json
+        except (json.JSONDecodeError, ValueError):
+            raise ValueError("Could not parse JSON for dict parameter; quote the JSON or use @file")
+
+    # Not JSON start and not file reference: treat single token and let param parser handle it
+    return base_offset + start_index, argument

@@ -232,6 +232,21 @@ def get_config_list(config_key, default=None):
     return config.get_config_list(config_key, default)
 
 
+def get_config_dict(config_key, default=None):
+    """
+    Get a configuration value as dictionary.
+    
+    Args:
+        config_key: Configuration key name.
+        default: Default value if not found.
+        
+    Returns:
+        Dictionary configuration value or default (empty dict if default is None).
+    """
+    from spafw37 import config
+    return config.get_config_dict(config_key, default)
+
+
 def set_config_value(config_key, value):
     """
     Set a configuration value.
