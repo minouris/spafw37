@@ -10,6 +10,7 @@
 - [Command Actions](#command-actions)
 - [Required Parameters](#required-parameters)
 - [Extended Help Text](#extended-help-text)
+- [Inline Command Definitions](#inline-command-definitions)
 - [Command Sequencing](#command-sequencing)
 - [Automatic Dependencies](#automatic-dependencies)
 - [Parameter-Triggered Commands](#parameter-triggered-commands)
@@ -208,6 +209,163 @@ Extended help is displayed when using `help <command>`:
 ```bash
 python my_app.py help build
 ```
+
+## Inline Command Definitions
+
+Instead of separately defining and registering commands, you can define them inline wherever they're referenced. This is especially useful for:
+- Quick helper commands that aren't called directly from CLI
+- Command-specific setup/teardown sequences
+- Keeping related command logic together
+
+### Inline in Dependency Lists
+
+Define commands directly in `COMMAND_REQUIRE_BEFORE` or `COMMAND_NEXT_COMMANDS` ([see example](../examples/inline_definitions_basic.py)):
+
+```python
+from spafw37.constants.command import COMMAND_REQUIRE_BEFORE
+
+commands = [
+    {
+        COMMAND_NAME: "deploy",
+        COMMAND_ACTION: lambda: spafw37.output("Deploying application..."),
+        # Define prerequisite commands inline
+        COMMAND_REQUIRE_BEFORE: [
+            {
+                COMMAND_NAME: "validate",
+                COMMAND_ACTION: lambda: spafw37.output("Validating configuration..."),
+            },
+            {
+                COMMAND_NAME: "build",
+                COMMAND_ACTION: lambda: spafw37.output("Building application..."),
+            }
+        ]
+    }
+]
+```
+
+When you queue `deploy`, the inline commands `validate` and `build` are automatically registered and executed first.
+
+### Inline in Sequencing Lists
+
+Define commands in `COMMAND_GOES_BEFORE` or `COMMAND_GOES_AFTER`:
+
+```python
+commands = [
+    {
+        COMMAND_NAME: "test",
+        COMMAND_ACTION: lambda: spafw37.output("Running tests..."),
+        COMMAND_GOES_AFTER: [
+            {
+                COMMAND_NAME: "lint",
+                COMMAND_ACTION: lambda: spafw37.output("Linting code..."),
+            }
+        ]
+    }
+]
+```
+
+### Inline in Next Commands
+
+Define follow-up commands directly in `COMMAND_NEXT_COMMANDS` ([see example](../examples/inline_definitions_basic.py)):
+
+```python
+commands = [
+    {
+        COMMAND_NAME: "build",
+        COMMAND_ACTION: lambda: spafw37.output("Building..."),
+        # Define next commands inline
+        COMMAND_NEXT_COMMANDS: [
+            {
+                COMMAND_NAME: "package",
+                COMMAND_ACTION: lambda: spafw37.output("Packaging..."),
+            },
+            {
+                COMMAND_NAME: "upload",
+                COMMAND_ACTION: lambda: spafw37.output("Uploading..."),
+            }
+        ]
+    }
+]
+```
+
+### Mixing Inline and Named References
+
+You can freely mix inline definitions with references to pre-registered commands ([see example](../examples/inline_definitions_advanced.py)):
+
+```python
+# Pre-register some common commands
+spafw37.add_commands([
+    {
+        COMMAND_NAME: "cleanup",
+        COMMAND_ACTION: cleanup_action,
+    }
+])
+
+# Mix named and inline references
+commands = [
+    {
+        COMMAND_NAME: "deploy",
+        COMMAND_REQUIRE_BEFORE: [
+            "cleanup",  # Reference to pre-registered command
+            {
+                # Inline command definition
+                COMMAND_NAME: "validate",
+                COMMAND_ACTION: validate_action,
+            }
+        ]
+    }
+]
+```
+
+### Inline Commands with Inline Parameters
+
+Inline commands can have their own inline parameter definitions ([see example](../examples/inline_definitions_advanced.py)):
+
+```python
+from spafw37.constants.command import COMMAND_REQUIRED_PARAMS
+from spafw37.constants.param import PARAM_NAME, PARAM_TYPE, PARAM_TYPE_TEXT
+
+commands = [
+    {
+        COMMAND_NAME: "main",
+        COMMAND_REQUIRE_BEFORE: [
+            {
+                # Inline command with inline parameter!
+                COMMAND_NAME: "setup",
+                COMMAND_ACTION: lambda: spafw37.output(
+                    f"Setting up with config: {spafw37.get_config_value('setup-config')}"
+                ),
+                COMMAND_REQUIRED_PARAMS: [
+                    {
+                        PARAM_NAME: "setup-config",
+                        PARAM_TYPE: PARAM_TYPE_TEXT,
+                        PARAM_ALIASES: ["--setup-config"],
+                    }
+                ]
+            }
+        ]
+    }
+]
+```
+
+### Benefits and Best Practices
+
+**When to use inline definitions:**
+- Small helper commands not called directly from CLI
+- Command-specific setup/teardown sequences
+- Rapid prototyping and experimentation
+- Keeping related command logic together
+
+**When to pre-register separately:**
+- Commands callable from the command line
+- Commands used by multiple other commands
+- Complex commands you want to document separately
+
+**Key Points:**
+- Inline commands get full phase initialization and validation
+- They support all standard command features (params, dependencies, etc.)
+- Can be arbitrarily nested (inline command with inline params, etc.)
+- Automatically registered when their parent command is added
 
 ## Command Sequencing
 
@@ -438,6 +596,8 @@ Complete working examples demonstrating command features:
 - **[commands_required.py](../examples/commands_required.py)** - Command-specific required parameters with COMMAND_REQUIRED_PARAMS
 - **[commands_trigger.py](../examples/commands_trigger.py)** - Parameter-triggered commands with COMMAND_TRIGGER_PARAM
 - **[commands_visibility.py](../examples/commands_visibility.py)** - Command visibility control with COMMAND_FRAMEWORK and COMMAND_EXCLUDE_HELP
+- **[inline_definitions_basic.py](../examples/inline_definitions_basic.py)** - Inline command definitions in dependency lists
+- **[inline_definitions_advanced.py](../examples/inline_definitions_advanced.py)** - Advanced inline patterns (nested commands, mixed references)
 
 See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
 

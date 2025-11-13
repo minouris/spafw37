@@ -127,6 +127,47 @@ The following rules are part of the repository's coding standards. Apply them to
 - **Respect Existing Architecture**: When modifying code, always understand the architectural intent before making changes. If a module uses a facade pattern, dependency injection, or other architectural patterns, preserve them. Do not mechanically apply import rules without considering the broader design.
 - **Internal vs. Public APIs**: Modules like `param`, `command`, `config`, etc. are internal implementation details. The public API is exposed through `core.py`. Example/demo code should only use the public API to demonstrate the intended usage pattern for framework consumers.
 
+### Framework-Reserved Parameters and Commands
+
+**NEVER** define parameters or commands in examples that conflict with framework-provided functionality. The following are reserved:
+
+**Reserved Parameter Names:**
+- `help` - Display help information
+- `config-infile` - Load configuration from file  
+- `config-outfile` - Save configuration to file
+- `log-verbose` - Enable verbose logging
+- `log-trace` - Set log level to TRACE
+- `log-trace-console` - Set console log level to TRACE
+- `log-silent` - Suppress console logging
+- `log-no-logging` - Suppress all logging
+- `log-no-file-logging` - Suppress file logging
+- `log-suppress-errors` - Disable error logging
+- `log-dir` - Set log directory
+- `log-level` - Set overall log level
+- `log-phase-log-level` - Set phase-specific log level
+
+**Reserved Parameter Aliases:**
+- `--help`, `-h` - Help
+- `--load-config`, `-l` - Load config
+- `--save-config`, `-s` - Save config
+- `--verbose`, `-v` - Verbose logging
+- `--trace` - Trace logging
+- `--trace-console` - Trace console logging
+- `--silent` - Silent mode
+- `--no-logging` - No logging
+- `--no-file-logging` - No file logging
+- `--suppress-errors` - Suppress errors
+- `--log-dir` - Log directory
+- `--log-level` - Log level
+- `--phase-log-level` - Phase log level
+
+**Reserved Command Names:**
+- `help` - Display help
+- `save-user-config` - Save user configuration
+- `load-user-config` - Load user configuration
+
+Use application-specific names in examples (e.g., `database`, `input-file`, `output-format`, `deployment-target`, `workers`) instead of generic names that might conflict with framework features.
+
 ### Additional coding standards
 These rules are enforced by code review and should guide refactorings and new code. If a proposed extraction would introduce excessive API churn or duplicate logic, prefer small, well-documented helpers and add a short comment describing the reason.
 - Use descriptive names for variables, functions, and classes to enhance code readability.

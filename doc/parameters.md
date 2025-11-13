@@ -7,6 +7,7 @@
 - [Overview](#overview)
 - [Parameter Definition Constants](#parameter-definition-constants)
 - [Basic Parameter Definition](#basic-parameter-definition)
+- [Inline Parameter Definitions](#inline-parameter-definitions)
 - [Parameter Types](#parameter-types)
 - [Default Values](#default-values)
 - [Required Parameters](#required-parameters)
@@ -113,6 +114,140 @@ Usage:
 python my_app.py command --input data.txt
 python my_app.py command -i data.txt
 ```
+
+## Inline Parameter Definitions
+
+Instead of separately defining and registering parameters, you can define them inline wherever they're referenced. This is especially useful for:
+- Quick prototyping
+- Command-specific parameters that aren't reused
+- Keeping related definitions together
+
+### Inline in Command Required Params
+
+Define parameters directly in a command's `COMMAND_REQUIRED_PARAMS` list ([see example](../examples/inline_definitions_basic.py)):
+
+```python
+from spafw37.constants.command import COMMAND_REQUIRED_PARAMS
+
+commands = [
+    {
+        COMMAND_NAME: "greet",
+        COMMAND_ACTION: lambda: spafw37.output(
+            f"Hello, {spafw37.get_config_value('user-name')}!"
+        ),
+        # Define parameter inline - no separate add_param() needed!
+        COMMAND_REQUIRED_PARAMS: [
+            {
+                PARAM_NAME: "user-name",
+                PARAM_TYPE: PARAM_TYPE_TEXT,
+                PARAM_ALIASES: ["--name", "-n"],
+            }
+        ]
+    }
+]
+```
+
+### Inline in Switch Lists
+
+Define mutually exclusive parameters inline in `PARAM_SWITCH_LIST`:
+
+```python
+params = [
+    {
+        PARAM_NAME: "verbose",
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ["--verbose", "-v"],
+        # Define mutually exclusive params inline
+        PARAM_SWITCH_LIST: [
+            {
+                PARAM_NAME: "quiet",
+                PARAM_TYPE: PARAM_TYPE_TOGGLE,
+                PARAM_ALIASES: ["--quiet", "-q"],
+            },
+            {
+                PARAM_NAME: "silent",
+                PARAM_TYPE: PARAM_TYPE_TOGGLE,
+                PARAM_ALIASES: ["--silent", "-s"],
+            }
+        ]
+    }
+]
+```
+
+**Note:** The system automatically creates bidirectional XOR relationships. In the example above:
+- `verbose` excludes `quiet` and `silent`
+- `quiet` excludes `verbose`
+- `silent` excludes `verbose`
+
+### Mixing Inline and Named References
+
+You can freely mix inline definitions with references to pre-registered parameters ([see example](../examples/inline_definitions_advanced.py)):
+
+```python
+# Pre-register some common parameters
+spafw37.add_params([
+    {
+        PARAM_NAME: "config-file",
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALIASES: ["--config", "-c"],
+    }
+])
+
+# Mix named and inline references
+commands = [
+    {
+        COMMAND_NAME: "process",
+        COMMAND_REQUIRED_PARAMS: [
+            "config-file",  # Reference to pre-registered param
+            {
+                # Inline parameter definition
+                PARAM_NAME: "input-file",
+                PARAM_TYPE: PARAM_TYPE_TEXT,
+                PARAM_ALIASES: ["--input", "-i"],
+            }
+        ]
+    }
+]
+```
+
+### Nested Inline Definitions
+
+Inline parameters can themselves contain inline definitions (e.g., inline switch lists):
+
+```python
+commands = [
+    {
+        COMMAND_NAME: "deploy",
+        COMMAND_REQUIRED_PARAMS: [
+            {
+                PARAM_NAME: "log-level",
+                PARAM_TYPE: PARAM_TYPE_TEXT,
+                # Inline param with its own inline switch list!
+                PARAM_SWITCH_LIST: [
+                    {
+                        PARAM_NAME: "quiet-mode",
+                        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+                        PARAM_ALIASES: ["--quiet"],
+                    }
+                ]
+            }
+        ]
+    }
+]
+```
+
+### Benefits and Best Practices
+
+**When to use inline definitions:**
+- Small, command-specific parameters not reused elsewhere
+- Rapid prototyping and experimentation
+- Keeping related definitions together for clarity
+- Defining mutually exclusive parameter groups
+
+**When to pre-register separately:**
+- Parameters used by multiple commands
+- Application-wide configuration parameters
+- Complex parameter definitions you want to document separately
 
 ## Parameter Types
 
@@ -694,6 +829,8 @@ Complete working examples demonstrating parameter features:
 - **[params_lists.py](../examples/params_lists.py)** - List parameters for handling multiple values (files and tags)
 - **[params_groups.py](../examples/params_groups.py)** - Parameter groups for organizing parameters in help display
 - **[params_runtime.py](../examples/params_runtime.py)** - Runtime-only parameters for session state and internal values
+- **[inline_definitions_basic.py](../examples/inline_definitions_basic.py)** - Inline parameter definitions in commands
+- **[inline_definitions_advanced.py](../examples/inline_definitions_advanced.py)** - Advanced inline patterns (nested, mixed)
 
 See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
 

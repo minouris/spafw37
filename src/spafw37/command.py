@@ -45,6 +45,42 @@ _command_queue = []
 _current_phase = None
 
 
+# Helper functions for inline object definitions
+def _get_command_name(command_def):
+    """Extract command name from command definition.
+    
+    Args:
+        command_def: Command definition dict or string name
+        
+    Returns:
+        Command name as string
+    """
+    if isinstance(command_def, str):
+        return command_def
+    return command_def.get(COMMAND_NAME, '')
+
+
+def _register_inline_command(command_def):
+    """Register an inline command definition.
+    
+    If command_def is a dict (inline definition), fully registers it using add_command.
+    If it's a string (name reference), does nothing.
+    
+    Args:
+        command_def: Command definition dict or string name
+        
+    Returns:
+        Command name as string
+    """
+    if isinstance(command_def, dict):
+        cmd_name = command_def.get(COMMAND_NAME)
+        if cmd_name and cmd_name not in _commands:
+            # Fully register the command (this will recursively process any nested inline defs)
+            add_command(command_def)
+        return cmd_name
+    return command_def
+
+
 # Delegate logging functions that automatically pass the current phase as scope
 def log_trace(_message=''):
     """Log a TRACE level message with current phase as scope."""
@@ -157,14 +193,39 @@ def add_command(cmd):
         raise ValueError("Command action is required")
     if name in _commands:
         return
+    
+    # Process inline parameter definitions in COMMAND_REQUIRED_PARAMS
+    required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
+    if required_params:
+        normalized_params = []
+        for param_def in required_params:
+            param_name = param._register_inline_param(param_def)
+            normalized_params.append(param_name)
+        cmd[COMMAND_REQUIRED_PARAMS] = normalized_params
+    
+    # Process inline parameter definition in COMMAND_TRIGGER_PARAM
+    trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
+    if trigger_param:
+        param_name = param._register_inline_param(trigger_param)
+        cmd[COMMAND_TRIGGER_PARAM] = param_name
+    
+    # Process inline command definitions in dependency/sequencing fields
+    for field in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
+        cmd_list = cmd.get(field, [])
+        if cmd_list:
+            normalized_cmds = []
+            for cmd_def in cmd_list:
+                cmd_name = _register_inline_command(cmd_def)
+                normalized_cmds.append(cmd_name)
+            cmd[field] = normalized_cmds
         
-        # Check for self-references
+    # Check for self-references
     for ref_list in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
         refs = cmd.get(ref_list, []) or []
         if name in refs:
             raise ValueError(f"Command '{name}' cannot reference itself")
         
-        # Check for conflicting constraints
+    # Check for conflicting constraints
     goes_before = set(cmd.get(COMMAND_GOES_BEFORE, []) or [])
     goes_after = set(cmd.get(COMMAND_GOES_AFTER, []) or [])
     if goes_before & goes_after:

@@ -38,6 +38,57 @@ _xor_list = {}
 _preparse_args = []
 
 
+# Helper functions for inline object definitions
+def _get_param_name(param_def):
+    """Extract parameter name from parameter definition.
+    
+    Args:
+        param_def: Parameter definition dict or string name
+        
+    Returns:
+        Parameter name as string
+    """
+    if isinstance(param_def, str):
+        return param_def
+    return param_def.get(PARAM_NAME, '')
+
+
+def _register_inline_param(param_def):
+    """Register an inline parameter definition.
+    
+    If param_def is a dict (inline definition), registers it in the global
+    parameter registry. If it's a string (name reference), does nothing.
+    
+    Args:
+        param_def: Parameter definition dict or string name
+        
+    Returns:
+        Parameter name as string
+    """
+    if isinstance(param_def, dict):
+        param_name = param_def.get(PARAM_NAME)
+        if param_name and param_name not in _params:
+            # Process inline params in switch list first (recursive)
+            if PARAM_SWITCH_LIST in param_def:
+                switch_list = param_def[PARAM_SWITCH_LIST]
+                normalized_switches = []
+                for switch_def in switch_list:
+                    switch_name = _register_inline_param(switch_def)
+                    normalized_switches.append(switch_name)
+                param_def[PARAM_SWITCH_LIST] = normalized_switches
+            
+            _params[param_name] = param_def
+            # Register aliases if present
+            aliases = param_def.get(PARAM_ALIASES, [])
+            for alias in aliases:
+                _param_aliases[alias] = param_name
+            # Register switch list if present (now normalized)
+            if PARAM_SWITCH_LIST in param_def:
+                _set_param_xor_list(param_name, param_def[PARAM_SWITCH_LIST])
+        return param_name
+    return param_def
+
+
 def is_long_alias(arg):
     return bool(re.match(PATTERN_LONG_ALIAS, arg))
 
@@ -256,8 +307,17 @@ def _activate_param(_param):
     if PARAM_ALIASES in _param:
         for alias in _param.get(PARAM_ALIASES, []):
             _register_param_alias(_param, alias)
+    
+    # Process inline parameter definitions in PARAM_SWITCH_LIST
     if PARAM_SWITCH_LIST in _param:
-        _set_param_xor_list(_param[PARAM_NAME], _param[PARAM_SWITCH_LIST])
+        switch_list = _param[PARAM_SWITCH_LIST]
+        normalized_switches = []
+        for param_def in switch_list:
+            param_name = _register_inline_param(param_def)
+            normalized_switches.append(param_name)
+        _param[PARAM_SWITCH_LIST] = normalized_switches
+        _set_param_xor_list(_param[PARAM_NAME], normalized_switches)
+    
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
     _params[_param_name] = _param
