@@ -145,7 +145,7 @@ def prepare_next_file():
 
 def finalize_files():
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed {file_index} files")
+    spafw37.output(f"Completed {file_index} files")
 
 def process_file():
     current_file = spafw37.get_config_value('current-file')
@@ -203,7 +203,7 @@ Cleans up resources and reports results after the loop completes:
 ```python
 def finalize_files():
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed {file_index} files")
+    spafw37.output(f"Completed {file_index} files")
 ```
 
 ### Cycle Commands
@@ -280,7 +280,7 @@ def prepare_next_file():
 
 def finalize_files():
     file_index = spafw37.get_config_value('file-index')
-    print(f"Completed {file_index} files")
+    spafw37.output(f"Completed {file_index} files")
 
 def process_file():
     current_file = spafw37.get_config_value('current-file')
@@ -362,7 +362,7 @@ spafw37.add_params(params)
 def init_cycle():
     spafw37.set_config_value('iteration-count', 0)
     spafw37.set_config_value('max-iterations', 3)
-    print("Cycle initialized")
+    spafw37.output("Cycle initialized")
 
 def should_continue():
     iteration_count = spafw37.get_config_value('iteration-count')
@@ -371,13 +371,13 @@ def should_continue():
 
 def finalize_cycle():
     iteration_count = spafw37.get_config_value('iteration-count')
-    print(f"Cycle completed after {iteration_count} iterations")
+    spafw37.output(f"Cycle completed after {iteration_count} iterations")
 
 def do_work():
     iteration_count = spafw37.get_config_value('iteration-count')
     iteration_count += 1
     spafw37.set_config_value('iteration-count', iteration_count)
-    print(f"Iteration {iteration_count}: doing work")
+    spafw37.output(f"Iteration {iteration_count}: doing work")
 
 commands = [
     {
@@ -427,7 +427,7 @@ from spafw37.constants.cycle import CYCLE_NAME, CYCLE_LOOP, CYCLE_COMMANDS
 cycle_commands = [
     {
         COMMAND_NAME: 'process-input',
-        COMMAND_ACTION: lambda: print("Processing"),
+        COMMAND_ACTION: lambda: spafw37.output("Processing"),
         COMMAND_REQUIRED_PARAMS: ['input-file']  # Required param
     }
 ]
@@ -518,7 +518,7 @@ def prepare_next_item():
 def process_item():
     # Process current item
     item_index = spafw37.get_config_value('item-index')
-    print(f"Processing item {item_index}")
+    spafw37.output(f"Processing item {item_index}")
 
 # Top-level command with nested cycles
 commands = [
@@ -825,7 +825,7 @@ The parent command's `COMMAND_ACTION` is optional when using a cycle. Use it onl
 # Action runs before cycle init
 {
     COMMAND_NAME: 'process-with-setup',
-    COMMAND_ACTION: lambda: print("Preparing..."),  # Runs first
+    COMMAND_ACTION: lambda: spafw37.output("Preparing..."),  # Runs first
     COMMAND_CYCLE: {
         CYCLE_INIT: init_cycle,  # Runs second
         # ...

@@ -38,6 +38,38 @@ def run_cli():
         # display_all_help()
         sys.exit(1)
 
+def _default_output_handler(message):
+    print(message)
+
+_output_handler = _default_output_handler
+
+def set_output_handler(_handler=_default_output_handler):
+    """
+    Set a custom output handler for framework output.
+    
+    Args:
+        _handler: A callable that takes a message string. Defaults to built-in print().
+    """
+    global _output_handler
+    _output_handler = _handler
+
+def output(message="", verbose=False, output_handler=None):
+    """
+    Output a message respecting silent/verbose modes.
+    
+    Args:
+        message: The message to output.
+        verbose: If True, only outputs when verbose mode is enabled.
+        output_handler: Optional custom handler for this call. If None, uses global handler.
+    """
+    from spafw37 import config
+    if config.is_silent():
+        return
+    if verbose and not config.is_verbose():
+        return
+    handler = output_handler if output_handler is not None else _output_handler
+    handler(message)
+
 
 def set_config_file(file_path):
     """
@@ -206,6 +238,26 @@ def set_config_value(config_key, value):
     """
     from spafw37 import config
     config.set_config_value(config_key, value)
+
+
+def is_verbose():
+    """Check if verbose mode is enabled.
+    
+    Returns:
+        True if verbose logging is enabled, False otherwise.
+    """
+    from spafw37 import config
+    return config.is_verbose()
+
+
+def is_silent():
+    """Check if silent mode is enabled.
+    
+    Returns:
+        True if silent mode is enabled, False otherwise.
+    """
+    from spafw37 import config
+    return config.is_silent()
 
 
 # Logging delegates

@@ -54,8 +54,8 @@ def init_command():
     spafw37.set_config_value('items-processed', 0)
     spafw37.set_config_value('total-size', 0)
     
-    print(f"Session initialized: {session_id}")
-    print("Ready to process items")
+    spafw37.output(f"Session initialized: {session_id}")
+    spafw37.output("Ready to process items")
 
 def process_item_command():
     """Process an item and update runtime state."""
@@ -75,7 +75,7 @@ def process_item_command():
     spafw37.set_config_value('items-processed', items_processed)
     spafw37.set_config_value('total-size', total_size)
     
-    print(f"[Session: {session_id}] Processed item {items_processed} ({item_size} bytes)")
+    spafw37.output(f"[Session: {session_id}] Processed item {items_processed} ({item_size} bytes)")
 
 def summary_command():
     """Display summary using runtime state."""
@@ -83,12 +83,12 @@ def summary_command():
     items_processed = spafw37.get_config_int('items-processed')
     total_size = spafw37.get_config_int('total-size')
     
-    print()
-    print("=" * 50)
-    print(f"Session: {session_id}")
-    print(f"Items processed: {items_processed}")
-    print(f"Total size: {total_size} bytes")
-    print("=" * 50)
+    spafw37.output()
+    spafw37.output("=" * 50)
+    spafw37.output(f"Session: {session_id}")
+    spafw37.output(f"Items processed: {items_processed}")
+    spafw37.output(f"Total size: {total_size} bytes")
+    spafw37.output("=" * 50)
 
 # Define commands that share runtime state
 commands = [

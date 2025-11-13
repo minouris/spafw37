@@ -15,8 +15,8 @@ from spafw37.constants.command import (
 
 def show_config():
     """Display current configuration."""
-    print("Configuration Demo")
-    print("=" * 40)
+    spafw37.output("Configuration Demo")
+    spafw37.output("=" * 40)
     
     # Set some config values
     spafw37.set_config_value('app-name', 'MyApp')
@@ -28,13 +28,13 @@ def show_config():
     version = spafw37.get_config_str('version')
     debug = spafw37.get_config_bool('debug')
     
-    print(f"Application: {app_name}")
-    print(f"Version: {version}")
-    print(f"Debug mode: {debug}")
+    spafw37.output(f"Application: {app_name}")
+    spafw37.output(f"Version: {version}")
+    spafw37.output(f"Debug mode: {debug}")
 
 def modify_config():
     """Modify configuration values."""
-    print("\nModifying configuration...")
+    spafw37.output("\nModifying configuration...")
     
     spafw37.set_config_value('debug', False)
     spafw37.set_config_value('max-connections', 100)
@@ -42,8 +42,8 @@ def modify_config():
     debug = spafw37.get_config_bool('debug')
     max_conn = spafw37.get_config_int('max-connections')
     
-    print(f"Debug mode: {debug}")
-    print(f"Max connections: {max_conn}")
+    spafw37.output(f"Debug mode: {debug}")
+    spafw37.output(f"Max connections: {max_conn}")
 
 # Define commands
 commands = [

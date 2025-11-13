@@ -8,6 +8,7 @@ This directory contains focused examples demonstrating specific features of the 
 - [Commands Examples](#commands-examples)
 - [Cycles Examples](#cycles-examples)
 - [Phases Examples](#phases-examples)
+- [Output Examples](#output-examples)
 - [Configuration Examples](#configuration-examples)
 - [Tips](#tips)
 
@@ -252,6 +253,39 @@ python phases_extended.py check-syntax compile unit-tests deploy cleanup
 **Run:**
 ```bash
 python phases_custom.py check-syntax compile unit-tests deploy-staging verify
+```
+
+## Output Examples
+
+### `output_basic.py` - Basic Output Functions
+- Using `spafw37.output()` for application output
+- Normal vs verbose-only output
+- Silent mode suppression
+- Checking verbose/silent status with `is_verbose()` and `is_silent()`
+
+**Run:**
+```bash
+python output_basic.py demo           # Normal output
+python output_basic.py demo --verbose # With verbose details
+python output_basic.py demo --silent  # Suppressed output
+python output_basic.py process        # Progress output
+```
+
+### `output_handlers.py` - Custom Output Handlers
+- Default console handler
+- File output handler
+- Dual output (console + file)
+- Timestamped output handler
+- Per-call handler specification
+
+**Run:**
+```bash
+python output_handlers.py default     # Console output
+python output_handlers.py file        # Write to file
+python output_handlers.py dual        # Console + file
+python output_handlers.py timestamp   # With timestamps
+python output_handlers.py testing     # Per-call handlers
+python output_handlers.py all         # Run all demos
 ```
 
 ## Configuration Examples

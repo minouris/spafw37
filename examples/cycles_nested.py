@@ -75,7 +75,7 @@ def setup():
         rows = 3
         spafw37.set_config_value('rows', rows)
         spafw37.set_config_value('current-row', 0)
-        print(f"Processing {rows} rows...")
+        spafw37.output(f"Processing {rows} rows...")
     
     def has_more_rows():
         """Check if there are more rows to process."""
@@ -86,7 +86,7 @@ def setup():
     def finalize_rows():
         """Complete the outer cycle."""
         total_rows = spafw37.get_config_int('rows')
-        print(f"\nCompleted processing {total_rows} rows")
+        spafw37.output(f"\nCompleted processing {total_rows} rows")
     
     # Inner cycle functions (columns)
     def init_cols():
@@ -95,7 +95,7 @@ def setup():
         current_row = spafw37.get_config_int('current-row')
         spafw37.set_config_value('cols', cols)
         spafw37.set_config_value('current-col', 0)
-        print(f"  Row {current_row}: Processing {cols} columns...")
+        spafw37.output(f"  Row {current_row}: Processing {cols} columns...")
     
     def has_more_cols():
         """Check if there are more columns to process."""
@@ -107,7 +107,7 @@ def setup():
         """Complete the inner cycle and advance to next row."""
         current_row = spafw37.get_config_int('current-row')
         total_cols = spafw37.get_config_int('cols')
-        print(f"  Row {current_row}: Completed {total_cols} columns")
+        spafw37.output(f"  Row {current_row}: Completed {total_cols} columns")
         
         # Advance to next row
         spafw37.set_config_value('current-row', current_row + 1)
@@ -120,7 +120,7 @@ def setup():
         
         # Simulate processing
         value = (row * 10) + col
-        print(f"    Cell [{row},{col}] = {value}")
+        spafw37.output(f"    Cell [{row},{col}] = {value}")
         
         # Advance to next column
         spafw37.set_config_value('current-col', col + 1)

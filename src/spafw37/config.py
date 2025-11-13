@@ -1,5 +1,8 @@
 from spafw37.constants.phase import PHASE_ORDER, PHASE_DEFAULT
 
+# Import logging parameter names for convenience methods
+from spafw37.logging_config import LOG_VERBOSE_PARAM, LOG_SILENT_PARAM
+
 # Config dict to hold runtime parameters
 _config = {
 }
@@ -129,3 +132,20 @@ def list_config_items():
 
 def update_config(new_config):
     _config.update(new_config)
+
+def is_verbose():
+    """Check if verbose mode is enabled.
+    
+    Returns:
+        True if verbose logging is enabled, False otherwise.
+    """
+    return get_config_bool(LOG_VERBOSE_PARAM, False)
+
+
+def is_silent():
+    """Check if silent mode is enabled.
+    
+    Returns:
+        True if silent mode is enabled, False otherwise.
+    """
+    return get_config_bool(LOG_SILENT_PARAM, False)

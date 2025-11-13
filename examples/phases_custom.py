@@ -53,20 +53,20 @@ def setup():
     # Validation phase actions
     def check_syntax():
         """Check code syntax."""
-        print("[VALIDATE] Checking syntax...")
+        spafw37.output("[VALIDATE] Checking syntax...")
     
     def check_deps():
         """Check dependencies."""
-        print("[VALIDATE] Checking dependencies...")
+        spafw37.output("[VALIDATE] Checking dependencies...")
     
     # Build phase actions
     def compile_code():
         """Compile source code."""
-        print("[BUILD] Compiling source code...")
+        spafw37.output("[BUILD] Compiling source code...")
     
     def package():
         """Package artifacts."""
-        print("[BUILD] Packaging artifacts...")
+        spafw37.output("[BUILD] Packaging artifacts...")
     
     def implicit_build():
         """
@@ -77,34 +77,34 @@ def setup():
         it would be assigned to PHASE_EXECUTION, which doesn't
         exist in our custom phase order, so it would never run.
         """
-        print("[BUILD] Running implicit build step (uses default phase)...")
+        spafw37.output("[BUILD] Running implicit build step (uses default phase)...")
     
     # Test phase actions
     def unit_tests():
         """Run unit tests."""
-        print("[TEST] Running unit tests...")
+        spafw37.output("[TEST] Running unit tests...")
     
     def integration_tests():
         """Run integration tests."""
-        print("[TEST] Running integration tests...")
+        spafw37.output("[TEST] Running integration tests...")
     
     # Deploy phase actions
     def deploy_staging():
         """Deploy to staging."""
-        print("[DEPLOY] Deploying to staging environment...")
+        spafw37.output("[DEPLOY] Deploying to staging environment...")
     
     def deploy_prod():
         """Deploy to production."""
-        print("[DEPLOY] Deploying to production environment...")
+        spafw37.output("[DEPLOY] Deploying to production environment...")
     
     # Verify phase actions
     def health_check():
         """Run health checks."""
-        print("[VERIFY] Running health checks...")
+        spafw37.output("[VERIFY] Running health checks...")
     
     def smoke_tests():
         """Run smoke tests."""
-        print("[VERIFY] Running smoke tests...")
+        spafw37.output("[VERIFY] Running smoke tests...")
     
     commands = [
         # Validation phase
@@ -204,5 +204,5 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Custom pipeline phases: VALIDATE → BUILD → TEST → DEPLOY → VERIFY\n")
+    spafw37.output("Custom pipeline phases: VALIDATE → BUILD → TEST → DEPLOY → VERIFY\n")
     spafw37.run_cli()

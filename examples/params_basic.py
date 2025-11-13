@@ -57,14 +57,14 @@ def process_command():
     output_file = spafw37.get_config_str('output-file')
     count = spafw37.get_config_int('count')
     
-    print(f"Processing: {input_file}")
-    print(f"Output to: {output_file}")
-    print(f"Count: {count}")
+    spafw37.output(f"Processing: {input_file}")
+    spafw37.output(f"Output to: {output_file}")
+    spafw37.output(f"Count: {count}")
     
     for i in range(count):
-        print(f"  Processing item {i + 1}/{count}")
+        spafw37.output(f"  Processing item {i + 1}/{count}")
     
-    print(f"\nCompleted! Results written to {output_file}")
+    spafw37.output(f"\nCompleted! Results written to {output_file}")
 
 # Define command
 commands = [

@@ -55,28 +55,28 @@ def process_command():
     files = spafw37.get_config_list('files')
     tags = spafw37.get_config_list('tags')
     
-    print(f"Output directory: {output_dir}")
-    print()
+    spafw37.output(f"Output directory: {output_dir}")
+    spafw37.output()
     
     if not files:
-        print("No files specified. Use --file or -f to specify files.")
+        spafw37.output("No files specified. Use --file or -f to specify files.")
         return
     
-    print(f"Processing {len(files)} file(s):")
+    spafw37.output(f"Processing {len(files)} file(s):")
     for file in files:
-        print(f"  - {file}")
+        spafw37.output(f"  - {file}")
     
     if tags:
-        print(f"\nApplying tags: {', '.join(tags)}")
+        spafw37.output(f"\nApplying tags: {', '.join(tags)}")
     
-    print()
+    spafw37.output()
     for i, file in enumerate(files, 1):
-        print(f"[{i}/{len(files)}] Processing {file}...")
-        print(f"         Writing to {output_dir}/")
+        spafw37.output(f"[{i}/{len(files)}] Processing {file}...")
+        spafw37.output(f"         Writing to {output_dir}/")
         if tags:
-            print(f"         Tags: {', '.join(tags)}")
+            spafw37.output(f"         Tags: {', '.join(tags)}")
     
-    print(f"\nCompleted! Processed {len(files)} files to {output_dir}")
+    spafw37.output(f"\nCompleted! Processed {len(files)} files to {output_dir}")
 
 # Define command
 commands = [

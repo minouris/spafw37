@@ -74,9 +74,9 @@ def process_command():
     else:
         format_name = 'TEXT (default)'
     
-    print(f"Processing: {input_file}")
-    print(f"Output format: {format_name}")
-    print()
+    spafw37.output(f"Processing: {input_file}")
+    spafw37.output(f"Output format: {format_name}")
+    spafw37.output()
     
     # Generate sample data
     data = [
@@ -88,23 +88,23 @@ def process_command():
     # Output in selected format
     if json_output:
         import json
-        print(json.dumps(data, indent=2))
+        spafw37.output(json.dumps(data, indent=2))
     elif csv_output:
-        print("ID,Name,Value")
+        spafw37.output("ID,Name,Value")
         for item in data:
-            print(f"{item['id']},{item['name']},{item['value']}")
+            spafw37.output(f"{item['id']},{item['name']},{item['value']}")
     elif xml_output:
-        print('<?xml version="1.0"?>')
-        print('<items>')
+        spafw37.output('<?xml version="1.0"?>')
+        spafw37.output('<items>')
         for item in data:
-            print(f'  <item id="{item["id"]}">')
-            print(f'    <name>{item["name"]}</name>')
-            print(f'    <value>{item["value"]}</value>')
-            print('  </item>')
-        print('</items>')
+            spafw37.output(f'  <item id="{item["id"]}">')
+            spafw37.output(f'    <name>{item["name"]}</name>')
+            spafw37.output(f'    <value>{item["value"]}</value>')
+            spafw37.output('  </item>')
+        spafw37.output('</items>')
     else:
         for item in data:
-            print(f"  [{item['id']}] {item['name']}: {item['value']}")
+            spafw37.output(f"  [{item['id']}] {item['name']}: {item['value']}")
 
 # Define command
 commands = [

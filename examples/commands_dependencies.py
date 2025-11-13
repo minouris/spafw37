@@ -18,31 +18,31 @@ from spafw37.constants.command import (
 
 def setup_command():
     """Set up the environment."""
-    print("[SETUP] Initializing environment...")
-    print("        Creating config files...")
-    print("        Setup complete!")
+    spafw37.output("[SETUP] Initializing environment...")
+    spafw37.output("        Creating config files...")
+    spafw37.output("        Setup complete!")
 
 def validate_command():
     """Validate configuration."""
-    print("[VALIDATE] Checking prerequisites...")
-    print("           Verifying dependencies...")
-    print("           Validation passed!")
+    spafw37.output("[VALIDATE] Checking prerequisites...")
+    spafw37.output("           Verifying dependencies...")
+    spafw37.output("           Validation passed!")
 
 def build_command():
     """Build the project."""
-    print("[BUILD] Compiling sources...")
-    print("        Linking libraries...")
-    print("        Build successful!")
+    spafw37.output("[BUILD] Compiling sources...")
+    spafw37.output("        Linking libraries...")
+    spafw37.output("        Build successful!")
 
 def test_command():
     """Run tests."""
-    print("[TEST] Running test suite...")
-    print("       All tests passed!")
+    spafw37.output("[TEST] Running test suite...")
+    spafw37.output("       All tests passed!")
 
 def deploy_command():
     """Deploy the application."""
-    print("[DEPLOY] Deploying application...")
-    print("         Deployment complete!")
+    spafw37.output("[DEPLOY] Deploying application...")
+    spafw37.output("         Deployment complete!")
 
 # Define commands with dependencies
 commands = [

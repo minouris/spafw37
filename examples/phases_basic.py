@@ -40,39 +40,39 @@ def setup():
     # PHASE_SETUP: Resource initialization
     def connect_db():
         """Connect to database."""
-        print("[SETUP] Connecting to database...")
+        spafw37.output("[SETUP] Connecting to database...")
     
     def load_config():
         """Load configuration."""
-        print("[SETUP] Loading configuration...")
+        spafw37.output("[SETUP] Loading configuration...")
     
     def verify_setup():
         """Verify setup completed."""
-        print("[SETUP] Verifying setup complete")
+        spafw37.output("[SETUP] Verifying setup complete")
     
     # PHASE_CLEANUP: Environment preparation
     def clean_temp():
         """Clean temporary files."""
-        print("[CLEANUP] Cleaning temporary files...")
+        spafw37.output("[CLEANUP] Cleaning temporary files...")
     
     # PHASE_EXECUTION: Main logic
     def process():
         """Process data."""
-        print("[EXECUTION] Processing data...")
+        spafw37.output("[EXECUTION] Processing data...")
     
     def save():
         """Save results."""
-        print("[EXECUTION] Saving results...")
+        spafw37.output("[EXECUTION] Saving results...")
     
     # PHASE_TEARDOWN: Resource cleanup
     def close_db():
         """Close database."""
-        print("[TEARDOWN] Closing database connection...")
+        spafw37.output("[TEARDOWN] Closing database connection...")
     
     # PHASE_END: Final reporting
     def summary():
         """Generate summary."""
-        print("[END] Execution complete!")
+        spafw37.output("[END] Execution complete!")
     
     commands = [
         # Setup phase

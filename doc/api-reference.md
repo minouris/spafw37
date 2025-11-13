@@ -12,6 +12,7 @@
   - [Parameter Management](#parameter-management)
   - [Command Management](#command-management)
   - [Runtime Configuration](#runtime-configuration)
+  - [Output Functions](#output-functions)
   - [Logging Functions](#logging-functions)
 - [Constants Modules](#constants-modules)
   - [Parameter Constants](#parameter-constants-spafw37constantsparam)
@@ -451,6 +452,136 @@ spafw37.set_config_value('processing-complete', True)
 
 **Note:** Use runtime-only parameters (`PARAM_RUNTIME_ONLY: True`) for temporary state that shouldn't be persisted.
 
+#### `is_verbose()`
+
+Check if verbose mode is enabled.
+
+```python
+if spafw37.is_verbose():
+    spafw37.output(f"Detailed processing info: {details}")
+```
+
+**Returns:**
+- `bool` - `True` if `--verbose` flag is set, `False` otherwise
+
+**Common usage:**
+- Conditional output for detailed information
+- Adjusting command behavior based on verbosity level
+- Combining with `output()` for verbose-only messages
+
+#### `is_silent()`
+
+Check if silent mode is enabled.
+
+```python
+if not spafw37.is_silent():
+    spafw37.output("Processing complete")
+```
+
+**Returns:**
+- `bool` - `True` if `--silent` flag is set, `False` otherwise
+
+**Common usage:**
+- Conditional output suppression
+- Adjusting command behavior for silent operation
+- Checking before expensive output formatting
+
+**Note:** The `output()` function already respects silent mode, so explicit checks are often unnecessary.
+
+### Output Functions
+
+The output functions provide framework-managed application output that respects silent/verbose modes.
+
+#### `output(message="", verbose=False, output_handler=None)`
+
+Output a message to the user, respecting silent/verbose modes.
+
+```python
+# Normal output
+spafw37.output("Processing complete!")
+spafw37.output(f"Processed {count} items")
+
+# Verbose-only output (requires --verbose flag)
+spafw37.output(f"Debug details: {info}", verbose=True)
+
+# Empty line
+spafw37.output()
+
+# Custom handler for this specific call
+spafw37.output("Special message", output_handler=my_custom_handler)
+```
+
+**Args:**
+- `message` (str) - Message to output (default: empty string for blank line)
+- `verbose` (bool) - If `True`, only outputs when `--verbose` is set (default: `False`)
+- `output_handler` (callable) - Optional custom handler for this specific call. If `None`, uses the global handler set by `set_output_handler()` (default: `None`)
+
+**Behavior:**
+- **Normal mode:** Outputs message to console
+- **Silent mode (`--silent`):** Suppresses all output
+- **Verbose-only (`verbose=True`):** Only outputs when `--verbose` is set
+
+**Use `output()` instead of `print()` for:**
+- Application results and status messages
+- Progress indicators
+- User-facing output
+- Any output that should respect `--silent` flag
+
+**Continue using `print()` for:**
+- Error messages in exception handlers
+- Output that must always display regardless of flags
+
+**Per-call handler usage:**
+```python
+# Route specific messages to different destinations
+spafw37.output("Normal message")  # Uses global handler
+spafw37.output("Error details", output_handler=error_logger)  # Specific handler
+spafw37.output("Audit entry", output_handler=audit_writer)  # Different handler
+```
+
+#### `set_output_handler(handler)`
+
+Set a custom output handler function.
+
+```python
+def my_handler(message):
+    with open('output.txt', 'a') as f:
+        f.write(message + '\n')
+
+spafw37.set_output_handler(my_handler)
+```
+
+**Args:**
+- `handler` (callable) - Function that takes a message string
+
+**Default handler:** Uses built-in `print()` function
+
+**Common usage:**
+- Testing: Capture output for assertions
+- File redirection: Write output to file instead of console
+- GUI applications: Route output to UI components
+- Logging: Send output through logging system
+- Custom formatting: Add timestamps, colors, etc.
+
+**Example - Dual output (console + file):**
+
+```python
+def dual_handler(message):
+    print(message)  # Console
+    with open('app.log', 'a') as f:
+        f.write(f"{message}\n")  # File
+
+spafw37.set_output_handler(dual_handler)
+```
+
+**Example - Reset to default:**
+
+```python
+spafw37.set_output_handler()  # Resets to built-in print()
+```
+
+**Note:** The handler is called for all `output()` calls, but only after silent/verbose checks pass.
+
 ### Logging Functions
 
 All logging functions support optional scope and message parameters.
@@ -702,13 +833,14 @@ See the [Configuration Guide](configuration.md) for details on configuration fil
 
 ## Examples
 
-The API reference documents the functions and constants used throughout the framework. For practical demonstrations of API usage, see:
+For complete working examples demonstrating these API functions and constants, see the **[examples directory](https://github.com/minouris/spafw37/tree/main/examples)**:
 
-- **[examples/README.md](../examples/README.md)** - Complete guide to all available examples
-- **[Parameters Examples](../examples/)** - params_basic.py, params_toggles.py, params_lists.py, params_runtime.py
-- **[Commands Examples](../examples/)** - commands_basic.py, commands_sequencing.py, commands_dependencies.py
-- **[Cycles Examples](../examples/)** - cycles_basic.py, cycles_loop_start.py
-- **[Configuration Examples](../examples/)** - config_basic.py, config_persistence.py
+- **Parameters** (6 files): Basic usage, toggles, lists, required validation, runtime modification, grouping
+- **Commands** (7 files): Basic definition, sequencing, dependencies, chaining, required validation, triggering, visibility
+- **Cycles** (3 files): Basic usage, custom loop initialization, nested patterns
+- **Phases** (4 files): Basic usage, custom ordering, extended lifecycle, custom definitions
+- **Output** (2 files): Basic output with verbose/silent modes, custom handlers (file, dual, timestamped)
+- **Configuration** (2 files): Basic usage, persistence patterns
 
 Each example demonstrates specific API functions and constants in working code that you can run and modify.
 

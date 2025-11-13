@@ -89,9 +89,9 @@ def setup():
         env = spafw37.get_config_str('environment')
         region = spafw37.get_config_str('region')
         
-        print(f"Status for {env} ({region}):")
-        print("  Services: Running")
-        print("  Health: OK")
+        spafw37.output(f"Status for {env} ({region}):")
+        spafw37.output("  Services: Running")
+        spafw37.output("  Health: OK")
     
     def deploy():
         """Deploy application - requires api-key and instance-count."""
@@ -100,10 +100,10 @@ def setup():
         instances = spafw37.get_config_int('instance-count')
         region = spafw37.get_config_str('region')
         
-        print(f"Deploying to {env} ({region})...")
-        print(f"API Key: {api_key[:8]}...")
-        print(f"Instance count: {instances}")
-        print("Deployment complete!")
+        spafw37.output(f"Deploying to {env} ({region})...")
+        spafw37.output(f"API Key: {api_key[:8]}...")
+        spafw37.output(f"Instance count: {instances}")
+        spafw37.output("Deployment complete!")
     
     def backup():
         """Backup current deployment - requires backup-path."""
@@ -111,9 +111,9 @@ def setup():
         backup_path = spafw37.get_config_str('backup-path')
         region = spafw37.get_config_str('region')
         
-        print(f"Backing up {env} ({region})...")
-        print(f"Backup location: {backup_path}")
-        print("Backup complete!")
+        spafw37.output(f"Backing up {env} ({region})...")
+        spafw37.output(f"Backup location: {backup_path}")
+        spafw37.output("Backup complete!")
     
     commands = [
         # status has no additional requirements
@@ -147,6 +147,6 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Command Required Parameters Example")
-    print("Demonstrates COMMAND_REQUIRED_PARAMS - command-specific requirements\n")
+    spafw37.output("Command Required Parameters Example")
+    spafw37.output("Demonstrates COMMAND_REQUIRED_PARAMS - command-specific requirements\n")
     spafw37.run_cli()

@@ -106,7 +106,7 @@ Write the function that will execute when your command runs.
 def greet_action():
     """Greet the user by name."""
     name = spafw37.get_config('user-name')
-    print(f"Hello, {name}!")
+    spafw37.output(f"Hello, {name}!")
 ```
 
 Command actions are regular Python functions. Use `spafw37.get_config()` to retrieve parameter values that were set from the command line.

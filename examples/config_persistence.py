@@ -56,36 +56,36 @@ params = [
 
 def show_config():
     """Display current configuration."""
-    print("=" * 60)
-    print("CONFIGURATION")
-    print("=" * 60)
+    spafw37.output("=" * 60)
+    spafw37.output("CONFIGURATION")
+    spafw37.output("=" * 60)
     
     project_path = spafw37.get_config_str('project-path')
     author = spafw37.get_config_str('author')
     temp_dir = spafw37.get_config_str('temp-dir')
     
-    print(f"\nProject Path: {project_path}")
-    print("  [ALWAYS persisted - auto-saved to config.json]")
+    spafw37.output(f"\nProject Path: {project_path}")
+    spafw37.output("  [ALWAYS persisted - auto-saved to config.json]")
     
-    print(f"\nAuthor: {author or '(not set)'}")
-    print("  [USER_ONLY - saved via --save-config my-config.json]")
+    spafw37.output(f"\nAuthor: {author or '(not set)'}")
+    spafw37.output("  [USER_ONLY - saved via --save-config my-config.json]")
     
-    print(f"\nTemp Directory: {temp_dir}")
-    print("  [NEVER persisted - runtime only]")
+    spafw37.output(f"\nTemp Directory: {temp_dir}")
+    spafw37.output("  [NEVER persisted - runtime only]")
     
-    print()
-    print("=" * 60)
-    print("\nTry these commands:")
-    print("  1. Modify project path:")
-    print("     python config_persistence.py show --project /new/path")
-    print("     (automatically saved to config.json)")
-    print()
-    print("  2. Save user config:")
-    print("     python config_persistence.py show --author 'John' --save-config user.json")
-    print()
-    print("  3. Load user config:")
-    print("     python config_persistence.py show --load-config user.json")
-    print("=" * 60)
+    spafw37.output()
+    spafw37.output("=" * 60)
+    spafw37.output("\nTry these commands:")
+    spafw37.output("  1. Modify project path:")
+    spafw37.output("     python config_persistence.py show --project /new/path")
+    spafw37.output("     (automatically saved to config.json)")
+    spafw37.output()
+    spafw37.output("  2. Save user config:")
+    spafw37.output("     python config_persistence.py show --author 'John' --save-config user.json")
+    spafw37.output()
+    spafw37.output("  3. Load user config:")
+    spafw37.output("     python config_persistence.py show --load-config user.json")
+    spafw37.output("=" * 60)
 
 # Define command
 commands = [

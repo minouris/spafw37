@@ -446,12 +446,12 @@ def init_session_command():
     import uuid
     session_id = str(uuid.uuid4())
     spafw37.set_config('session-id', session_id)
-    print(f"Session started: {session_id}")
+    spafw37.output(f"Session started: {session_id}")
 
 def use_session_command():
     """Use the current session."""
     session_id = spafw37.get_config('session-id')
-    print(f"Using session: {session_id}")
+    spafw37.output(f"Using session: {session_id}")
     # ... work with session ...
 ```
 
@@ -467,15 +467,15 @@ Runtime-only parameters are useful for:
 
 The framework provides built-in parameters for common needs. **Always use these instead of creating your own:**
 
-| Framework Parameter | Purpose | Your Code Should |
-|---------------------|---------|------------------|
-| `--verbose`, `-v` | Enable verbose framework logging | Use `print()` for application output |
-| `--silent` | Suppress framework console logging | Use `print()` for application output |
-| `--no-logging` | Disable all framework logging | Use `print()` for application output |
-| `--log-level LEVEL` | Set framework log level | Use `print()` for application output |
-| `--help`, `-h` | Display help | Let framework handle help |
-| `--save-config FILE` | Save user config | Let framework handle persistence |
-| `--load-config FILE` | Load user config | Let framework handle persistence |
+| Framework Parameter | Purpose | Details |
+|---------------------|---------|---------|
+| `--verbose`, `-v` | Enable verbose mode | Shows DEBUG-level framework logging (console + file); enables `spafw37.output(verbose=True)` messages |
+| `--silent` | Suppress all output | Hides framework logging (console + file); suppresses all `spafw37.output()` calls |
+| `--no-logging` | Disable all framework logging | Turns off file and console logging completely |
+| `--log-level LEVEL` | Set framework log level | Controls which framework messages appear (TRACE/DEBUG/INFO/WARNING/ERROR) |
+| `--help`, `-h` | Display help | Automatically generated help for commands and parameters |
+| `--save-config FILE` | Save user config | Persists parameters with `PARAM_PERSISTENCE_USER` to specified file |
+| `--load-config FILE` | Load user config | Loads previously saved configuration from file |
 
 ### DON'T: Duplicate Framework Functionality
 
@@ -500,9 +500,9 @@ def my_command():
     quiet = spafw37.get_config_bool('quiet-mode')
     
     if verbose:
-        print("[VERBOSE] Processing...")  # Don't do this!
+        spafw37.output("[VERBOSE] Processing...")  # Don't do this!
     if not quiet:
-        print("Processing...")  # Overly complex!
+        spafw37.output("Processing...")  # Overly complex!
 ```
 
 **Correct Pattern:**
@@ -512,9 +512,9 @@ def my_command():
 
 def my_command():
     # Just print application output normally
-    print("Processing...")
-    print("  Item 1 complete")
-    print("Done!")
+    spafw37.output("Processing...")
+    spafw37.output("  Item 1 complete")
+    spafw37.output("Done!")
     
     # Users control framework logging independently:
     # --verbose shows framework DEBUG messages
@@ -525,7 +525,7 @@ def my_command():
 ### Key Principles
 
 1. **Application Output vs. Framework Logging**
-   - Use `print()` for application output (results, progress, user-facing messages)
+   - Use `spafw37.output()` for application output (results, progress, user-facing messages)
    - Framework logging (`--verbose`, `--silent`) controls diagnostic framework messages
    - These are independent - users can suppress framework logging while seeing application output
 
@@ -550,7 +550,7 @@ def process_command():
     thread_count = spafw37.get_config('thread-count', default=1)
     
     if verbose:
-        print(f"Processing {input_file} with {thread_count} threads")
+        spafw37.output(f"Processing {input_file} with {thread_count} threads")
     
     # ... process ...
 ```

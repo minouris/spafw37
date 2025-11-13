@@ -343,7 +343,7 @@ commands = [
     {
         COMMAND_NAME: 'setup',
         COMMAND_PHASE: PHASE_SETUP,
-        COMMAND_ACTION: lambda: print("Setting up...")
+        COMMAND_ACTION: lambda: spafw37.output("Setting up...")
     }
 ]
 

@@ -58,7 +58,7 @@ def process_file():
     verbose = spafw37.get_config_value('verbose')
     
     if verbose:
-        print(f"Processing {input_file}")
+        spafw37.output(f"Processing {input_file}")
     
     # Configuration values are None if not set
     output_dir = spafw37.get_config_value('output-dir')

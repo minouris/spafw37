@@ -56,8 +56,8 @@ def init_items():
     items = ['apple', 'banana', 'cherry', 'date', 'elderberry']
     spafw37.set_config_value('items', items)
     spafw37.set_config_value('index', 0)
-    print(f"Processing {len(items)} items")
-    print("=" * 40)
+    spafw37.output(f"Processing {len(items)} items")
+    spafw37.output("=" * 40)
 
 def has_more_items():
     """Check if more items remain."""
@@ -73,31 +73,31 @@ def prepare_item():
     current_item = items[index]
     spafw37.set_config_value('current-item', current_item)
     
-    print(f"\n[Item {index + 1}/{len(items)}] {current_item}")
+    spafw37.output(f"\n[Item {index + 1}/{len(items)}] {current_item}")
 
 def finalize_items():
     """Finalize the items."""
     index = spafw37.get_config_int('index')
-    print()
-    print("=" * 40)
-    print(f"Processed {index} items")
+    spafw37.output()
+    spafw37.output("=" * 40)
+    spafw37.output(f"Processed {index} items")
 
 # Cycle command actions
 
 def validate_item():
     """Validate the current item."""
     item = spafw37.get_config_str('current-item')
-    print(f"  ✓ Validating {item}")
+    spafw37.output(f"  ✓ Validating {item}")
 
 def transform_item():
     """Transform the current item."""
     item = spafw37.get_config_str('current-item')
-    print(f"  ✓ Transforming {item} -> {item.upper()}")
+    spafw37.output(f"  ✓ Transforming {item} -> {item.upper()}")
 
 def save_item():
     """Save the current item."""
     item = spafw37.get_config_str('current-item')
-    print(f"  ✓ Saving {item}")
+    spafw37.output(f"  ✓ Saving {item}")
     
     # Increment index for next iteration
     index = spafw37.get_config_int('index')

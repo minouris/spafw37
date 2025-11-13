@@ -346,12 +346,12 @@ from spafw37.constants.phase import PHASE_SETUP, PHASE_EXECUTION
 
 def execution_action():
     """Runs in PHASE_EXECUTION."""
-    print("Running execution...")
+    spafw37.output("Running execution...")
 
 commands = [
     {
         COMMAND_NAME: 'setup-db',
-        COMMAND_ACTION: lambda: print("Setting up database"),
+        COMMAND_ACTION: lambda: spafw37.output("Setting up database"),
         COMMAND_PHASE: PHASE_SETUP,
     },
     {

@@ -50,48 +50,48 @@ def setup():
     # Setup phase actions
     def init_workspace():
         """Initialize workspace."""
-        print("[SETUP] Initializing workspace...")
+        spafw37.output("[SETUP] Initializing workspace...")
     
     # Validation phase actions
     def check_syntax():
         """Check code syntax."""
-        print("[VALIDATE] Checking syntax...")
+        spafw37.output("[VALIDATE] Checking syntax...")
     
     def check_deps():
         """Check dependencies."""
-        print("[VALIDATE] Checking dependencies...")
+        spafw37.output("[VALIDATE] Checking dependencies...")
     
     # Build phase actions
     def compile_code():
         """Compile source code."""
-        print("[BUILD] Compiling source code...")
+        spafw37.output("[BUILD] Compiling source code...")
     
     def package():
         """Package artifacts."""
-        print("[BUILD] Packaging artifacts...")
+        spafw37.output("[BUILD] Packaging artifacts...")
     
     # Test phase actions
     def unit_tests():
         """Run unit tests."""
-        print("[TEST] Running unit tests...")
+        spafw37.output("[TEST] Running unit tests...")
     
     def integration_tests():
         """Run integration tests."""
-        print("[TEST] Running integration tests...")
+        spafw37.output("[TEST] Running integration tests...")
     
     # Execution phase actions
     def deploy():
         """Deploy application (main execution)."""
-        print("[EXECUTION] Deploying application...")
+        spafw37.output("[EXECUTION] Deploying application...")
     
     def verify():
         """Verify deployment (main execution)."""
-        print("[EXECUTION] Verifying deployment...")
+        spafw37.output("[EXECUTION] Verifying deployment...")
     
     # Teardown phase actions
     def cleanup():
         """Clean up resources."""
-        print("[TEARDOWN] Cleaning up resources...")
+        spafw37.output("[TEARDOWN] Cleaning up resources...")
     
     # Define commands
     commands = [
@@ -189,6 +189,6 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Extended phases: START → VALIDATE → BUILD → TEST → RUN → FINISH")
-    print("(Aliased to: SETUP → VALIDATE → BUILD → TEST → EXECUTION → TEARDOWN)\n")
+    spafw37.output("Extended phases: START → VALIDATE → BUILD → TEST → RUN → FINISH")
+    spafw37.output("(Aliased to: SETUP → VALIDATE → BUILD → TEST → EXECUTION → TEARDOWN)\n")
     spafw37.run_cli()

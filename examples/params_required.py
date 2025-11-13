@@ -79,12 +79,12 @@ def setup():
         region = spafw37.get_config_str('region', default='us-east-1')
         timeout = spafw37.get_config_int('timeout', default=30)
         
-        print(f"Project: {project}")
-        print(f"Environment: {env}")
-        print(f"Region: {region}")
-        print(f"Timeout: {timeout}s")
-        print()
-        print("Status: Active")
+        spafw37.output(f"Project: {project}")
+        spafw37.output(f"Environment: {env}")
+        spafw37.output(f"Region: {region}")
+        spafw37.output(f"Timeout: {timeout}s")
+        spafw37.output()
+        spafw37.output("Status: Active")
     
     def deploy():
         """Deploy the project."""
@@ -92,16 +92,16 @@ def setup():
         project = spafw37.get_config_str('project')
         region = spafw37.get_config_str('region', default='us-east-1')
         
-        print(f"Deploying project '{project}' to {env} ({region})...")
-        print("Deployment complete!")
+        spafw37.output(f"Deploying project '{project}' to {env} ({region})...")
+        spafw37.output("Deployment complete!")
     
     def validate():
         """Validate configuration."""
         env = spafw37.get_config_str('environment')
         project = spafw37.get_config_str('project')
         
-        print(f"Validating project '{project}' in {env}...")
-        print("Configuration valid!")
+        spafw37.output(f"Validating project '{project}' in {env}...")
+        spafw37.output("Configuration valid!")
     
     commands = [
         {
@@ -127,6 +127,6 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Required Parameters Example")
-    print("Demonstrates PARAM_REQUIRED - globally required parameters\n")
+    spafw37.output("Required Parameters Example")
+    spafw37.output("Demonstrates PARAM_REQUIRED - globally required parameters\n")
     spafw37.run_cli()

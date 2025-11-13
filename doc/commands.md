@@ -82,7 +82,7 @@ from spafw37.constants.command import (
 
 def hello_action():
     """Print a greeting."""
-    print("Hello, World!")
+    spafw37.output("Hello, World!")
 
 commands = [
     {
@@ -108,9 +108,9 @@ Command actions are regular Python functions called when the command executes:
 ```python
 def build_action():
     """Build the project."""
-    print("Building project...")
+    spafw37.output("Building project...")
     # Build logic here
-    print("Build complete!")
+    spafw37.output("Build complete!")
 
 {
     COMMAND_NAME: 'build',
@@ -129,7 +129,7 @@ Actions can be:
 {
     COMMAND_NAME: 'version',
     COMMAND_DESCRIPTION: 'Display version',
-    COMMAND_ACTION: lambda: print("v1.0.0"),
+    COMMAND_ACTION: lambda: spafw37.output("v1.0.0"),
 }
 ```
 
@@ -145,8 +145,8 @@ def deploy_action():
     target = spafw37.get_config('environment')
     api_key = spafw37.get_config('api-key')
     instance_count = spafw37.get_config('instance-count')
-    print(f"Deploying to {target}...")
-    print(f"Instances: {instance_count}")
+    spafw37.output(f"Deploying to {target}...")
+    spafw37.output(f"Instances: {instance_count}")
     # Deploy logic using api_key
 
 {
@@ -347,7 +347,7 @@ from spafw37.constants.command import COMMAND_TRIGGER_PARAM
 def load_plugins_action():
     """Load plugins from a specified directory."""
     plugin_dir = spafw37.get_config('plugin-dir')
-    print(f"Loading plugins from {plugin_dir}...")
+    spafw37.output(f"Loading plugins from {plugin_dir}...")
     # Plugin loading logic here
 
 {

@@ -209,7 +209,7 @@ def _should_log_to_console():
     """Check if console logging should be enabled based on config flags."""
     if config.get_config_bool(LOG_NO_LOGGING_PARAM):
         return False
-    if config.get_config_bool(LOG_SILENT_PARAM):
+    if config.is_silent():
         return False
     return True
 

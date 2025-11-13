@@ -18,38 +18,38 @@ from spafw37.constants.command import (
 
 def start_command():
     """Start the workflow."""
-    print("[START] Workflow initiated")
-    print("        Proceeding to authentication...")
+    spafw37.output("[START] Workflow initiated")
+    spafw37.output("        Proceeding to authentication...")
 
 def authenticate_command():
     """Authenticate user."""
-    print("[AUTH] Authenticating...")
-    print("       Authentication successful!")
-    print("       Proceeding to data fetch...")
+    spafw37.output("[AUTH] Authenticating...")
+    spafw37.output("       Authentication successful!")
+    spafw37.output("       Proceeding to data fetch...")
 
 def fetch_data_command():
     """Fetch data from source."""
-    print("[FETCH] Fetching data...")
-    print("        Data retrieved!")
-    print("        Proceeding to processing...")
+    spafw37.output("[FETCH] Fetching data...")
+    spafw37.output("        Data retrieved!")
+    spafw37.output("        Proceeding to processing...")
 
 def process_data_command():
     """Process the fetched data."""
-    print("[PROCESS] Processing data...")
-    print("          Processing complete!")
-    print("          Proceeding to save...")
+    spafw37.output("[PROCESS] Processing data...")
+    spafw37.output("          Processing complete!")
+    spafw37.output("          Proceeding to save...")
 
 def save_results_command():
     """Save processed results."""
-    print("[SAVE] Saving results...")
-    print("       Results saved!")
-    print("       Proceeding to notification...")
+    spafw37.output("[SAVE] Saving results...")
+    spafw37.output("       Results saved!")
+    spafw37.output("       Proceeding to notification...")
 
 def notify_command():
     """Send notification."""
-    print("[NOTIFY] Sending notification...")
-    print("         Notification sent!")
-    print("         Workflow complete!")
+    spafw37.output("[NOTIFY] Sending notification...")
+    spafw37.output("         Notification sent!")
+    spafw37.output("         Workflow complete!")
 
 # Define commands with next-command chaining
 commands = [

@@ -39,23 +39,23 @@ def setup():
     # Define phase-specific actions
     def cleanup_old_data():
         """Clean old data files."""
-        print("[1. CLEANUP] Removing old data files...")
+        spafw37.output("[1. CLEANUP] Removing old data files...")
     
     def setup_environment():
         """Set up fresh environment."""
-        print("[2. SETUP] Setting up fresh environment...")
+        spafw37.output("[2. SETUP] Setting up fresh environment...")
     
     def process_data():
         """Process the data."""
-        print("[3. EXECUTION] Processing data...")
+        spafw37.output("[3. EXECUTION] Processing data...")
     
     def teardown_resources():
         """Tear down resources."""
-        print("[4. TEARDOWN] Releasing resources...")
+        spafw37.output("[4. TEARDOWN] Releasing resources...")
     
     def send_report():
         """Send final report."""
-        print("[5. END] Sending completion report...")
+        spafw37.output("[5. END] Sending completion report...")
     
     commands = [
         {
@@ -107,5 +107,5 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Phase order: CLEANUP → SETUP → EXECUTION → TEARDOWN → END\n")
+    spafw37.output("Phase order: CLEANUP → SETUP → EXECUTION → TEARDOWN → END\n")
     spafw37.run_cli()

@@ -18,27 +18,27 @@ from spafw37.constants.command import (
 
 def prepare_command():
     """Prepare the environment."""
-    print("[1] PREPARE: Setting up environment...")
-    print("    Creating directories...")
-    print("    Ready!")
+    spafw37.output("[1] PREPARE: Setting up environment...")
+    spafw37.output("    Creating directories...")
+    spafw37.output("    Ready!")
 
 def download_command():
     """Download data."""
-    print("[2] DOWNLOAD: Fetching data...")
-    print("    Connecting...")
-    print("    Downloaded!")
+    spafw37.output("[2] DOWNLOAD: Fetching data...")
+    spafw37.output("    Connecting...")
+    spafw37.output("    Downloaded!")
 
 def process_command():
     """Process the data."""
-    print("[3] PROCESS: Processing data...")
-    print("    Transforming...")
-    print("    Processed!")
+    spafw37.output("[3] PROCESS: Processing data...")
+    spafw37.output("    Transforming...")
+    spafw37.output("    Processed!")
 
 def finalize_command():
     """Finalize and clean up."""
-    print("[4] FINALIZE: Cleaning up...")
-    print("    Removing temporary files...")
-    print("    Done!")
+    spafw37.output("[4] FINALIZE: Cleaning up...")
+    spafw37.output("    Removing temporary files...")
+    spafw37.output("    Done!")
 
 # Define commands with sequencing
 commands = [

@@ -48,8 +48,8 @@ def init_counter():
     """Initialize the counter."""
     spafw37.set_config_value('counter', 0)
     spafw37.set_config_value('max-iterations', 5)
-    print("Initialized counter cycle (5 iterations)")
-    print("=" * 40)
+    spafw37.output("Initialized counter cycle (5 iterations)")
+    spafw37.output("=" * 40)
 
 def has_more_iterations():
     """Check if more iterations remain."""
@@ -60,8 +60,8 @@ def has_more_iterations():
 def finalize_counter():
     """Finalize the counter."""
     counter = spafw37.get_config_int('counter')
-    print("=" * 40)
-    print(f"Completed {counter} iterations")
+    spafw37.output("=" * 40)
+    spafw37.output(f"Completed {counter} iterations")
 
 # Cycle command actions
 
@@ -72,7 +72,7 @@ def process_iteration():
     spafw37.set_config_value('counter', counter)
     
     max_iterations = spafw37.get_config_int('max-iterations')
-    print(f"[Iteration {counter}/{max_iterations}] Processing...")
+    spafw37.output(f"[Iteration {counter}/{max_iterations}] Processing...")
 
 # Define cycle commands
 cycle_commands = [

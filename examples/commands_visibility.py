@@ -44,67 +44,67 @@ def setup():
     # Visible application commands
     def build():
         """Build the application."""
-        print("Building application...")
-        print("  Compiling sources")
-        print("  Linking libraries")
-        print("Build complete!")
-        print()
+        spafw37.output("Building application...")
+        spafw37.output("  Compiling sources")
+        spafw37.output("  Linking libraries")
+        spafw37.output("Build complete!")
+        spafw37.output()
     
     def test():
         """Run tests."""
-        print("Running tests...")
-        print("  Unit tests: 45 passed")
-        print("  Integration tests: 12 passed")
-        print("All tests passed!")
-        print()
+        spafw37.output("Running tests...")
+        spafw37.output("  Unit tests: 45 passed")
+        spafw37.output("  Integration tests: 12 passed")
+        spafw37.output("All tests passed!")
+        spafw37.output()
     
     def deploy():
         """Deploy the application."""
-        print("Deploying application...")
-        print("  Packaging artifacts")
-        print("  Uploading to server")
-        print("Deployment complete!")
-        print()
+        spafw37.output("Deploying application...")
+        spafw37.output("  Packaging artifacts")
+        spafw37.output("  Uploading to server")
+        spafw37.output("Deployment complete!")
+        spafw37.output()
     
     # Hidden internal/diagnostic command
     def internal_diagnostics():
         """Run internal diagnostics (hidden from help)."""
-        print("[INTERNAL] Running diagnostics...")
-        print("  System health: OK")
-        print("  Memory usage: 45%")
-        print("  Disk space: 230GB available")
-        print("  Network: Connected")
-        print("Diagnostics complete!")
-        print()
+        spafw37.output("[INTERNAL] Running diagnostics...")
+        spafw37.output("  System health: OK")
+        spafw37.output("  Memory usage: 45%")
+        spafw37.output("  Disk space: 230GB available")
+        spafw37.output("  Network: Connected")
+        spafw37.output("Diagnostics complete!")
+        spafw37.output()
     
     # Hidden deprecated command
     def legacy_process():
         """Legacy processing command (deprecated, hidden from help)."""
-        print("[DEPRECATED] Running legacy process...")
-        print("  This command is deprecated")
-        print("  Please use 'build' instead")
-        print("Legacy process complete!")
-        print()
+        spafw37.output("[DEPRECATED] Running legacy process...")
+        spafw37.output("  This command is deprecated")
+        spafw37.output("  Please use 'build' instead")
+        spafw37.output("Legacy process complete!")
+        spafw37.output()
     
     # Hidden advanced command
     def debug_rebuild():
         """Advanced debug rebuild (hidden from help)."""
-        print("[ADVANCED] Debug rebuild...")
-        print("  Building with debug symbols")
-        print("  Verbose logging enabled")
-        print("  Source maps generated")
-        print("Debug rebuild complete!")
-        print()
+        spafw37.output("[ADVANCED] Debug rebuild...")
+        spafw37.output("  Building with debug symbols")
+        spafw37.output("  Verbose logging enabled")
+        spafw37.output("  Source maps generated")
+        spafw37.output("Debug rebuild complete!")
+        spafw37.output()
     
     # Framework command (internal utility)
     def framework_init():
         """Framework initialization (hidden framework command)."""
-        print("[FRAMEWORK] Initializing framework...")
-        print("  Loading core modules")
-        print("  Registering plugins")
-        print("  Setting up environment")
-        print("Framework initialized!")
-        print()
+        spafw37.output("[FRAMEWORK] Initializing framework...")
+        spafw37.output("  Loading core modules")
+        spafw37.output("  Registering plugins")
+        spafw37.output("  Setting up environment")
+        spafw37.output("Framework initialized!")
+        spafw37.output()
     
     commands = [
         # Visible application commands (appear in help)
@@ -163,6 +163,6 @@ def setup():
 
 if __name__ == '__main__':
     setup()
-    print("Command Visibility Example")
-    print("Demonstrates COMMAND_FRAMEWORK and COMMAND_EXCLUDE_HELP\n")
+    spafw37.output("Command Visibility Example")
+    spafw37.output("Demonstrates COMMAND_FRAMEWORK and COMMAND_EXCLUDE_HELP\n")
     spafw37.run_cli()
