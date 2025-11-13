@@ -205,6 +205,24 @@ def get_scope_log_level(scope):
     return _scope_log_levels.get(scope)
 
 
+def _should_log_to_console():
+    """Check if console logging should be enabled based on config flags."""
+    if config.get_config_bool(LOG_NO_LOGGING_PARAM):
+        return False
+    if config.get_config_bool(LOG_SILENT_PARAM):
+        return False
+    return True
+
+
+def _should_log_to_file():
+    """Check if file logging should be enabled based on config flags."""
+    if config.get_config_bool(LOG_NO_LOGGING_PARAM):
+        return False
+    if config.get_config_bool(LOG_NO_FILE_LOGGING_PARAM):
+        return False
+    return True
+
+
 def log(_level=INFO, _scope=None, _message=''):
     """Log a message."""
     if _logger is None:
@@ -217,9 +235,36 @@ def log(_level=INFO, _scope=None, _message=''):
     if scope_level is not None and _level < scope_level:
         return
     
-    # Create log record with scope information
-    extra = {'scope': effective_scope}
-    _logger.log(_level, _message, extra=extra) # type: ignore
+    # Guardrail: Check config flags to determine if logging should happen
+    should_log_console = _should_log_to_console()
+    should_log_file = _should_log_to_file()
+    
+    # If both are disabled, don't log at all
+    if not should_log_console and not should_log_file:
+        return
+    
+    # Temporarily remove handlers based on config
+    console_removed = False
+    file_removed = False
+    
+    if _console_handler and not should_log_console:
+        _logger.removeHandler(_console_handler) # type: ignore
+        console_removed = True
+    
+    if _file_handler and not should_log_file:
+        _logger.removeHandler(_file_handler) # type: ignore
+        file_removed = True
+    
+    try:
+        # Create log record with scope information
+        extra = {'scope': effective_scope}
+        _logger.log(_level, _message, extra=extra) # type: ignore
+    finally:
+        # Restore handlers
+        if console_removed and _console_handler:
+            _logger.addHandler(_console_handler) # type: ignore
+        if file_removed and _file_handler:
+            _logger.addHandler(_file_handler) # type: ignore
 
 
 def log_trace(_scope=None, _message=''):

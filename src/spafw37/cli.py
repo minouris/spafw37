@@ -2,6 +2,7 @@ import sys
 
 from spafw37 import command
 from spafw37 import config_func as config
+from spafw37 import logging as logging_module
 from spafw37 import param
 import spafw37.config
 from spafw37.constants.param import (
@@ -391,6 +392,9 @@ def handle_cli_args(args):
     # Pre-parse specific params (e.g., logging/verbosity controls)
     # before main parsing to configure behavior
     _pre_parse_params(args)
+    
+    # Apply logging configuration based on pre-parsed params
+    logging_module.apply_logging_config()
     
     # Set defaults for all parameters
     _set_defaults()
