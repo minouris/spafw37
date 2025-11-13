@@ -1,6 +1,7 @@
 """Tests for the logging module."""
 from __future__ import annotations
 
+import logging as stdlib_logging
 import os
 import tempfile
 import shutil
@@ -27,6 +28,37 @@ from spafw37.logging import (
 )
 from spafw37 import config_func as config, param
 from spafw37.constants.param import PARAM_NAME
+
+
+def setup_function():
+    """Reset logging module state before each test.
+    
+    This ensures each test starts with a clean logging configuration,
+    preventing test interference from shared handler state.
+    """
+    # Remove any existing handlers from stdlib logger if it exists
+    stdlib_logger = stdlib_logging.getLogger('spafw37')
+    for handler in stdlib_logger.handlers[:]:
+        stdlib_logger.removeHandler(handler)
+        handler.close()
+    
+    # Reset logging module state
+    logging._logger = None
+    logging._file_handler = None
+    logging._console_handler = None
+    logging._error_handler = None
+    logging._current_scope = None
+    logging._suppress_errors = False
+    logging._scope_log_levels = {}
+    logging._log_dir = logging._DEFAULT_LOG_DIR
+    
+    # Reset params module state
+    param._PARAMS = []
+    
+    # Reset config module state (both modules)
+    from spafw37 import config as config_module
+    config_module._config = {}
+    config._persistent_config = {}
 
 
 def test_trace_level_exists():
@@ -328,3 +360,212 @@ def test_param_setting_logging():
         
         log_content = log_files[0].read_text()
         assert "Set param 'test-param-log' = test-value" in log_content
+
+
+def test_should_log_to_console_with_no_logging():
+    """Test console logging is disabled when LOG_NO_LOGGING_PARAM is set.
+    
+    When the no-logging parameter is enabled, console logging should be
+    disabled regardless of other settings. This validates the logging
+    suppression logic (line 211).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-logging param
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    config.set_config_value(no_logging_param, True)
+    
+    # Verify console logging is disabled
+    assert logging._should_log_to_console() is False
+
+
+def test_should_log_to_console_in_silent_mode():
+    """Test console logging is disabled in silent mode.
+    
+    When silent mode is enabled, console logging should be disabled.
+    This validates the silent mode check (line 213).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set silent param
+    silent_param = param.get_param_by_name(LOG_SILENT_PARAM)
+    config.set_config_value(silent_param, True)
+    
+    # Verify console logging is disabled
+    assert logging._should_log_to_console() is False
+
+
+def test_should_log_to_file_with_no_logging():
+    """Test file logging is disabled when LOG_NO_LOGGING_PARAM is set.
+    
+    When the no-logging parameter is enabled, file logging should be
+    disabled. This validates the logging suppression logic (line 220).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-logging param
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    config.set_config_value(no_logging_param, True)
+    
+    # Verify file logging is disabled
+    assert logging._should_log_to_file() is False
+
+
+def test_should_log_to_file_with_no_file_logging():
+    """Test file logging is disabled when LOG_NO_FILE_LOGGING_PARAM is set.
+    
+    When the no-file-logging parameter is enabled, file logging should be
+    disabled even if console logging is still active. This validates the
+    file-specific suppression logic (line 222).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-file-logging param
+    no_file_logging_param = param.get_param_by_name(LOG_NO_FILE_LOGGING_PARAM)
+    config.set_config_value(no_file_logging_param, True)
+    
+    # Verify file logging is disabled
+    assert logging._should_log_to_file() is False
+
+
+def test_log_with_both_logging_disabled():
+    """Test log function returns early when both console and file are disabled.
+    
+    When both console and file logging are disabled, the log function should
+    return without creating log records. This validates the early return
+    optimization (line 244).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-logging param
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    config.set_config_value(no_logging_param, True)
+    
+    # This should return early without error
+    logging.log(logging.INFO, _message='Should not be logged')
+
+
+def test_apply_logging_config_with_log_level_param():
+    """Test explicit log-level parameter sets both console and file levels.
+    
+    When an explicit log-level is specified, it should override all other
+    level settings for both console and file. This validates the log-level
+    parameter handling (lines 327-329).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set log-level param
+    log_level_param = param.get_param_by_name(LOG_LEVEL_PARAM)
+    config.set_config_value(log_level_param, 'WARNING')
+    
+    logging.apply_logging_config()
+    
+    # Both console and file should be at WARNING level
+    assert logging._console_handler.level == stdlib_logging.WARNING
+    assert logging._file_handler.level == stdlib_logging.WARNING
+
+
+def test_apply_logging_config_with_trace_console():
+    """Test trace-console parameter sets only console to TRACE.
+    
+    When trace-console is enabled, only console logging should be at TRACE
+    level while file remains at default. This validates the trace-console
+    parameter handling (line 338).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set trace-console param
+    trace_console_param = param.get_param_by_name(LOG_TRACE_CONSOLE_PARAM)
+    config.set_config_value(trace_console_param, True)
+    
+    logging.apply_logging_config()
+    
+    # Console should be TRACE, file should be DEBUG (default)
+    assert logging._console_handler.level == logging.TRACE
+    assert logging._file_handler.level == stdlib_logging.DEBUG
+
+
+def test_apply_logging_config_with_silent():
+    """Test silent parameter disables console logging.
+    
+    When silent mode is enabled, console logging should be set to a level
+    above CRITICAL to effectively disable it. This validates the silent
+    mode handling (line 346).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set silent param
+    silent_param = param.get_param_by_name(LOG_SILENT_PARAM)
+    config.set_config_value(silent_param, True)
+    
+    logging.apply_logging_config()
+    
+    # Console should be above CRITICAL (disabled)
+    assert logging._console_handler.level > stdlib_logging.CRITICAL
+
+
+def test_apply_logging_config_with_no_logging():
+    """Test no-logging parameter disables both console and file.
+    
+    When no-logging mode is enabled, both console and file logging should
+    be disabled. This validates the no-logging mode handling (lines 350-351).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-logging param
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    config.set_config_value(no_logging_param, True)
+    
+    logging.apply_logging_config()
+    
+    # Both should be above CRITICAL (disabled)
+    assert logging._console_handler.level > stdlib_logging.CRITICAL
+    assert logging._file_handler.level > stdlib_logging.CRITICAL
+
+
+def test_apply_logging_config_with_no_file_logging():
+    """Test no-file-logging parameter disables file logging.
+    
+    When no-file-logging is enabled, file logging should be disabled but
+    console can remain active. This validates the no-file-logging handling
+    (line 359).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set no-file-logging param
+    no_file_logging_param = param.get_param_by_name(LOG_NO_FILE_LOGGING_PARAM)
+    config.set_config_value(no_file_logging_param, True)
+    
+    logging.apply_logging_config()
+    
+    # File should be above CRITICAL (disabled)
+    assert logging._file_handler.level > stdlib_logging.CRITICAL
+
+
+def test_apply_logging_config_with_suppress_errors():
+    """Test suppress-errors parameter enables error suppression.
+    
+    When suppress-errors is enabled, the logging system should suppress
+    error output. This validates the suppress-errors handling (line 368).
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Get and set suppress-errors param
+    suppress_errors_param = param.get_param_by_name(LOG_SUPPRESS_ERRORS_PARAM)
+    config.set_config_value(suppress_errors_param, True)
+    
+    logging.apply_logging_config()
+    
+    # Verify suppress errors is enabled
+    assert logging._suppress_errors is True

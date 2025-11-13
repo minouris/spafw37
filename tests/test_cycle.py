@@ -1051,3 +1051,69 @@ class TestCycleCommandRetrieval:
         
         result = cycle.get_cycle_commands(parent_cmd)
         assert result == ['inline-cmd']
+    
+    def test_validate_phase_with_missing_command_reference(self):
+        """Test phase validation skips missing command references.
+        
+        When validating phase consistency, if a command reference (string)
+        doesn't exist in commands_dict, validation should skip it rather than
+        fail. This covers the continue statement on line 165.
+        """
+        from spafw37.constants.command import COMMAND_PHASE
+        from spafw37.constants.phase import PHASE_SETUP
+        
+        cycle_def = {
+            CYCLE_NAME: 'test-cycle',
+            CYCLE_COMMANDS: ['nonexistent-command']
+        }
+        commands = {}
+        
+        # Should not raise an error despite missing command
+        cycle._validate_cycle_phase_consistency(cycle_def, commands, PHASE_SETUP)
+    
+    def test_mark_not_invocable_skips_missing_command_reference(self):
+        """Test marking commands not invocable skips missing references.
+        
+        When marking cycle commands as not invocable, if a command reference
+        (string) doesn't exist in commands_dict, it should be skipped. This
+        covers the continue statement on line 199.
+        """
+        cycle_def = {
+            CYCLE_NAME: 'test-cycle',
+            CYCLE_LOOP: lambda: False,
+            CYCLE_COMMANDS: ['nonexistent-command']
+        }
+        commands = {}
+        
+        # Should not raise an error despite missing command
+        cycle._mark_cycle_commands_not_invocable(cycle_def, commands)
+    
+    def test_execute_cycle_iteration_fails_for_missing_command(self):
+        """Test cycle iteration raises error when command not found.
+        
+        During cycle execution, if a command name in the queue doesn't exist
+        in commands_dict, a CycleExecutionError should be raised. This covers
+        the error path on line 320.
+        """
+        command_names = ['nonexistent-command']
+        commands = {}
+        
+        def mock_run_command(cmd_def, commands_dict):
+            pass
+        
+        def mock_queue_add(cmd_def, queue_list, commands_dict):
+            pass
+        
+        def mock_sort_queue(queue_list, commands_dict):
+            return queue_list
+        
+        # Should raise CycleExecutionError for missing command
+        try:
+            cycle._execute_cycle_iteration(
+                command_names, commands, mock_run_command,
+                mock_queue_add, mock_sort_queue
+            )
+            assert False, "Should have raised CycleExecutionError"
+        except cycle.CycleExecutionError as error:
+            assert 'Command not found' in str(error)
+            assert 'nonexistent-command' in str(error)

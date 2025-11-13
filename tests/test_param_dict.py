@@ -329,3 +329,263 @@ def test_dict_param_complex_nested_json(tmp_path):
     cli.handle_cli_args(args)
     assert spafw37.config._config.get('schema') == complex_data
 
+
+def test_is_short_alias_true():
+    """Test is_short_alias returns True for short aliases.
+    
+    Short aliases match the pattern -x where x is a single character.
+    This validates line 48.
+    """
+    setup_function()
+    assert param.is_short_alias('-v') is True
+    assert param.is_short_alias('-x') is True
+
+
+def test_is_short_alias_false():
+    """Test is_short_alias returns False for non-short aliases.
+    
+    Long aliases and regular strings should not match short alias pattern.
+    This validates line 48.
+    """
+    setup_function()
+    assert param.is_short_alias('--verbose') is False
+    assert param.is_short_alias('value') is False
+
+
+def test_is_long_alias_with_value_true():
+    """Test is_long_alias_with_value for --param=value format.
+    
+    Should return True when alias has embedded value.
+    This validates line 42.
+    """
+    setup_function()
+    assert param.is_long_alias_with_value('--param=value') is True
+    assert param.is_long_alias_with_value('--count=42') is True
+
+
+def test_is_long_alias_with_value_false():
+    """Test is_long_alias_with_value for other formats.
+    
+    Should return False when no embedded value.
+    This validates line 42.
+    """
+    setup_function()
+    assert param.is_long_alias_with_value('--param') is False
+    assert param.is_long_alias_with_value('value') is False
+
+
+def test_is_runtime_only_param_true():
+    """Test is_runtime_only_param when param has runtime-only=True.
+    
+    Should return True for params marked as runtime-only.
+    This validates line 86.
+    """
+    setup_function()
+    runtime_param = {'name': 'test', 'runtime-only': True}
+    assert param.is_runtime_only_param(runtime_param) is True
+
+
+def test_is_runtime_only_param_false_for_none():
+    """Test is_runtime_only_param when param is None.
+    
+    Should return False for None param.
+    This validates line 86.
+    """
+    setup_function()
+    assert param.is_runtime_only_param(None) is False
+
+
+def test_parse_value_list_joined_to_string_for_non_list_param():
+    """Test that list values are joined to string for non-list params.
+    
+    When a list is passed to a text/number/toggle param, join with spaces.
+    This validates line 124.
+    """
+    setup_function()
+    text_param = {'name': 'text', 'type': 'text'}
+    value = param._parse_value(text_param, ['hello', 'world'])
+    assert value == 'hello world'
+
+
+def test_param_in_args_with_equals_format():
+    """Test param_in_args detects --param=value format.
+    
+    Should return True when param appears as --alias=value in args.
+    This validates line 214.
+    """
+    setup_function()
+    test_param = {
+        'name': 'count',
+        'aliases': ['--count', '-c'],
+        'type': 'number',
+    }
+    param.add_param(test_param)
+    
+    args = ['--count=42', 'other']
+    assert param.param_in_args('count', args) is True
+
+
+def test_load_json_file_file_not_found():
+    """Test _load_json_file raises FileNotFoundError for missing file.
+    
+    Should raise clear error when file doesn't exist.
+    This validates lines 332-346.
+    """
+    setup_function()
+    import pytest
+    with pytest.raises(FileNotFoundError, match="Dict param file not found"):
+        param._load_json_file('/nonexistent/file.json')
+
+
+def test_load_json_file_permission_denied(tmp_path):
+    """Test _load_json_file raises PermissionError for unreadable file.
+    
+    Should raise clear error when file can't be read.
+    This validates lines 332-346.
+    """
+    setup_function()
+    import pytest
+    import stat
+    
+    # Create a file with no read permissions
+    p = tmp_path / "noperm.json"
+    p.write_text('{"test": "data"}')
+    p.chmod(stat.S_IWUSR)  # Write only, no read
+    
+    try:
+        with pytest.raises(PermissionError, match="Permission denied"):
+            param._load_json_file(str(p))
+    finally:
+        # Restore permissions so cleanup works
+        p.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_load_json_file_invalid_json(tmp_path):
+    """Test _load_json_file raises ValueError for invalid JSON.
+    
+    Should raise clear error when file contains malformed JSON.
+    This validates lines 332-346.
+    """
+    setup_function()
+    import pytest
+    
+    p = tmp_path / "invalid.json"
+    p.write_text('{invalid json}')
+    
+    with pytest.raises(ValueError, match="Invalid JSON in dict param file"):
+        param._load_json_file(str(p))
+
+
+def test_load_json_file_not_dict(tmp_path):
+    """Test _load_json_file raises ValueError when JSON is not an object.
+    
+    Dict params must contain JSON objects, not arrays or primitives.
+    This validates lines 332-346.
+    """
+    setup_function()
+    import pytest
+    
+    p = tmp_path / "array.json"
+    p.write_text('[1, 2, 3]')
+    
+    with pytest.raises(ValueError, match="Dict param file must contain a JSON object"):
+        param._load_json_file(str(p))
+
+
+def test_parse_json_text_invalid_json():
+    """Test _parse_json_text raises ValueError for invalid JSON.
+    
+    Should provide clear error message for malformed JSON.
+    This validates lines 363-364.
+    """
+    setup_function()
+    import pytest
+    
+    with pytest.raises(ValueError, match="Invalid JSON for dict parameter"):
+        param._parse_json_text('{invalid}')
+
+
+def test_parse_json_text_not_dict():
+    """Test _parse_json_text raises ValueError when JSON is not an object.
+    
+    Must be a JSON object for dict parameters.
+    This validates line 366.
+    """
+    setup_function()
+    import pytest
+    
+    with pytest.raises(ValueError, match="Provided JSON must be an object"):
+        param._parse_json_text('[1, 2, 3]')
+
+
+def test_normalize_dict_input_not_string():
+    """Test _normalize_dict_input raises ValueError for non-string input.
+    
+    Should validate input type and raise clear error.
+    This validates line 384.
+    """
+    setup_function()
+    import pytest
+    
+    with pytest.raises(ValueError, match="Invalid dict parameter value"):
+        param._normalize_dict_input(123)
+
+
+def test_read_file_raw_file_not_found():
+    """Test _read_file_raw raises FileNotFoundError for missing file.
+    
+    Should provide clear error message with file path.
+    This validates lines 400-401.
+    """
+    setup_function()
+    import pytest
+    
+    with pytest.raises(FileNotFoundError, match="Parameter file not found"):
+        param._read_file_raw('/nonexistent/file.txt')
+
+
+def test_read_file_raw_permission_denied(tmp_path):
+    """Test _read_file_raw raises PermissionError for unreadable file.
+    
+    Should provide clear error message for permission issues.
+    This validates lines 400-401.
+    """
+    setup_function()
+    import pytest
+    import stat
+    
+    # Create a file with no read permissions
+    p = tmp_path / "noperm.txt"
+    p.write_text('content')
+    p.chmod(stat.S_IWUSR)  # Write only, no read
+    
+    try:
+        with pytest.raises(PermissionError, match="Permission denied"):
+            param._read_file_raw(str(p))
+    finally:
+        # Restore permissions
+        p.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_is_number_param_for_dict_type():
+    """Test is_number_param returns False for dict params.
+    
+    Dict params should not be treated as number params.
+    This validates line 147 (else branch).
+    """
+    setup_function()
+    dict_param = {'name': 'mydict', 'type': 'dict'}
+    assert param.is_number_param(dict_param) is False
+
+
+def test_is_list_param_for_dict_type():
+    """Test is_list_param returns False for dict params.
+    
+    Dict params should not be treated as list params.
+    This validates line 153 (else branch).
+    """
+    setup_function()
+    dict_param = {'name': 'mydict', 'type': 'dict'}
+    assert param.is_list_param(dict_param) is False
+
+

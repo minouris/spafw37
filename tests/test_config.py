@@ -355,3 +355,85 @@ def test_get_config_list():
     
     # Test with custom default
     assert spafw37.config.get_config_list('nonexistent', ['default']) == ['default']
+
+
+def test_get_config_dict():
+    """Test get_config_dict function retrieves dict configuration values.
+    
+    The function should return the dict value when present, an empty dict when
+    value is None and no default provided, or raise ValueError when value is not
+    a dict. This validates the dict parameter support in the config system.
+    """
+    # Test with dict value
+    spafw37.config.set_config_value('test_dict', {'key': 'value'})
+    assert spafw37.config.get_config_dict('test_dict') == {'key': 'value'}
+    
+    # Test with None (should return empty dict)
+    assert spafw37.config.get_config_dict('nonexistent') == {}
+    
+    # Test with custom default
+    assert spafw37.config.get_config_dict('nonexistent', {'default': 'val'}) == {'default': 'val'}
+    
+    # Test with non-dict value (should raise ValueError) - this covers line 127
+    spafw37.config.set_config_value('test_string', 'not_a_dict')
+    try:
+        spafw37.config.get_config_dict('test_string')
+        assert False, "Should have raised ValueError"
+    except ValueError as error:
+        assert "not a dictionary" in str(error)
+
+
+def test_toggle_param_conflict_resolution():
+    """Test that setting a toggle param unsets conflicting XOR toggles.
+    
+    When a toggle parameter is set from command line, any previously-set
+    conflicting toggle parameters in the same XOR group should be automatically
+    unset. This validates the toggle conflict resolution logic in
+    set_config_value_from_cmdline (lines 69-71).
+    """
+    from spafw37.constants.param import PARAM_SWITCH_LIST
+    
+    # Create two toggle params in an XOR group
+    toggle1_param = {
+        PARAM_NAME: 'toggle1',
+        PARAM_TYPE: 'toggle',
+        PARAM_SWITCH_LIST: ['toggle2']
+    }
+    toggle2_param = {
+        PARAM_NAME: 'toggle2',
+        PARAM_TYPE: 'toggle',
+        PARAM_SWITCH_LIST: ['toggle1']
+    }
+    
+    # Register the params
+    param.add_params([toggle1_param, toggle2_param])
+    
+    # Set toggle1 to True using cmdline setter
+    config.set_config_value_from_cmdline(toggle1_param, True)
+    assert spafw37.config.get_config_value('toggle1') is True
+    
+    # Set toggle2 to True using cmdline setter - should unset toggle1
+    config.set_config_value_from_cmdline(toggle2_param, True)
+    assert spafw37.config.get_config_value('toggle2') is True
+    assert spafw37.config.get_config_value('toggle1') is False
+
+
+def test_load_config_unicode_decode_error(tmp_path):
+    """Test that load_config handles Unicode decode errors properly.
+    
+    When a config file contains invalid Unicode characters, load_config should
+    raise UnicodeDecodeError with a descriptive message. This validates error
+    handling for corrupted or binary files (line 108).
+    """
+    config_file = tmp_path / "invalid_unicode.json"
+    
+    # Write invalid UTF-8 bytes
+    with open(config_file, 'wb') as file:
+        file.write(b'\x80\x81\x82')
+    
+    # Attempt to load should raise UnicodeDecodeError
+    try:
+        config.load_config(str(config_file))
+        assert False, "Should have raised UnicodeDecodeError"
+    except UnicodeDecodeError as error:
+        assert config_file.name in str(error)

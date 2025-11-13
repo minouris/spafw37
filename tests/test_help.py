@@ -1,5 +1,5 @@
 import pytest
-from spafw37 import help, param, command, config_func as config
+from spafw37 import help, param, command, config_func as config, cycle
 import spafw37.config
 from spafw37.constants.command import (
     COMMAND_NAME,
@@ -7,6 +7,7 @@ from spafw37.constants.command import (
     COMMAND_HELP,
     COMMAND_REQUIRED_PARAMS,
     COMMAND_ACTION,
+    COMMAND_CYCLE,
 )
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -429,3 +430,126 @@ def test_command_parameter_error_is_value_error():
     
     error = CommandParameterError("Test error")
     assert isinstance(error, ValueError)
+
+
+def test_get_command_params_missing_command():
+    """Test _get_command_params returns empty list for missing command.
+    
+    When requesting parameters for a command that doesn't exist, the function
+    should return an empty list. This validates error handling (lines 50-52).
+    """
+    result = help._get_command_params('nonexistent-command')
+    assert result == []
+
+
+def test_display_command_help_with_cycle_commands(capsys):
+    """Test display_command_help shows cycle commands section.
+    
+    When a command has cycle commands, the help display should include a
+    "Cycle Commands" section listing the commands in the cycle. This validates
+    the cycle command display functionality (lines 218-225).
+    """
+    from spafw37.constants.cycle import CYCLE_NAME, CYCLE_LOOP, CYCLE_COMMANDS
+    from spafw37.constants.command import COMMAND_DESCRIPTION
+    
+    def loop_func():
+        return False
+    
+    # Create sub-commands first
+    sub_cmd_1 = {
+        COMMAND_NAME: 'sub-cmd-1',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'First sub command'
+    }
+    
+    sub_cmd_2 = {
+        COMMAND_NAME: 'sub-cmd-2',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'Second sub command'
+    }
+    
+    # Register sub-commands before parent cycle
+    command.add_commands([sub_cmd_1, sub_cmd_2])
+    
+    # Create a command with a cycle that references the sub-commands
+    cycle_cmd = {
+        COMMAND_NAME: 'cycle-parent',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'Parent command with cycle',
+        COMMAND_CYCLE: {
+            CYCLE_NAME: 'test-cycle',
+            CYCLE_LOOP: loop_func,
+            CYCLE_COMMANDS: ['sub-cmd-1', 'sub-cmd-2']
+        }
+    }
+    
+    command.add_command(cycle_cmd)
+    
+    help.display_command_help('cycle-parent')
+    
+    captured = capsys.readouterr()
+    assert 'Cycle Commands:' in captured.out
+    assert 'sub-cmd-1' in captured.out
+    assert 'sub-cmd-2' in captured.out
+    assert 'First sub command' in captured.out
+    assert 'Second sub command' in captured.out
+
+
+def test_display_command_help_with_nested_cycle_commands(capsys):
+    """Test display_command_help shows nested cycle commands with indentation.
+    
+    When a command has nested cycles (cycle within a cycle), the help display
+    should show nested cycle commands with proper indentation. This validates
+    the recursive cycle command display (lines 236-249).
+    """
+    from spafw37.constants.cycle import CYCLE_NAME, CYCLE_LOOP, CYCLE_COMMANDS
+    from spafw37.constants.command import COMMAND_DESCRIPTION
+    
+    def loop_func():
+        return False
+    
+    # Register commands from innermost to outermost
+    inner_cmd = {
+        COMMAND_NAME: 'inner-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'Innermost command'
+    }
+    
+    command.add_command(inner_cmd)
+    
+    # Create middle cycle that references inner command
+    mid_cycle_cmd = {
+        COMMAND_NAME: 'mid-cycle',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'Middle cycle command',
+        COMMAND_CYCLE: {
+            CYCLE_NAME: 'mid-cycle-def',
+            CYCLE_LOOP: loop_func,
+            CYCLE_COMMANDS: ['inner-cmd']
+        }
+    }
+    
+    command.add_command(mid_cycle_cmd)
+    
+    # Create parent cycle that references middle cycle
+    parent_cmd = {
+        COMMAND_NAME: 'parent-cycle',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_DESCRIPTION: 'Parent with nested cycles',
+        COMMAND_CYCLE: {
+            CYCLE_NAME: 'parent-cycle-def',
+            CYCLE_LOOP: loop_func,
+            CYCLE_COMMANDS: ['mid-cycle']
+        }
+    }
+    
+    command.add_command(parent_cmd)
+    
+    help.display_command_help('parent-cycle')
+    
+    captured = capsys.readouterr()
+    assert 'Cycle Commands:' in captured.out
+    assert 'mid-cycle' in captured.out
+    assert 'Middle cycle command' in captured.out
+    assert 'inner-cmd' in captured.out
+    assert 'Innermost command' in captured.out

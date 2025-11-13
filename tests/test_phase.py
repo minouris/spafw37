@@ -24,7 +24,7 @@ from spafw37.constants.param import (
     PARAM_TYPE_TEXT,
 )
 import pytest
-from tests.test_command import _queue_names, _reset_command_module 
+from test_command import _queue_names, _reset_command_module 
 
 def test_set_phase_order():
     """Test setting the phase order"""
