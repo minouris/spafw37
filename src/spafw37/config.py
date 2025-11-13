@@ -1,7 +1,25 @@
+from spafw37.constants.phase import PHASE_ORDER, PHASE_DEFAULT
+
 # Config dict to hold runtime parameters
 _config = {
 }
 
+_phases_order = PHASE_ORDER
+_default_phase = PHASE_DEFAULT
+
+def set_phases_order(phase_order = PHASE_ORDER):
+    global _phases_order
+    _phases_order = phase_order
+
+def get_phases_order():
+    return _phases_order
+
+def set_default_phase(default_phase = PHASE_DEFAULT):
+    global _default_phase
+    _default_phase = default_phase
+
+def get_default_phase():
+    return _default_phase
 
 def get_config_value(name):
     return _config.get(name)

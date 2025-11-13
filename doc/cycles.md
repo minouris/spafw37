@@ -16,7 +16,7 @@
 
 ## Overview
 
-Cycles enable you to execute a sequence of commands repeatedly in a loop. A cycle is attached to a parent command and consists of:
+Cycles enable you to execute a sequence of commands repeatedly in a loop ([see example](../examples/cycles_basic.py)). A cycle is attached to a parent command and consists of:
 
 - **Initialization function**: Set up resources before the loop starts
 - **Loop condition function**: Called before each iteration; returns `True` to continue, `False` to stop
@@ -47,7 +47,7 @@ Cycles support nesting (up to 5 levels deep), automatic parameter validation acr
 
 ## Defining a Cycle
 
-A cycle is attached to a parent command using the `COMMAND_CYCLE` key. The cycle definition includes initialization, loop condition, finalization functions, and the list of commands to execute each iteration.
+A cycle is attached to a parent command using the `COMMAND_CYCLE` key ([see example](../examples/cycles_basic.py)). The cycle definition includes initialization, loop condition, finalization functions, and the list of commands to execute each iteration.
 
 ### Basic Structure
 
@@ -187,7 +187,7 @@ def has_more_files():
 
 ### Loop Start Function
 
-Prepares data for the next iteration:
+Prepares data for the next iteration ([see example](../examples/cycles_loop_start.py)):
 
 ```python
 def prepare_next_file():
@@ -456,7 +456,7 @@ This ensures that if any cycle command needs a parameter, the framework validate
 
 ## Nested Cycles
 
-Cycles can be nested up to **5 levels deep**. Nested cycles work just like regular cycles - they have their own init/loop/end functions and command lists.
+Cycles can be nested up to **5 levels deep** ([see example](../examples/cycles_nested.py)). Nested cycles work just like regular cycles - they have their own init/loop/end functions and command lists.
 
 ```python
 from spafw37 import core as spafw37
@@ -841,6 +841,20 @@ The parent command's `COMMAND_ACTION` is optional when using a cycle. Use it onl
     }
 }
 ```
+
+---
+
+## Examples
+
+Complete working examples demonstrating cycle features:
+
+- **[cycles_basic.py](../examples/cycles_basic.py)** - Basic cycle with CYCLE_INIT, CYCLE_LOOP, and CYCLE_END for a simple counter
+- **[cycles_loop_start.py](../examples/cycles_loop_start.py)** - Using CYCLE_LOOP_START to prepare data for each iteration
+- **[cycles_nested.py](../examples/cycles_nested.py)** - Nested cycles for multi-dimensional iteration (processing a grid with outer and inner cycles)
+
+See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
+
+---
 
 ## Documentation
 

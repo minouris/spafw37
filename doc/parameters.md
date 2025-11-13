@@ -9,6 +9,7 @@
 - [Basic Parameter Definition](#basic-parameter-definition)
 - [Parameter Types](#parameter-types)
 - [Default Values](#default-values)
+- [Required Parameters](#required-parameters)
 - [Configuration Binding](#configuration-binding)
 - [Persistence Control](#persistence-control)
 - [Mutual Exclusion (Switch Lists)](#mutual-exclusion-switch-lists)
@@ -48,7 +49,7 @@ Parameters are defined as dictionaries using these constants as keys:
 | Constant | Description |
 |----------|-------------|
 | `PARAM_CONFIG_NAME` | The internal name this param is bound to in the config dict. Defaults to PARAM_NAME if not specified. |
-| `PARAM_REQUIRED` | Whether this param always needs to be set, either by the user or in the config file. |
+| `PARAM_REQUIRED` | Whether this param always needs to be set, either by the user or in the config file. See [examples/params_required.py](../examples/params_required.py) for usage. |
 
 ### Persistence Control
 
@@ -83,7 +84,7 @@ Parameters are defined as dictionaries using these constants as keys:
 
 ## Basic Parameter Definition
 
-Define a simple text parameter:
+Define a simple text parameter ([see example](../examples/params_basic.py)):
 
 ```python
 from spafw37.constants.param import (
@@ -147,7 +148,7 @@ python my_app.py command --threads 4
 
 ### Toggle Parameters
 
-Boolean flags that flip from their default value when present on the command line.
+Boolean flags that flip from their default value when present on the command line ([see example](../examples/params_toggles.py)).
 
 **Default False (most common):**
 
@@ -189,7 +190,7 @@ python my_app.py command --no-cache  # use-cache becomes False
 
 ### List Parameters
 
-Accept multiple values, such as file paths, tags, or options:
+Accept multiple values, such as file paths, tags, or options ([see example](../examples/params_lists.py)):
 
 ```python
 {
@@ -221,6 +222,49 @@ Parameters can have default values:
 
 Parameters with defaults are always considered "set" in configuration.
 
+## Required Parameters
+
+Parameters can be marked as required, meaning they must be set either by the user on the command line or in a configuration file before commands execute ([see example](../examples/params_required.py)):
+
+```python
+from spafw37.constants.param import PARAM_REQUIRED
+
+params = [
+    {
+        PARAM_NAME: 'environment',
+        PARAM_DESCRIPTION: 'Target environment (dev, staging, production)',
+        PARAM_ALIASES: ['--env', '-e'],
+        PARAM_REQUIRED: True,
+    },
+    {
+        PARAM_NAME: 'project',
+        PARAM_DESCRIPTION: 'Project name',
+        PARAM_ALIASES: ['--project', '-p'],
+        PARAM_REQUIRED: True,
+    },
+]
+```
+
+When a required parameter is not set, the framework will display a clear error message before executing any commands:
+
+```bash
+# Missing required parameters
+python my_app.py deploy
+# Error: Missing required parameter 'environment'
+
+# Provide required parameters
+python my_app.py deploy --env production --project myapp
+# Success: Command executes
+```
+
+**Key Points:**
+- Required parameters apply globally to all commands
+- Validation happens before any command execution
+- Can be satisfied by command-line arguments or config file values
+- Parameters with `PARAM_DEFAULT` are automatically considered set
+
+**Note:** For command-specific parameter requirements, see [Command Required Parameters](commands.md#required-parameters) in the Commands Guide.
+
 ## Configuration Binding
 
 By default, parameters are stored in configuration using `PARAM_NAME`. Use `PARAM_CONFIG_NAME` to bind to a different config key:
@@ -245,7 +289,7 @@ def my_command():
 
 ### Always Persist
 
-Parameters saved to the main config file automatically:
+Parameters saved to the main config file automatically ([see example](../examples/config_persistence.py)):
 
 ```python
 {
@@ -299,7 +343,7 @@ python my_app.py command --load-user-config my_settings.json
 
 ## Mutual Exclusion (Switch Lists)
 
-Ensure only one parameter from a group can be set. Each parameter lists the other parameters it's mutually exclusive with:
+Ensure only one parameter from a group can be set ([see example](../examples/params_toggles.py)). Each parameter lists the other parameters it's mutually exclusive with:
 
 ```python
 params = [
@@ -347,7 +391,7 @@ params = [
 
 ## Parameter Groups
 
-Organize related parameters in help display:
+Organize related parameters in help display ([see example](../examples/params_groups.py)):
 
 ```python
 params = [
@@ -372,11 +416,11 @@ params = [
 ]
 ```
 
-Parameters are grouped under their `PARAM_GROUP` heading in help output.
+Parameters are grouped under their `PARAM_GROUP` heading in help output. This is especially useful for applications with many parameters - grouping by functional area makes the help text much more readable.
 
 ## Runtime-Only Parameters
 
-Parameters for storing internal state that are set programmatically by commands or the framework, not from the command line:
+Parameters for storing internal state that are set programmatically by commands or the framework, not from the command line ([see example](../examples/params_runtime.py)):
 
 ```python
 {
@@ -510,6 +554,20 @@ def process_command():
     
     # ... process ...
 ```
+
+---
+
+## Examples
+
+Complete working examples demonstrating parameter features:
+
+- **[params_basic.py](../examples/params_basic.py)** - Basic text and number parameters with default values
+- **[params_toggles.py](../examples/params_toggles.py)** - Toggle parameters and mutual exclusion (switch lists) with output format selection
+- **[params_lists.py](../examples/params_lists.py)** - List parameters for handling multiple values (files and tags)
+- **[params_groups.py](../examples/params_groups.py)** - Parameter groups for organizing parameters in help display
+- **[params_runtime.py](../examples/params_runtime.py)** - Runtime-only parameters for session state and internal values
+
+See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
 
 ---
 

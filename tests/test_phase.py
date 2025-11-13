@@ -261,3 +261,54 @@ def test_commands_execute_in_correct_phases():
     command.queue_commands(["cmd-teardown", "cmd-setup", "cmd-exec"])
     command.run_command_queue()
     assert command._phases_completed == [PHASE_SETUP, PHASE_EXECUTION, PHASE_TEARDOWN]
+
+
+def test_set_default_phase_with_custom_phases():
+    """Test that set_default_phase() works with custom phases.
+    
+    When using completely custom phases (not including PHASE_EXECUTION),
+    commands without COMMAND_PHASE should be assigned to the custom default
+    phase set by set_default_phase().
+    """
+    _reset_command_module()
+    
+    # Define custom phases (no PHASE_EXECUTION)
+    PHASE_VALIDATE = "phase-validate"
+    PHASE_BUILD = "phase-build"
+    PHASE_TEST = "phase-test"
+    
+    custom_phases = [PHASE_VALIDATE, PHASE_BUILD, PHASE_TEST]
+    
+    # Set custom phase order
+    command.set_phases_order(custom_phases)
+    
+    # Set custom default phase to PHASE_BUILD
+    from spafw37 import config
+    config.set_default_phase(PHASE_BUILD)
+    
+    # Create command without COMMAND_PHASE - should use PHASE_BUILD
+    cmd_implicit = {
+        COMMAND_NAME: "implicit-phase-cmd",
+        COMMAND_ACTION: lambda: None
+        # No COMMAND_PHASE specified
+    }
+    
+    # Create command with explicit phase
+    cmd_explicit = {
+        COMMAND_NAME: "explicit-phase-cmd",
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PHASE: PHASE_TEST
+    }
+    
+    command.add_commands([cmd_implicit, cmd_explicit])
+    
+    # Verify implicit command was assigned to custom default phase
+    assert command._commands["implicit-phase-cmd"][COMMAND_PHASE] == PHASE_BUILD
+    
+    # Verify explicit command kept its assigned phase
+    assert command._commands["explicit-phase-cmd"][COMMAND_PHASE] == PHASE_TEST
+    
+    # Queue commands and verify they're in correct phase queues
+    command.queue_commands(["implicit-phase-cmd", "explicit-phase-cmd"])
+    assert command._commands["implicit-phase-cmd"] in command._phases[PHASE_BUILD]
+    assert command._commands["explicit-phase-cmd"] in command._phases[PHASE_TEST]

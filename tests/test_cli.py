@@ -614,8 +614,8 @@ def test_capture_param_values_two_aliases_breaks_out():
     # Capture values for the first param but provide the second param's alias immediately after
     _param = param.get_param_by_alias('--first')
     result = cli.capture_param_values(['--first', '--second'], _param)
-    # Expect capture to break out and return offset 2 and an empty list of values
-    assert result == (2, [])
+    # Expect capture to break out and return offset 1 (only consumed '--first') and an empty list of values
+    assert result == (1, [])
 
 def test_capture_param_values_breaks_on_command():
     setup_function()
@@ -639,8 +639,8 @@ def test_capture_param_values_breaks_on_command():
     # Simulate args where the command appears right after the alias
     args = ['--files', 'break-command']
     result = cli.capture_param_values(args, _param)
-    # Expect capture to break out and return offset 2 and an empty list of values
-    assert result == (2, [])
+    # Expect capture to break out and return offset 1 (only consumed '--files') and an empty list of values
+    assert result == (1, [])
 
 def test_do_pre_parse_actions_swallow_exception():
     setup_function()

@@ -272,10 +272,15 @@ The framework maintains separate persistent and runtime-only configuration, allo
 
 ## Examples
 
-See the `src/testapp/` directory for complete example applications:
+Complete working examples demonstrating each feature are available in the [`examples/`](../examples/) directory:
 
-- **`demo.py`** - Basic application with commands and parameters
-- **`cycle_demo.py`** - Advanced cycles with nesting and dependencies
+- **[Examples README](../examples/README.md)** - Overview of all examples with descriptions
+- Parameters: basic, toggles, lists, runtime-only
+- Commands: basic, sequencing, dependencies
+- Cycles: basic, loop_start
+- Configuration: basic, persistence
+
+See individual example files for focused demonstrations of specific features.
 
 ## Requirements
 

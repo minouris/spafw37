@@ -82,7 +82,7 @@ def capture_param_values(args, param_definition):
         values.extend([argument])
         argument_index += 1
     
-    return base_offset + argument_index, values
+    return argument_index, values
 
 # Module-level variable to hold original args for conflict checking
 _current_args = []

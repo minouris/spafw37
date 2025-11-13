@@ -698,6 +698,22 @@ User configuration files can be loaded and saved via CLI parameters:
 
 See the [Configuration Guide](configuration.md) for details on configuration file management.
 
+---
+
+## Examples
+
+The API reference documents the functions and constants used throughout the framework. For practical demonstrations of API usage, see:
+
+- **[examples/README.md](../examples/README.md)** - Complete guide to all available examples
+- **[Parameters Examples](../examples/)** - params_basic.py, params_toggles.py, params_lists.py, params_runtime.py
+- **[Commands Examples](../examples/)** - commands_basic.py, commands_sequencing.py, commands_dependencies.py
+- **[Cycles Examples](../examples/)** - cycles_basic.py, cycles_loop_start.py
+- **[Configuration Examples](../examples/)** - config_basic.py, config_persistence.py
+
+Each example demonstrates specific API functions and constants in working code that you can run and modify.
+
+---
+
 ## Documentation
 
 - **[User Guide](README.md)** - Overview and quick start

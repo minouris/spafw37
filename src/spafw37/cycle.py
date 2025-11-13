@@ -31,6 +31,7 @@ from spafw37.constants.cycle import (
 )
 from spafw37.constants.phase import PHASE_DEFAULT
 from spafw37 import logging
+from spafw37 import config
 
 
 class CycleValidationError(ValueError):
@@ -165,7 +166,7 @@ def _validate_cycle_phase_consistency(cycle_def, commands_dict, parent_phase):
             cmd_def = commands_dict[cmd_name]
         
         # Check phase consistency
-        cmd_phase = cmd_def.get(COMMAND_PHASE, PHASE_DEFAULT)
+        cmd_phase = cmd_def.get(COMMAND_PHASE, config.get_default_phase())
         if cmd_phase != parent_phase:
             raise CycleValidationError(
                 'Cycle command {} has phase {} but parent has phase {}'.format(
@@ -227,7 +228,7 @@ def register_cycle(command_def, commands_dict):
     
     cycle_name = cycle_def.get(CYCLE_NAME, 'unknown')
     parent_name = command_def.get(COMMAND_NAME, 'unknown')
-    parent_phase = command_def.get(COMMAND_PHASE, PHASE_DEFAULT)
+    parent_phase = command_def.get(COMMAND_PHASE, config.get_default_phase())
     
     # Validate required fields
     if not cycle_def.get(CYCLE_LOOP):

@@ -74,7 +74,7 @@ def log_error(_message=''):
 def set_phases_order(phase_order):
     global _phase_order
     _phase_order = phase_order
-    _current_phase = phase_order[0] if phase_order else PHASE_DEFAULT
+    _current_phase = phase_order[0] if phase_order else config.get_default_phase()
     for _phase in _phase_order:
         if _phase not in _phases:
             _phases[_phase] = []
@@ -171,7 +171,7 @@ def add_command(cmd):
         conflicting = goes_before & goes_after
         raise ValueError(f"Command '{name}' has conflicting constraints with: {list(conflicting)}")
     if not cmd.get(COMMAND_PHASE):
-        cmd[COMMAND_PHASE] = PHASE_DEFAULT
+        cmd[COMMAND_PHASE] = config.get_default_phase()
     _commands[name] = cmd
     
     # Register cycle if present

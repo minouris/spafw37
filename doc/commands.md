@@ -41,7 +41,7 @@ Commands are defined as dictionaries using these constants as keys:
 | `COMMAND_DESCRIPTION` | Description of the command |
 | `COMMAND_HELP` | Extended help text for the command |
 | `COMMAND_ACTION` | Function to call when the command is run |
-| `COMMAND_REQUIRED_PARAMS` | List of param bind names that are required for this command |
+| `COMMAND_REQUIRED_PARAMS` | List of param bind names that are required for this command. See [examples/commands_required.py](../examples/commands_required.py) for usage. |
 
 ### Sequencing and Dependencies
 
@@ -56,7 +56,7 @@ Commands are defined as dictionaries using these constants as keys:
 
 | Constant | Description |
 |----------|-------------|
-| `COMMAND_TRIGGER_PARAM` | Param bind name that triggers this command when set |
+| `COMMAND_TRIGGER_PARAM` | Param bind name that triggers this command when set. See [examples/commands_trigger.py](../examples/commands_trigger.py) for usage. |
 | `COMMAND_PHASE` | Phase in which this command should be run |
 | `COMMAND_CYCLE` | Attaches a cycle to a command, from the command side |
 
@@ -64,13 +64,13 @@ Commands are defined as dictionaries using these constants as keys:
 
 | Constant | Description |
 |----------|-------------|
-| `COMMAND_FRAMEWORK` | True if this is a framework-defined command (vs app-defined) |
-| `COMMAND_EXCLUDE_FROM_HELP` | True if this command should be excluded from help displays |
+| `COMMAND_FRAMEWORK` | True if this is a framework-defined command (vs app-defined). See [examples/commands_visibility.py](../examples/commands_visibility.py) for usage. |
+| `COMMAND_EXCLUDE_HELP` | True if this command should be excluded from help displays. See [examples/commands_visibility.py](../examples/commands_visibility.py) for usage. |
 | `COMMAND_INVOCABLE` | Marks a command as invocable by a param-trigger, or a CLI command. Default true for regular commands, false for cycle-internal commands. |
 
 ## Basic Command Definition
 
-The minimum viable command requires only a name, description, and action:
+The minimum viable command requires only a name, description, and action ([see example](../examples/commands_basic.py)):
 
 ```python
 from spafw37 import core as spafw37
@@ -135,36 +135,47 @@ Actions can be:
 
 ## Required Parameters
 
-Specify parameters that must be provided before the command can execute:
+Specify parameters that must be provided before a specific command can execute ([see example](../examples/commands_required.py)):
 
 ```python
 from spafw37.constants.command import COMMAND_REQUIRED_PARAMS
 
 def deploy_action():
     """Deploy to target environment."""
-    target = spafw37.get_config('target-env')
+    target = spafw37.get_config('environment')
     api_key = spafw37.get_config('api-key')
+    instance_count = spafw37.get_config('instance-count')
     print(f"Deploying to {target}...")
+    print(f"Instances: {instance_count}")
     # Deploy logic using api_key
 
 {
     COMMAND_NAME: 'deploy',
-    COMMAND_DESCRIPTION: 'Deploy to target environment',
+    COMMAND_DESCRIPTION: 'Deploy application',
     COMMAND_ACTION: deploy_action,
-    COMMAND_REQUIRED_PARAMS: ['target-env', 'api-key'],
+    COMMAND_REQUIRED_PARAMS: ['api-key', 'instance-count'],
 }
 ```
 
-The framework validates required parameters just before command execution. If any are missing, an error is raised with helpful information.
+The framework validates required parameters just before command execution. If any are missing, an error is raised with helpful information showing which parameters are needed.
 
 Usage:
 ```bash
 # Missing parameters - will show error and help
 python my_app.py deploy
+# Error: Missing required parameter 'api-key' for command 'deploy'
 
 # Correct usage
-python my_app.py deploy --target-env production --api-key abc123
+python my_app.py deploy --key abc123 --count 3
 ```
+
+**Key Points:**
+- `COMMAND_REQUIRED_PARAMS` is command-specific (only required for that command)
+- Different commands can have different parameter requirements
+- Validation happens just before the command executes
+- Error messages show exactly which parameters are needed
+
+**Note:** For globally required parameters (required for all commands), see [Required Parameters](parameters.md#required-parameters) in the Parameters Guide.
 
 ## Extended Help Text
 
@@ -200,7 +211,7 @@ python my_app.py help build
 
 ## Command Sequencing
 
-Control the order in which commands execute using sequencing constraints.
+Control the order in which commands execute using sequencing constraints ([see example](../examples/commands_sequencing.py)).
 
 ### COMMAND_GOES_AFTER
 
@@ -252,7 +263,7 @@ python my_app.py build setup
 
 ## Automatic Dependencies
 
-Automatically queue prerequisite commands using `COMMAND_REQUIRE_BEFORE`:
+Automatically queue prerequisite commands using `COMMAND_REQUIRE_BEFORE` ([see example](../examples/commands_dependencies.py)):
 
 ```python
 commands = [
@@ -328,9 +339,11 @@ Invoking `build` automatically creates the chain: `clean → configure → build
 
 ## Parameter-Triggered Commands
 
-Commands can be automatically invoked when a parameter is set:
+Commands can be automatically invoked when a parameter is set ([see example](../examples/commands_trigger.py)):
 
 ```python
+from spafw37.constants.command import COMMAND_TRIGGER_PARAM
+
 def load_plugins_action():
     """Load plugins from a specified directory."""
     plugin_dir = spafw37.get_config('plugin-dir')
@@ -348,7 +361,7 @@ def load_plugins_action():
 
 Usage:
 ```bash
-# load-plugins command runs automatically before other commands
+# load-plugins command runs automatically when plugin-dir is set
 python my_app.py process --plugin-dir ./plugins
 ```
 
@@ -357,13 +370,21 @@ This is useful for:
 - Initialization commands (loading plugins, connecting to databases)
 - Setup tasks that depend on specific parameters being provided
 
+**Key Points:**
+- Triggered commands are queued automatically when their trigger parameter is set
+- Can be combined with COMMAND_REQUIRED_PARAMS for validation
+- Multiple commands can be triggered by different parameters
+- Useful for setup and initialization workflows
+
 ## Command Visibility
 
 ### Framework Commands
 
-Mark commands as framework-internal (vs application commands):
+Mark commands as framework-internal (vs application commands) ([see example](../examples/commands_visibility.py)):
 
 ```python
+from spafw37.constants.command import COMMAND_FRAMEWORK
+
 {
     COMMAND_NAME: 'internal-config',
     COMMAND_ACTION: internal_action,
@@ -375,13 +396,15 @@ This helps distinguish between framework utilities and application functionality
 
 ### Excluding from Help
 
-Hide commands from the main help listing:
+Hide commands from the main help listing ([see example](../examples/commands_visibility.py)):
 
 ```python
+from spafw37.constants.command import COMMAND_EXCLUDE_HELP
+
 {
     COMMAND_NAME: 'deprecated-command',
     COMMAND_ACTION: old_action,
-    COMMAND_EXCLUDE_FROM_HELP: True,  # Hidden from help listing
+    COMMAND_EXCLUDE_HELP: True,  # Hidden from help listing
 }
 ```
 
@@ -390,12 +413,33 @@ The command is still executable but doesn't clutter help output. Useful for:
 - Internal/advanced commands
 - Framework utilities
 
+**Key Points:**
+- Hidden commands remain fully functional
+- Can still be invoked by name on the command line
+- Useful for maintaining backward compatibility
+- Helps keep help output clean and focused
+
 ## Advanced Topics
 
 For more advanced command features, see:
 
 - **[Cycles Guide](cycles.md)** - Repeating command sequences with init/loop/end functions
 - **[Phases Guide](phases.md)** - Multi-phase execution control and lifecycle management
+
+---
+
+## Examples
+
+Complete working examples demonstrating command features:
+
+- **[commands_basic.py](../examples/commands_basic.py)** - Basic command definition and actions (greet, hello, goodbye)
+- **[commands_sequencing.py](../examples/commands_sequencing.py)** - Command execution order with GOES_BEFORE and GOES_AFTER constraints
+- **[commands_dependencies.py](../examples/commands_dependencies.py)** - Automatic dependency resolution with REQUIRE_BEFORE and NEXT_COMMANDS
+- **[commands_required.py](../examples/commands_required.py)** - Command-specific required parameters with COMMAND_REQUIRED_PARAMS
+- **[commands_trigger.py](../examples/commands_trigger.py)** - Parameter-triggered commands with COMMAND_TRIGGER_PARAM
+- **[commands_visibility.py](../examples/commands_visibility.py)** - Command visibility control with COMMAND_FRAMEWORK and COMMAND_EXCLUDE_HELP
+
+See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
 
 ---
 

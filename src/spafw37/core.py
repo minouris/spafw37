@@ -104,8 +104,18 @@ def set_phases_order(phase_order):
     Args:
         phase_order: List of phase names in execution order.
     """
-    from spafw37 import command
-    command.set_phases_order(phase_order)
+    from spafw37 import config
+    config.set_phases_order(phase_order)
+
+def set_default_phase(default_phase):
+    """
+    Set the default phase for commands that don't specify a phase.
+    
+    Args:
+        default_phase: The phase name to use as default.
+    """
+    from spafw37 import config
+    config.set_default_phase(default_phase)
 
 def get_config_value(config_key):
     """

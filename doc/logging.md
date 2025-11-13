@@ -542,6 +542,31 @@ def experimental_feature():
     # myapp --phase-log-level experimental TRACE
 ```
 
+---
+
+## Examples
+
+The framework's built-in logging system is used throughout all examples. While there are no logging-specific examples, you can see logging in action in:
+
+- **[cycles_basic.py](../examples/cycles_basic.py)** - Demonstrates logging during cycle iterations
+- **[commands_sequencing.py](../examples/commands_sequencing.py)** - Shows logging of command execution order
+
+Use `--verbose` flag with any example to see DEBUG-level framework logging:
+
+```bash
+python examples/params_basic.py greet --name Alice --verbose
+```
+
+Use `--silent` flag to suppress framework console output:
+
+```bash
+python examples/commands_basic.py hello --silent
+```
+
+See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
+
+---
+
 ## Documentation
 
 - **[User Guide](README.md)** - Overview and quick start

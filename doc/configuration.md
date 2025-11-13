@@ -43,7 +43,7 @@ Key capabilities:
 
 ## Runtime Configuration
 
-The configuration system stores parameter values in an internal dictionary that's accessible throughout your application.
+The configuration system stores parameter values in an internal dictionary that's accessible throughout your application ([see example](../examples/config_basic.py)).
 
 ### Getting Configuration Values
 
@@ -266,7 +266,7 @@ Default is `config.json` in the current directory.
 
 ## Configuration Persistence
 
-Parameters have different persistence behaviors based on the `PARAM_PERSISTENCE` property:
+Parameters have different persistence behaviors based on the `PARAM_PERSISTENCE` property ([see example](../examples/config_persistence.py)):
 
 ### Persistence Always
 
@@ -582,6 +582,19 @@ if __name__ == '__main__':
     setup()
     spafw37.run_cli()
 ```
+
+---
+
+## Examples
+
+Complete working examples demonstrating configuration features:
+
+- **[config_basic.py](../examples/config_basic.py)** - Runtime configuration with get_config_value and set_config_value
+- **[config_persistence.py](../examples/config_persistence.py)** - Configuration persistence with PARAM_PERSISTENCE_ALWAYS vs PARAM_PERSISTENCE_NEVER
+
+See [examples/README.md](../examples/README.md) for a complete guide to all available examples.
+
+---
 
 ## Documentation
 

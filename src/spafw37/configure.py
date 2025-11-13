@@ -1,6 +1,7 @@
 # Configures configuration parameters for the application
 from spafw37 import logging
-from spafw37 import config_func as config
+from spafw37 import config_func
+from spafw37 import config
 from spafw37 import param
 from spafw37 import cli
 from spafw37 import command
@@ -25,12 +26,16 @@ from spafw37.constants.command import (
     COMMAND_DESCRIPTION,
     COMMAND_ACTION,
     COMMAND_FRAMEWORK,
+    COMMAND_PHASE,
 )
 from spafw37.constants.config import (
     CONFIG_INFILE_PARAM,
     CONFIG_OUTFILE_PARAM,
 )
-from spafw37.constants.phase import PHASE_ORDER
+from spafw37.constants.phase import (
+    PHASE_SETUP,
+    PHASE_TEARDOWN,
+)
 
 CONFIG_FILE_PARAM_GROUP = "Configuration File Options"
 HELP_PARAM = 'help'
@@ -76,34 +81,37 @@ _commands_builtin = [
         COMMAND_ACTION: help_module.show_help_command,
         COMMAND_TRIGGER_PARAM: HELP_PARAM,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_HELP: True
+        COMMAND_EXCLUDE_HELP: True,
+        COMMAND_PHASE: PHASE_SETUP
     },
     {
         COMMAND_NAME: "save-user-config",
         COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
         COMMAND_TRIGGER_PARAM: CONFIG_OUTFILE_PARAM,
         COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
-        COMMAND_ACTION: config.save_user_config,
+        COMMAND_ACTION: config_func.save_user_config,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_HELP: True
+        COMMAND_EXCLUDE_HELP: True,
+        COMMAND_PHASE: PHASE_TEARDOWN
     },
     {
         COMMAND_NAME: "load-user-config",
         COMMAND_REQUIRED_PARAMS: [ CONFIG_INFILE_PARAM ],
         COMMAND_TRIGGER_PARAM: CONFIG_INFILE_PARAM,
         COMMAND_DESCRIPTION: "Loads user configuration from a file",
-        COMMAND_ACTION: config.load_user_config,
+        COMMAND_ACTION: config_func.load_user_config,
         COMMAND_FRAMEWORK: True,
-        COMMAND_EXCLUDE_HELP: True
+        COMMAND_EXCLUDE_HELP: True,
+        COMMAND_PHASE: PHASE_SETUP
     }
 ]
 
 param.add_params(_params_builtin)
 param.add_params(logging.LOGGING_PARAMS)
 command.add_commands(_commands_builtin)
-command.set_phases_order(PHASE_ORDER)
-cli.add_pre_parse_actions([config.load_persistent_config])
-cli.add_post_parse_actions([config.save_persistent_config])
+command.set_phases_order(config.get_phases_order())
+cli.add_pre_parse_actions([config_func.load_persistent_config])
+cli.add_post_parse_actions([config_func.save_persistent_config])
 
 # Register pre-parse arguments (params to parse before main CLI parsing)
 param.add_pre_parse_args([
