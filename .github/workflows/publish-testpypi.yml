@@ -1,14 +1,16 @@
-name: Test
+name: Publish to TestPyPI (Dev)
 
 on:
   push:
-    branches: [ "main", "master", "develop" ]
-  pull_request:
-    branches: [ "main", "master", "develop" ]
-  workflow_call:  # Allow this workflow to be called by other workflows
+    branches: [ "main" ]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   test:
+    uses: ./.github/workflows/test.yml
+
+  publish:
+    needs: test
     runs-on: ubuntu-latest
     env:
       PYTHON_VERSION: '3.7.9'
@@ -18,6 +20,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Ensure cache directories exist
       run: |
@@ -54,7 +59,7 @@ jobs:
         cd Python-${PY}
         ./configure --prefix=$PY_PREFIX --with-ensurepip=install
         make -j "$(nproc)"
-        make install     
+        make install
 
     - name: Add built Python to PATH
       run: |
@@ -65,17 +70,46 @@ jobs:
         python3 --version
         python3 -m pip --version
 
-    - name: Install dependencies and package
+    - name: Install package and build tools
       run: |
         python3 -m pip install --upgrade pip setuptools wheel
-        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
         if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
         python3 -m pip install -e .
+        python3 -m pip install --upgrade build twine
 
-    - name: Run tests
+    - name: Install build tools
       run: |
-        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term-missing
+        python3 -m pip install --upgrade build twine
 
-    - name: Check test coverage
+    - name: Build package
       run: |
-        python3 -m pytest tests/ --cov=spafw37 --cov-report=term --cov-fail-under=80
+        python3 -m build
+
+    - name: Publish to TestPyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        python3 -m twine upload --repository testpypi dist/*
+
+    - name: Increment dev version
+      id: increment
+      run: |
+        # Make script executable
+        chmod +x .github/scripts/increment_version.py
+        
+        # Run version increment script and capture output
+        output=$(.github/scripts/increment_version.py)
+        echo "$output"
+        
+        # Extract new version for GitHub Actions output
+        new_version=$(echo "$output" | grep "^new_version=" | cut -d= -f2)
+        echo "new_version=$new_version" >> $GITHUB_OUTPUT
+
+    - name: Commit version bump
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add setup.cfg
+        git commit -m "chore: bump version to ${{ steps.increment.outputs.new_version }} [skip ci]"
+        git push
