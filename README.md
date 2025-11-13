@@ -296,18 +296,6 @@ This framework is specifically designed for Python 3.7 compatibility:
 - No positional-only parameters
 - Compatible with Python 3.7.0+
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes following the code style guidelines in `.github/instructions/`
-4. Ensure tests pass and coverage is ≥80%
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for detailed development guidelines.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
