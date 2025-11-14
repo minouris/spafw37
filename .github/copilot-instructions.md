@@ -306,10 +306,11 @@ The project uses GitHub Actions for continuous integration:
 ### CI/CD Workflows
 
 - **Test Workflow** (`.github/workflows/test.yml`) - Reusable workflow that:
-  - Builds Python 3.7.9 from source
+  - Builds Python 3.7.9 from source (with caching)
   - Installs dependencies
   - Runs pytest with 80% coverage requirement
   - Triggered on push/PR to main/develop
+  - Can be called by other workflows via `workflow_call`
 
 - **Publish to TestPyPI** (`.github/workflows/publish-testpypi.yml`) - Automated publishing that:
   - Runs test workflow as dependency
@@ -317,6 +318,17 @@ The project uses GitHub Actions for continuous integration:
   - Publishes to TestPyPI with TEST_PYPI_API_TOKEN
   - Commits version bump back to repo with [skip ci]
   - Uses PEP 440 versioning format (X.Y.Z.devN)
+
+- **Release Workflow** (`.github/workflows/release.yml`) - Manual production release that:
+  - Triggered manually via `workflow_dispatch` only
+  - Reuses test workflow to verify all tests pass
+  - Removes `.dev` suffix from version in setup.cfg
+  - Creates git tag for release version (e.g., `v1.0.0`)
+  - Builds and publishes to PyPI (requires PYPI_API_TOKEN secret)
+  - Generates CHANGELOG.md using AI (GitHub Copilot or OpenAI) to create concise, categorized summaries from diffs and commits (falls back to structured list if AI unavailable)
+  - Increments patch version and adds `.dev0` suffix for next development cycle
+  - All commits use `[skip ci]` to avoid triggering test workflow
+  - Creates GitHub Release with install instructions
 
 ## License
 
