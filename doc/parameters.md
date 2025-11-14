@@ -627,7 +627,7 @@ params = [
 
 Using both `--fast` and `--thorough` will raise an error.
 
-For larger groups, each parameter lists all others in the group:
+For larger groups, only one parameter needs to declare the list (relationships are bidirectional):
 
 ```python
 params = [
@@ -635,22 +635,24 @@ params = [
         PARAM_NAME: 'format-json',
         PARAM_ALIASES: ['--json'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['format-xml', 'format-yaml'],
+        PARAM_SWITCH_LIST: ['format-xml', 'format-yaml'],  # Creates bidirectional links
     },
     {
         PARAM_NAME: 'format-xml',
         PARAM_ALIASES: ['--xml'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['format-json', 'format-yaml'],
+        # No PARAM_SWITCH_LIST needed - already linked via format-json
     },
     {
         PARAM_NAME: 'format-yaml',
         PARAM_ALIASES: ['--yaml'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['format-json', 'format-xml'],
+        # No PARAM_SWITCH_LIST needed - already linked via format-json
     },
 ]
 ```
+
+**Note:** `PARAM_SWITCH_LIST` automatically creates bidirectional mutual exclusion relationships. When you add `format-xml` to `format-json`'s switch list, the framework automatically ensures `format-xml` excludes `format-json` as well. You only need to declare the relationship once.
 
 ## Parameter Groups
 

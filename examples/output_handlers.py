@@ -121,7 +121,7 @@ def timestamped_handler_demo():
     print(f"\nTimestamped output saved to: {os.path.abspath(output_file)}\n")
 
 
-def testing_handler_demo():
+def per_call_handler_demo():
     """Demonstrate per-call output handler specification."""
     global captured_output
     
@@ -200,7 +200,7 @@ def comprehensive_demo():
     
     timestamped_handler_demo()
     
-    testing_handler_demo()
+    per_call_handler_demo()
     
     spafw37.output("=== All Demos Complete ===")
     spafw37.output()
@@ -235,7 +235,7 @@ commands = [
     {
         COMMAND_NAME: 'testing',
         COMMAND_DESCRIPTION: 'Per-call handler specification demo',
-        COMMAND_ACTION: testing_handler_demo,
+        COMMAND_ACTION: per_call_handler_demo,
     },
     {
         COMMAND_NAME: 'all',

@@ -32,26 +32,28 @@ params = [
         PARAM_TYPE: PARAM_TYPE_TEXT,
     },
     # Toggle parameters - mutually exclusive output formats
+    # Note: PARAM_SWITCH_LIST creates bidirectional XOR relationships automatically.
+    # Only the first parameter needs to declare the list - others are linked automatically.
     {
         PARAM_NAME: 'json-output',
         PARAM_DESCRIPTION: 'Output results in JSON format',
         PARAM_ALIASES: ['--json', '-j'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['csv-output', 'xml-output'],
+        PARAM_SWITCH_LIST: ['csv-output', 'xml-output'],  # Creates bidirectional links
     },
     {
         PARAM_NAME: 'csv-output',
         PARAM_DESCRIPTION: 'Output results in CSV format',
         PARAM_ALIASES: ['--csv', '-c'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['json-output', 'xml-output'],
+        # No PARAM_SWITCH_LIST needed - already linked via json-output
     },
     {
         PARAM_NAME: 'xml-output',
         PARAM_DESCRIPTION: 'Output results in XML format',
         PARAM_ALIASES: ['--xml', '-x'],
         PARAM_TYPE: PARAM_TYPE_TOGGLE,
-        PARAM_SWITCH_LIST: ['json-output', 'csv-output'],
+        # No PARAM_SWITCH_LIST needed - already linked via json-output
     },
 ]
 

@@ -39,6 +39,8 @@ from spafw37.constants.param import (
     PARAM_ALIASES,
     PARAM_DEFAULT,
     PARAM_TYPE,
+    PARAM_TYPE_NUMBER,
+    PARAM_TYPE_TEXT,
 )
 from spafw37.constants.command import (
     COMMAND_NAME,
@@ -68,7 +70,7 @@ def setup():
             PARAM_NAME: 'instance-count',
             PARAM_DESCRIPTION: 'Number of instances to deploy',
             PARAM_ALIASES: ['--count', '-c'],
-            PARAM_TYPE: int,
+            PARAM_TYPE: PARAM_TYPE_NUMBER,
         },
         {
             PARAM_NAME: 'backup-path',

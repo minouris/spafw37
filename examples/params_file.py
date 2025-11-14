@@ -53,7 +53,7 @@ def read_query():
 
 def process_count():
     """Process using count loaded from file."""
-    count = spafw37.get_config_value('count')
+    count = spafw37.get_config_int('count')
     
     spafw37.output(f"Count loaded from file: {count}")
     spafw37.output(f"Type: {type(count)}")
@@ -65,7 +65,7 @@ def process_count():
 
 def process_files():
     """Process files loaded from list in file."""
-    files = spafw37.get_config_value('files')
+    files = spafw37.get_config_list('files')
     
     spafw37.output(f"Files loaded from file: {len(files)} total")
     spafw37.output("\nFile list:")

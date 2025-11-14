@@ -46,30 +46,30 @@ common_params = [
 spafw37.add_params(common_params)
 
 # Example 2: Nested inline definitions
-# Parameter with inline switch list (mutually exclusive params)
-output_params = [
+# Toggle parameter with inline mutually exclusive toggles
+verbosity_params = [
     {
-        PARAM_NAME: "output-format",
-        PARAM_TYPE: PARAM_TYPE_TEXT,
-        PARAM_ALIASES: ["--format", "-f"],
-        PARAM_DEFAULT: "json",
-        # Define mutually exclusive output modes inline
+        PARAM_NAME: "debug",
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ["--debug", "-d"],
+        # Define mutually exclusive verbosity modes inline
+        # Note: PARAM_SWITCH_LIST creates bidirectional XOR relationships
         PARAM_SWITCH_LIST: [
             {
-                PARAM_NAME: "compact-output",
+                PARAM_NAME: "quiet",
                 PARAM_TYPE: PARAM_TYPE_TOGGLE,
-                PARAM_ALIASES: ["--compact"],
+                PARAM_ALIASES: ["--quiet", "-q"],
             },
             {
-                PARAM_NAME: "pretty-output",
+                PARAM_NAME: "silent",
                 PARAM_TYPE: PARAM_TYPE_TOGGLE,
-                PARAM_ALIASES: ["--pretty"],
+                PARAM_ALIASES: ["--silent"],
             }
         ]
     }
 ]
 
-spafw37.add_params(output_params)
+spafw37.add_params(verbosity_params)
 
 # Example 3: Complex command with mixed inline and named references
 commands = [
