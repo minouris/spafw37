@@ -90,6 +90,13 @@ jobs:
         {
           echo "🎉 New release of spafw37!"
           echo ""
+          echo "This is a lightweight Python 3.7+ framework for building command-line applications. It has configuration management, custom per-command parameters, execution control, repeatable commands, and a whole lot more..."
+          echo "It's not very interesting by itself, but it makes developing small apps much easier - it's what I use for my other small tools :)"
+          echo ""
+          echo "If you use it, please let me know what you think, and if you can think of any features you'd like to see added!"
+          echo ""
+          echo "If you find any problems, please report them at https://github.com/${REPOSITORY}/issues?q=is%3Aissue+label%3Av${VERSION}"
+          echo ""
           echo "Version ${VERSION} is now available on PyPI."
           echo ""
           echo "Install with:"
