@@ -371,6 +371,7 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
 ## Links
 
+- **PyPI:** https://pypi.org/project/spafw37/
 - **Repository:** https://github.com/minouris/spafw37
 - **Issues:** https://github.com/minouris/spafw37/issues
 - **TestPyPI:** https://test.pypi.org/project/spafw37/
