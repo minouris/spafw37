@@ -86,12 +86,44 @@ jobs:
         echo "$CHANGELOG_EXCERPT" > /tmp/changelog.txt
         echo "Changelog excerpt extracted"
 
+    - name: Get Patreon Campaign ID
+      id: campaign
+      env:
+        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
+      run: |
+        # Get campaign ID from Patreon API
+        echo "Fetching campaign information..."
+        
+        RESPONSE=$(curl -s -X GET "https://www.patreon.com/api/oauth2/v2/campaigns" \
+          -H "Authorization: Bearer ${PATREON_ACCESS_TOKEN}")
+        
+        # Check for errors
+        if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
+          echo "❌ Error fetching campaign info:"
+          echo "$RESPONSE" | jq '.errors'
+          exit 1
+        fi
+        
+        # Extract campaign ID
+        CAMPAIGN_ID=$(echo "$RESPONSE" | jq -r '.data[0].id // empty')
+        
+        if [ -z "$CAMPAIGN_ID" ]; then
+          echo "❌ Could not find campaign ID. Response:"
+          echo "$RESPONSE" | jq '.'
+          exit 1
+        fi
+        
+        echo "✅ Found campaign ID: $CAMPAIGN_ID"
+        echo "campaign_id=$CAMPAIGN_ID" >> $GITHUB_OUTPUT
+
     - name: Post to Patreon
+      id: post
       env:
         PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
       run: |
         VERSION="${{ inputs.version }}"
         RELEASE_URL="${{ steps.release_info.outputs.release_url }}"
+        CAMPAIGN_ID="${{ steps.campaign.outputs.campaign_id }}"
         CHANGELOG_EXCERPT=$(cat /tmp/changelog.txt)
         
         # Create post content
@@ -114,7 +146,7 @@ jobs:
         # Post to Patreon API
         echo "Posting release announcement to Patreon..."
         
-        RESPONSE=$(curl -s -X POST "https://www.patreon.com/api/oauth2/v2/posts" \
+        RESPONSE=$(curl -s -X POST "https://www.patreon.com/api/oauth2/v2/campaigns/${CAMPAIGN_ID}/posts" \
           -H "Authorization: Bearer ${PATREON_ACCESS_TOKEN}" \
           -H "Content-Type: application/json" \
           -d "{

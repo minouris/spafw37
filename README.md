@@ -22,6 +22,12 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 
 ## Installation
 
+### From PyPI (Production Releases)
+
+```bash
+pip install spafw37
+```
+
 ### From TestPyPI (Development Releases)
 
 ```bash
