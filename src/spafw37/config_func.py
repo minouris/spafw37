@@ -85,7 +85,14 @@ def _manage_config_persistence(param_def, value):
 def load_config(config_file_in):
     if config_file_in:
         try:
-            with open(config_file_in, 'r') as f:
+            validated_path = param._validate_file_for_reading(config_file_in)
+        except ValueError as value_error:
+            # Catch binary file or directory errors from validator
+            logging.log_error(_scope='config', _message=str(value_error))
+            raise value_error
+        
+        try:
+            with open(validated_path, 'r') as f:
                 content = f.read()
                 if not content.strip():
                     # Treat empty files as empty configuration
