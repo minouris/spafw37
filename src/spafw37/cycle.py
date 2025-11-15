@@ -45,6 +45,9 @@ class CycleExecutionError(RuntimeError):
 
 
 # Module state
+# NOTE: Thread Safety - These module-level variables are not thread-safe.
+# This framework is designed for single-threaded CLI applications. If using
+# in a multi-threaded context, external synchronization is required.
 _active_cycle = None
 _max_nesting_depth = 5
 

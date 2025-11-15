@@ -73,8 +73,6 @@ def set_config_value_from_cmdline(param_def, value):
     # Set the value
     set_config_value(param_def, value)
 
-# Not sure this is doing the right thing - values 
-#   that are Persistent should be stored in _persistent_config, not their param defs
 def _manage_config_persistence(param_def, value):
     bind_name = param.get_bind_name(param_def)
     if param.is_persistence_never(param_def):
@@ -94,16 +92,16 @@ def load_config(config_file_in):
                 f.seek(0)
                 return json.loads(content)
         except FileNotFoundError:
-            # TODO: Log file not found
+            logging.log_error(_scope='config', _message=f"Config file '{config_file_in}' not found")
             raise FileNotFoundError(f"Config file '{config_file_in}' not found")
         except PermissionError:
-            # TODO: Log permission error
+            logging.log_error(_scope='config', _message=f"Permission denied for config file '{config_file_in}'")
             raise PermissionError(f"Permission denied for config file '{config_file_in}'")
         except UnicodeDecodeError as e:
-            # TODO: Log Unicode decode error
+            logging.log_error(_scope='config', _message=f"Unicode decode error in config file '{config_file_in}': {e.reason}")
             raise UnicodeDecodeError(e.encoding, e.object, e.start, e.end, f"Unicode decode error in config file '{config_file_in}': {e.reason}")
         except json.JSONDecodeError:
-            # TODO: Log invalid JSON
+            logging.log_error(_scope='config', _message=f"Invalid JSON in config file '{config_file_in}'")
             raise ValueError(f"Invalid JSON in config file '{config_file_in}'")
     return {}
 
@@ -119,7 +117,7 @@ def save_config(config_file_out, config_dict):
             with open(config_file_out, 'w') as f:
                 json.dump(config_dict, f, indent=2)
         except (OSError, IOError) as e:
-            # TODO: Log file write error
+            logging.log_error(_scope='config', _message=f"Error writing to config file '{config_file_out}': {e}")
             raise IOError(f"Error writing to config file '{config_file_out}': {e}")
 
 

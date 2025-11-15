@@ -4,6 +4,9 @@ from spafw37.constants.phase import PHASE_ORDER, PHASE_DEFAULT
 from spafw37.logging_config import LOG_VERBOSE_PARAM, LOG_SILENT_PARAM
 
 # Config dict to hold runtime parameters
+# NOTE: Thread Safety - These module-level variables are not thread-safe.
+# This framework is designed for single-threaded CLI applications. If using
+# in a multi-threaded context, external synchronization is required.
 _config = {
 }
 

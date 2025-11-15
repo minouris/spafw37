@@ -37,7 +37,7 @@ def _do_post_parse_actions():
         try:
             action()
         except Exception as e:
-            # TODO: Log error
+            logging_module.log_error(_scope='cli', _message=f'Post-parse action failed: {e}')
             raise e
 
 def _do_pre_parse_actions():
@@ -45,7 +45,7 @@ def _do_pre_parse_actions():
         try:
             action()
         except Exception as e:
-            # TODO: Log error
+            logging_module.log_error(_scope='cli', _message=f'Pre-parse action failed: {e}')
             pass
 
 def capture_param_values(args, param_definition):

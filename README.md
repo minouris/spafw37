@@ -296,6 +296,12 @@ This framework is specifically designed for Python 3.7 compatibility:
 - No positional-only parameters
 - Compatible with Python 3.7.0+
 
+## Known Issues
+
+### Thread Safety
+
+This framework is designed for single-threaded CLI applications. Module-level state variables in `command.py`, `cycle.py`, `param.py`, and `config.py` are **not thread-safe**. If you need to use this framework in a multi-threaded context, you must implement external synchronization around framework operations.
+
 ## Reporting Bugs
 
 Found a bug? Please report it on our [GitHub Issues](https://github.com/minouris/spafw37/issues) page.

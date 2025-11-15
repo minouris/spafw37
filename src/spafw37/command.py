@@ -36,6 +36,9 @@ class CommandParameterError(ValueError):
 
 
 # Module state
+# NOTE: Thread Safety - These module-level variables are not thread-safe.
+# This framework is designed for single-threaded CLI applications. If using
+# in a multi-threaded context, external synchronization is required.
 _commands = {}
 _finished_commands = []
 _phase_order = [ PHASE_DEFAULT]
@@ -369,6 +372,9 @@ def _build_dependency_graph(names):
     Build a directed graph (adjacency list) for the provided command names.
     Edge A -> B means A must come before B.
     Raises CircularDependencyError if cycles are detected.
+    
+    TODO: Improve error message to show the actual cycle path rather than
+    just listing remaining nodes when circular dependencies are detected.
     """
     
     graph = {n: set() for n in names}

@@ -30,6 +30,9 @@ PATTERN_LONG_ALIAS = r"^--\w+(?:-\w+)*$"
 PATTERN_LONG_ALIAS_EQUALS_VALUE = r"^--\w+(?:-\w+)*=.+$"
 PATTERN_SHORT_ALIAS = r"^-\w{1,2}$"
 
+# NOTE: Thread Safety - These module-level variables are not thread-safe.
+# This framework is designed for single-threaded CLI applications. If using
+# in a multi-threaded context, external synchronization is required.
 _params = {}
 _param_aliases = {}
 _xor_list = {}
