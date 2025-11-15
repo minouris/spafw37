@@ -8,7 +8,7 @@ Before creating a release, ensure:
 
 1. All changes for the release are merged to `main`
 2. All tests are passing on `main`
-3. You have the `PYPI_API_TOKEN` secret configured in the repository settings
+3. PyPI Trusted Publisher is configured for this repository (see [Configuration](#configuration) below)
 
 ## Creating a Release
 
@@ -28,19 +28,23 @@ The release workflow automatically:
 
 2. **Removes development suffix** - Changes version from `X.Y.Z.devN` to `X.Y.Z` in `setup.cfg`
 
-3. **Creates git tag** - Creates a version tag (e.g., `v1.0.0`) and pushes it to the repository
+3. **Generates changelog** - Uses AI to create a concise, categorized summary of changes (or falls back to structured commit list if AI is unavailable)
 
-4. **Creates bugfix branch** - Creates a branch for future bugfixes (e.g., `bugfix/1.0.x`) based on the release tag
+4. **Creates release branch** - Creates a `release/vX.Y.Z` branch with updated README links pointing to the tagged documentation
 
-5. **Publishes to PyPI** - Builds distribution packages and uploads them to the Python Package Index
+5. **Updates README links** - Changes all documentation and example links from `/main/` to `/vX.Y.Z/` so the README on the tag points to the correct tagged documentation
 
-6. **Updates changelog** - Uses AI to generate a concise, categorized summary of changes from diffs and commit messages (or falls back to structured commit list if AI is unavailable)
+6. **Creates git tag** - Creates a version tag (e.g., `v1.0.0`) from the release branch and pushes it
 
-7. **Bumps development version** - Increments the patch version and adds `.dev0` suffix (e.g., `1.0.0` → `1.0.1.dev0`)
+7. **Creates bugfix branch** - Creates a `bugfix/X.Y.x` branch from the tag for future patch releases
 
-8. **Creates GitHub Release** - Creates a GitHub Release with install instructions
+8. **Publishes to PyPI** - Builds distribution packages and uploads them using PyPI Trusted Publisher (OIDC authentication, no API token needed)
 
-All version changes and changelog updates are committed with `[skip ci]` to avoid triggering the test workflow unnecessarily.
+9. **Bumps development version** - Increments the patch version and adds `.dev0` suffix on `main` (e.g., `1.0.0` → `1.0.1.dev0`)
+
+10. **Creates GitHub Release** - Creates a GitHub Release with install instructions
+
+All commits use `[skip ci]` to avoid triggering the test workflow unnecessarily.
 
 ## Version Numbering
 
@@ -214,19 +218,40 @@ To rollback a release:
 
 ## Configuration
 
+### PyPI Trusted Publisher
+
+This project uses **PyPI Trusted Publisher** for secure, token-free publishing. This uses OpenID Connect (OIDC) to authenticate GitHub Actions directly with PyPI.
+
+**Setup** (one-time configuration):
+
+1. Go to PyPI project settings: <https://pypi.org/manage/project/spafw37/settings/publishing/>
+2. Add a new "Trusted Publisher":
+   - **Owner**: `minouris`
+   - **Repository name**: `spafw37`
+   - **Workflow name**: `release.yml`
+   - **Environment name**: (leave blank)
+3. Save the configuration
+
+**Benefits**:
+- No API tokens to manage or rotate
+- More secure (scoped to specific workflow)
+- Automatic authentication via OIDC
+- No secrets to configure in GitHub
+
 ### GitHub Secrets
 
-The following secrets must be configured in repository settings:
+The following secrets can be configured in repository settings:
 
-- `PYPI_API_TOKEN` - **Required** - PyPI API token for publishing releases (get from https://pypi.org/manage/account/token/)
-- `OPENAI_API_KEY` - *Optional* - OpenAI API key for AI-powered changelog generation (get from https://platform.openai.com/api-keys)
+- `OPENAI_API_KEY` - *Optional* - OpenAI API key for AI-powered changelog generation
 - `GITHUB_TOKEN` - Automatically provided by GitHub Actions
 
-**Note**: If `OPENAI_API_KEY` is not provided, the workflow will fall back to a structured commit list for the changelog.
+**Note**: If `OPENAI_API_KEY` is not provided, the workflow will try GitHub Copilot (via `gh` CLI) or fall back to a structured commit list.
 
 ### Workflow Permissions
 
 The release workflow requires:
+- `contents: write` - For creating releases and pushing commits/tags
+- `id-token: write` - For PyPI Trusted Publisher OIDC authentication
 
 - `contents: write` - For creating tags, releases, and pushing commits
 - Standard `GITHUB_TOKEN` permissions for other operations
