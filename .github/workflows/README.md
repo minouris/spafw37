@@ -18,12 +18,28 @@ Runs on every push to `main` branch (typically after merging PRs).
 - Calls increment-version.yml workflow after successful publish
 
 ### increment-version.yml
+
 Auto-increments the dev version number and commits it back.
+
 - Can be called by other workflows (reusable workflow)
 - Can be triggered manually via workflow_dispatch
 - Reuses the same Python cache as other workflows
 - Increments version in setup.cfg (e.g., 1.0.0.dev0 → 1.0.0.dev1)
 - Commits changes with `[skip ci]` to avoid triggering another workflow run
+
+### release.yml
+
+Manual workflow for production releases to PyPI.
+
+- Triggered manually via workflow_dispatch only
+- Runs tests first (must pass)
+- Removes `.dev` suffix from version
+- Creates git tag and bugfix branch
+- Publishes to PyPI using Trusted Publisher (OIDC)
+- Generates CHANGELOG.md using AI
+- Creates GitHub Release
+- Posts release announcement to Patreon (if configured)
+- Increments version for next development cycle
 
 ## Setup Instructions
 
@@ -44,7 +60,38 @@ Auto-increments the dev version number and commits it back.
 5. Value: Paste the token from TestPyPI
 6. Click **Add secret**
 
-### 3. Version Management
+### 3. (Optional) Configure Patreon Integration
+
+The release workflow can automatically post release announcements to Patreon.
+
+#### Create Patreon Access Token
+
+1. Go to the [Patreon Creator Portal](https://www.patreon.com/portal/registration/register-clients)
+2. Click "Create Client"
+3. Fill in the application details:
+   - **App Name**: Your project name (e.g., "spafw37 Release Bot")
+   - **Description**: Brief description (e.g., "Automated release announcements")
+   - **App Category**: Choose "Tools & Utilities"
+   - **Redirect URIs**: Add `http://localhost:3000/oauth/redirect` (required but not used)
+4. Click "Create Client"
+5. Copy your **Client ID** and **Client Secret**
+6. Generate an access token:
+   - Go to the OAuth2 playground or use the Patreon API to get a Creator Access Token
+   - Scopes needed: `w:posts.create` (create posts)
+7. Copy the access token
+
+#### Add Patreon Token to GitHub Secrets
+
+1. Go to your repository on GitHub
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Name: `PATREON_ACCESS_TOKEN`
+5. Value: Paste the access token from Patreon
+6. Click **Add secret**
+
+If the `PATREON_ACCESS_TOKEN` secret is not configured, the release workflow will skip the Patreon posting step without failing.
+
+### 4. Version Management
 
 The version in `setup.cfg` follows the format: `X.Y.Z.devN`
 
@@ -56,9 +103,11 @@ The version in `setup.cfg` follows the format: `X.Y.Z.devN`
 You can increment the version in three ways:
 
 **1. Automatically after publish** (default):
+
 - The publish workflow automatically calls increment-version.yml after successful publish
 
 **2. Manually trigger workflow**:
+
 - Go to Actions → Increment Version → Run workflow
 - Select branch and click "Run workflow"
 

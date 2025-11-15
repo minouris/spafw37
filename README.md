@@ -7,6 +7,8 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 
 **Repository:** https://github.com/minouris/spafw37
 
+**Support Me:** Support me on Patreon at [Minouris Does Stuff!](https://patreon.com/Minouris) I'll post news and previews of all my projects, software and otherwise, including this one! 
+
 ## Features
 
 - **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, and persistence
@@ -332,7 +334,9 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
 ## Author
 
-**Ciara Norrish** ([@minouris](https://github.com/minouris))
+**Minouris (Ciara Norrish)** ([@minouris](https://github.com/minouris))
+
+**Support Me:** Support me on Patreon at [Minouris Does Stuff!](https://patreon.com/Minouris) I'll post news and previews of all my projects, software and otherwise, including this one! 
 
 ## Links
 
