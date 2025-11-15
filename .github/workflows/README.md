@@ -29,17 +29,60 @@ Auto-increments the dev version number and commits it back.
 
 ### release.yml
 
-Manual workflow for production releases to PyPI.
+Manual workflow for production releases to PyPI with selectable modes.
 
 - Triggered manually via workflow_dispatch only
+- **Release Modes:**
+  - **full-release** (default): Complete release process with versioning, tagging, branching
+  - **docs-only**: Update PyPI documentation without creating new version/tags
 - Runs tests first (must pass)
-- Removes `.dev` suffix from version
-- Creates git tag and bugfix branch
-- Publishes to PyPI using Trusted Publisher (OIDC)
-- Generates CHANGELOG.md using AI
-- Creates GitHub Release
-- Posts release announcement to Patreon (if configured)
-- Increments version for next development cycle
+- **Full Release Mode:**
+  - Removes `.dev` suffix from version
+  - Creates git tag and bugfix branch
+  - Publishes to PyPI using Trusted Publisher (OIDC)
+  - Generates CHANGELOG.md using AI
+  - Creates GitHub Release
+  - Increments version for next development cycle
+- **Documentation-Only Mode:**
+  - Builds package with current documentation
+  - Uploads to PyPI with `skip-existing: true` (updates metadata only)
+  - Skips all git operations and versioning
+- Provides detailed workflow summary showing mode, status, and next steps
+
+### post-patreon.yml
+
+Manual workflow for posting release announcements to Patreon.
+
+- Triggered manually via workflow_dispatch
+- Requires version number input
+- Optional GitHub Release URL (auto-detected if not provided)
+- Extracts changelog for the version
+- Posts formatted announcement to Patreon
+- Requires PATREON_ACCESS_TOKEN secret
+
+### backout-release.yml
+
+Manual workflow for rolling back a release.
+
+- Triggered manually via workflow_dispatch
+- Requires version number and reason inputs
+- Deletes GitHub Release
+- Deletes git tag (local and remote)
+- Deletes release branch
+- Resets main branch to dev version
+- **Note:** Cannot delete PyPI package (PyPI policy)
+
+### update-pypi-docs.yml
+
+Manual workflow for updating PyPI documentation without creating a new release.
+
+- Triggered manually via workflow_dispatch
+- Requires version number input
+- Checks out the release tag
+- Rebuilds and re-uploads package to PyPI
+- Uses `skip-existing: true` to avoid conflicts
+- Useful for fixing documentation errors after release
+- Requires PyPI Trusted Publisher OIDC configuration
 
 ## Setup Instructions
 

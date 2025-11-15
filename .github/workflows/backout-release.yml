@@ -1,0 +1,145 @@
+name: Backout Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to backout (e.g., 1.0.0)'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for backout'
+        required: false
+        type: string
+        default: 'Release backout'
+
+jobs:
+  backout:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ inputs.version }}"
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Version must be in format X.Y.Z (e.g., 1.0.0)"
+          exit 1
+        fi
+        echo "Version format validated: $VERSION"
+
+    - name: Check if tag exists
+      id: check_tag
+      run: |
+        TAG="v${{ inputs.version }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Tag $TAG exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Tag $TAG does not exist"
+        fi
+
+    - name: Delete GitHub Release
+      if: steps.check_tag.outputs.exists == 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="v${{ inputs.version }}"
+        
+        # Try to delete the GitHub Release (may not exist)
+        gh release delete "$TAG" --yes || echo "No GitHub Release found for $TAG"
+
+    - name: Delete git tag
+      if: steps.check_tag.outputs.exists == 'true'
+      run: |
+        TAG="v${{ inputs.version }}"
+        
+        # Delete local tag
+        git tag -d "$TAG" || echo "Local tag already deleted"
+        
+        # Delete remote tag
+        git push origin ":refs/tags/$TAG" || echo "Remote tag already deleted"
+        
+        echo "✅ Deleted tag: $TAG"
+
+    - name: Delete release branch
+      run: |
+        TAG="v${{ inputs.version }}"
+        BRANCH_NAME="release/${TAG}"
+        
+        # Check if branch exists
+        if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+          git push origin --delete "$BRANCH_NAME"
+          echo "✅ Deleted release branch: $BRANCH_NAME"
+        else
+          echo "Release branch $BRANCH_NAME does not exist"
+        fi
+
+    - name: Update main branch
+      run: |
+        VERSION="${{ inputs.version }}"
+        
+        # Checkout main
+        git checkout main
+        git pull origin main
+        
+        # Parse version components
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        
+        # Set version back to dev
+        CURRENT_VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        
+        # If current version is X.Y.Z, change to X.Y.Z-1.dev0
+        # If current version is already X.Y.Z.devN, leave it
+        if [[ ! "$CURRENT_VERSION" =~ \.dev[0-9]+$ ]]; then
+          # Decrement patch version
+          prev_patch=$((patch - 1))
+          if [ $prev_patch -lt 0 ]; then
+            echo "Warning: Cannot decrement patch version below 0"
+            NEW_VERSION="${major}.${minor}.${patch}.dev0"
+          else
+            NEW_VERSION="${major}.${minor}.${prev_patch}.dev0"
+          fi
+          
+          sed -i "s/^version = .*/version = $NEW_VERSION/" setup.cfg
+          
+          git add setup.cfg
+          git commit -m "Backout release v$VERSION: Reset to $NEW_VERSION [skip ci]" \
+                     -m "Reason: ${{ inputs.reason }}"
+          git push origin main
+          
+          echo "✅ Reset main branch version to: $NEW_VERSION"
+        else
+          echo "Main branch already on dev version: $CURRENT_VERSION"
+        fi
+
+    - name: Summary
+      run: |
+        echo "## Backout Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Reason:** ${{ inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Actions Taken:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted GitHub Release (if existed)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted git tag v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted release branch" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Reset main branch version to dev" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Important Notes:" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚠️ The PyPI package **cannot** be deleted (PyPI policy)" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚠️ If bugfix branch exists, it was **not** deleted" >> $GITHUB_STEP_SUMMARY
+        echo "- 💡 Create a new patch release with fixes instead" >> $GITHUB_STEP_SUMMARY

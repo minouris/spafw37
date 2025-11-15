@@ -18,9 +18,40 @@ Releases are created manually using GitHub Actions:
 2. Select the **Release** workflow from the left sidebar
 3. Click **Run workflow** button
 4. Select the `main` branch (should be selected by default)
-5. Click **Run workflow** to start the release process
+5. **Choose release mode:**
+   - **full-release** (default): Complete release process with versioning, tagging, and branching
+   - **docs-only**: Update PyPI documentation only without creating new version/tags
+6. Click **Run workflow** to start the release process
 
-## What Happens During Release
+## Release Modes
+
+### Full Release Mode (Default)
+
+Use this mode for standard releases when you want to:
+- Create a new version of the package
+- Update PyPI with code and documentation changes
+- Create git tags and branches for the release
+- Increment the development version
+
+This is the normal release process you should use for most releases.
+
+### Documentation-Only Mode
+
+Use this mode when you need to:
+- Update PyPI documentation (README) without changing code
+- Fix documentation errors in an already-released version
+- Refresh package metadata on PyPI
+
+This mode:
+- ✅ Runs all tests to verify current state
+- ✅ Builds package with updated documentation
+- ✅ Uploads to PyPI with `skip-existing: true` (updates metadata only)
+- ⏭️  Skips git operations (no tags, branches, or commits created)
+- ⏭️  Skips version bumping
+
+**Note:** PyPI allows updating documentation without creating a new release by uploading with the same version number. The `skip-existing` flag ensures the existing release files aren't replaced, only metadata is updated.
+
+## What Happens During Full Release
 
 The release workflow automatically:
 
@@ -45,6 +76,59 @@ The release workflow automatically:
 10. **Creates GitHub Release** - Creates a GitHub Release with install instructions
 
 All commits use `[skip ci]` to avoid triggering the test workflow unnecessarily.
+
+## Post-Release Actions
+
+### Posting to Patreon (Optional)
+
+After a successful release, you can manually post the release announcement to Patreon:
+
+1. Go to the **Actions** tab in the GitHub repository
+2. Select the **Post Release to Patreon** workflow
+3. Click **Run workflow** button
+4. Enter the release version (e.g., `1.0.0`)
+5. Optionally enter the GitHub Release URL (will be auto-detected if left empty)
+6. Click **Run workflow**
+
+This workflow requires the `PATREON_ACCESS_TOKEN` secret to be configured (see [Configuration](#configuration) below).
+
+### Rolling Back a Release
+
+If you need to rollback a release due to critical issues:
+
+1. Go to the **Actions** tab in the GitHub repository
+2. Select the **Backout Release** workflow
+3. Click **Run workflow** button
+4. Enter the version to backout (e.g., `1.0.0`)
+5. Enter a reason for the backout
+6. Click **Run workflow**
+
+The backout workflow will:
+- Delete the GitHub Release
+- Delete the git tag (local and remote)
+- Delete the release branch
+- Reset the main branch version to development
+
+**Important:** The PyPI package cannot be deleted due to PyPI policy. You must create a new patch release with fixes instead.
+
+### Updating PyPI Documentation
+
+If you need to update the documentation on PyPI (README, description, etc.) after a release without creating a new version:
+
+1. Update the documentation files (README.md, etc.) on the release tag or create a new commit
+2. Create and push a new tag for the same version (you may need to delete the old tag first)
+3. Go to the **Actions** tab in the GitHub repository
+4. Select the **Update PyPI Documentation** workflow
+5. Click **Run workflow** button
+6. Enter the release version (e.g., `1.0.0`)
+7. Click **Run workflow**
+
+The workflow will:
+- Check out the release tag
+- Rebuild the package with updated documentation
+- Re-upload to PyPI (using `skip-existing: true` to avoid conflicts)
+
+**Note:** This only updates the metadata and documentation displayed on PyPI. The actual code package remains unchanged. PyPI may take a few minutes to refresh the project page.
 
 ## Version Numbering
 

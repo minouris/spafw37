@@ -1,0 +1,162 @@
+name: Update PyPI Documentation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update documentation for (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # For PyPI Trusted Publisher OIDC
+    env:
+      PYTHON_VERSION: '3.7.9'
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: v${{ inputs.version }}  # Checkout the release tag
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ inputs.version }}"
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Version must be in format X.Y.Z (e.g., 1.0.0)"
+          exit 1
+        fi
+        echo "Version format validated: $VERSION"
+
+    - name: Check if tag exists
+      run: |
+        TAG="v${{ inputs.version }}"
+        if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "❌ Error: Tag $TAG does not exist"
+          echo "Available tags:"
+          git tag -l "v*" | tail -10
+          exit 1
+        fi
+        echo "✅ Tag $TAG found"
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build & pip caches
+      id: python-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.PY_PREFIX }}
+          ${{ env.PIP_CACHE_DIR }}
+        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Install build dependencies
+      if: steps.python-cache.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
+          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
+          libnss3-dev liblzma-dev libffi-dev uuid-dev
+
+    - name: Build and install Python (only if cache miss)
+      if: steps.python-cache.outputs.cache-hit != 'true'
+      run: |
+        set -euo pipefail
+        PY=${{ env.PYTHON_VERSION }}
+        mkdir -p $HOME/src
+        cd $HOME/src
+        wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
+        tar xzf Python-${PY}.tgz
+        cd Python-${PY}
+        ./configure --prefix=$PY_PREFIX --with-ensurepip=install
+        make -j "$(nproc)"
+        make install
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel build twine
+
+    - name: Verify version in setup.cfg
+      run: |
+        EXPECTED_VERSION="${{ inputs.version }}"
+        ACTUAL_VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        
+        if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
+          echo "⚠️  Warning: Version mismatch"
+          echo "Expected: $EXPECTED_VERSION"
+          echo "Actual: $ACTUAL_VERSION"
+          echo ""
+          echo "This is expected if you're updating docs for an older release."
+          echo "The documentation from tag v$EXPECTED_VERSION will be used."
+        else
+          echo "✅ Version matches: $ACTUAL_VERSION"
+        fi
+
+    - name: Build distribution packages
+      run: |
+        python3 -m build
+        
+        echo "Built packages:"
+        ls -lh dist/
+
+    - name: Verify README is included
+      run: |
+        # Check if README.md is referenced in setup.cfg or setup.py
+        if grep -q "long_description" setup.cfg setup.py 2>/dev/null; then
+          echo "✅ long_description configuration found"
+        else
+          echo "⚠️  Warning: long_description not found in setup.cfg or setup.py"
+        fi
+        
+        # List contents of source distribution
+        echo ""
+        echo "Contents of source distribution:"
+        tar -tzf dist/*.tar.gz | grep -E "(README|CHANGELOG)" || echo "No README/CHANGELOG found"
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true  # Skip if version already exists
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## PyPI Documentation Update" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Successfully updated PyPI documentation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** PyPI may take a few minutes to refresh the project page." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View at: https://pypi.org/project/spafw37/${{ inputs.version }}/" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Failed to update PyPI documentation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Possible issues:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Version already exists on PyPI (cannot overwrite)" >> $GITHUB_STEP_SUMMARY
+          echo "- PyPI Trusted Publisher not configured correctly" >> $GITHUB_STEP_SUMMARY
+          echo "- Tag v${{ inputs.version }} doesn't exist" >> $GITHUB_STEP_SUMMARY
+        fi

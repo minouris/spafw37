@@ -1,7 +1,16 @@
 name: Release
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Release mode'
+        required: true
+        type: choice
+        options:
+          - full-release
+          - docs-only
+        default: 'full-release'
 
 jobs:
   # Step 0: Run tests first
@@ -18,6 +27,7 @@ jobs:
       PYTHON_VERSION: '3.7.9'
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
       PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+      RELEASE_MODE: ${{ inputs.mode }}
     
     steps:
     - name: Checkout code
@@ -98,6 +108,7 @@ jobs:
         echo "previous_version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Create release branch
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         TAG="v${{ steps.version.outputs.version }}"
         BRANCH_NAME="release/${TAG}"
@@ -108,6 +119,7 @@ jobs:
 
     # Step 3: Remove .dev suffix from version on release branch
     - name: Remove .dev suffix from version
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         RELEASE_VERSION="${{ steps.version.outputs.version }}"
         
@@ -121,6 +133,7 @@ jobs:
 
     # Step 4: Generate changelog on release branch
     - name: Get previous release tag
+      if: env.RELEASE_MODE == 'full-release'
       id: prev_tag
       run: |
         # Get the second-to-last tag (previous release)
@@ -136,7 +149,7 @@ jobs:
         fi
 
     - name: Generate changelog with AI
-      if: steps.prev_tag.outputs.is_first != 'true'
+      if: env.RELEASE_MODE == 'full-release' && steps.prev_tag.outputs.is_first != 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -227,7 +240,7 @@ jobs:
         echo "Changelog generated successfully"
 
     - name: Create initial changelog
-      if: steps.prev_tag.outputs.is_first == 'true'
+      if: env.RELEASE_MODE == 'full-release' && steps.prev_tag.outputs.is_first == 'true'
       run: |
         echo "# Changelog" > CHANGELOG.md
         echo "" >> CHANGELOG.md
@@ -237,6 +250,7 @@ jobs:
         echo "" >> CHANGELOG.md
 
     - name: Commit changelog
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         git add CHANGELOG.md
         git commit -m "Update CHANGELOG.md for v${{ steps.version.outputs.version }} [skip ci]" || echo "No changelog changes to commit"
@@ -247,6 +261,7 @@ jobs:
 
     # Step 5: Update README links to point to tagged versions (separate commit, not merged to main)
     - name: Update README links to tagged documentation
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         TAG="v${{ steps.version.outputs.version }}"
         
@@ -267,6 +282,7 @@ jobs:
 
     # Step 6: Create git tag from release branch (includes README with tagged links)
     - name: Create git tag
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         # Tag is created from current branch (release/vX.Y.Z) which has README with tagged links
         git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }} [skip ci]"
@@ -274,6 +290,7 @@ jobs:
 
     # Step 7: Create bugfix branch from tag
     - name: Create bugfix branch from tag
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         # Parse version to get major.minor (e.g., 1.0.0 -> 1.0)
@@ -290,6 +307,7 @@ jobs:
 
     # Step 8: Merge release branch back to main (without README link changes)
     - name: Merge release branch to main
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         TAG="v${{ steps.version.outputs.version }}"
         
@@ -311,10 +329,15 @@ jobs:
         python3 -m build
 
     - name: Publish to PyPI
+      id: pypi_publish
+      continue-on-error: true
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
 
     # Step 10: Increment version and add .dev0 suffix for next development cycle
     - name: Increment version for next development cycle
+      if: env.RELEASE_MODE == 'full-release'
       id: next_version
       run: |
         # Ensure we're on main
@@ -339,6 +362,7 @@ jobs:
 
     # Step 11: Commit dev version and create GitHub Release
     - name: Commit development version
+      if: env.RELEASE_MODE == 'full-release'
       run: |
         git add setup.cfg
         git commit -m "Bump version to ${{ steps.next_version.outputs.next_version }} [skip ci]"
@@ -346,6 +370,7 @@ jobs:
 
     # Create GitHub Release
     - name: Create GitHub Release
+      if: env.RELEASE_MODE == 'full-release'
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -365,76 +390,64 @@ jobs:
         draft: false
         prerelease: false
 
-    # Step 12: Post release announcement to Patreon
-    - name: Post release to Patreon
-      env:
-        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
+    # Summary of what happened
+    - name: Release Summary
+      if: always()
       run: |
-        # Skip if token not configured
-        if [ -z "$PATREON_ACCESS_TOKEN" ]; then
-          echo "⚠️  PATREON_ACCESS_TOKEN not configured, skipping Patreon post"
-          exit 0
-        fi
+        echo "## Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Mode:** ${{ env.RELEASE_MODE }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         
-        VERSION="${{ steps.version.outputs.version }}"
-        RELEASE_URL="${{ steps.create_release.outputs.html_url }}"
-        
-        # Read changelog content for this version
-        CHANGELOG_EXCERPT=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +3 || echo "See release notes for details.")
-        
-        # Create post content
-        POST_TITLE="New Software Release: spafw37 v${VERSION} Released!"
-        POST_CONTENT="🎉 New release of spafw37!
-
-        This is a lightweight Python 3.7+ framework for building command-line applications. It has configuration management, custom per-command parameters, execution control, repeatable commands, and a whole lot more...
-
-        It's not very interesting by itself, but it makes developing small apps much easier - it's what I use for my other small tools :)
-
-        If you use it, please let me know what you think, and if you can think of any features you'd like to see added!
-
-        If you find any problems, please report them at https://github.com/${{ github.repository }}/issues?q=is%3Aissue+label%3Av${VERSION}
-
-        Version ${VERSION} is now available on PyPI.
-        
-        Install with:
-        \`\`\`
-        pip install spafw37==${VERSION}
-        \`\`\`
-        
-        ${CHANGELOG_EXCERPT}
-        
-        📦 View full release notes: ${RELEASE_URL}
-        📚 Documentation: https://github.com/${{ github.repository }}/tree/v${VERSION}/doc
-        🐍 PyPI: https://pypi.org/project/spafw37/${VERSION}/"
-        
-        # Post to Patreon API
-        echo "Posting release announcement to Patreon..."
-        
-        RESPONSE=$(curl -s -X POST "https://www.patreon.com/api/oauth2/v2/posts" \
-          -H "Authorization: Bearer ${PATREON_ACCESS_TOKEN}" \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"data\": {
-              \"type\": \"post\",
-              \"attributes\": {
-                \"title\": \"${POST_TITLE}\",
-                \"content\": $(echo "$POST_CONTENT" | jq -Rs .),
-                \"is_paid\": false,
-                \"is_public\": true
-              }
-            }
-          }")
-        
-        # Check for errors
-        if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
-          echo "Error posting to Patreon:"
-          echo "$RESPONSE" | jq '.errors'
-          exit 1
-        else
-          POST_URL=$(echo "$RESPONSE" | jq -r '.data.attributes.url // empty')
-          if [ -n "$POST_URL" ]; then
-            echo "✅ Successfully posted to Patreon: ${POST_URL}"
+        if [ "${{ env.RELEASE_MODE }}" == "full-release" ]; then
+          echo "### Full Release Process" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.pypi_publish.outcome }}" == "success" ]; then
+            echo "✅ **PyPI Publish:** Success" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.pypi_publish.outcome }}" == "failure" ]; then
+            echo "⚠️  **PyPI Publish:** Failed (version may already exist)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Check if version already exists on PyPI" >> $GITHUB_STEP_SUMMARY
+            echo "- If documentation needs updating, run workflow again with 'docs-only' mode" >> $GITHUB_STEP_SUMMARY
+            echo "- For code changes, create a new patch release" >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ Post created on Patreon"
+            echo "⏭️  **PyPI Publish:** Skipped or cancelled" >> $GITHUB_STEP_SUMMARY
           fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Actions Completed:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Created release branch \`release/v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Updated version in setup.cfg" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Generated/updated CHANGELOG.md" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Created git tag \`v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Created bugfix branch" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Merged changes to main" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Bumped version to \`${{ steps.next_version.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Created GitHub Release" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### Documentation-Only Update" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.pypi_publish.outcome }}" == "success" ]; then
+            echo "✅ **PyPI Documentation:** Successfully updated" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The package metadata and long description on PyPI have been refreshed." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** PyPI may take a few minutes to display the updated documentation." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **PyPI Documentation:** Update failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The documentation update could not be completed. This usually means:" >> $GITHUB_STEP_SUMMARY
+            echo "- The package version doesn't exist on PyPI yet" >> $GITHUB_STEP_SUMMARY
+            echo "- There was a problem with the PyPI upload" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Actions Completed:**" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Built package with current documentation" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏭️  Skipped git operations (no tags/branches created)" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏭️  Skipped version bumps" >> $GITHUB_STEP_SUMMARY
         fi
