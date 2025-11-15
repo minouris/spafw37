@@ -488,6 +488,43 @@ if not spafw37.is_silent():
 
 **Note:** The `output()` function already respects silent mode, so explicit checks are often unnecessary.
 
+#### `get_max_cycle_nesting_depth()`
+
+Get the maximum allowed nesting depth for cycles.
+
+```python
+current_max = spafw37.get_max_cycle_nesting_depth()
+print(f"Maximum cycle nesting depth: {current_max}")
+```
+
+**Returns:**
+- `int` - Maximum nesting depth (default: 5)
+
+**Common usage:**
+- Checking current configuration before defining deeply nested cycles
+- Diagnostic output for debugging cycle structures
+
+#### `set_max_cycle_nesting_depth(depth)`
+
+Set the maximum allowed nesting depth for cycles.
+
+```python
+# Allow deeper nesting for complex cycle structures
+spafw37.set_max_cycle_nesting_depth(10)
+```
+
+**Args:**
+- `depth` (int) - Maximum nesting depth (must be positive integer)
+
+**Raises:**
+- `ValueError` - If depth is not a positive integer
+
+**Common usage:**
+- Configuring framework before defining deeply nested cycles
+- Adjusting limits based on application requirements
+
+**Note:** The default value of 5 is sufficient for most use cases. Increase this value only if you need deeply nested cycle structures. This setting helps prevent infinite recursion from misconfigured cycles.
+
 ### Output Functions
 
 The output functions provide framework-managed application output that respects silent/verbose modes.

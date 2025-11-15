@@ -52,6 +52,34 @@ _active_cycle = None
 _max_nesting_depth = 5
 
 
+def get_max_cycle_nesting_depth():
+    """Get the maximum allowed nesting depth for cycles.
+    
+    Returns:
+        Maximum nesting depth (default: 5)
+    """
+    return _max_nesting_depth
+
+
+def set_max_cycle_nesting_depth(depth):
+    """Set the maximum allowed nesting depth for cycles.
+    
+    This controls how deeply cycles can be nested within each other.
+    The default value of 5 is sufficient for most use cases. Increase
+    this value if you need deeply nested cycle structures.
+    
+    Args:
+        depth: Maximum nesting depth (must be positive integer)
+        
+    Raises:
+        ValueError: If depth is not a positive integer
+    """
+    global _max_nesting_depth
+    if not isinstance(depth, int) or depth < 1:
+        raise ValueError(f"Max nesting depth must be a positive integer, got: {depth}")
+    _max_nesting_depth = depth
+
+
 def _get_command_name(command_def):
     """Extract command name from command definition.
     

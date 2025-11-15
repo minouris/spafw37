@@ -23,7 +23,7 @@ Cycles enable you to execute a sequence of commands repeatedly in a loop ([see e
 - **Cycle commands**: List of commands to execute each iteration (respecting dependencies)
 - **Finalisation function**: Clean up resources after the loop completes
 
-Cycles support nesting (up to 5 levels deep), automatic parameter validation across all cycle commands, and full integration with the command dependency system.
+Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_nesting_depth()`), automatic parameter validation across all cycle commands, and full integration with the command dependency system.
 
 ## Cycle Constants
 
@@ -456,7 +456,7 @@ This ensures that if any cycle command needs a parameter, the framework validate
 
 ## Nested Cycles
 
-Cycles can be nested up to **5 levels deep** ([see example](../examples/cycles_nested.py)). Nested cycles work just like regular cycles - they have their own init/loop/end functions and command lists.
+Cycles can be nested up to **5 levels deep by default** ([see example](../examples/cycles_nested.py)). The nesting depth limit can be configured using `spafw37.set_max_cycle_nesting_depth(depth)` if you need deeper nesting. Nested cycles work just like regular cycles - they have their own init/loop/end functions and command lists.
 
 ```python
 from spafw37 import core as spafw37

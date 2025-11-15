@@ -149,6 +149,32 @@ def set_default_phase(default_phase):
     from spafw37 import config
     config.set_default_phase(default_phase)
 
+def get_max_cycle_nesting_depth():
+    """Get the maximum allowed nesting depth for cycles.
+    
+    Returns:
+        Maximum nesting depth (default: 5)
+    """
+    from spafw37 import config
+    return config.get_max_cycle_nesting_depth()
+
+
+def set_max_cycle_nesting_depth(depth):
+    """Set the maximum allowed nesting depth for cycles.
+    
+    This controls how deeply cycles can be nested within each other.
+    The default value of 5 is sufficient for most use cases. Increase
+    this value if you need deeply nested cycle structures.
+    
+    Args:
+        depth: Maximum nesting depth (must be positive integer)
+        
+    Raises:
+        ValueError: If depth is not a positive integer
+    """
+    from spafw37 import config
+    config.set_max_cycle_nesting_depth(depth)
+
 def get_config_value(config_key):
     """
     Get a configuration value.

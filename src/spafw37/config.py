@@ -3,6 +3,9 @@ from spafw37.constants.phase import PHASE_ORDER, PHASE_DEFAULT
 # Import logging parameter names for convenience methods
 from spafw37.logging_config import LOG_VERBOSE_PARAM, LOG_SILENT_PARAM
 
+# Import cycle for cycle nesting depth configuration
+from spafw37 import cycle as cycle_module
+
 # Config dict to hold runtime parameters
 # NOTE: Thread Safety - These module-level variables are not thread-safe.
 # This framework is designed for single-threaded CLI applications. If using
@@ -26,6 +29,30 @@ def set_default_phase(default_phase = PHASE_DEFAULT):
 
 def get_default_phase():
     return _default_phase
+
+def get_max_cycle_nesting_depth():
+    """Get the maximum allowed nesting depth for cycles.
+    
+    Returns:
+        Maximum nesting depth (default: 5)
+    """
+    return cycle_module.get_max_cycle_nesting_depth()
+
+
+def set_max_cycle_nesting_depth(depth):
+    """Set the maximum allowed nesting depth for cycles.
+    
+    This controls how deeply cycles can be nested within each other.
+    The default value of 5 is sufficient for most use cases. Increase
+    this value if you need deeply nested cycle structures.
+    
+    Args:
+        depth: Maximum nesting depth (must be positive integer)
+        
+    Raises:
+        ValueError: If depth is not a positive integer
+    """
+    cycle_module.set_max_cycle_nesting_depth(depth)
 
 def get_config_value(name):
     return _config.get(name)
