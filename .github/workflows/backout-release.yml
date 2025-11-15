@@ -40,6 +40,58 @@ jobs:
         fi
         echo "Version format validated: $VERSION"
 
+    - name: Check for unmerged commits on release branches
+      run: |
+        VERSION="${{ inputs.version }}"
+        TAG="v${VERSION}"
+        RELEASE_BRANCH="release/${TAG}"
+        
+        # Parse version for bugfix branch
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        BUGFIX_BRANCH="bugfix/${major}.${minor}.x"
+        
+        echo "Checking for unmerged commits..."
+        
+        # Check release branch
+        if git ls-remote --heads origin "$RELEASE_BRANCH" | grep -q "$RELEASE_BRANCH"; then
+          git fetch origin "$RELEASE_BRANCH"
+          
+          # Check if there are commits on release branch not in main
+          UNMERGED=$(git log origin/main..origin/$RELEASE_BRANCH --oneline)
+          
+          if [ -n "$UNMERGED" ]; then
+            echo "❌ Error: Release branch $RELEASE_BRANCH has unmerged commits:"
+            echo "$UNMERGED"
+            echo ""
+            echo "Please merge these commits to main before backing out the release."
+            exit 1
+          else
+            echo "✅ Release branch has no unmerged commits"
+          fi
+        else
+          echo "Release branch does not exist"
+        fi
+        
+        # Check bugfix branch
+        if git ls-remote --heads origin "$BUGFIX_BRANCH" | grep -q "$BUGFIX_BRANCH"; then
+          git fetch origin "$BUGFIX_BRANCH"
+          
+          # Check if there are commits on bugfix branch not in main
+          UNMERGED=$(git log origin/main..origin/$BUGFIX_BRANCH --oneline)
+          
+          if [ -n "$UNMERGED" ]; then
+            echo "❌ Error: Bugfix branch $BUGFIX_BRANCH has unmerged commits:"
+            echo "$UNMERGED"
+            echo ""
+            echo "Please merge these commits to main before backing out the release."
+            exit 1
+          else
+            echo "✅ Bugfix branch has no unmerged commits"
+          fi
+        else
+          echo "Bugfix branch does not exist"
+        fi
+
     - name: Check if tag exists
       id: check_tag
       run: |
@@ -75,6 +127,22 @@ jobs:
         
         echo "✅ Deleted tag: $TAG"
 
+    - name: Delete bugfix branch
+      run: |
+        VERSION="${{ inputs.version }}"
+        
+        # Parse version components
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        BUGFIX_BRANCH="bugfix/${major}.${minor}.x"
+        
+        # Check if bugfix branch exists
+        if git ls-remote --heads origin "$BUGFIX_BRANCH" | grep -q "$BUGFIX_BRANCH"; then
+          git push origin --delete "$BUGFIX_BRANCH"
+          echo "✅ Deleted bugfix branch: $BUGFIX_BRANCH"
+        else
+          echo "Bugfix branch $BUGFIX_BRANCH does not exist"
+        fi
+
     - name: Delete release branch
       run: |
         TAG="v${{ inputs.version }}"
@@ -88,7 +156,7 @@ jobs:
           echo "Release branch $BRANCH_NAME does not exist"
         fi
 
-    - name: Update main branch
+    - name: Update main branch version
       run: |
         VERSION="${{ inputs.version }}"
         
@@ -96,50 +164,36 @@ jobs:
         git checkout main
         git pull origin main
         
-        # Parse version components
-        IFS='.' read -r major minor patch <<< "$VERSION"
+        # Set version back to the release version with .dev0 suffix
+        DEV_VERSION="${VERSION}.dev0"
         
-        # Set version back to dev
-        CURRENT_VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        sed -i "s/^version = .*/version = $DEV_VERSION/" setup.cfg
         
-        # If current version is X.Y.Z, change to X.Y.Z-1.dev0
-        # If current version is already X.Y.Z.devN, leave it
-        if [[ ! "$CURRENT_VERSION" =~ \.dev[0-9]+$ ]]; then
-          # Decrement patch version
-          prev_patch=$((patch - 1))
-          if [ $prev_patch -lt 0 ]; then
-            echo "Warning: Cannot decrement patch version below 0"
-            NEW_VERSION="${major}.${minor}.${patch}.dev0"
-          else
-            NEW_VERSION="${major}.${minor}.${prev_patch}.dev0"
-          fi
-          
-          sed -i "s/^version = .*/version = $NEW_VERSION/" setup.cfg
-          
-          git add setup.cfg
-          git commit -m "Backout release v$VERSION: Reset to $NEW_VERSION [skip ci]" \
-                     -m "Reason: ${{ inputs.reason }}"
-          git push origin main
-          
-          echo "✅ Reset main branch version to: $NEW_VERSION"
-        else
-          echo "Main branch already on dev version: $CURRENT_VERSION"
-        fi
+        git add setup.cfg
+        git commit -m "Backout release v$VERSION: Reset to $DEV_VERSION [skip ci]" \
+                   -m "Reason: ${{ inputs.reason }}"
+        git push origin main
+        
+        echo "✅ Reset main branch version to: $DEV_VERSION"
 
     - name: Summary
       run: |
+        VERSION="${{ inputs.version }}"
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        
         echo "## Backout Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** v$VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**Reason:** ${{ inputs.reason }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Actions Taken:" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Deleted GitHub Release (if existed)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Deleted git tag v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Deleted release branch" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Reset main branch version to dev" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted git tag v$VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted release branch release/v$VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Deleted bugfix branch bugfix/${major}.${minor}.x" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Reset main branch version to ${VERSION}.dev0" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Important Notes:" >> $GITHUB_STEP_SUMMARY
         echo "- ⚠️ The PyPI package **cannot** be deleted (PyPI policy)" >> $GITHUB_STEP_SUMMARY
-        echo "- ⚠️ If bugfix branch exists, it was **not** deleted" >> $GITHUB_STEP_SUMMARY
-        echo "- 💡 Create a new patch release with fixes instead" >> $GITHUB_STEP_SUMMARY
+        echo "- 💡 You can now commit fixes and re-run the release workflow" >> $GITHUB_STEP_SUMMARY
+        echo "- 💡 The same version number (v$VERSION) can be re-released" >> $GITHUB_STEP_SUMMARY

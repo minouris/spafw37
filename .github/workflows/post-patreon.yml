@@ -1,4 +1,4 @@
-name: Post Release to Patreon
+name: Generate Patreon Post Content
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ on:
         type: string
 
 jobs:
-  post-to-patreon:
+  generate-post:
     runs-on: ubuntu-latest
     
     steps:
@@ -30,17 +30,6 @@ jobs:
           exit 1
         fi
         echo "Version format validated: $VERSION"
-
-    - name: Check PATREON_ACCESS_TOKEN
-      env:
-        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
-      run: |
-        if [ -z "$PATREON_ACCESS_TOKEN" ]; then
-          echo "❌ Error: PATREON_ACCESS_TOKEN secret is not configured"
-          echo "Please add it in Settings → Secrets and variables → Actions"
-          exit 1
-        fi
-        echo "✅ Patreon token is configured"
 
     - name: Get release URL
       id: release_info
@@ -86,110 +75,78 @@ jobs:
         echo "$CHANGELOG_EXCERPT" > /tmp/changelog.txt
         echo "Changelog excerpt extracted"
 
-    - name: Get Patreon Campaign ID
-      id: campaign
-      env:
-        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
-      run: |
-        # Get campaign ID from Patreon API
-        echo "Fetching campaign information..."
-        
-        RESPONSE=$(curl -s -X GET "https://www.patreon.com/api/oauth2/v2/campaigns" \
-          -H "Authorization: Bearer ${PATREON_ACCESS_TOKEN}")
-        
-        # Check for errors
-        if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
-          echo "❌ Error fetching campaign info:"
-          echo "$RESPONSE" | jq '.errors'
-          exit 1
-        fi
-        
-        # Extract campaign ID
-        CAMPAIGN_ID=$(echo "$RESPONSE" | jq -r '.data[0].id // empty')
-        
-        if [ -z "$CAMPAIGN_ID" ]; then
-          echo "❌ Could not find campaign ID. Response:"
-          echo "$RESPONSE" | jq '.'
-          exit 1
-        fi
-        
-        echo "✅ Found campaign ID: $CAMPAIGN_ID"
-        echo "campaign_id=$CAMPAIGN_ID" >> $GITHUB_OUTPUT
-
-    - name: Post to Patreon
-      id: post
-      env:
-        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
+    - name: Generate post content
+      id: post_content
       run: |
         VERSION="${{ inputs.version }}"
         RELEASE_URL="${{ steps.release_info.outputs.release_url }}"
-        CAMPAIGN_ID="${{ steps.campaign.outputs.campaign_id }}"
         CHANGELOG_EXCERPT=$(cat /tmp/changelog.txt)
+        REPOSITORY="${{ github.repository }}"
+        
+        # Create post title
+        echo "spafw37 v${VERSION} Released" > /tmp/post_title.txt
         
         # Create post content
-        POST_TITLE="spafw37 v${VERSION} Released"
-        POST_CONTENT="🎉 New release of spafw37!
+        {
+          echo "🎉 New release of spafw37!"
+          echo ""
+          echo "Version ${VERSION} is now available on PyPI."
+          echo ""
+          echo "Install with:"
+          echo "\`\`\`"
+          echo "pip install spafw37==${VERSION}"
+          echo "\`\`\`"
+          echo ""
+          echo "${CHANGELOG_EXCERPT}"
+          echo ""
+          echo "📦 View full release notes: ${RELEASE_URL}"
+          echo "📚 Documentation: https://github.com/${REPOSITORY}/tree/v${VERSION}/doc"
+          echo "🐍 PyPI: https://pypi.org/project/spafw37/${VERSION}/"
+        } > /tmp/post_content.txt
+        
+        echo "✅ Post content generated"
 
-        Version ${VERSION} is now available on PyPI.
-        
-        Install with:
-        \`\`\`
-        pip install spafw37==${VERSION}
-        \`\`\`
-        
-        ${CHANGELOG_EXCERPT}
-        
-        📦 View full release notes: ${RELEASE_URL}
-        📚 Documentation: https://github.com/${{ github.repository }}/tree/v${VERSION}/doc
-        🐍 PyPI: https://pypi.org/project/spafw37/${VERSION}/"
-        
-        # Post to Patreon API
-        echo "Posting release announcement to Patreon..."
-        
-        RESPONSE=$(curl -s -X POST "https://www.patreon.com/api/oauth2/v2/campaigns/${CAMPAIGN_ID}/posts" \
-          -H "Authorization: Bearer ${PATREON_ACCESS_TOKEN}" \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"data\": {
-              \"type\": \"post\",
-              \"attributes\": {
-                \"title\": \"${POST_TITLE}\",
-                \"content\": $(echo "$POST_CONTENT" | jq -Rs .),
-                \"is_paid\": false,
-                \"is_public\": true
-              }
-            }
-          }")
-        
-        # Check for errors
-        if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
-          echo "❌ Error posting to Patreon:"
-          echo "$RESPONSE" | jq '.errors'
-          exit 1
-        else
-          POST_URL=$(echo "$RESPONSE" | jq -r '.data.attributes.url // empty')
-          if [ -n "$POST_URL" ]; then
-            echo "✅ Successfully posted to Patreon: ${POST_URL}"
-            echo "post_url=$POST_URL" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Post created on Patreon"
-          fi
-        fi
+    - name: Display post content
+      run: |
+        echo "========================================"
+        echo "PATREON POST CONTENT"
+        echo "========================================"
+        echo ""
+        echo "TITLE:"
+        cat /tmp/post_title.txt
+        echo ""
+        echo ""
+        echo "CONTENT:"
+        cat /tmp/post_content.txt
+        echo ""
+        echo "========================================"
 
     - name: Summary
       if: always()
       run: |
-        echo "## Patreon Post" >> $GITHUB_STEP_SUMMARY
+        POST_TITLE=$(cat /tmp/post_title.txt)
+        POST_CONTENT=$(cat /tmp/post_content.txt)
+        
+        echo "## Patreon Post Content" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "**Release URL:** ${{ steps.release_info.outputs.release_url }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "${{ job.status }}" == "success" ]; then
-          echo "✅ Successfully posted release announcement to Patreon" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ Failed to post to Patreon" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Title" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "$POST_TITLE" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Content" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "$POST_CONTENT" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Instructions:** Copy the content above and manually post it to [your Patreon page](https://www.patreon.com/posts/create)." >> $GITHUB_STEP_SUMMARY
           echo "**Troubleshooting:**" >> $GITHUB_STEP_SUMMARY
           echo "- Verify PATREON_ACCESS_TOKEN is configured correctly" >> $GITHUB_STEP_SUMMARY
           echo "- Check token has 'w:posts.create' scope" >> $GITHUB_STEP_SUMMARY

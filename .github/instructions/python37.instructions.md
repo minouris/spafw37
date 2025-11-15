@@ -1,6 +1,28 @@
 ---
 applyTo: '**/*.py'
 ---
+
+## CRITICAL: NO GUESSING POLICY
+
+**NEVER guess or make assumptions about:**
+- External API specifications, endpoints, or data structures
+- Third-party library behavior or usage patterns
+- File formats, protocols, or standards you're not certain about
+- Configuration requirements for external services
+
+**If you don't know something:**
+1. **Explicitly state that you don't know**
+2. **Explain what you would need to know to proceed**
+3. **Suggest where the user can find the information**
+4. **Ask the user to verify or provide the correct information**
+
+**Example of correct behavior:**
+"I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
+
+**This applies to ALL work - code, configuration, documentation, and any other task.**
+
+## Python 3.7 Compatibility
+
 - Ensure that all generated Python 3.7 code is compatible with Python 3.7.0 syntax and features.
 - When creating new functions or classes, be as fine-grained as possible. If an operation requires more than three steps, it should be broken down into smaller helper functions or classes.
  - When creating new functions or classes, be as fine-grained as possible. If an operation requires more than three steps, it should be broken down into smaller helper functions or classes.

@@ -1,5 +1,24 @@
 # GitHub Copilot Instructions for spafw37
 
+## CRITICAL: NO GUESSING POLICY
+
+**NEVER guess or make assumptions about:**
+- External API specifications, endpoints, or data structures
+- Third-party library behavior or usage patterns
+- File formats, protocols, or standards you're not certain about
+- Configuration requirements for external services
+
+**If you don't know something:**
+1. **Explicitly state that you don't know**
+2. **Explain what you would need to know to proceed**
+3. **Suggest where the user can find the information**
+4. **Ask the user to verify or provide the correct information**
+
+**Example of correct behavior:**
+"I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
+
+**This applies to ALL work - code, configuration, documentation, and any other task.**
+
 ## Project Overview
 
 spafw37 is a lightweight Python 3.7+ framework for building command-line applications with advanced configuration management, command orchestration, multi-phase execution, cycle support, and integrated logging.
