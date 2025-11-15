@@ -272,7 +272,7 @@ def _queue_add(name, queued):
     if cmd.get(COMMAND_PHASE):
         _phase = cmd.get(COMMAND_PHASE)
         if _phase not in _phases:
-            raise KeyError(f"Phase '{_phase}' not recognized.")
+            raise KeyError(f"Phase '{_phase}' not recognised.")
         if _phase in _phases_completed:
             raise ValueError(f"Cannot add command '{name}' to completed phase '{_phase}'.") 
         if cmd not in _phases[_phase]:

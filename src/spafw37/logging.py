@@ -109,7 +109,7 @@ def _create_error_handler():
 
 
 def _init_logger():
-    """Initialize the logger with handlers."""
+    """Initialise the logger with handlers."""
     global _logger, _file_handler, _console_handler, _error_handler
     
     if _logger is not None:
@@ -142,7 +142,7 @@ def set_log_dir(log_dir):
     
     _log_dir = log_dir
     
-    # Recreate file handler if logger is initialized
+    # Recreate file handler if logger is initialised
     if _logger is not None and _file_handler is not None:
         _logger.removeHandler(_file_handler)
         _file_handler.close()
@@ -311,7 +311,7 @@ def apply_logging_config():
     Starts with default handler levels and applies only the enabled flags.
     All log level flags are mutually exclusive.
     """
-    # Initialize logger
+    # Initialise logger
     _init_logger()
     
     # Start with default levels

@@ -31,7 +31,7 @@ Main package source code with modular architecture:
 - `command.py` - Command queue and execution system
 - `config.py` - Configuration management and persistence
 - `config_func.py` - Configuration utility functions
-- `configure.py` - Configuration initialization and setup
+- `configure.py` - Configuration initialisation and setup
 - `param.py` - Parameter definition, parsing, and validation
 - `cycle.py` - Cycle (loop) management for repeating command sequences
 - `help.py` - Automatic help generation system
@@ -248,7 +248,7 @@ The following rules are part of the repository's coding standards. Apply them to
 - Group imports: standard library, third-party, local modules
 - Avoid external dependencies unless absolutely necessary
 
-### Code Organization
+### Code Organisation
 - Break down complex operations into fine-grained helper functions
 - Each function should have a single, clear responsibility
 - Use descriptive variable names that indicate purpose

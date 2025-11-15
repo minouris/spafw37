@@ -144,7 +144,7 @@ jobs:
         CURRENT_TAG="v${{ steps.version.outputs.version }}"
         
         # Get the diff statistics and commit messages
-        echo "Analyzing changes from ${PREV_TAG} to HEAD..."
+        echo "Analysing changes from ${PREV_TAG} to HEAD..."
         
         # Get diff stats
         DIFF_STATS=$(git diff --stat ${PREV_TAG}..HEAD)

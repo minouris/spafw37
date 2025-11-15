@@ -455,7 +455,7 @@ def handle_cli_args(args):
 def _is_quoted_token(token):
     """Return True when a token is a quoted string (e.g. '"value"' or "'value'").
 
-    This helps recognize values that look like aliases but were intentionally
+    This helps recognise values that look like aliases but were intentionally
     quoted by the caller. Shells normally strip quotes; this is primarily for
     testing or frontends that preserve quote characters.
     """

@@ -1,7 +1,7 @@
 """Logging parameter configuration.
 
 This module defines the logging parameters that can be registered
-before the logging system is initialized. This allows for proper
+before the logging system is initialised. This allows for proper
 bootstrapping of the parameter system.
 """
 

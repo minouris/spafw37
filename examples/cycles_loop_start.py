@@ -52,7 +52,7 @@ params = [
 # Cycle control functions
 
 def init_items():
-    """Initialize the items list."""
+    """Initialise the items list."""
     items = ['apple', 'banana', 'cherry', 'date', 'elderberry']
     spafw37.set_config_value('items', items)
     spafw37.set_config_value('index', 0)
@@ -76,7 +76,7 @@ def prepare_item():
     spafw37.output(f"\n[Item {index + 1}/{len(items)}] {current_item}")
 
 def finalize_items():
-    """Finalize the items."""
+    """Finalise the items."""
     index = spafw37.get_config_int('index')
     spafw37.output()
     spafw37.output("=" * 40)

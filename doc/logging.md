@@ -25,7 +25,7 @@
 The spafw37 framework provides comprehensive logging functionality with:
 
 - **Custom TRACE level** - Below DEBUG for ultra-detailed logging
-- **Scope-based logging** - Organize logs by module, phase, or feature
+- **Scope-based logging** - Organise logs by module, phase, or feature
 - **Multiple outputs** - File, console (stdout), and error (stderr) handlers
 - **Flexible control** - CLI parameters for runtime log level adjustment
 - **Automatic formatting** - Consistent timestamped log entries
@@ -83,7 +83,7 @@ All log messages follow this consistent format:
 
 ```
 [11-12 14:23:45.123][myapp][INFO] Application started
-[11-12 14:23:45.234][phase-setup][INFO] Starting command: initialize
+[11-12 14:23:45.234][phase-setup][INFO] Starting command: initialise
 [11-12 14:23:45.345][file-processor][DEBUG] Processing file: data.txt
 [11-12 14:23:45.456][validation][WARNING] Missing optional field
 [11-12 14:23:45.567][phase-execution][ERROR] Failed to process batch 3
@@ -222,22 +222,22 @@ spafw37.log_trace(_message="Detailed execution trace information")
 
 ## Scope-Based Logging
 
-Scopes organize log messages by context (module, phase, feature, etc.):
+Scopes organise log messages by context (module, phase, feature, etc.):
 
 ### Setting Current Scope
 
 ```python
 from spafw37 import core as spafw37
 
-def initialize():
+def initialise():
     # Set scope for subsequent log messages
-    spafw37.set_current_scope('initialization')
+    spafw37.set_current_scope('initialisation')
     
     spafw37.log_info(_message="Loading configuration")
-    # Output: [11-12 14:23:45.123][initialization][INFO] Loading configuration
+    # Output: [11-12 14:23:45.123][initialisation][INFO] Loading configuration
     
     spafw37.log_info(_message="Connecting to database")
-    # Output: [11-12 14:23:45.234][initialization][INFO] Connecting to database
+    # Output: [11-12 14:23:45.234][initialisation][INFO] Connecting to database
 ```
 
 ### Explicit Scope per Message
@@ -303,7 +303,7 @@ myapp --trace-console
 The framework:
 1. Registers logging parameters automatically via `configure.py`
 2. Pre-parses logging parameters before main CLI parsing
-3. Initializes the logger on first use with configured settings
+3. Initialises the logger on first use with configured settings
 4. Creates log files and directories as needed
 
 ### Setting Log Directory
@@ -389,14 +389,14 @@ def process_batch():
     spafw37.log_error(_message=f"Failed to process file: {filename}")
 ```
 
-### Organize by Scope
+### Organise by Scope
 
 ```python
 from spafw37 import core as spafw37
 
 def main():
-    # Use scopes to organize related operations
-    spafw37.set_current_scope('initialization')
+    # Use scopes to organise related operations
+    spafw37.set_current_scope('initialisation')
     initialize_app()
     
     spafw37.set_current_scope('data-loading')

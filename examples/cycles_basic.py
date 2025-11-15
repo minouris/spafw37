@@ -1,9 +1,9 @@
 """Basic Cycles Example - Simple repeating command sequences.
 
 This example shows:
-- CYCLE_INIT - initialize before loop starts
+- CYCLE_INIT - initialise before loop starts
 - CYCLE_LOOP - check if iteration should continue
-- CYCLE_END - finalize after loop completes
+- CYCLE_END - finalise after loop completes
 - Basic iteration pattern
 """
 
@@ -45,7 +45,7 @@ params = [
 # Cycle control functions
 
 def init_counter():
-    """Initialize the counter."""
+    """Initialise the counter."""
     spafw37.set_config_value('counter', 0)
     spafw37.set_config_value('max-iterations', 5)
     spafw37.output("Initialized counter cycle (5 iterations)")
@@ -58,7 +58,7 @@ def has_more_iterations():
     return counter < max_iterations
 
 def finalize_counter():
-    """Finalize the counter."""
+    """Finalise the counter."""
     counter = spafw37.get_config_int('counter')
     spafw37.output("=" * 40)
     spafw37.output(f"Completed {counter} iterations")

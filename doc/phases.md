@@ -15,7 +15,7 @@
 
 ## Overview
 
-Phases provide a structured way to organize command execution into distinct lifecycle stages ([see example](../examples/phases_basic.py)). Commands are assigned to phases, and the framework executes all commands in one phase before moving to the next. This ensures proper sequencing of setup, execution, and cleanup operations.
+Phases provide a structured way to organise command execution into distinct lifecycle stages ([see example](../examples/phases_basic.py)). Commands are assigned to phases, and the framework executes all commands in one phase before moving to the next. This ensures proper sequencing of setup, execution, and cleanup operations.
 
 By default, all commands run in the `PHASE_EXECUTION` phase. You can customize the phase order and assign commands to specific phases to control execution flow.
 
@@ -25,10 +25,10 @@ By default, all commands run in the `PHASE_EXECUTION` phase. You can customize t
 
 | Constant | Purpose |
 |----------|---------|
-| `PHASE_SETUP` | Initialize resources, establish connections, validate preconditions. Framework: help, load-config |
+| `PHASE_SETUP` | Initialise resources, establish connections, validate preconditions. Framework: help, load-config |
 | `PHASE_CLEANUP` | Prepare environment, remove temporary artifacts, reset state |
 | `PHASE_EXECUTION` | Run primary application logic and main operations |
-| `PHASE_TEARDOWN` | Release resources, close connections, finalize operations. Framework: save-config |
+| `PHASE_TEARDOWN` | Release resources, close connections, finalise operations. Framework: save-config |
 | `PHASE_END` | Perform final shutdown tasks and reporting |
 
 ## Phase Lifecycle
@@ -110,7 +110,7 @@ spafw37.set_phases_order(PHASE_ORDER)
 
 **Best Practice:** When adding custom phases, **extend** the default phases rather than completely replacing them. This ensures framework commands (which run in `PHASE_EXECUTION`) continue to work correctly. Insert your custom phases at appropriate points in the default order rather than creating an entirely new phase system.
 
-**Important:** Call `set_phases_order()` early in your application initialization, before registering commands, to ensure phase queues are properly configured.
+**Important:** Call `set_phases_order()` early in your application initialisation, before registering commands, to ensure phase queues are properly configured.
 
 ## Assigning Commands to Phases
 
@@ -145,7 +145,7 @@ from spafw37.constants.phase import PHASE_SETUP, PHASE_EXECUTION, PHASE_TEARDOWN
 # Configure phases
 spafw37.set_phases_order([PHASE_SETUP, PHASE_EXECUTION, PHASE_TEARDOWN])
 
-# Setup phase: Initialize resources
+# Setup phase: Initialise resources
 setup_commands = [
     {
         COMMAND_NAME: "create-workspace",
@@ -266,7 +266,7 @@ spafw37.set_phases_order([
 - `"phase-setup"` (the value of `PHASE_SETUP`) - required for help and load-config commands
 - `"phase-teardown"` (the value of `PHASE_TEARDOWN`) - required for save-config command
 
-If you omit these phases, framework commands will fail with a "Phase not recognized" error.
+If you omit these phases, framework commands will fail with a "Phase not recognised" error.
 
 ## Best Practices
 
@@ -275,7 +275,7 @@ If you omit these phases, framework commands will fail with a "Phase not recogni
 - **PHASE_SETUP**: Database connections, API authentication, resource allocation, configuration loading
 - **PHASE_CLEANUP**: Remove temporary files, reset test data, clear caches before main work
 - **PHASE_EXECUTION**: Core application logic, data processing, user-facing operations
-- **PHASE_TEARDOWN**: Close connections, release locks, flush buffers, finalize outputs
+- **PHASE_TEARDOWN**: Close connections, release locks, flush buffers, finalise outputs
 - **PHASE_END**: Generate reports, send notifications, final logging
 
 ### Keep It Simple
@@ -375,7 +375,7 @@ All commands must be registered upfront with `add_commands()` before calling `ru
 
 Complete working examples demonstrating phase features:
 
-- **[phases_basic.py](../examples/phases_basic.py)** - Using default phases (SETUP, CLEANUP, EXECUTION, TEARDOWN, END) for organized command execution
+- **[phases_basic.py](../examples/phases_basic.py)** - Using default phases (SETUP, CLEANUP, EXECUTION, TEARDOWN, END) for organised command execution
 - **[phases_custom_order.py](../examples/phases_custom_order.py)** - Customizing phase execution order with set_phases_order()
 - **[phases_extended.py](../examples/phases_extended.py)** - **RECOMMENDED:** Extending default phases with custom phases while preserving framework functionality
 - **[phases_custom.py](../examples/phases_custom.py)** - **ADVANCED:** Creating completely custom phases (use with caution - can break framework features)

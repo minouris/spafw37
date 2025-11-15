@@ -4,7 +4,7 @@ Parameter Groups Example
 Demonstrates organizing parameters into groups for better help display.
 
 Key concepts:
-- Using PARAM_GROUP to organize related parameters
+- Using PARAM_GROUP to organise related parameters
 - Grouping parameters by functional area
 - Improving help output readability
 - Organizing large parameter sets
@@ -37,7 +37,7 @@ from spafw37.constants.command import (
 def setup():
     """Configure the application with grouped parameters."""
     
-    # Define parameters organized into functional groups
+    # Define parameters organised into functional groups
     params = [
         # Input/Output Options group
         {
@@ -169,5 +169,5 @@ def setup():
 if __name__ == '__main__':
     setup()
     spafw37.output("Parameter Groups Example")
-    spafw37.output("Parameters are organized into functional groups in help output\n")
+    spafw37.output("Parameters are organised into functional groups in help output\n")
     spafw37.run_cli()

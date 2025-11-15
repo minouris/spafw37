@@ -28,7 +28,7 @@ Key capabilities:
 - Default values
 - Persistence control (always saved, never saved, or user-config only)
 - Mutual exclusion (switch lists)
-- Parameter grouping for organized help display
+- Parameter grouping for organised help display
 - Runtime-only parameters for shared internal state that commands can read and write during execution
 
 ## Parameter Definition Constants
@@ -656,7 +656,7 @@ params = [
 
 ## Parameter Groups
 
-Organize related parameters in help display ([see example](../examples/params_groups.py)):
+Organise related parameters in help display ([see example](../examples/params_groups.py)):
 
 ```python
 params = [
@@ -707,7 +707,7 @@ Example usage:
 
 ```python
 def init_session_command():
-    """Initialize a new session."""
+    """Initialise a new session."""
     import uuid
     session_id = str(uuid.uuid4())
     spafw37.set_config('session-id', session_id)

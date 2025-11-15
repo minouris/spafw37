@@ -170,7 +170,7 @@ The workflow uses a multi-tier approach:
 2. **OpenAI API** (if `OPENAI_API_KEY` secret is configured)
 3. **Structured commit list** (fallback if no AI is available)
 
-The AI analyzes:
+The AI analyses:
 - Commit messages
 - Changed files
 - Diff statistics

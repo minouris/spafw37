@@ -10,7 +10,7 @@ Key concepts:
 - Best practice: extend rather than replace
 
 This example models a deployment pipeline that extends default phases:
-1. PHASE_SETUP - Default: initialization, framework config loading
+1. PHASE_SETUP - Default: initialisation, framework config loading
 2. PHASE_VALIDATE - Custom: validate source code and dependencies
 3. PHASE_BUILD - Custom: compile and package
 4. PHASE_TEST - Custom: run test suites
@@ -49,8 +49,8 @@ def setup():
     
     # Setup phase actions
     def init_workspace():
-        """Initialize workspace."""
-        spafw37.output("[SETUP] Initializing workspace...")
+        """Initialise workspace."""
+        spafw37.output("[SETUP] Initialising workspace...")
     
     # Validation phase actions
     def check_syntax():
@@ -98,7 +98,7 @@ def setup():
         # Setup phase (aliased as PHASE_START)
         {
             COMMAND_NAME: 'init-workspace',
-            COMMAND_DESCRIPTION: 'Initialize workspace',
+            COMMAND_DESCRIPTION: 'Initialise workspace',
             COMMAND_ACTION: init_workspace,
             COMMAND_PHASE: PHASE_START,  # Actually "phase-setup"
         },

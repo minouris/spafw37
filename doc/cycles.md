@@ -18,10 +18,10 @@
 
 Cycles enable you to execute a sequence of commands repeatedly in a loop ([see example](../examples/cycles_basic.py)). A cycle is attached to a parent command and consists of:
 
-- **Initialization function**: Set up resources before the loop starts
+- **Initialisation function**: Set up resources before the loop starts
 - **Loop condition function**: Called before each iteration; returns `True` to continue, `False` to stop
 - **Cycle commands**: List of commands to execute each iteration (respecting dependencies)
-- **Finalization function**: Clean up resources after the loop completes
+- **Finalisation function**: Clean up resources after the loop completes
 
 Cycles support nesting (up to 5 levels deep), automatic parameter validation across all cycle commands, and full integration with the command dependency system.
 
@@ -32,10 +32,10 @@ Cycles support nesting (up to 5 levels deep), automatic parameter validation acr
 | Constant | Description |
 |----------|-------------|
 | `CYCLE_NAME` | Name of the cycle for logging and debugging |
-| `CYCLE_INIT` | Function to initialize resources before loop starts |
+| `CYCLE_INIT` | Function to initialise resources before loop starts |
 | `CYCLE_LOOP` | Function that returns `True` to continue loop, `False` to exit |
 | `CYCLE_LOOP_START` | Function to prepare data for the iteration (runs after `CYCLE_LOOP` returns `True`) |
-| `CYCLE_END` | Function to finalize resources and perform cleanup after loop |
+| `CYCLE_END` | Function to finalise resources and perform cleanup after loop |
 | `CYCLE_COMMANDS` | List of command definitions or names to execute each iteration |
 
 ### Command Integration
@@ -47,7 +47,7 @@ Cycles support nesting (up to 5 levels deep), automatic parameter validation acr
 
 ## Defining a Cycle
 
-A cycle is attached to a parent command using the `COMMAND_CYCLE` key ([see example](../examples/cycles_basic.py)). The cycle definition includes initialization, loop condition, finalization functions, and the list of commands to execute each iteration.
+A cycle is attached to a parent command using the `COMMAND_CYCLE` key ([see example](../examples/cycles_basic.py)). The cycle definition includes initialisation, loop condition, finalisation functions, and the list of commands to execute each iteration.
 
 ### Basic Structure
 
@@ -164,7 +164,7 @@ def init_cycle():
     _iteration_count = 0
 ```
 
-### Initialization Function
+### Initialisation Function
 
 Sets up resources and state before the loop begins:
 
@@ -196,7 +196,7 @@ def prepare_next_file():
     spafw37.set_config_value('current-file', file_list[file_index])
 ```
 
-### Finalization Function
+### Finalisation Function
 
 Cleans up resources and reports results after the loop completes:
 
@@ -316,14 +316,14 @@ spafw37.add_commands(commands)
 When a cycle command executes:
 
 1. **Parent command action runs** (if defined - optional)
-2. **Initialization function runs** (`CYCLE_INIT`)
+2. **Initialisation function runs** (`CYCLE_INIT`)
 3. **Loop begins**:
    - Call loop condition function (`CYCLE_LOOP`) - returns `True` to continue or `False` to stop
    - If `True`: Run loop start function (`CYCLE_LOOP_START`) to prepare data for iteration
    - Execute all cycle commands (respecting dependencies)
    - Repeat from step 1
    - If `False`: Exit loop
-4. **Finalization function runs** (`CYCLE_END`)
+4. **Finalisation function runs** (`CYCLE_END`)
 5. **Execution continues** to next command in queue
 
 The `CYCLE_LOOP` function checks whether to continue iterating, while `CYCLE_LOOP_START` prepares the data for that iteration (e.g., sets current file path, fetches next database record, advances to next batch).
@@ -362,7 +362,7 @@ spafw37.add_params(params)
 def init_cycle():
     spafw37.set_config_value('iteration-count', 0)
     spafw37.set_config_value('max-iterations', 3)
-    spafw37.output("Cycle initialized")
+    spafw37.output("Cycle initialised")
 
 def should_continue():
     iteration_count = spafw37.get_config_value('iteration-count')
@@ -402,7 +402,7 @@ spafw37.add_commands(commands)
 
 Output when `run-cycle` executes:
 ```
-Cycle initialized
+Cycle initialised
 Iteration 1: doing work
 Iteration 2: doing work
 Iteration 3: doing work
@@ -483,7 +483,7 @@ spafw37.add_params(params)
 
 # Outer cycle functions
 def init_batches():
-    # Initialize batch list and index
+    # Initialise batch list and index
     spafw37.set_config_value('batches', ['batch-A', 'batch-B'])
     spafw37.set_config_value('batch-index', 0)
 
@@ -500,7 +500,7 @@ def prepare_next_batch():
 
 # Inner cycle functions
 def init_items():
-    # Initialize items for current batch
+    # Initialise items for current batch
     spafw37.set_config_value('items', ['item1', 'item2'])
     spafw37.set_config_value('item-index', 0)
 
@@ -643,11 +643,11 @@ def init_processing():
 
 # Better - use CYCLE_INIT for state setup, dependency commands for other tasks
 def init_state():
-    """Initialize cycle state only."""
+    """Initialise cycle state only."""
     spafw37.set_config_value('files', [])
     spafw37.set_config_value('file-index', 0)
 
-# Break complex initialization into dependency commands
+# Break complex initialisation into dependency commands
 commands = [
     {
         COMMAND_NAME: 'setup-output',
@@ -712,7 +712,7 @@ params = [
 spafw37.add_params(params)
 
 def init_processing():
-    """Initialize processing state."""
+    """Initialise processing state."""
     batches = load_batches()
     spafw37.set_config_value('batches', batches)
     spafw37.set_config_value('batch-index', 0)
@@ -751,7 +751,7 @@ def process_batch():
 _iteration_count = 0  # Leading underscore indicates module-private
 
 def init_cycle():
-    """Initialize cycle state."""
+    """Initialise cycle state."""
     global _iteration_count
     _iteration_count = 0
 ```

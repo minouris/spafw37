@@ -2,7 +2,7 @@
 Cycle execution system for running repeated sequences of commands.
 
 This module provides functionality for defining and executing command cycles:
-- Cycles can have initialization, loop condition, and finalization functions
+- Cycles can have initialisation, loop condition, and finalisation functions
 - Cycle commands are validated upfront (params merged into parent command)
 - Nested cycles are supported via recursive param collection
 - All commands within a cycle must be in the same phase
@@ -340,11 +340,11 @@ def _execute_cycle_iteration(command_names, commands_dict, run_command_func,
 
 def execute_cycle(command_def, commands_dict, run_command_func, 
                   queue_add_func, sort_queue_func):
-    """Execute a command cycle with init, loop, and finalization.
+    """Execute a command cycle with init, loop, and finalisation.
     
-    Runs the cycle initialization function, then repeatedly executes
+    Runs the cycle initialisation function, then repeatedly executes
     cycle commands while loop condition returns True, then runs
-    finalization function.
+    finalisation function.
     
     Args:
         command_def: Parent command definition dict
@@ -377,7 +377,7 @@ def execute_cycle(command_def, commands_dict, run_command_func,
             )
         )
         
-        # Run initialization function if present
+        # Run initialisation function if present
         init_func = cycle_def.get(CYCLE_INIT)
         if init_func and callable(init_func):
             logging.log_debug(
@@ -418,7 +418,7 @@ def execute_cycle(command_def, commands_dict, run_command_func,
                 queue_add_func, sort_queue_func
             )
         
-        # Run finalization function if present
+        # Run finalisation function if present
         end_func = cycle_def.get(CYCLE_END)
         if end_func and callable(end_func):
             logging.log_debug(

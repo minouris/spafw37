@@ -446,7 +446,7 @@ spafw37.set_config_value('processing-complete', True)
 - `value` - Value to set (any JSON-serializable type)
 
 **Common usage:**
-- Initializing cycle state in CYCLE_INIT
+- Initialising cycle state in CYCLE_INIT
 - Updating state during command execution
 - Setting runtime parameters
 
@@ -561,7 +561,7 @@ spafw37.set_output_handler(my_handler)
 - File redirection: Write output to file instead of console
 - GUI applications: Route output to UI components
 - Logging: Send output through logging system
-- Custom formatting: Add timestamps, colors, etc.
+- Custom formatting: Add timestamps, colours, etc.
 
 **Example - Dual output (console + file):**
 
@@ -606,8 +606,8 @@ spafw37.set_log_dir('/var/log/my-app')
 Set the current logging scope for subsequent log messages.
 
 ```python
-spafw37.set_current_scope('initialization')
-spafw37.log_info(_message="Starting initialization")
+spafw37.set_current_scope('initialisation')
+spafw37.log_info(_message="Starting initialisation")
 ```
 
 **Args:**
@@ -719,7 +719,7 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_PERSISTENCE_NEVER` | str | Value: `'never'` - never save |
 | `PARAM_PERSISTENCE_USER_ONLY` | None | Value: `None` - user configs only (default) |
 
-#### Organization
+#### Organisation
 
 | Constant | Type | Description |
 |----------|------|-------------|
@@ -781,10 +781,10 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `CYCLE_INIT` | `'cycle-init-function'` | Initialization function (runs once before loop) |
+| `CYCLE_INIT` | `'cycle-init-function'` | Initialisation function (runs once before loop) |
 | `CYCLE_LOOP` | `'cycle-loop-function'` | Loop condition function (returns True/False) |
 | `CYCLE_LOOP_START` | `'cycle-loop-start-function'` | Iteration prep function (runs after loop returns True) |
-| `CYCLE_END` | `'cycle-end-function'` | Finalization function (runs once after loop) |
+| `CYCLE_END` | `'cycle-end-function'` | Finalisation function (runs once after loop) |
 | `CYCLE_COMMANDS` | `'cycle-commands'` | List of command definitions for each iteration |
 
 **Execution order:**
@@ -837,7 +837,7 @@ For complete working examples demonstrating these API functions and constants, s
 
 - **Parameters** (6 files): Basic usage, toggles, lists, required validation, runtime modification, grouping
 - **Commands** (7 files): Basic definition, sequencing, dependencies, chaining, required validation, triggering, visibility
-- **Cycles** (3 files): Basic usage, custom loop initialization, nested patterns
+- **Cycles** (3 files): Basic usage, custom loop initialisation, nested patterns
 - **Phases** (4 files): Basic usage, custom ordering, extended lifecycle, custom definitions
 - **Output** (2 files): Basic output with verbose/silent modes, custom handlers (file, dual, timestamped)
 - **Configuration** (2 files): Basic usage, persistence patterns

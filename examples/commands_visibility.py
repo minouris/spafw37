@@ -98,12 +98,12 @@ def setup():
     
     # Framework command (internal utility)
     def framework_init():
-        """Framework initialization (hidden framework command)."""
-        spafw37.output("[FRAMEWORK] Initializing framework...")
+        """Framework initialisation (hidden framework command)."""
+        spafw37.output("[FRAMEWORK] Initialising framework...")
         spafw37.output("  Loading core modules")
         spafw37.output("  Registering plugins")
         spafw37.output("  Setting up environment")
-        spafw37.output("Framework initialized!")
+        spafw37.output("Framework initialised!")
         spafw37.output()
     
     commands = [
@@ -151,7 +151,7 @@ def setup():
         # Framework command (internal utility, not application functionality)
         {
             COMMAND_NAME: 'framework-init',
-            COMMAND_DESCRIPTION: 'Framework initialization',
+            COMMAND_DESCRIPTION: 'Framework initialisation',
             COMMAND_ACTION: framework_init,
             COMMAND_FRAMEWORK: True,  # Marked as framework command
             COMMAND_EXCLUDE_HELP: True,  # Also hidden from help

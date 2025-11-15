@@ -103,7 +103,7 @@ def test_adding_command_to_completed_phase_raises():
         command.queue_command(_command_name)
     assert "Cannot add command" in str(excinfo.value)
 
-# test that error is raised if adding to an unrecognized phase
+# test that error is raised if adding to an unrecognised phase
 def test_adding_command_to_unrecognized_phase_raises():
     _reset_command_module()
     phases = [
@@ -112,7 +112,7 @@ def test_adding_command_to_unrecognized_phase_raises():
         PHASE_TEARDOWN
     ]
     command.set_phases_order(phases)
-    _command_name = "unrecognized-phase-command"
+    _command_name = "unrecognised-phase-command"
     sample_command = {
         COMMAND_NAME: _command_name,
         COMMAND_ACTION: lambda: None,
@@ -121,7 +121,7 @@ def test_adding_command_to_unrecognized_phase_raises():
     command.add_commands([sample_command])
     with pytest.raises(KeyError) as excinfo:
         command.queue_command(_command_name)
-    assert "Phase 'phase-nonexistent' not recognized." in str(excinfo.value)
+    assert "Phase 'phase-nonexistent' not recognised." in str(excinfo.value)
 
 # test that triggered commands are added to the correct phase, by setting the trigger param using config.set_config_value
 def test_triggered_command_added_to_correct_phase():

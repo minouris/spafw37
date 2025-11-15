@@ -18,7 +18,7 @@ from spafw37.constants.command import (
 
 def setup_command():
     """Set up the environment."""
-    spafw37.output("[SETUP] Initializing environment...")
+    spafw37.output("[SETUP] Initialising environment...")
     spafw37.output("        Creating config files...")
     spafw37.output("        Setup complete!")
 

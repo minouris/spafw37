@@ -5,7 +5,7 @@ from spafw37.constants.command import (
 )
 
 """
-System for running repeated sequences of commands in a loop, with initialization and finalization functions.
+System for running repeated sequences of commands in a loop, with initialisation and finalisation functions.
 
 When the command is queued, the required params for all commands in the attached cycle should be checked before 
 the command is run - this should happen during the normal param checking phase.
@@ -25,7 +25,7 @@ CYCLE_COMMAND = "cycle-command"         # Attaches a cycle to a command, from th
 
 
 CYCLE_NAME = "cycle-name"               # Provide a name for the cycle for references and logging
-CYCLE_INIT = "cycle-init-function"      # Function to initialize resources for this cycle - runs after the command action, if one is defined
+CYCLE_INIT = "cycle-init-function"      # Function to initialise resources for this cycle - runs after the command action, if one is defined
 CYCLE_LOOP = "cycle-loop-function"      # function to call each loop iteration - return true to continue, false to exit
 CYCLE_LOOP_START = "cycle-loop-start-function"  # Function to prepare data for the iteration - runs after CYCLE_LOOP returns True
 CYCLE_END = "cycle-finalize-function"   # Runs after the last iteration of the cycle, for cleanup of resources and reporting

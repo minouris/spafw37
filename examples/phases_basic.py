@@ -10,7 +10,7 @@ Key concepts:
 - Dependencies within phases
 
 Default phases:
-- PHASE_SETUP: Initialize resources (database, config, etc.)
+- PHASE_SETUP: Initialise resources (database, config, etc.)
 - PHASE_CLEANUP: Prepare environment (clean temp files, etc.)
 - PHASE_EXECUTION: Main application logic (default for commands)
 - PHASE_TEARDOWN: Release resources (close connections, etc.)
@@ -35,9 +35,9 @@ from spafw37.constants.phase import (
 
 
 def setup():
-    """Configure the application with phase-organized commands."""
+    """Configure the application with phase-organised commands."""
     
-    # PHASE_SETUP: Resource initialization
+    # PHASE_SETUP: Resource initialisation
     def connect_db():
         """Connect to database."""
         spafw37.output("[SETUP] Connecting to database...")

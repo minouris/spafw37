@@ -4,13 +4,13 @@ Parameter-Triggered Commands Example
 Demonstrates COMMAND_TRIGGER_PARAM - commands automatically invoked when a parameter is set.
 
 When a parameter is set on the command line, commands with COMMAND_TRIGGER_PARAM matching
-that parameter will be automatically queued and executed. This is useful for initialization,
+that parameter will be automatically queued and executed. This is useful for initialisation,
 setup tasks, or loading resources that depend on specific parameters being provided.
 
 Key Concepts:
 - COMMAND_TRIGGER_PARAM: Parameter name that triggers the command
 - Triggered commands run automatically before explicitly queued commands
-- Useful for setup/initialization tasks
+- Useful for setup/initialisation tasks
 - Can be combined with COMMAND_REQUIRED_PARAMS for validation
 
 Usage Examples:

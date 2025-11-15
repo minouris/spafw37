@@ -48,12 +48,12 @@ This instructions file applies to work in the `doc/architecture/**` folder. We a
 
 ### Mermaid Diagrams
 - **Required**: Use Mermaid for all architectural diagrams
-- **Style guide**: Follow `doc/architecture/reference.md` color palette and conventions
-- **Consistency**: Use the same colors for the same concepts across all diagrams
+- **Style guide**: Follow `doc/architecture/reference.md` colour palette and conventions
+- **Consistency**: Use the same colours for the same concepts across all diagrams
 - **Clarity**: Create small, focused diagrams rather than monolithic ones
-- **Dark mode**: Use dark backgrounds with white text (`color:#fff`) as specified in reference.md
+- **Dark mode**: Use dark backgrounds with white text (`colour:#fff`) as specified in reference.md
 
-### Color Palette (from reference.md)
+### Colour Palette (from reference.md)
 - **Client/External Layer**: Dark red/pink tones
 - **FrontSide Adapter Layer**: Dark blue tones
 - **Central Control Layer**: Dark purple tones
@@ -63,10 +63,10 @@ This instructions file applies to work in the `doc/architecture/**` folder. We a
 
 All nodes must explicitly set:
 ```
-style NodeName fill:#1565c0,stroke:#333,stroke-width:2px,color:#fff
+style NodeName fill:#1565c0,stroke:#333,stroke-width:2px,colour:#fff
 ```
 
-### Document Organization
+### Document Organisation
 - **Glossary**: Define all terms in `glossary.md` before using them
 - **Index**: Update `index.md` when adding new documents
 - **Cross-references**: Link related concepts across documents
@@ -136,7 +136,7 @@ def create_listener_tracer(base_class, listener_config=None):
 - **Component diagrams**: Static structure and relationships
 - **Sequence diagrams**: Temporal interactions and message flows
 - **State diagrams**: Component lifecycle and state transitions
-- **Deployment diagrams**: Runtime organization (if applicable)
+- **Deployment diagrams**: Runtime organisation (if applicable)
 
 ## Design Considerations
 
@@ -173,13 +173,13 @@ def create_listener_tracer(base_class, listener_config=None):
 ### Anti-Patterns to Avoid
 - **God Object**: Distribute responsibilities appropriately
 - **Tight Coupling**: Use interfaces and dependency injection
-- **Premature Optimization**: Design for clarity first
+- **Premature Optimisation**: Design for clarity first
 - **Feature Creep**: Focus on core requirements
-- **Monolithic Components**: Favor small, focused components
+- **Monolithic Components**: Favour small, focused components
 
 ## Design Review Checklist
 
-Before finalizing any design:
+Before finalising any design:
 
 - [ ] All terms defined in glossary
 - [ ] Mermaid diagrams follow style guide

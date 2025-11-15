@@ -116,7 +116,7 @@ Use `set_config_value()` to set parameter values programmatically:
 from spafw37 import core as spafw37
 
 def init_cycle():
-    # Initialize cycle state
+    # Initialise cycle state
     spafw37.set_config_value('file-index', 0)
     spafw37.set_config_value('files-processed', 0)
     spafw37.set_config_value('errors', [])
@@ -557,7 +557,7 @@ def process():
         raise ValueError("input-file is required")
 ```
 
-### Organize Configuration in Application Setup
+### Organise Configuration in Application Setup
 
 ```python
 from spafw37 import core as spafw37

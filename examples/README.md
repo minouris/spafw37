@@ -56,7 +56,7 @@ python params_runtime.py init process-item process-item summary
 ```
 
 ### `params_groups.py` - Parameter Groups
-- Using PARAM_GROUP to organize parameters
+- Using PARAM_GROUP to organise parameters
 - Grouping parameters by functional area
 - Improving help output readability
 - Organizing large parameter sets
@@ -102,7 +102,7 @@ python commands_basic.py greet goodbye
 
 **Run:**
 ```bash
-python commands_sequencing.py prepare download process finalize
+python commands_sequencing.py prepare download process finalise
 ```
 
 ### `commands_dependencies.py` - Command Dependencies
@@ -146,7 +146,7 @@ python commands_required.py backup --backup /backups/app
 ### `commands_trigger.py` - Parameter-Triggered Commands
 - Using COMMAND_TRIGGER_PARAM for automatic command invocation
 - Commands that run when specific parameters are set
-- Initialization and setup automation
+- Initialisation and setup automation
 - Loading resources based on parameters
 
 **Run:**
@@ -178,9 +178,9 @@ python commands_visibility.py internal-diagnostics
 ## Cycles Examples
 
 ### `cycles_basic.py` - Basic Cycles
-- `CYCLE_INIT` - initialize before loop
+- `CYCLE_INIT` - initialise before loop
 - `CYCLE_LOOP` - iteration condition
-- `CYCLE_END` - finalize after loop
+- `CYCLE_END` - finalise after loop
 - Basic iteration pattern
 
 **Run:**

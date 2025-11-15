@@ -198,7 +198,7 @@ The build process will:
 
 Build types:
   - debug: Includes debug symbols and assertions
-  - release: Optimized build for production
+  - release: Optimised build for production
     """.strip(),
     COMMAND_ACTION: build_action,
     COMMAND_REQUIRED_PARAMS: ['build-type', 'target'],
@@ -362,7 +362,7 @@ commands = [
 - Complex commands you want to document separately
 
 **Key Points:**
-- Inline commands get full phase initialization and validation
+- Inline commands get full phase initialisation and validation
 - They support all standard command features (params, dependencies, etc.)
 - Can be arbitrarily nested (inline command with inline params, etc.)
 - Automatically registered when their parent command is added
@@ -525,14 +525,14 @@ python my_app.py process --plugin-dir ./plugins
 
 This is useful for:
 - Loading configuration or resources before other commands execute
-- Initialization commands (loading plugins, connecting to databases)
+- Initialisation commands (loading plugins, connecting to databases)
 - Setup tasks that depend on specific parameters being provided
 
 **Key Points:**
 - Triggered commands are queued automatically when their trigger parameter is set
 - Can be combined with COMMAND_REQUIRED_PARAMS for validation
 - Multiple commands can be triggered by different parameters
-- Useful for setup and initialization workflows
+- Useful for setup and initialisation workflows
 
 ## Command Visibility
 

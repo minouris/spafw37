@@ -45,7 +45,7 @@ params = [
 ]
 
 def init_command():
-    """Initialize session with runtime state."""
+    """Initialise session with runtime state."""
     import uuid
     
     # Set runtime-only parameter values
@@ -54,7 +54,7 @@ def init_command():
     spafw37.set_config_value('items-processed', 0)
     spafw37.set_config_value('total-size', 0)
     
-    spafw37.output(f"Session initialized: {session_id}")
+    spafw37.output(f"Session initialised: {session_id}")
     spafw37.output("Ready to process items")
 
 def process_item_command():
@@ -94,7 +94,7 @@ def summary_command():
 commands = [
     {
         COMMAND_NAME: 'init',
-        COMMAND_DESCRIPTION: 'Initialize processing session',
+        COMMAND_DESCRIPTION: 'Initialise processing session',
         COMMAND_ACTION: init_command,
     },
     {

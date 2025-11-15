@@ -71,7 +71,7 @@ def setup():
     
     # Outer cycle functions (rows)
     def init_rows():
-        """Initialize the outer cycle with number of rows."""
+        """Initialise the outer cycle with number of rows."""
         rows = 3
         spafw37.set_config_value('rows', rows)
         spafw37.set_config_value('current-row', 0)
@@ -90,7 +90,7 @@ def setup():
     
     # Inner cycle functions (columns)
     def init_cols():
-        """Initialize the inner cycle with number of columns."""
+        """Initialise the inner cycle with number of columns."""
         cols = 4
         current_row = spafw37.get_config_int('current-row')
         spafw37.set_config_value('cols', cols)

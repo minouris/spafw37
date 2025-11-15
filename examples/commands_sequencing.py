@@ -35,7 +35,7 @@ def process_command():
     spafw37.output("    Processed!")
 
 def finalize_command():
-    """Finalize and clean up."""
+    """Finalise and clean up."""
     spafw37.output("[4] FINALIZE: Cleaning up...")
     spafw37.output("    Removing temporary files...")
     spafw37.output("    Done!")
@@ -60,8 +60,8 @@ commands = [
         COMMAND_GOES_AFTER: ['download'],  # Runs after download
     },
     {
-        COMMAND_NAME: 'finalize',
-        COMMAND_DESCRIPTION: 'Finalize and clean up',
+        COMMAND_NAME: 'finalise',
+        COMMAND_DESCRIPTION: 'Finalise and clean up',
         COMMAND_ACTION: finalize_command,
         COMMAND_GOES_AFTER: ['process'],  # Runs after process
     },
