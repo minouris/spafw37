@@ -238,10 +238,41 @@ This project uses **PyPI Trusted Publisher** for secure, token-free publishing. 
 - Automatic authentication via OIDC
 - No secrets to configure in GitHub
 
+### Patreon Integration (Optional)
+
+The release workflow can automatically post release announcements to Patreon.
+
+**Setup**:
+
+1. Go to the [Patreon Creator Portal](https://www.patreon.com/portal/registration/register-clients)
+2. Click **Create Client**
+3. Fill in the application details:
+   - **App Name**: Your project name (e.g., "spafw37 Release Bot")
+   - **Description**: Brief description (e.g., "Automated release announcements")
+   - **App Category**: Choose "Tools & Utilities"
+   - **Redirect URIs**: Add `http://localhost:3000/oauth/redirect` (required but not used for server-to-server)
+4. Click **Create Client** and note your **Client ID** and **Client Secret**
+5. Generate an access token:
+   - You'll need to use the Patreon OAuth flow or API to generate a Creator Access Token
+   - Required scope: `w:posts.create` (ability to create posts)
+   - The token will look like: `<long alphanumeric string>`
+6. Add the token to GitHub:
+   - Go to your repository **Settings** → **Secrets and variables** → **Actions**
+   - Click **New repository secret**
+   - Name: `PATREON_ACCESS_TOKEN`
+   - Value: Paste your access token
+   - Click **Add secret**
+
+**Behavior**:
+- If the token is configured, releases will be automatically posted to your Patreon
+- If the token is not configured, the workflow will skip this step without failing
+- Posts include: version number, install instructions, changelog excerpt, and links to GitHub release, documentation, and PyPI
+
 ### GitHub Secrets
 
 The following secrets can be configured in repository settings:
 
+- `PATREON_ACCESS_TOKEN` - *Optional* - Patreon Creator Access Token for automated release announcements
 - `OPENAI_API_KEY` - *Optional* - OpenAI API key for AI-powered changelog generation
 - `GITHUB_TOKEN` - Automatically provided by GitHub Actions
 
@@ -252,6 +283,4 @@ The following secrets can be configured in repository settings:
 The release workflow requires:
 - `contents: write` - For creating releases and pushing commits/tags
 - `id-token: write` - For PyPI Trusted Publisher OIDC authentication
-
-- `contents: write` - For creating tags, releases, and pushing commits
 - Standard `GITHUB_TOKEN` permissions for other operations
