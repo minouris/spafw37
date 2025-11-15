@@ -117,16 +117,16 @@ python greet.py --help
 
 ## Documentation
 
-Comprehensive guides are available in the [`doc/`](https://github.com/minouris/spafw37/tree/main/doc) directory:
+Comprehensive guides are available in the [`doc/`](https://github.com/minouris/spafw37/tree/v1.0.1/doc) directory:
 
-- **[User Guide](https://github.com/minouris/spafw37/blob/main/doc/README.md)** - Complete framework overview and getting started
-- **[Parameters Guide](https://github.com/minouris/spafw37/blob/main/doc/parameters.md)** - Parameter types, aliases, persistence, and validation
-- **[Commands Guide](https://github.com/minouris/spafw37/blob/main/doc/commands.md)** - Command definition, dependencies, and orchestration
-- **[Phases Guide](https://github.com/minouris/spafw37/blob/main/doc/phases.md)** - Multi-phase execution and lifecycle management
-- **[Cycles Guide](https://github.com/minouris/spafw37/blob/main/doc/cycles.md)** - Repeating command sequences and iteration patterns
-- **[Configuration Guide](https://github.com/minouris/spafw37/blob/main/doc/configuration.md)** - Configuration management and persistence
-- **[Logging Guide](https://github.com/minouris/spafw37/blob/main/doc/logging.md)** - Logging system and configuration
-- **[API Reference](https://github.com/minouris/spafw37/blob/main/doc/api-reference.md)** - Complete API documentation
+- **[User Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/README.md)** - Complete framework overview and getting started
+- **[Parameters Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/parameters.md)** - Parameter types, aliases, persistence, and validation
+- **[Commands Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/commands.md)** - Command definition, dependencies, and orchestration
+- **[Phases Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/phases.md)** - Multi-phase execution and lifecycle management
+- **[Cycles Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/cycles.md)** - Repeating command sequences and iteration patterns
+- **[Configuration Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/configuration.md)** - Configuration management and persistence
+- **[Logging Guide](https://github.com/minouris/spafw37/blob/v1.0.1/doc/logging.md)** - Logging system and configuration
+- **[API Reference](https://github.com/minouris/spafw37/blob/v1.0.1/doc/api-reference.md)** - Complete API documentation
 
 ## Core Concepts
 
@@ -151,14 +151,14 @@ from spafw37.constants.param import *
 
 **Examples:**
 
-- [`params_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/params_basic.py) - Text, number, aliases, defaults
-- [`params_toggles.py`](https://github.com/minouris/spafw37/blob/main/examples/params_toggles.py) - Boolean flags and mutually exclusive options
-- [`params_lists.py`](https://github.com/minouris/spafw37/blob/main/examples/params_lists.py) - Multi-value parameters
-- [`params_dict.py`](https://github.com/minouris/spafw37/blob/main/examples/params_dict.py) - Dictionary parameters for key-value pairs
-- [`params_file.py`](https://github.com/minouris/spafw37/blob/main/examples/params_file.py) - File path parameters with validation
-- [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
-- [`params_runtime.py`](https://github.com/minouris/spafw37/blob/main/examples/params_runtime.py) - Runtime-only state management
-- [`params_groups.py`](https://github.com/minouris/spafw37/blob/main/examples/params_groups.py) - Organized parameter display
+- [`params_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_basic.py) - Text, number, aliases, defaults
+- [`params_toggles.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_toggles.py) - Boolean flags and mutually exclusive options
+- [`params_lists.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_lists.py) - Multi-value parameters
+- [`params_dict.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_dict.py) - Dictionary parameters for key-value pairs
+- [`params_file.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_file.py) - File path parameters with validation
+- [`params_required.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_required.py) - Globally required parameters
+- [`params_runtime.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_runtime.py) - Runtime-only state management
+- [`params_groups.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/params_groups.py) - Organized parameter display
 
 ### Commands
 
@@ -179,13 +179,13 @@ from spafw37.constants.command import *
 
 **Examples:**
 
-- [`commands_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_basic.py) - Simple command execution
-- [`commands_sequencing.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_sequencing.py) - Execution order control
-- [`commands_dependencies.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_dependencies.py) - Prerequisite enforcement
-- [`commands_next.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_next.py) - Automatic command chaining
-- [`commands_required.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_required.py) - Command-specific required parameters
-- [`commands_trigger.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_trigger.py) - Parameter-triggered commands
-- [`commands_visibility.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_visibility.py) - Hidden and framework commands
+- [`commands_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_basic.py) - Simple command execution
+- [`commands_sequencing.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_sequencing.py) - Execution order control
+- [`commands_dependencies.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_dependencies.py) - Prerequisite enforcement
+- [`commands_next.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_next.py) - Automatic command chaining
+- [`commands_required.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_required.py) - Command-specific required parameters
+- [`commands_trigger.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_trigger.py) - Parameter-triggered commands
+- [`commands_visibility.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/commands_visibility.py) - Hidden and framework commands
 
 ### Phases
 
@@ -205,10 +205,10 @@ spafw37.set_phases_order([
 
 **Examples:**
 
-- [`phases_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_basic.py) - Default phase system
-- [`phases_custom_order.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom_order.py) - Custom phase ordering
-- [`phases_extended.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_extended.py) - Extending default phases
-- [`phases_custom.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom.py) - Completely custom phases
+- [`phases_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/phases_basic.py) - Default phase system
+- [`phases_custom_order.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/phases_custom_order.py) - Custom phase ordering
+- [`phases_extended.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/phases_extended.py) - Extending default phases
+- [`phases_custom.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/phases_custom.py) - Completely custom phases
 
 ### Cycles
 
@@ -231,9 +231,9 @@ from spafw37.constants.cycle import *
 
 **Examples:**
 
-- [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_basic.py) - Simple iteration patterns
-- [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_start.py) - Per-iteration preparation
-- [`cycles_nested.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_nested.py) - Multi-level nested cycles
+- [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/cycles_basic.py) - Simple iteration patterns
+- [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/cycles_loop_start.py) - Per-iteration preparation
+- [`cycles_nested.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/cycles_nested.py) - Multi-level nested cycles
 
 ### Configuration
 
@@ -260,8 +260,8 @@ Configuration can be:
 
 **Examples:**
 
-- [`config_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/config_basic.py) - Runtime configuration
-- [`config_persistence.py`](https://github.com/minouris/spafw37/blob/main/examples/config_persistence.py) - Persistent configuration
+- [`config_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/config_basic.py) - Runtime configuration
+- [`config_persistence.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/config_persistence.py) - Persistent configuration
 
 ### Logging
 
@@ -289,8 +289,8 @@ Define parameters and commands inline without separate dictionaries:
 
 **Examples:**
 
-- [`inline_definitions_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/inline_definitions_basic.py) - Basic inline parameter and command definitions
-- [`inline_definitions_advanced.py`](https://github.com/minouris/spafw37/blob/main/examples/inline_definitions_advanced.py) - Advanced inline definition patterns
+- [`inline_definitions_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/inline_definitions_basic.py) - Basic inline parameter and command definitions
+- [`inline_definitions_advanced.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/inline_definitions_advanced.py) - Advanced inline definition patterns
 
 ### Output Handling
 
@@ -298,12 +298,12 @@ Custom output formatting and handlers:
 
 **Examples:**
 
-- [`output_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/output_basic.py) - Basic output formatting and display
-- [`output_handlers.py`](https://github.com/minouris/spafw37/blob/main/examples/output_handlers.py) - Custom output handlers and formatters
+- [`output_basic.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/output_basic.py) - Basic output formatting and display
+- [`output_handlers.py`](https://github.com/minouris/spafw37/blob/v1.0.1/examples/output_handlers.py) - Custom output handlers and formatters
 
 ---
 
-See the [Examples README](https://github.com/minouris/spafw37/blob/main/examples/README.md) for detailed descriptions and usage instructions.
+See the [Examples README](https://github.com/minouris/spafw37/blob/v1.0.1/examples/README.md) for detailed descriptions and usage instructions.
 
 ## Testing
 
@@ -375,5 +375,5 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 - **Repository:** https://github.com/minouris/spafw37
 - **Issues:** https://github.com/minouris/spafw37/issues
 - **TestPyPI:** https://test.pypi.org/project/spafw37/
-- **Documentation:** https://github.com/minouris/spafw37/tree/main/doc
-- **Examples:** https://github.com/minouris/spafw37/tree/main/examples
+- **Documentation:** https://github.com/minouris/spafw37/tree/v1.0.1/doc
+- **Examples:** https://github.com/minouris/spafw37/tree/v1.0.1/examples
