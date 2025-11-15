@@ -122,44 +122,6 @@ Comprehensive guides are available in the [`doc/`](https://github.com/minouris/s
 - **[Logging Guide](https://github.com/minouris/spafw37/blob/main/doc/logging.md)** - Logging system and configuration
 - **[API Reference](https://github.com/minouris/spafw37/blob/main/doc/api-reference.md)** - Complete API documentation
 
-## Examples
-
-The [`examples/`](https://github.com/minouris/spafw37/tree/main/examples) directory contains focused examples demonstrating specific features:
-
-### Parameters
-- [`params_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/params_basic.py) - Text, number, aliases, defaults
-- [`params_toggles.py`](https://github.com/minouris/spafw37/blob/main/examples/params_toggles.py) - Boolean flags and mutually exclusive options
-- [`params_lists.py`](https://github.com/minouris/spafw37/blob/main/examples/params_lists.py) - Multi-value parameters
-- [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
-- [`params_runtime.py`](https://github.com/minouris/spafw37/blob/main/examples/params_runtime.py) - Runtime-only state management
-- [`params_groups.py`](https://github.com/minouris/spafw37/blob/main/examples/params_groups.py) - Organized parameter display
-
-### Commands
-- [`commands_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_basic.py) - Simple command execution
-- [`commands_sequencing.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_sequencing.py) - Execution order control
-- [`commands_dependencies.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_dependencies.py) - Prerequisite enforcement
-- [`commands_next.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_next.py) - Automatic command chaining
-- [`commands_required.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_required.py) - Command-specific required parameters
-- [`commands_trigger.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_trigger.py) - Parameter-triggered commands
-- [`commands_visibility.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_visibility.py) - Hidden and framework commands
-
-### Cycles
-- [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_basic.py) - Simple iteration patterns
-- [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_start.py) - Per-iteration preparation
-- [`cycles_nested.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_nested.py) - Multi-level nested cycles
-
-### Phases
-- [`phases_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_basic.py) - Default phase system
-- [`phases_custom_order.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom_order.py) - Custom phase ordering
-- [`phases_extended.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_extended.py) - Extending default phases
-- [`phases_custom.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom.py) - Completely custom phases
-
-### Configuration
-- [`config_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/config_basic.py) - Runtime configuration
-- [`config_persistence.py`](https://github.com/minouris/spafw37/blob/main/examples/config_persistence.py) - Persistent configuration
-
-See the [Examples README](https://github.com/minouris/spafw37/blob/main/examples/README.md) for detailed descriptions and usage instructions.
-
 ## Core Concepts
 
 ### Parameters
@@ -181,6 +143,17 @@ from spafw37.constants.param import *
 
 **Types:** `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`, `PARAM_TYPE_LIST`
 
+**Examples:**
+
+- [`params_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/params_basic.py) - Text, number, aliases, defaults
+- [`params_toggles.py`](https://github.com/minouris/spafw37/blob/main/examples/params_toggles.py) - Boolean flags and mutually exclusive options
+- [`params_lists.py`](https://github.com/minouris/spafw37/blob/main/examples/params_lists.py) - Multi-value parameters
+- [`params_dict.py`](https://github.com/minouris/spafw37/blob/main/examples/params_dict.py) - Dictionary parameters for key-value pairs
+- [`params_file.py`](https://github.com/minouris/spafw37/blob/main/examples/params_file.py) - File path parameters with validation
+- [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
+- [`params_runtime.py`](https://github.com/minouris/spafw37/blob/main/examples/params_runtime.py) - Runtime-only state management
+- [`params_groups.py`](https://github.com/minouris/spafw37/blob/main/examples/params_groups.py) - Organized parameter display
+
 ### Commands
 
 Define commands with actions, dependencies, and execution control:
@@ -198,6 +171,16 @@ from spafw37.constants.command import *
 }
 ```
 
+**Examples:**
+
+- [`commands_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_basic.py) - Simple command execution
+- [`commands_sequencing.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_sequencing.py) - Execution order control
+- [`commands_dependencies.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_dependencies.py) - Prerequisite enforcement
+- [`commands_next.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_next.py) - Automatic command chaining
+- [`commands_required.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_required.py) - Command-specific required parameters
+- [`commands_trigger.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_trigger.py) - Parameter-triggered commands
+- [`commands_visibility.py`](https://github.com/minouris/spafw37/blob/main/examples/commands_visibility.py) - Hidden and framework commands
+
 ### Phases
 
 Commands execute in phases (setup → cleanup → execution → teardown → end):
@@ -213,6 +196,13 @@ spafw37.set_phases_order([
     PHASE_END,
 ])
 ```
+
+**Examples:**
+
+- [`phases_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_basic.py) - Default phase system
+- [`phases_custom_order.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom_order.py) - Custom phase ordering
+- [`phases_extended.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_extended.py) - Extending default phases
+- [`phases_custom.py`](https://github.com/minouris/spafw37/blob/main/examples/phases_custom.py) - Completely custom phases
 
 ### Cycles
 
@@ -233,7 +223,13 @@ from spafw37.constants.cycle import *
 }
 ```
 
-## Configuration
+**Examples:**
+
+- [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_basic.py) - Simple iteration patterns
+- [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_start.py) - Per-iteration preparation
+- [`cycles_nested.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_nested.py) - Multi-level nested cycles
+
+### Configuration
 
 Access configuration values in your command actions:
 
@@ -250,12 +246,18 @@ def my_command():
 ```
 
 Configuration can be:
+
 - Set via command-line parameters
 - Loaded from persistent config files (`config.json`)
 - Saved to user config files (`--save-config`, `--load-config`)
 - Managed at runtime within commands
 
-## Logging
+**Examples:**
+
+- [`config_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/config_basic.py) - Runtime configuration
+- [`config_persistence.py`](https://github.com/minouris/spafw37/blob/main/examples/config_persistence.py) - Persistent configuration
+
+### Logging
 
 Built-in logging system with multiple levels:
 
@@ -270,9 +272,32 @@ spafw37.log_error('scope', 'Error message')
 ```
 
 Control logging via built-in parameters:
+
 - `--no-logging` - Disable all logging
 - `--verbose` - Enable verbose output
 - `--log-dir` - Specify log directory
+
+### Inline Definitions
+
+Define parameters and commands inline without separate dictionaries:
+
+**Examples:**
+
+- [`inline_definitions_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/inline_definitions_basic.py) - Basic inline parameter and command definitions
+- [`inline_definitions_advanced.py`](https://github.com/minouris/spafw37/blob/main/examples/inline_definitions_advanced.py) - Advanced inline definition patterns
+
+### Output Handling
+
+Custom output formatting and handlers:
+
+**Examples:**
+
+- [`output_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/output_basic.py) - Basic output formatting and display
+- [`output_handlers.py`](https://github.com/minouris/spafw37/blob/main/examples/output_handlers.py) - Custom output handlers and formatters
+
+---
+
+See the [Examples README](https://github.com/minouris/spafw37/blob/main/examples/README.md) for detailed descriptions and usage instructions.
 
 ## Testing
 
@@ -321,7 +346,7 @@ For feature requests and questions, also use [GitHub Issues](https://github.com/
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
-Copyright (c) 2025 minouris
+Copyright (c) 2025 Ciara Norrish (@minouris)
 
 ## CI/CD
 
