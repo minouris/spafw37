@@ -383,8 +383,16 @@ jobs:
         CHANGELOG_EXCERPT=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +3 || echo "See release notes for details.")
         
         # Create post content
-        POST_TITLE="spafw37 v${VERSION} Released"
+        POST_TITLE="New Software Release: spafw37 v${VERSION} Released!"
         POST_CONTENT="🎉 New release of spafw37!
+
+        This is a lightweight Python 3.7+ framework for building command-line applications. It has configuration management, custom per-command parameters, execution control, repeatable commands, and a whole lot more...
+
+        It's not very interesting by itself, but it makes developing small apps much easier - it's what I use for my other small tools :)
+
+        If you use it, please let me know what you think, and if you can think of any features you'd like to see added!
+
+        If you find any problems, please report them at https://github.com/${{ github.repository }}/issues?q=is%3Aissue+label%3Av${VERSION}
 
         Version ${VERSION} is now available on PyPI.
         
