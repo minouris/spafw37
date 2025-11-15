@@ -796,11 +796,16 @@ def test_save_persistent_config_disk_full():
              config.save_persistent_config()
 
 def test_load_config_empty_file():
+    """
+    Test that loading an empty config file returns an empty dict.
+    Empty config files are treated as valid configuration with no settings.
+    This allows for flexible initialization where empty files don't cause errors.
+    """
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "empty.json"
     with patch('builtins.open', mock_open(read_data="")):
-        with pytest.raises(ValueError, match="Config file 'empty.json' is empty"):
-             config.load_user_config()
+        result = config.load_config("empty.json")
+        assert result == {}
 
 def test_save_config_json_serialization_error():
     setup_function()

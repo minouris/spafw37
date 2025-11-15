@@ -88,7 +88,8 @@ def load_config(config_file_in):
             with open(config_file_in, 'r') as f:
                 content = f.read()
                 if not content.strip():
-                    raise ValueError(f"Config file '{config_file_in}' is empty")
+                    # Treat empty files as empty configuration
+                    return {}
                 f.seek(0)
                 return json.loads(content)
         except FileNotFoundError:
