@@ -12,6 +12,38 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - **Type-safe getters:** Typed getter functions with automatic coercion
 - **Deprecation strategy:** Old APIs wrapped with warnings, removed in v2.0.0
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Implementation Steps](#implementation-steps)
+  - [1. Add `PARAM_JOIN_SEPARATOR` constant](#1-add-param_join_separator-constant)
+  - [2. Make internal `param.py` helpers private and reorganize modules](#2-make-internal-parampy-helpers-private-and-reorganize-modules)
+  - [3. Create flexible param resolution system](#3-create-flexible-param-resolution-system)
+  - [4. Extract type-specific validation helpers](#4-extract-type-specific-validation-helpers)
+  - [5. Create `_validate_param_value()` orchestrator](#5-create-_validate_param_value-orchestrator)
+  - [6. Refactor CLI parsing to use structured dict approach](#6-refactor-cli-parsing-to-use-structured-dict-approach)
+  - [7. Add `set_param_value()` with flexible resolution](#7-add-set_param_value-with-flexible-resolution)
+  - [8. Add `join_param_value()` with flexible resolution](#8-add-join_param_value-with-flexible-resolution)
+  - [9. Add XOR validation for toggle params](#9-add-xor-validation-for-toggle-params)
+  - [10. Add typed param getters with flexible resolution](#10-add-typed-param-getters-with-flexible-resolution)
+  - [11. Export param API through `core.py` facade](#11-export-param-api-through-corepy-facade)
+  - [12. Refactor CLI layer](#12-refactor-cli-layer)
+  - [13. Deprecate and refactor `config_func.py` param-setting functions](#13-deprecate-and-refactor-config_funcpy-param-setting-functions)
+  - [14. Deprecate `config.set_config_list_value()`](#14-deprecate-configset_config_list_value)
+  - [15. Update examples](#15-update-examples)
+  - [16. Update documentation](#16-update-documentation)
+  - [17. Update CHANGELOG.md](#17-update-changelogmd)
+  - [18. Update tests](#18-update-tests)
+- [Further Considerations](#further-considerations)
+  - [1. Dict merge semantics for `join_param()`](#1-dict-merge-semantics-for-join_param)
+  - [2. Deprecation warning verbosity control](#2-deprecation-warning-verbosity-control)
+  - [3. Type coercion failure messages](#3-type-coercion-failure-messages)
+  - [4. String join edge cases](#4-string-join-edge-cases)
+  - [5. Private method testing approach](#5-private-method-testing-approach)
+  - [6. Flexible param resolution usage patterns](#6-flexible-param-resolution-usage-patterns)
+  - [7. Migration path for `set_config_list_value()` users](#7-migration-path-for-set_config_list_value-users)
+- [Success Criteria](#success-criteria)
+
 ## Implementation Steps
 
 ### 1. Add `PARAM_JOIN_SEPARATOR` constant
@@ -23,6 +55,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Defaults to `' '` (space) if not specified in param definition
 - Used by `join_param_value()` when concatenating multiple string values
 - Example: `PARAM_JOIN_SEPARATOR: ','` for CSV-style tags
+
+[↑ Back to top](#table-of-contents)
 
 ### 2. Make internal `param.py` helpers private and reorganize modules
 
@@ -61,6 +95,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - **cli.py** - CLI token parsing
     - `_is_long_alias_with_value()`, `_param_in_args()`
     - After refactoring: CLI only calls `param.is_alias()` and `param.set_param_value()`
+
+[↑ Back to top](#table-of-contents)
 
 ### 3. Create flexible param resolution system
 
@@ -116,6 +152,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Example: `set_param_value(bind_name='database_host', value='localhost')` → internally checks only bind names
   - The `_resolve_param_definition()` helper is an internal implementation detail, not exposed to users
 
+[↑ Back to top](#table-of-contents)
+
 ### 4. Extract type-specific validation helpers
 
 **File:** `src/spafw37/param.py`
@@ -141,6 +179,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Pass-through, return value as-is
   - Simplest validator (text accepts anything)
 
+[↑ Back to top](#table-of-contents)
+
 ### 5. Create `_validate_param_value()` orchestrator
 
 **File:** `src/spafw37/param.py`
@@ -162,6 +202,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - When `strict=True`: raise `ValueError` on validation failure
   - When `strict=False`: return default value on validation failure
 - Return validated/coerced value
+
+[↑ Back to top](#table-of-contents)
 
 ### 6. Refactor CLI parsing to use structured dict approach
 
@@ -449,6 +491,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - XOR validation happens automatically in param layer via `_validate_xor_conflicts()`
   - Persistence management happens in param layer via config_func helper call
 
+[↑ Back to top](#table-of-contents)
+
 ### 7. Add `set_param_value()` with flexible resolution
 
 **File:** `src/spafw37/param.py`
@@ -480,6 +524,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `set_param_value(param_name='database-host', value='localhost')` → name only
   - `set_param_value(bind_name='database_host', value='localhost')` → bind only
   - `set_param_value(alias='--db-host', value='localhost')` → alias only
+
+[↑ Back to top](#table-of-contents)
 
 ### 8. Add `join_param_value()` with flexible resolution
 
@@ -524,6 +570,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Used by CLI during parsing for multiple param occurrences
 - Available for user code to incrementally build values
 
+[↑ Back to top](#table-of-contents)
+
 ### 9. Add XOR validation for toggle params
 
 **File:** `src/spafw37/param.py`
@@ -540,6 +588,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Remove XOR handling from CLI layer
   - Consolidate toggle mutual exclusion in param layer
 - Simplifies CLI code by centralizing toggle logic
+
+[↑ Back to top](#table-of-contents)
 
 ### 10. Add typed param getters with flexible resolution
 
@@ -598,6 +648,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `get_param_int(bind_name='max_connections', default=100)` → bind only
   - `get_param_bool(alias='--verbose')` → alias only
 
+[↑ Back to top](#table-of-contents)
+
 ### 11. Export param API through `core.py` facade
 
 **File:** `src/spafw37/core.py`
@@ -625,6 +677,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `@_deprecated("Use get_param_dict() instead. Will be removed in v2.0.0")` on `get_config_dict()`
   - `@_deprecated("Use set_param() instead. Will be removed in v2.0.0")` on `set_config_value()`
 
+[↑ Back to top](#table-of-contents)
+
 ### 12. Refactor CLI layer
 
 **File:** `src/spafw37/cli.py`
@@ -644,6 +698,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Update pre-parse flow:
   - Use `param.join_param_value()` for early param setting
   - Maintain same behavior for logging config
+
+[↑ Back to top](#table-of-contents)
 
 ### 13. Deprecate and refactor `config_func.py` param-setting functions
 
@@ -685,6 +741,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `set_app_name()` / `get_app_name()` - application name management
   - `set_config_file()` - sets persistent config file path
 
+[↑ Back to top](#table-of-contents)
+
 ### 14. Deprecate `config.set_config_list_value()`
 
 **File:** `src/spafw37/config.py`
@@ -696,6 +754,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `set_param()` for replacing entire list (user code use case)
 - Keep function implementation for backward compatibility
 - Remove usage from internal code (replaced by param API)
+
+[↑ Back to top](#table-of-contents)
 
 ### 15. Update examples
 
@@ -719,6 +779,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Show custom comma separator for CSV tags
   - Demonstrate `join_param()` usage
   - Example: `--tags python --tags cli --tags framework` → `"python,cli,framework"`
+
+[↑ Back to top](#table-of-contents)
 
 ### 16. Update documentation
 
@@ -766,6 +828,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Update "Getting Started" code samples
   - Add note about backward compatibility via deprecation warnings
 
+[↑ Back to top](#table-of-contents)
+
 ### 17. Update CHANGELOG.md
 
 **File:** `CHANGELOG.md`
@@ -801,6 +865,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Old API still works in v1.1.0
   - Allows gradual migration
   - Set `SPAFW37_SUPPRESS_DEPRECATION_WARNINGS` to silence warnings
+
+[↑ Back to top](#table-of-contents)
 
 ### 18. Update tests
 
@@ -843,6 +909,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Add tests for any uncovered branches
   - Focus on error handling paths (strict mode, validation failures)
 
+[↑ Back to top](#table-of-contents)
+
 ## Further Considerations
 
 ### 1. Dict merge semantics for `join_param()`
@@ -859,6 +927,8 @@ When calling `join_param('config', {"a": 1})` then `join_param('config', {"b": 2
   - Deep: Nested keys merged recursively (more complex, more useful?)
 - **Recommendation:** Start with shallow merge, last-wins for conflicts, document clearly
 
+[↑ Back to top](#table-of-contents)
+
 ### 2. Deprecation warning verbosity control
 
 Current `@_deprecated` decorator logs once per function (singleton pattern).
@@ -872,6 +942,8 @@ Current `@_deprecated` decorator logs once per function (singleton pattern).
 - **Per-function control:** Consider programmatic API like `spafw37.suppress_deprecation_warnings(['get_config_str'])`
   - More granular than environment variable
   - Useful for gradual migration (suppress warnings for already-migrated code)
+
+[↑ Back to top](#table-of-contents)
 
 ### 3. Type coercion failure messages
 
@@ -887,6 +959,8 @@ When `get_param_int('foo')` fails to coerce value and `strict=False`:
   - Pro: Available when needed (verbose mode)
   - Con: Not visible by default
 - **Recommendation:** Log at DEBUG level with message like `"Failed to coerce param 'foo' to int, returning default"`
+
+[↑ Back to top](#table-of-contents)
 
 ### 4. String join edge cases
 
@@ -905,6 +979,8 @@ When `get_param_int('foo')` fails to coerce value and `strict=False`:
   - Seems valid, no technical limitation
   - Document examples
 
+[↑ Back to top](#table-of-contents)
+
 ### 5. Private method testing approach
 
 Current tests call `_parse_value()` directly (13 matches).
@@ -920,6 +996,8 @@ Current tests call `_parse_value()` directly (13 matches).
   - Private helper tests for edge cases and validation rules
   - Recommendation: Use this approach
 - **Implementation:** Keep existing `_parse_value()` tests, add new public API tests
+
+[↑ Back to top](#table-of-contents)
 
 ### 6. Flexible param resolution usage patterns
 
@@ -942,6 +1020,8 @@ The `_resolve_param_definition()` helper enables three levels of specificity:
 
 **Recommendation:** Document both patterns with clear guidelines. Internal framework code uses named arguments, user-facing examples use failover mode.
 
+[↑ Back to top](#table-of-contents)
+
 ### 7. Migration path for `set_config_list_value()` users
 
 Current usage analysis:
@@ -960,6 +1040,8 @@ Current usage analysis:
 - Keep low-level `config.set_config_value()` for runtime state management
 - Document this distinction in `doc/configuration.md`
 
+[↑ Back to top](#table-of-contents)
+
 ## Success Criteria
 
 - [ ] All 18 implementation steps completed
@@ -971,3 +1053,5 @@ Current usage analysis:
 - [ ] New param API exported through `core.py`
 - [ ] Migration guide in CHANGELOG.md
 - [ ] Issue #27 closed
+
+[↑ Back to top](#table-of-contents)
