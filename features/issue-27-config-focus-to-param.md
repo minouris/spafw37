@@ -4,6 +4,14 @@
 
 Pivot from config dict access to param-focused interface with metadata-driven validation. Users will call `spafw37.set_param()` and `spafw37.get_param_str()` instead of config methods, enabling type validation on write and leveraging parameter metadata. All param logic moves to `param.py` with proper private/public separation, keeping `config.py` primitive. Includes deprecation wrappers for backward compatibility in v1.1.0 milestone.
 
+**Key architectural decisions:**
+
+- **Flexible param resolution:** Public API accepts params by name, bind_name, or alias with failover
+- **Internal resolution helper:** `_resolve_param_definition()` encapsulates discovery logic
+- **Separation of concerns:** CLI parses → param validates → config stores
+- **Type-safe getters:** Typed getter functions with automatic coercion
+- **Deprecation strategy:** Old APIs wrapped with warnings, removed in v2.0.0
+
 ## Implementation Steps
 
 ### 1. Add `PARAM_JOIN_SEPARATOR` constant
@@ -30,20 +38,59 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `help.py` parameter display logic
   - `cycle.py` cycle parameter handling
 
-### 3. Rename metadata accessors to private
+### 3. Create flexible param resolution system
 
 **File:** `src/spafw37/param.py`
 
-- Rename `get_param_by_name()` → `_get_param_definition()`
-- Rename `get_param_by_alias()` → `_get_param_definition_by_alias()`
-- Update 20+ internal call sites in:
-  - `param.py` internal lookups
-  - `cli.py` alias resolution
-  - `config_func.py` param definition access
-  - `help.py` help text generation
-- Create public backward-compat wrappers:
-  - `get_param_by_name()` calls `_get_param_definition()` with deprecation warning
-  - `get_param_by_alias()` calls `_get_param_definition_by_alias()` with deprecation warning
+- **Rename metadata accessors to private:**
+  - Rename `get_param_by_name()` → `_get_param_definition()`
+  - Rename `get_param_by_alias()` → `_get_param_definition_by_alias()`
+  - Update 20+ internal call sites in: `param.py`, `cli.py`, `config_func.py`, `help.py`
+  - Create public backward-compat wrappers with deprecation warnings
+
+- **Create `_resolve_param_definition()` helper:**
+  - Flexible param resolution supporting three address spaces:
+    1. **param_name** - parameter name (e.g., `'database-host'`)
+    2. **bind_name** - config key (e.g., `'database_host'`)
+    3. **alias** - CLI alias (e.g., `'--db-host'`, `-d`)
+  
+  - **Signature:**
+  
+    ```python
+    def _resolve_param_definition(param_name=None, bind_name=None, alias=None):
+    ```
+  
+  - **Behavior:**
+    - **Named argument usage:** Only check specified address space
+      - `_resolve_param_definition(param_name='database')` → only check param names
+      - `_resolve_param_definition(bind_name='database_host')` → only check bind names
+      - `_resolve_param_definition(alias='--db-host')` → only check aliases
+    
+    - **Positional argument usage:** Use failover pattern (user-friendly)
+      - `_resolve_param_definition('database')` → try param_name, then bind_name, then alias
+      - Python 3.7 limitation: First positional arg always maps to `param_name`
+      - Failover order: name → bind → alias
+    
+    - **Implementation:**
+      - If only `param_name` provided and matches: return `_get_param_definition(param_name)`
+      - If only `param_name` provided and no match: try `_get_param_definition_by_bind_name(param_name)`
+      - If still no match: try `_get_param_definition_by_alias(param_name)`
+      - If `bind_name` provided: only check bind name lookup
+      - If `alias` provided: only check alias lookup
+      - Return `None` if param not found in specified address space(s)
+    
+    - **New helper needed:** `_get_param_definition_by_bind_name(bind_name)`
+      - Search `_params` list for param where `_get_bind_name(param_def) == bind_name`
+      - Return matching param definition or `None`
+
+- **Update public API functions to use `_resolve_param_definition()` internally:**
+  - Public functions in `param.py`: `set_param_value()`, `join_param_value()`, all `get_param_*()` functions
+  - These functions accept three optional keyword arguments: `param_name=None, bind_name=None, alias=None`
+  - First positional arg maps to `param_name` for failover behavior
+  - **Call chain:** User calls `set_param_value('database', value='postgres')` → function calls `_resolve_param_definition('database')` → returns param_def → function uses it
+  - Example: `set_param_value('database', 'postgres')` → internally tries all three address spaces
+  - Example: `set_param_value(bind_name='database_host', value='localhost')` → internally checks only bind names
+  - The `_resolve_param_definition()` helper is an internal implementation detail, not exposed to users
 
 ### 4. Extract type-specific validation helpers
 
@@ -104,32 +151,53 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Function remains internal (`_` prefix)
 - Used by existing callers during transition period
 
-### 7. Add `set_param_value()` for replacement
+### 7. Add `set_param_value()` with flexible resolution
 
 **File:** `src/spafw37/param.py`
 
 - Public function for setting param values
-- Accept parameters:
-  - `param_name` - parameter name string
-  - `value` - value to set
-- Implementation:
-  - Lookup param definition: `param_def = _get_param_definition(param_name)`
-  - Raise `ValueError` if param not found: `f"Unknown parameter: {param_name}"`
-  - Validate value: `validated_value = _validate_param_value(param_def, value, strict=True)`
-  - Discover config key: `bind_name = _get_bind_name(param_def)`
-  - Store value: `config.set_config_value(bind_name, validated_value)`
-- Uniform handling for all param types (no special list logic)
-- Replaces entire value (does not append/accumulate)
-- Used by user code and CLI after parsing complete
+- **Signature:**
 
-### 8. Add `join_param_value()` for accumulation
+  ```python
+  def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True):
+  ```
+
+- **Parameters:**
+  - First three are mutually exclusive identifiers (one required)
+  - `value` - value to set (required)
+  - `strict` - validation mode (default True for programmatic correctness)
+
+- **Implementation:**
+  - Resolve param: `param_def = _resolve_param_definition(param_name, bind_name, alias)`
+  - Raise `ValueError` if param not found: `f"Unknown parameter"`
+  - Check XOR conflicts for toggles: `_validate_xor_conflicts(param_def)` (see Step 9)
+  - Validate value: `validated_value = _validate_param_value(param_def, value, strict)`
+  - Get config key: `config_key = _get_bind_name(param_def)`
+  - Store value: `config.set_config_value(config_key, validated_value)`
+  - Log: `f"Set param '{config_key}' = {validated_value}"`
+  - Manage persistence: Call config_func helper (see Step 13)
+
+- **Usage examples:**
+  - `set_param_value('database', value='postgres')` → failover resolution
+  - `set_param_value(param_name='database-host', value='localhost')` → name only
+  - `set_param_value(bind_name='database_host', value='localhost')` → bind only
+  - `set_param_value(alias='--db-host', value='localhost')` → alias only
+
+### 8. Add `join_param_value()` with flexible resolution
 
 **File:** `src/spafw37/param.py`
 
 - Public function for accumulating/appending values
-- Accept parameters:
-  - `param_name` - parameter name string
-  - `value` - value to join/append
+- **Signature:**
+
+  ```python
+  def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
+  ```
+
+- **Parameters:**
+  - First three are mutually exclusive identifiers (one required)
+  - `value` - value to join/append (required)
+
 - Create type-specific join helpers:
   - `_join_list_value(existing, new)`:
     - If existing is None/missing, create new list
@@ -146,7 +214,15 @@ Pivot from config dict access to param-focused interface with metadata-driven va
     - Shallow merge: `{**existing, **new}`
     - Last value wins for conflicting keys
     - Return merged dict
-- Raise `ValueError` for number/toggle params (cannot join)
+
+- **Implementation:**
+  - Resolve param: `param_def = _resolve_param_definition(param_name, bind_name, alias)`
+  - Raise `ValueError` if param not found
+  - Raise `ValueError` for number/toggle params (cannot join)
+  - Get current value from config
+  - Dispatch to type-specific joiner based on param type
+  - Store updated value via `config.set_config_value()`
+
 - Used by CLI during parsing for multiple param occurrences
 - Available for user code to incrementally build values
 
@@ -167,44 +243,62 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Consolidate toggle mutual exclusion in param layer
 - Simplifies CLI code by centralizing toggle logic
 
-### 10. Add typed param getters with coercion
+### 10. Add typed param getters with flexible resolution
 
 **File:** `src/spafw37/param.py`
 
-- Create base getter `get_param_value(param_name, default=None, strict=False)`:
-  - Lookup param definition: `_get_param_definition(param_name)`
+- **Create base getter with flexible resolution:**
+
+  ```python
+  def get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+  ```
+  
+  - Resolve param: `param_def = _resolve_param_definition(param_name, bind_name, alias)`
   - If not found and `strict=True`: raise `ValueError`
   - If not found and `strict=False`: return default
-  - Get bind name: `_get_bind_name(param_def)`
-  - Retrieve from config: `config.get_config_value(bind_name)`
+  - Get config key: `config_key = _get_bind_name(param_def)`
+  - Retrieve from config: `config.get_config_value(config_key)`
   - Return raw value or default if missing
-- Create `get_param_str(param_name, default='', strict=False)`:
-  - Get value via `get_param_value()`
-  - Coerce to string: `str(value)`
-  - Examples: `123.0` → `"123.0"`, `['a', 'b']` → `"['a', 'b']"`
-  - Handle coercion errors per `strict` mode
-- Create `get_param_int(param_name, default=0, strict=False)`:
-  - Get value via `get_param_value()`
-  - Coerce to int via truncation: `int(float(value))`
-  - Examples: `"123"` → `123`, `"3.14"` → `3`, `3.99` → `3`
-  - If `strict=True` and coercion fails: raise `ValueError`
-  - If `strict=False` and coercion fails: return default
-- Create `get_param_bool(param_name, default=False, strict=False)`:
-  - Get value via `get_param_value()`
-  - Coerce using Python's `bool()` (truthy/falsy)
-  - Examples: `"yes"` → `True`, `0` → `False`, `[]` → `False`
-- Create `get_param_float(param_name, default=0.0, strict=False)`:
-  - Get value via `get_param_value()`
-  - Coerce to float: `float(value)`
-  - Examples: `"123"` → `123.0`, `"3.14"` → `3.14`
-- Create `get_param_list(param_name, default=None, strict=False)`:
-  - Get value via `get_param_value()`
-  - Return as-is (no coercion)
-  - Default to empty list if default is None
-- Create `get_param_dict(param_name, default=None, strict=False)`:
-  - Get value via `get_param_value()`
-  - Return as-is (no coercion)
-  - Default to empty dict if default is None
+
+- **Create typed getters (all with flexible resolution):**
+  
+  - `get_param_str(param_name=None, bind_name=None, alias=None, default='', strict=False)`:
+    - Get value via `get_param_value()`
+    - Coerce to string: `str(value)`
+    - Examples: `123.0` → `"123.0"`, `['a', 'b']` → `"['a', 'b']"`
+    - Handle coercion errors per `strict` mode
+  
+  - `get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict=False)`:
+    - Get value via `get_param_value()`
+    - Coerce to int via truncation: `int(float(value))`
+    - Examples: `"123"` → `123`, `"3.14"` → `3`, `3.99` → `3`
+    - If `strict=True` and coercion fails: raise `ValueError`
+    - If `strict=False` and coercion fails: return default
+  
+  - `get_param_bool(param_name=None, bind_name=None, alias=None, default=False, strict=False)`:
+    - Get value via `get_param_value()`
+    - Coerce using Python's `bool()` (truthy/falsy)
+    - Examples: `"yes"` → `True`, `0` → `False`, `[]` → `False`
+  
+  - `get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, strict=False)`:
+    - Get value via `get_param_value()`
+    - Coerce to float: `float(value)`
+    - Examples: `"123"` → `123.0`, `"3.14"` → `3.14`
+  
+  - `get_param_list(param_name=None, bind_name=None, alias=None, default=None, strict=False)`:
+    - Get value via `get_param_value()`
+    - Return as-is (no coercion)
+    - Default to empty list if default is None
+  
+  - `get_param_dict(param_name=None, bind_name=None, alias=None, default=None, strict=False)`:
+    - Get value via `get_param_value()`
+    - Return as-is (no coercion)
+    - Default to empty dict if default is None
+
+- **Usage examples:**
+  - `get_param_str('database')` → failover resolution
+  - `get_param_int(bind_name='max_connections', default=100)` → bind only
+  - `get_param_bool(alias='--verbose')` → alias only
 
 ### 11. Export param API through `core.py` facade
 
@@ -253,15 +347,34 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Use `param.join_param_value()` for early param setting
   - Maintain same behavior for logging config
 
-### 13. Deprecate `config_func.py` param-setting functions
+### 13. Deprecate and refactor `config_func.py` param-setting functions
 
 **File:** `src/spafw37/config_func.py`
 
-- Mark deprecated functions with `@_deprecated`:
-  - `set_config_value()` → "Use param.set_param_value() instead. Will be removed in v2.0.0"
-  - `set_config_value_from_cmdline()` → "Use param.join_param_value() instead. Will be removed in v2.0.0"
+- Mark `set_config_value(param_def, value)` as deprecated:
+  - Add `@_deprecated("Internal function deprecated. Will be removed in 2.0.0. Use param.set_param_value() instead.")`
+  - Refactor body to thin wrapper calling `param.set_param_value(param_name, value)` once it exists
+  - Extract param name from `param_def[PARAM_NAME]` to pass to new function
+  - Maintains backward compatibility during transition
+- Mark `set_config_value_from_cmdline(param_def, value)` as deprecated:
+  - Add `@_deprecated("Internal function deprecated. Will be removed in 2.0.0. Use param.set_param_value() with strict=True instead.")`
+  - Refactor body to thin wrapper calling `param.set_param_value(param_name, value, strict=True)`
+  - Remove XOR handling code (now handled in param layer)
+  - Extract param name from `param_def[PARAM_NAME]`
+- Refactor `_manage_config_persistence()` signature and implementation:
+  - Change signature from `_manage_config_persistence(param_def, value)` to `_manage_config_persistence(param_name, value)`
+  - Remove internal `get_bind_name()` calls
+  - Delegate persistence type checking to new public param.py functions:
+    - Call `param.is_persistence_never(param_name)` instead of checking param_def
+    - Call `param.is_persistence_always(param_name)` instead of checking param_def
+  - Get bind name via `param._get_bind_name()` (after looking up param) for storing in tracking lists
+  - Will be called by `param.set_param_value()` after successfully setting value
+- Make persistence checkers in `param.py` public and param-name-based:
+  - Change `is_persistence_never(param_def)` to accept `param_name` string
+  - Change `is_persistence_always(param_def)` to accept `param_name` string
+  - Both functions internally call `_get_param_definition(param_name)` then check the param dict
+  - Allows config_func to check persistence without having param definition
 - Keep config persistence management:
-  - `_manage_config_persistence()` - tracks persistent param names
   - `load_persistent_config()` - loads config.json at startup
   - `save_persistent_config()` - saves config.json at shutdown
 - Keep config file operations:
@@ -510,7 +623,28 @@ Current tests call `_parse_value()` directly (13 matches).
   - Recommendation: Use this approach
 - **Implementation:** Keep existing `_parse_value()` tests, add new public API tests
 
-### 6. Migration path for `set_config_list_value()` users
+### 6. Flexible param resolution usage patterns
+
+The `_resolve_param_definition()` helper enables three levels of specificity:
+
+- **Failover mode (user-friendly):** `set_param_value('database', value='postgres')`
+  - Tries param_name → bind_name → alias until match found
+  - Best for interactive use and simple scripts
+  - Risk: Ambiguity if same string exists in multiple address spaces
+  
+- **Named argument mode (explicit):** `set_param_value(bind_name='database_host', value='localhost')`
+  - Only checks specified address space
+  - Best for programmatic use where param identity is certain
+  - Prevents unexpected matches from other address spaces
+  
+- **Mixed usage considerations:**
+  - Framework code (cli.py, config_func.py) should use named arguments for clarity
+  - Example code should use failover mode to demonstrate user-friendly API
+  - Documentation should show both patterns with guidance on when to use each
+
+**Recommendation:** Document both patterns with clear guidelines. Internal framework code uses named arguments, user-facing examples use failover mode.
+
+### 7. Migration path for `set_config_list_value()` users
 
 Current usage analysis:
 
