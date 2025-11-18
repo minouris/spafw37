@@ -20,6 +20,15 @@ from spafw37.constants.param import (
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
     PARAM_TYPE_DICT,
+    PARAM_JOIN_SEPARATOR,
+    PARAM_DICT_MERGE_TYPE,
+    PARAM_DICT_OVERRIDE_STRATEGY,
+    DICT_MERGE_SHALLOW,
+    DICT_MERGE_DEEP,
+    DICT_OVERRIDE_RECENT,
+    DICT_OVERRIDE_OLDEST,
+    DICT_OVERRIDE_ERROR,
+    SEPARATOR_SPACE,
 )
 from spafw37.constants.command import (
     COMMAND_FRAMEWORK,
@@ -1034,3 +1043,199 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
     # Store value using bind name as config key
     config_key = _get_bind_name(param_definition)
     config.set_config_value(config_key, validated_value)
+
+
+def _join_string_value(existing, new, separator):
+    """
+    Join string values with separator.
+    
+    Concatenates string values using the specified separator. If no existing value,
+    returns the new value as-is.
+    
+    Args:
+        existing: Existing string value or None
+        new: New string value to join
+        separator: Separator string to use
+    
+    Returns:
+        Concatenated string or new value if existing is None
+    """
+    if existing is None:
+        return str(new)
+    return str(existing) + separator + str(new)
+
+
+def _join_list_value(existing, new):
+    """
+    Join list values by appending or extending.
+    
+    If new value is a list, extends existing list. If new value is single value,
+    appends to existing list. Creates new list if existing is None.
+    
+    Args:
+        existing: Existing list value or None
+        new: New value to join (single value or list)
+    
+    Returns:
+        Updated list with new values appended/extended
+    """
+    if existing is None:
+        existing = []
+    
+    # Ensure existing is a list (might be string from validation)
+    if not isinstance(existing, list):
+        existing = [existing]
+    
+    if isinstance(new, list):
+        existing.extend(new)
+    else:
+        existing.append(new)
+    
+    return existing
+
+
+def _deep_merge_dicts(dict1, dict2, override_strategy):
+    """
+    Recursively merge two dictionaries with override strategy.
+    
+    Merges nested dictionaries at all levels, applying the override strategy
+    when keys conflict. If both values are dicts, recurses. Otherwise applies
+    strategy to determine which value to keep.
+    
+    Args:
+        dict1: First dictionary (existing)
+        dict2: Second dictionary (new)
+        override_strategy: One of DICT_OVERRIDE_RECENT, DICT_OVERRIDE_OLDEST, DICT_OVERRIDE_ERROR
+    
+    Returns:
+        Merged dictionary
+    
+    Raises:
+        ValueError: If override_strategy is ERROR and keys conflict
+    """
+    result = dict1.copy()
+    
+    for key, value2 in dict2.items():
+        if key in result:
+            value1 = result[key]
+            
+            # If both values are dicts, recurse
+            if isinstance(value1, dict) and isinstance(value2, dict):
+                result[key] = _deep_merge_dicts(value1, value2, override_strategy)
+            else:
+                # Apply override strategy for non-dict conflicts
+                if override_strategy == DICT_OVERRIDE_ERROR:
+                    raise ValueError("Dict key collision on key '{}'".format(key))
+                elif override_strategy == DICT_OVERRIDE_OLDEST:
+                    # Keep existing value (value1), do nothing
+                    pass
+                else:  # DICT_OVERRIDE_RECENT (default)
+                    result[key] = value2
+        else:
+            # No conflict, add new key
+            result[key] = value2
+    
+    return result
+
+
+def _join_dict_value(existing, new, param_definition):
+    """
+    Join dict values with configurable merge strategy.
+    
+    Merges dictionaries using either shallow or deep merge based on
+    PARAM_DICT_MERGE_TYPE configuration. Applies override strategy from
+    PARAM_DICT_OVERRIDE_STRATEGY when keys conflict.
+    
+    Args:
+        existing: Existing dict value or None
+        new: New dict value to merge
+        param_definition: Parameter definition with merge configuration
+    
+    Returns:
+        Merged dictionary
+    
+    Raises:
+        ValueError: If override strategy is ERROR and keys conflict
+    """
+    if existing is None:
+        return new
+    
+    merge_type = param_definition.get(PARAM_DICT_MERGE_TYPE, DICT_MERGE_SHALLOW)
+    override_strategy = param_definition.get(PARAM_DICT_OVERRIDE_STRATEGY, DICT_OVERRIDE_RECENT)
+    
+    if merge_type == DICT_MERGE_DEEP:
+        return _deep_merge_dicts(existing, new, override_strategy)
+    else:  # DICT_MERGE_SHALLOW (default)
+        # Shallow merge with override strategy
+        result = existing.copy()
+        
+        for key, value in new.items():
+            if key in result:
+                if override_strategy == DICT_OVERRIDE_ERROR:
+                    raise ValueError("Dict key collision on key '{}'".format(key))
+                elif override_strategy == DICT_OVERRIDE_OLDEST:
+                    # Keep existing value, do nothing
+                    pass
+                else:  # DICT_OVERRIDE_RECENT (default)
+                    result[key] = value
+            else:
+                # No conflict, add new key
+                result[key] = value
+        
+        return result
+
+
+def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
+    """
+    Join/accumulate parameter value with type-specific logic.
+    
+    Resolves parameter using param_name, bind_name, or alias with failover logic,
+    then accumulates the value using type-specific joining:
+    - String: concatenates with separator
+    - List: appends or extends
+    - Dict: merges with configurable strategy
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        value: Value to join/append (required)
+    
+    Raises:
+        ValueError: If parameter not found or type doesn't support joining (number/toggle)
+    """
+    param_definition = _resolve_param_definition(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias
+    )
+    
+    if param_definition is None:
+        raise ValueError("Unknown parameter: '{}'".format(param_name or bind_name or alias))
+    
+    param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    
+    # Validate that type supports joining
+    if param_type == PARAM_TYPE_NUMBER:
+        raise ValueError("Cannot join values for number parameter")
+    if param_type == PARAM_TYPE_TOGGLE:
+        raise ValueError("Cannot join values for toggle parameter")
+    
+    # Get config key and current value
+    config_key = _get_bind_name(param_definition)
+    existing_value = config.get_config_value(config_key)
+    
+    # Dispatch to type-specific joiner
+    if param_type == PARAM_TYPE_TEXT:
+        separator = param_definition.get(PARAM_JOIN_SEPARATOR, SEPARATOR_SPACE)
+        joined_value = _join_string_value(existing_value, value, separator)
+    elif param_type == PARAM_TYPE_LIST:
+        joined_value = _join_list_value(existing_value, value)
+    elif param_type == PARAM_TYPE_DICT:
+        joined_value = _join_dict_value(existing_value, value, param_definition)
+    else:
+        # Fallback for unknown types
+        joined_value = value
+    
+    # Store updated value
+    config.set_config_value(config_key, joined_value)
