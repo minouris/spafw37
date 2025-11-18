@@ -108,10 +108,11 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - If value is not a list, wrap in `[value]`
   - Return list as-is if already list
 - Create `_validate_dict(value)`:
-  - Accept dict directly (return as-is)
-  - Handle @file references via `_load_json_file()`
+  - Accept dict directly (return as-is if already dict)
   - Parse JSON strings starting with `{` via `_parse_json_text()`
-  - Raise `ValueError` for invalid dict formats
+  - Raise `ValueError` for invalid dict formats (non-dict, non-parseable JSON)
+  - **Note:** `@file` loading is CLI concern, not validation concern
+  - By the time value reaches validation, CLI has already loaded file contents
 - Create `_validate_text(value)`:
   - Pass-through, return value as-is
   - Simplest validator (text accepts anything)
@@ -138,18 +139,265 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - When `strict=False`: return default value on validation failure
 - Return validated/coerced value
 
-### 6. Refactor `_parse_value()` to delegate
+### 6. Refactor CLI parsing to use structured dict approach
 
-**File:** `src/spafw37/param.py`
+**File:** `src/spafw37/cli.py`
 
-- Keep function signature unchanged for backward compatibility
-- Become thin wrapper around `_validate_param_value()`
-- Preserve CLI token structuring behavior:
-  - List-joining for non-list params (already in `_validate_param_value()`)
-  - Token normalization for CLI parsing
-- Call `_validate_param_value(param, value, strict=True)` internally
-- Function remains internal (`_` prefix)
-- Used by existing callers during transition period
+- **Create new `_parse_cli_args()` function:**
+  - Simplified parsing logic focused on three token patterns
+  - Returns structured dict with commands and params
+  
+  ```python
+  def _parse_cli_args(argv):
+      """Parse CLI arguments and return structured dict of commands and params.
+      
+      Returns:
+          dict: {
+              'commands': [list of command names],
+              'params': {param_name: parsed_value, ...}
+          }
+      """
+  ```
+
+- **Three token patterns to handle:**
+  
+  1. **Single unquoted string (command):**
+     - Check: `command.is_command(token)` AND not prefixed with `-` or `--` AND not quoted
+     - **Quoted strings are values:** Check via `_is_quoted_token()` helper
+     - Action: Add to `commands` list
+     - Example: `build` → `{'commands': ['build']}`
+     - Example: `"build"` → NOT a command (quoted value)
+  
+  2. **Recognized unquoted alias + value tokens:**
+     - Check: `param.is_alias(token)` returns True (e.g., `--input`, `-i`) AND not quoted
+     - **Quoted aliases are values:** `"--input"` is a value, not an alias
+     - Action: Consume following tokens until next **unquoted** alias/command or end
+     - Handle `@file` loading for any consumed token starting with `@`
+     - **Return raw value (string or list of strings)** - NO type conversion here
+     - Type conversion (list→list, string→dict) happens in `set_param_value()`
+     - Example: `--files a.txt b.txt` → `{'params': {'--files': ['a.txt', 'b.txt']}}`
+     - Example: `--config @settings.json` → `{'params': {'--config': '{"database": "postgres"}'}}`
+     - **Key insight:** Use the **CLI identifier** (alias) as dict key, not param name
+  
+  3. **Long alias with embedded value:**
+     - Check: Token matches `--\w+=.+` pattern AND not quoted
+     - Action: Split on first `=`, parse alias and value
+     - Handle `@file` in value part if present
+     - **Use alias (before `=`) as dict key**
+     - Example: `--input=data.txt` → `{'params': {'--input': 'data.txt'}}`
+     - Example: `--config=@settings.json` → `{'params': {'--config': '{"db": "pg"}'}}`
+
+- **Helper functions to extract/refactor:**
+  
+  - `_is_quoted_token(token)`:
+    - Already exists in cli.py
+    - Check if token is wrapped in quotes (`"..."` or `'...'`)
+    - Returns True for quoted strings (these are VALUES, not terminators)
+  
+  - `_load_file_contents(token)`:
+    - Check if token starts with `@`
+    - Use `_validate_file_for_reading()` (moved from param.py)
+    - Read raw file contents as string
+    - Return loaded string (replacing `@filename`)
+    - This is the ONLY place `@file` syntax should be handled
+  
+  - `_parse_token_list_to_value(tokens)`:
+    - Simple helper: converts token list to appropriate raw value
+    - If 0 tokens: return empty string or None
+    - If 1 token: return the single string
+    - If multiple tokens: return list of strings
+    - **NO type conversion** - just raw strings or list of strings
+    - Example: `['a.txt', 'b.txt']` → `['a.txt', 'b.txt']`
+    - Example: `['data.txt']` → `'data.txt'`
+
+- **Pattern detection helpers (extract from conditions):**
+  
+  - `_is_command_token(token)`:
+    - Check: `command.is_command(token)` AND not prefixed with `-` AND not quoted
+    - Returns True if token is a valid unquoted command
+  
+  - `_is_long_alias_with_value(token)`:
+    - Check: Contains `=` AND starts with `--` AND not quoted
+    - Returns True if token matches `--alias=value` pattern
+  
+  - `_is_alias_token(token)`:
+    - Check: `param.is_alias(token)` AND not quoted
+    - Returns True if token is a valid unquoted alias
+  
+  - `_is_terminator_token(token)`:
+    - Check: Unquoted AND (is alias OR is command)
+    - Returns True if token should stop value consumption
+    - Used when consuming value tokens for Pattern 2
+
+- **Pattern handler helpers (extract from nested blocks):**
+  
+  - `_handle_command_token(token, commands)`:
+    - Append token to commands list
+    - Return: 1 (tokens consumed)
+  
+  - `_handle_long_alias_token(token, params)`:
+    - Split on first `=` into alias and value
+    - Load file contents if value starts with `@`
+    - Store in params dict using alias as key
+    - Return: 1 (tokens consumed)
+  
+  - `_handle_alias_with_values(argv, token_index, params)`:
+    - Extract alias from argv[token_index]
+    - Consume following value tokens until terminator or end
+    - Load file contents for any `@file` tokens
+    - Convert token list to appropriate value
+    - Store in params dict using alias as key
+    - Return: number of tokens consumed (1 + value token count)
+
+- **Main parsing loop logic (refactored):**
+
+  ```python
+  commands = []
+  params = {}
+  token_index = 0
+  
+  while token_index < len(argv):
+      token = argv[token_index]
+      
+      if _is_command_token(token):
+          consumed = _handle_command_token(token, commands)
+          token_index += consumed
+      
+      elif _is_long_alias_with_value(token):
+          consumed = _handle_long_alias_token(token, params)
+          token_index += consumed
+      
+      elif _is_alias_token(token):
+          consumed = _handle_alias_with_values(argv, token_index, params)
+          token_index += consumed
+      
+      else:
+          raise ValueError(f"Unknown argument: {token}")
+  
+  return {'commands': commands, 'params': params}
+  ```
+
+- **Implementation notes:**
+  - Each pattern handled by single-purpose helper following coding standards
+  - Detection logic extracted to clearly-named predicates
+  - Nested blocks replaced with focused helper calls
+  - Each helper has single responsibility (detect OR handle, not both)
+  - Main loop remains clean and readable with flat structure
+
+- **Refactor `handle_cli_args()` to use new approach:**
+  
+  ```python
+  def handle_cli_args(args):
+      # Check for help command before processing (KEEP)
+      from spafw37 import help as help_module
+      if help_module.handle_help_with_arg(args):
+          return
+      
+      # Execute pre-parse actions (e.g., load persistent config) (KEEP)
+      _do_pre_parse_actions()
+      
+      # Pre-parse specific params (e.g., logging/verbosity controls) (REFACTOR)
+      # before main parsing to configure behavior
+      _pre_parse_params(args)  # Still needed, will use new helpers internally
+      
+      # Apply logging configuration based on pre-parsed params (KEEP)
+      logging_module.apply_logging_config()
+      
+      # Set defaults for all parameters (KEEP)
+      _set_defaults()
+      
+      # Parse CLI into structured dict (NEW - replaces _parse_command_line)
+      parsed = _parse_cli_args(args)
+      
+      # Process params (NEW - replaces config.set_config_value_from_cmdline)
+      # set_param_value() does param resolution from alias
+      # set_param_value() also handles list/dict conversion and XOR validation
+      for identifier, value in parsed['params'].items():
+          param.set_param_value(identifier, value=value, strict=True)
+      
+      # Execute queued commands (KEEP)
+      command.run_command_queue()
+      
+      # Execute post-parse actions (e.g., save persistent config) (KEEP)
+      _do_post_parse_actions()
+      
+      # After all run-levels, display help if no app-defined commands (KEEP)
+      if not command.has_app_commands_queued():
+          help_module.display_all_help()
+          return
+  ```
+
+- **Refactor `_pre_parse_params()` to use new helpers:**
+  - Currently uses `_parse_long_alias_with_embedded_value()` and `_parse_short_alias_argument()`
+  - These will be replaced by new pattern handlers: `_is_long_alias_with_value()`, `_handle_long_alias_token()`
+  - Pre-parse still calls `config.set_config_value_from_cmdline()` → change to `param.set_param_value()`
+  - Keep pre-parse functionality intact (logging params must be set early)
+  - No need for separate pre-parse parsing logic - can reuse new helpers
+
+- **Keep `_set_defaults()` function:**
+  - Currently iterates param definitions and calls `config.set_config_value(param_def, value)`
+  - Change to call `param.set_param_value(param_name=name, value=value, strict=False)`
+  - Extract param name from definition for new API
+  - Keep toggle default logic (get_param_default with False fallback)
+
+- **Keep pre/post-parse action hooks:**
+  - `_do_pre_parse_actions()` - unchanged
+  - `_do_post_parse_actions()` - unchanged
+  - These are extension points for persistence, logging setup, etc.
+
+- **Critical dependencies to preserve:**
+  - Help command check MUST happen before any parsing (`help_module.handle_help_with_arg(args)`)
+  - Pre-parse actions MUST run before param parsing (loads persistent config)
+  - Pre-parse params MUST be processed before logging config (sets log levels)
+  - Logging config MUST be applied before main parsing (enables proper logging)
+  - Defaults MUST be set before parsing (provides fallback values)
+  - Post-parse actions MUST run after commands (saves persistent config)
+  - Help display MUST be last (only if no app commands queued)
+  - Command queueing happens during parsing, execution happens after all params set
+
+- **Functions to deprecate/remove:**
+  - `_parse_command_line()` - replaced by `_parse_cli_args()` with helper-based structure
+  - `capture_param_values()` - replaced by `_handle_alias_with_values()` helper
+  - `_handle_alias_param()` - replaced by `_handle_alias_with_values()` and `_is_alias_token()` helpers
+  - `_handle_long_alias_param()` - replaced by `_handle_long_alias_token()` and `_is_long_alias_with_value()` helpers
+  - `_handle_command()` - replaced by `_handle_command_token()` and `_is_command_token()` helpers
+  - `test_switch_xor()` - XOR validation moved to param layer (`_validate_xor_conflicts()`)
+  - `_current_args` global - no longer needed with new parsing approach
+
+- **Move file helpers from param.py to cli.py:**
+  - `param._validate_file_for_reading()` → `cli._validate_file_for_reading()`
+  - `param._read_file_raw()` → inline in `cli._load_file_contents()` (no separate helper needed)
+  - **Important:** `_validate_file_for_reading()` is also used by config_func for loading config files
+  - **Solution:** Keep `_validate_file_for_reading()` in param.py until config_func is refactored, OR
+  - **Better solution:** Move to a shared utility module, OR
+  - **Simplest solution:** Keep in param.py, just use it from cli.py (it's a generic file utility)
+
+- **Helper functions that MUST remain in param.py (used by CLI):**
+  - `is_alias(alias)` - check if string is registered param alias
+  - `is_toggle_param(param_def)` - check param type (used by pre-parse, defaults)
+  - `is_list_param(param_def)` - check param type (used by capture_param_values currently)
+  - `is_dict_param(param_def)` - check param type (used by capture_param_values currently)
+  - `is_param_alias(param_def, alias)` - check if alias belongs to specific param
+  - `is_long_alias_with_value(arg)` - pattern detection (used in pre-parse)
+  - `param_in_args(param_name, args)` - check if param in args list (used by XOR)
+  - `get_xor_params(param_name)` - get conflicting params (used by XOR validation)
+  - `has_xor_with(param_name, other)` - check XOR relationship (used by test_switch_xor)
+  - `get_all_param_definitions()` - get all params (used by _set_defaults)
+  - `get_pre_parse_args()` - get pre-parse param list (used by _pre_parse_params)
+  - NOTE: Many of these will become internal after refactoring, but must remain callable from cli.py
+
+- **Helper functions being RENAMED in Step 2/3 (CLI must use new names):**
+  - `get_bind_name()` → `_get_bind_name()` - CLI uses this in test_switch_xor, _set_defaults
+  - `get_param_default()` → `_get_param_default()` - CLI uses in _set_defaults, _extract_param_value_from_next_argument
+  - `param_has_default()` → `_param_has_default()` - CLI uses in _set_defaults
+  - `get_param_by_alias()` → kept public (CLI needs it for pre-parse)
+  - `get_param_by_name()` → kept public (not currently used by CLI directly)
+
+- **Remove config_func from CLI flow:**
+  - Remove all calls to `config_func.set_config_value_from_cmdline()`
+  - CLI calls `param.set_param_value()` directly for all param setting
+  - XOR validation happens automatically in param layer via `_validate_xor_conflicts()`
+  - Persistence management happens in param layer via config_func helper call
 
 ### 7. Add `set_param_value()` with flexible resolution
 
