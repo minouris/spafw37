@@ -136,7 +136,7 @@ def test_switch_xor(param_definition, args):
     Raises:
         ValueError: If conflicting parameters are both in args.
     """
-    current_param_name = param.get_bind_name(param_definition)
+    current_param_name = param._get_bind_name(param_definition)
     
     # Only check for conflicts if this param is in the args
     if not param.param_in_args(current_param_name, args):
@@ -246,10 +246,10 @@ def _set_defaults():
     """Set default values for all registered parameters."""
     for param_definition in param.get_all_param_definitions():  # Updated function name
         if param.is_toggle_param(param_definition):
-            config.set_config_value(param_definition, param.get_param_default(param_definition, False))
+            config.set_config_value(param_definition, param._get_param_default(param_definition, False))
         else:
-            if param.param_has_default(param_definition):
-                config.set_config_value(param_definition, param.get_param_default(param_definition))
+            if param._param_has_default(param_definition):
+                config.set_config_value(param_definition, param._get_param_default(param_definition))
 
 def _build_preparse_map(preparse_definitions):
     """Build map of param names to their pre-parse definitions.
@@ -318,7 +318,7 @@ def _extract_param_value_from_next_argument(param_def, arguments, current_index,
             return parsed_value, 1
     
     # No value provided, use default
-    default_value = param.get_param_default(param_def, None)
+    default_value = param._get_param_default(param_def, None)
     return default_value, 0
 
 def _parse_short_alias_argument(argument, arguments, current_index, arguments_count, preparse_map):

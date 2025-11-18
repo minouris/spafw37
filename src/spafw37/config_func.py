@@ -42,7 +42,7 @@ def set_config_file(config_file):
     _config_file = config_file
 
 def set_config_value(param_def, value):
-    bind_name = param.get_bind_name(param_def)
+    bind_name = param._get_bind_name(param_def)
     if param.is_list_param(param_def):
         config.set_config_list_value(value, bind_name)
     elif param.is_toggle_param(param_def):
@@ -61,7 +61,7 @@ def set_config_value_from_cmdline(param_def, value):
         param_def: Parameter definition dict.
         value: Value to set.
     """
-    bind_name = param.get_bind_name(param_def)
+    bind_name = param._get_bind_name(param_def)
     
     # If it's a toggle, unset conflicting toggles
     if param.is_toggle_param(param_def):
@@ -75,7 +75,7 @@ def set_config_value_from_cmdline(param_def, value):
     set_config_value(param_def, value)
 
 def _manage_config_persistence(param_def, value):
-    bind_name = param.get_bind_name(param_def)
+    bind_name = param._get_bind_name(param_def)
     if param.is_persistence_never(param_def):
         _non_persisted_config_names.append(bind_name)
         return

@@ -328,13 +328,19 @@ def _activate_param(_param):
     _params[_param_name] = _param
 
 
-def get_bind_name(param: dict) -> str:
+def _get_bind_name(param):
+    """Get the config bind name for a parameter.
+    
+    Returns the PARAM_CONFIG_NAME if specified, otherwise PARAM_NAME.
+    """
     return param.get(PARAM_CONFIG_NAME, param[PARAM_NAME])
 
-def get_param_default(_param: dict, default=None):
+def _get_param_default(_param, default=None):
+    """Get the default value for a parameter."""
     return _param.get(PARAM_DEFAULT, default)
 
-def param_has_default(_param: dict) -> bool:
+def _param_has_default(_param):
+    """Check if parameter has a default value defined."""
     return PARAM_DEFAULT in _param
 
 def add_params(params: List[Dict[str, Any]]):
