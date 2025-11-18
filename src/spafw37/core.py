@@ -348,6 +348,180 @@ def is_silent():
     return config.is_silent()
 
 
+# Parameter API - Modern param-focused interface
+
+def set_param(value, param_name=None, bind_name=None, alias=None):
+    """
+    Set a parameter value (replaces existing value).
+    
+    Sets the value of a parameter identified by param_name, bind_name, or alias.
+    This replaces any existing value. Use join_param() to accumulate values instead.
+    
+    Args:
+        value: The value to set for the parameter.
+        param_name: Parameter name to set (flexible resolution).
+        bind_name: Config bind name to set (flexible resolution).
+        alias: Parameter alias to set (flexible resolution).
+    
+    Raises:
+        ValueError: If parameter not found or value validation fails.
+    
+    Example:
+        set_param('localhost', param_name='host')
+        set_param(8080, bind_name='server_port')
+        set_param(True, alias='--verbose')
+    """
+    from spafw37 import param
+    param.set_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+
+
+def join_param(value, param_name=None, bind_name=None, alias=None):
+    """
+    Join/accumulate a parameter value (does not replace existing value).
+    
+    Joins a value to a parameter using type-specific logic:
+    - Strings: Concatenates with separator (default: space)
+    - Lists: Appends single values, extends with lists
+    - Dicts: Merges (shallow or deep based on PARAM_DICT_MERGE_TYPE)
+    
+    Args:
+        value: The value to join to the parameter.
+        param_name: Parameter name to join (flexible resolution).
+        bind_name: Config bind name to join (flexible resolution).
+        alias: Parameter alias to join (flexible resolution).
+    
+    Raises:
+        ValueError: If parameter not found, unsupported type, or validation fails.
+    
+    Example:
+        join_param('tag1', param_name='tags')
+        join_param(['item1', 'item2'], bind_name='file_list')
+        join_param({'key': 'value'}, alias='--config')
+    """
+    from spafw37 import param
+    param.join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+
+
+def get_param_str(param_name=None, bind_name=None, alias=None, default=''):
+    """
+    Get a parameter value as string.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found.
+    
+    Returns:
+        String parameter value or default.
+    
+    Example:
+        host = get_param_str(param_name='host', default='localhost')
+    """
+    from spafw37 import param
+    return param.get_param_str(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
+def get_param_int(param_name=None, bind_name=None, alias=None, default=0):
+    """
+    Get a parameter value as integer.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found.
+    
+    Returns:
+        Integer parameter value or default.
+    
+    Example:
+        port = get_param_int(bind_name='server_port', default=8080)
+    """
+    from spafw37 import param
+    return param.get_param_int(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
+def get_param_bool(param_name=None, bind_name=None, alias=None, default=False):
+    """
+    Get a parameter value as boolean.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found.
+    
+    Returns:
+        Boolean parameter value or default.
+    
+    Example:
+        verbose = get_param_bool(alias='--verbose', default=False)
+    """
+    from spafw37 import param
+    return param.get_param_bool(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
+def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0):
+    """
+    Get a parameter value as float.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found.
+    
+    Returns:
+        Float parameter value or default.
+    
+    Example:
+        threshold = get_param_float(param_name='threshold', default=0.5)
+    """
+    from spafw37 import param
+    return param.get_param_float(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
+def get_param_list(param_name=None, bind_name=None, alias=None, default=None):
+    """
+    Get a parameter value as list.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found (empty list if None).
+    
+    Returns:
+        List parameter value or default.
+    
+    Example:
+        files = get_param_list(param_name='input_files', default=[])
+    """
+    from spafw37 import param
+    return param.get_param_list(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
+def get_param_dict(param_name=None, bind_name=None, alias=None, default=None):
+    """
+    Get a parameter value as dictionary.
+    
+    Args:
+        param_name: Parameter name to get (flexible resolution).
+        bind_name: Config bind name to get (flexible resolution).
+        alias: Parameter alias to get (flexible resolution).
+        default: Default value if not found (empty dict if None).
+    
+    Returns:
+        Dictionary parameter value or default.
+    
+    Example:
+        settings = get_param_dict(param_name='app_config', default={})
+    """
+    from spafw37 import param
+    return param.get_param_dict(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+
+
 # Logging delegates
 
 def set_log_dir(log_dir):
