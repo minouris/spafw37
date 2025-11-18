@@ -12,11 +12,30 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - **Type-safe getters:** Typed getter functions with automatic coercion
 - **Deprecation strategy:** Old APIs wrapped with warnings, removed in v2.0.0
 
+## Implementation Methodology
+
+**Phased build-test-refactor approach:**
+
+Each implementation step follows this pattern:
+
+1. **Add helpers** - Create new helper functions/methods
+2. **Test helpers** - Write unit tests for new helpers in isolation
+3. **Refactor code** - Update existing code to use new helpers
+4. **Verify existing tests** - Ensure all original tests still pass
+5. **Add coverage tests** - Write additional tests for new behavior/edge cases
+
+This ensures:
+
+- No regressions (existing tests validate refactored code)
+- Full coverage (new tests validate new helpers)
+- Incremental progress (each step is independently testable)
+- Safe refactoring (always have working baseline)
+
 ## Table of Contents
 
 - [Overview](#overview)
 - [Implementation Steps](#implementation-steps)
-  - [1. Add `PARAM_JOIN_SEPARATOR` constant](#1-add-param_join_separator-constant)
+  - [1. Add parameter configuration constants](#1-add-parameter-configuration-constants)
   - [2. Make internal `param.py` helpers private and reorganize modules](#2-make-internal-parampy-helpers-private-and-reorganize-modules)
   - [3. Create flexible param resolution system](#3-create-flexible-param-resolution-system)
   - [4. Extract type-specific validation helpers](#4-extract-type-specific-validation-helpers)
@@ -32,21 +51,21 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - [14. Deprecate `config.set_config_list_value()`](#14-deprecate-configset_config_list_value)
   - [15. Update examples](#15-update-examples)
   - [16. Update documentation](#16-update-documentation)
-  - [17. Update CHANGELOG.md](#17-update-changelogmd)
+  - [17. Create CHANGES.md for issue closing comment](#17-create-changesmd-for-issue-closing-comment)
   - [18. Update tests](#18-update-tests)
 - [Further Considerations](#further-considerations)
-  - [1. Dict merge semantics for `join_param()`](#1-dict-merge-semantics-for-join_param)
-  - [2. Deprecation warning verbosity control](#2-deprecation-warning-verbosity-control)
-  - [3. Type coercion failure messages](#3-type-coercion-failure-messages)
-  - [4. String join edge cases](#4-string-join-edge-cases)
-  - [5. Private method testing approach](#5-private-method-testing-approach)
-  - [6. Flexible param resolution usage patterns](#6-flexible-param-resolution-usage-patterns)
-  - [7. Migration path for `set_config_list_value()` users](#7-migration-path-for-set_config_list_value-users)
+  - [1. Dict merge semantics for `join_param()` - RESOLVED](#1-dict-merge-semantics-for-join_param---resolved)
+  - [2. Deprecation warning verbosity control - RESOLVED](#2-deprecation-warning-verbosity-control---resolved)
+  - [3. Type coercion failure messages - RESOLVED](#3-type-coercion-failure-messages---resolved)
+  - [4. String join edge cases - RESOLVED](#4-string-join-edge-cases---resolved)
+  - [5. Private method testing approach - RESOLVED](#5-private-method-testing-approach---resolved)
+  - [6. Flexible param resolution usage patterns - RESOLVED](#6-flexible-param-resolution-usage-patterns---resolved)
+  - [7. Migration path for `set_config_list_value()` users - RESOLVED](#7-migration-path-for-set_config_list_value-users---resolved)
 - [Success Criteria](#success-criteria)
 
 ## Implementation Steps
 
-### 1. Add `PARAM_JOIN_SEPARATOR` constant
+### 1. Add parameter configuration constants
 
 **File:** `src/spafw37/constants/param.py`
 
@@ -56,11 +75,56 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Used by `join_param_value()` when concatenating multiple string values
 - Example: `PARAM_JOIN_SEPARATOR: ','` for CSV-style tags
 
+- Add common separator constants for convenience:
+  - `SEPARATOR_SPACE = ' '` - default space separator
+  - `SEPARATOR_COMMA = ','` - comma separator
+  - `SEPARATOR_COMMA_SPACE = ', '` - comma with space
+  - `SEPARATOR_PIPE = '|'` - pipe separator
+  - `SEPARATOR_PIPE_PADDED = ' | '` - pipe with padding
+  - `SEPARATOR_NEWLINE = '\n'` - newline separator
+  - `SEPARATOR_TAB = '\t'` - tab separator
+  - Note: Any string value allowed, constants are for convenience only
+
+- Add dict merge type constants:
+  - `PARAM_DICT_MERGE_TYPE = 'dict-merge-type'` - parameter definition key
+  - `DICT_MERGE_SHALLOW = 'shallow'` - shallow merge (default)
+  - `DICT_MERGE_DEEP = 'deep'` - recursive deep merge
+
+- Add dict override strategy constants:
+  - `PARAM_DICT_OVERRIDE_STRATEGY = 'dict-override-strategy'` - parameter definition key
+  - `DICT_OVERRIDE_RECENT = 'recent'` - last value wins (default)
+  - `DICT_OVERRIDE_OLDEST = 'oldest'` - first value wins
+  - `DICT_OVERRIDE_ERROR = 'error'` - raise error on key conflict
+
 [↑ Back to top](#table-of-contents)
 
 ### 2. Make internal `param.py` helpers private and reorganize modules
 
-**Files:** `src/spafw37/param.py`, `src/spafw37/file.py` (new), `src/spafw37/cli.py`
+**Files:** `src/spafw37/param.py`, `src/spafw37/file.py` (new), `src/spafw37/cli.py`, `src/spafw37/core.py`
+
+- **Create `_deprecated()` decorator in core.py:**
+  - Add module-level set to track called functions: `_deprecated_warnings_shown = set()`
+  - Add module-level flag for suppression: `_suppress_deprecation_warnings = False`
+  - Create decorator that logs warning only once per deprecated function
+  - Signature: `def _deprecated(message):`
+  - Implementation:
+  
+    ```python
+    def _deprecated(message):
+        """Decorator to mark functions as deprecated with one-time warning."""
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                if not _suppress_deprecation_warnings:
+                    func_name = func.__name__
+                    if func_name not in _deprecated_warnings_shown:
+                        _deprecated_warnings_shown.add(func_name)
+                        logging.warning(f"{func_name}() is deprecated. {message}")
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator
+    ```
+  
+  - Available for Steps 3, 11, 13, and 14 deprecation needs
 
 - **Rename param.py helpers to private:**
   - Rename `get_bind_name()` → `_get_bind_name()`
@@ -158,6 +222,15 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **File:** `src/spafw37/param.py`
 
+**Implementation order:**
+
+1. Create all validation helper functions
+2. Write unit tests for each validator with edge cases
+3. Keep existing `_parse_value()` unchanged initially
+4. Run existing tests to establish baseline
+
+**Validation helpers to create:**
+
 - Create `_validate_number(value)`:
   - Replace `_parse_number()` silent 0 return
   - Raise `ValueError` for invalid numbers
@@ -185,6 +258,16 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **File:** `src/spafw37/param.py`
 
+**Implementation order:**
+
+1. Create `_validate_param_value()` using helpers from Step 4
+2. Write unit tests for orchestration logic and edge cases
+3. Refactor existing code to call `_validate_param_value()` instead of inline validation
+4. Run all existing tests to verify no regressions
+5. Can optionally deprecate old `_parse_value()` if fully replaced
+
+**Orchestrator function:**
+
 - Private function coordinating validation
 - Accept parameters:
   - `param_def` - parameter definition dict
@@ -209,7 +292,20 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **File:** `src/spafw37/cli.py`
 
-- **Note:** file.py module created in Step 2, file utilities already moved
+**Implementation order:**
+
+1. Create all pattern detection helpers (`_is_command_token()`, etc.)
+2. Write unit tests for each detection helper
+3. Create all pattern handler helpers (`_handle_command_token()`, etc.)
+4. Write unit tests for each handler helper
+5. Create new `_parse_cli_args()` function using helpers
+6. Write integration tests for `_parse_cli_args()`
+7. Update `handle_cli_args()` to use new `_parse_cli_args()`
+8. Run all existing CLI tests to verify no regressions
+9. Remove old functions (`_parse_command_line()`, `capture_param_values()`, etc.)
+10. Verify tests still pass after cleanup
+
+**Note:** file.py module created in Step 2, file utilities already moved
 
 - **Create new `_parse_cli_args()` function:**
   - Simplified parsing logic focused on three token patterns
@@ -497,6 +593,17 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **File:** `src/spafw37/param.py`
 
+**Implementation order:**
+
+1. Create `set_param_value()` function
+2. Write unit tests for all resolution modes (name/bind/alias/failover)
+3. Write tests for validation integration and error handling
+4. Update internal code to use `set_param_value()` where appropriate
+5. Run all existing tests to verify behavior
+6. Add edge case tests (unknown params, XOR conflicts, etc.)
+
+**Function specification:**
+
 - Public function for setting param values
 - **Signature:**
 
@@ -543,6 +650,14 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `value` - value to join/append (required)
 
 - Create type-specific join helpers:
+  - `_deep_merge_dicts(dict1, dict2, override_strategy)`:
+    - Helper for deep dict merging
+    - Recursively merge nested dictionaries
+    - Apply override_strategy at each level when keys conflict
+    - If value is dict in both: recurse
+    - If value is not dict: apply override_strategy
+    - Return merged dict
+  
   - `_join_list_value(existing, new)`:
     - If existing is None/missing, create new list
     - If new is list, extend existing list
@@ -553,10 +668,16 @@ Pivot from config dict access to param-focused interface with metadata-driven va
     - If existing is None/missing, return new value
     - Concatenate: `existing + separator + new`
     - Return concatenated string
-  - `_join_dict_value(existing, new)`:
+  - `_join_dict_value(existing, new, param_def)`:
     - If existing is None/missing, return new dict
-    - Shallow merge: `{**existing, **new}`
-    - Last value wins for conflicting keys
+    - Get merge type: `param_def.get(PARAM_DICT_MERGE_TYPE, DICT_MERGE_SHALLOW)` (default: SHALLOW)
+    - Get override strategy: `param_def.get(PARAM_DICT_OVERRIDE_STRATEGY, DICT_OVERRIDE_RECENT)` (default: RECENT)
+    - **Shallow merge (default):** `{**existing, **new}` for top-level keys only
+    - **Deep merge:** Recursively merge nested dicts using `_deep_merge_dicts(existing, new, override_strategy)`
+    - **Override handling:**
+      - `DICT_OVERRIDE_RECENT` (default): Last value wins (standard dict update behavior)
+      - `DICT_OVERRIDE_OLDEST`: Keep existing values, only add new keys
+      - `DICT_OVERRIDE_ERROR`: Raise `ValueError` if any keys conflict
     - Return merged dict
 
 - **Implementation:**
@@ -659,6 +780,14 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - Log warning only once per deprecated function
   - Warning message includes function name and alternative
   - Example: `"get_config_str() is deprecated. Use get_param_str() instead. Will be removed in v2.0.0"`
+
+- Add deprecation control API:
+  - `suppress_deprecation(suppress=True)` → public function to control warning display
+  - Sets module-level `_suppress_deprecation_warnings` flag
+  - Developer calls this at app startup to silence warnings during migration
+  - Example: `spafw37.suppress_deprecation()` to silence all
+  - Example: `spafw37.suppress_deprecation(False)` to re-enable
+
 - Add new public param API methods:
   - `set_param(param_name, value)` → wraps `param.set_param_value()`
   - `join_param(param_name, value)` → wraps `param.join_param_value()`
@@ -768,11 +897,14 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `spafw37.get_config_float()` → `spafw37.get_param_float()`
   - `spafw37.get_config_list()` → `spafw37.get_param_list()`
   - `spafw37.get_config_dict()` → `spafw37.get_param_dict()`
-- Preserve direct `config.set_config_value()` in cycle examples:
-  - `cycles_basic.py` - loop counter management
-  - `cycles_loop_start.py` - loop state tracking
-  - `cycles_nested.py` - nested loop variables
-  - These are runtime state, not params (no validation needed)
+
+- Update cycle examples to use param API:
+  - `cycles_basic.py` - Use `spafw37.set_param('loop-counter', value)` for loop counter management
+  - `cycles_loop_start.py` - Use `spafw37.set_param()` for loop state tracking
+  - `cycles_nested.py` - Use `spafw37.set_param()` for nested loop variables
+  - Replace all `config.set_config_value()` with `spafw37.set_param()`
+  - Demonstrates best practice: param API for all user-facing code
+
 - Add new example demonstrating `PARAM_JOIN_SEPARATOR`:
   - Create `examples/params_join_separator.py`
   - Show default space separator behavior
@@ -830,41 +962,55 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 [↑ Back to top](#table-of-contents)
 
-### 17. Update CHANGELOG.md
+### 17. Create CHANGES.md for issue closing comment
 
-**File:** `CHANGELOG.md`
+**File:** `features/issue-27-config-focus-to-param/CHANGES.md`
 
-- Add v1.1.0 section with "Breaking Changes" subsection:
-  - Title: "## [1.1.0] - 2025-11-XX"
-  - Subsection: "### Breaking Changes"
-- Document API pivot:
-  - Explain shift from config-focused to param-focused API
-  - Rationale: leverage parameter metadata for validation
-  - Benefits: type safety, required param enforcement, cleaner semantics
-- List deprecated methods with removal timeline:
-  - `get_config_str/int/bool/float/list/dict()` → removed in v2.0.0
-  - `set_config_value()` → removed in v2.0.0
-  - `set_config_list_value()` → removed in v2.0.0
-  - `config_func.set_config_value()` → removed in v2.0.0
-  - `config_func.set_config_value_from_cmdline()` → removed in v2.0.0
-- Provide migration examples:
-  - Before: `spafw37.get_config_str('input-file')`
-  - After: `spafw37.get_param_str('input-file')`
-  - Before: `spafw37.set_config_value('count', 5)`
-  - After: `spafw37.set_param('count', 5)`
-  - Before: Multiple calls to build list
-  - After: `spafw37.join_param('files', 'new.txt')`
-- Document new features:
-  - `strict` mode for getters (missing param and coercion error handling)
-  - Type coercion in getters (string→int, int→string, etc.)
-  - XOR validation moved to param layer (cleaner toggle handling)
-  - `join_param()` for accumulation use cases
-  - `PARAM_JOIN_SEPARATOR` for custom string concatenation
-- Note backward compatibility:
-  - Deprecation warnings logged on first call
-  - Old API still works in v1.1.0
-  - Allows gradual migration
-  - Set `SPAFW37_SUPPRESS_DEPRECATION_WARNINGS` to silence warnings
+This file will be posted as the closing comment on Issue #27 and consumed by the release workflow.
+
+- Create structured changes document for v1.1.0:
+  - **Breaking Changes** section:
+    - API pivot from config-focused to param-focused
+    - Rationale: leverage parameter metadata for validation
+    - Benefits: type safety, required param enforcement, cleaner semantics
+  
+  - **Deprecated APIs** section with removal timeline:
+    - `get_config_str/int/bool/float/list/dict()` → removed in v2.0.0
+    - `set_config_value()` → removed in v2.0.0
+    - `set_config_list_value()` → removed in v2.0.0
+    - `config_func.set_config_value()` → removed in v2.0.0
+    - `config_func.set_config_value_from_cmdline()` → removed in v2.0.0
+  
+  - **Migration Examples** section:
+    - Before: `spafw37.get_config_str('input-file')`
+    - After: `spafw37.get_param_str('input-file')`
+    - Before: `spafw37.set_config_value('count', 5)`
+    - After: `spafw37.set_param('count', 5)`
+    - Before: Multiple calls to build list
+    - After: `spafw37.join_param('files', 'new.txt')`
+  
+  - **New Features** section:
+    - `strict` mode for getters (missing param and coercion error handling)
+    - Type coercion in getters (string→int, int→string, etc.)
+    - XOR validation moved to param layer (cleaner toggle handling)
+    - `join_param()` for accumulation use cases
+    - `PARAM_JOIN_SEPARATOR` for custom string concatenation
+    - Dict merge configuration (`PARAM_DICT_MERGE_TYPE`, `PARAM_DICT_OVERRIDE_STRATEGY`)
+    - Common separator constants (SEPARATOR_COMMA, SEPARATOR_NEWLINE, etc.)
+    - `suppress_deprecation()` API for migration control
+  
+  - **Backward Compatibility** section:
+    - Deprecation warnings logged on first call
+    - Old API still works in v1.1.0
+    - Allows gradual migration
+    - Use `spafw37.suppress_deprecation()` to silence warnings during migration
+
+- **Workflow:**
+  1. Post CHANGES.md content as closing comment on Issue #27
+  2. Release workflow fetches closing comments from issues in the release
+  3. AI generates CHANGELOG.md from issue closing comments + commit diffs
+  4. Human-written migration examples preserved in final changelog
+  5. Issue serves as source of truth for what changed and why
 
 [↑ Back to top](#table-of-contents)
 
@@ -913,132 +1059,246 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 ## Further Considerations
 
-### 1. Dict merge semantics for `join_param()`
+### 1. Dict merge semantics for `join_param()` - RESOLVED
+
+**Decision:** Configurable via parameter definition constants (Step 1).
+**Defaults:** `DICT_MERGE_SHALLOW` + `DICT_OVERRIDE_RECENT`
 
 When calling `join_param('config', {"a": 1})` then `join_param('config', {"b": 2})`:
 
-- **Question:** Should result be `{"a": 1, "b": 2}` (shallow merge)?
-- **Key conflicts:** What if calling `join_param('config', {"a": 1})` then `join_param('config', {"a": 2})`?
-  - Option A: Last value wins → `{"a": 2}` (simplest, matches Python dict update)
-  - Option B: First value wins → `{"a": 1}` (preserves initial state)
-  - Option C: Raise error on conflict (strictest, prevents accidental overwrites)
-- **Deep merge:** For nested dicts like `{"user": {"name": "Alice"}}`, should merge be deep or shallow?
-  - Shallow: Entire `"user"` key replaced
-  - Deep: Nested keys merged recursively (more complex, more useful?)
-- **Recommendation:** Start with shallow merge, last-wins for conflicts, document clearly
+- **Merge type** controlled by `PARAM_DICT_MERGE_TYPE`:
+  - `DICT_MERGE_SHALLOW` (default): Top-level keys only, entire nested dicts replaced
+  - `DICT_MERGE_DEEP`: Recursive merge of nested dictionaries
+
+- **Key conflicts** controlled by `PARAM_DICT_OVERRIDE_STRATEGY`:
+  - `DICT_OVERRIDE_RECENT` (default): Last value wins → `{"a": 2}`
+  - `DICT_OVERRIDE_OLDEST`: First value wins → `{"a": 1}`
+  - `DICT_OVERRIDE_ERROR`: Raise `ValueError` on any key conflict
+
+- **Example parameter definitions:**
+
+  ```python
+  # Default behavior: shallow merge, recent wins
+  {PARAM_NAME: 'config', PARAM_TYPE: PARAM_TYPE_DICT}
+  
+  # Deep merge with error on conflicts
+  {PARAM_NAME: 'settings', PARAM_TYPE: PARAM_TYPE_DICT,
+   PARAM_DICT_MERGE_TYPE: DICT_MERGE_DEEP,
+   PARAM_DICT_OVERRIDE_STRATEGY: DICT_OVERRIDE_ERROR}
+  
+  # Shallow merge, preserve first values
+  {PARAM_NAME: 'defaults', PARAM_TYPE: PARAM_TYPE_DICT,
+   PARAM_DICT_OVERRIDE_STRATEGY: DICT_OVERRIDE_OLDEST}
+  ```
+
+- **Implementation:** `_join_dict_value()` and `_deep_merge_dicts()` in Step 8
 
 [↑ Back to top](#table-of-contents)
 
-### 2. Deprecation warning verbosity control
+### 2. Deprecation warning verbosity control - RESOLVED
+
+**Decision:** Developer-facing API in `core.py` (Step 11).
 
 Current `@_deprecated` decorator logs once per function (singleton pattern).
 
-- **Environment variable:** Add `SPAFW37_SUPPRESS_DEPRECATION_WARNINGS` to silence all warnings
-  - Use case: Users who cannot migrate immediately (legacy codebases)
-  - Check: `os.environ.get('SPAFW37_SUPPRESS_DEPRECATION_WARNINGS')` in decorator
-- **Verbose mode:** Add `SPAFW37_DEPRECATION_WARNINGS=verbose` to log every call
-  - Use case: Testing to ensure all deprecated calls found
-  - Helps during migration to identify all usage points
-- **Per-function control:** Consider programmatic API like `spafw37.suppress_deprecation_warnings(['get_config_str'])`
-  - More granular than environment variable
-  - Useful for gradual migration (suppress warnings for already-migrated code)
+- **Public API control:** `spafw37.suppress_deprecation(suppress=True)`
+  - Developer responsibility: Control warnings at application level
+  - Called at app startup before using deprecated APIs
+  - Example:
+
+    ```python
+    import spafw37
+    spafw37.suppress_deprecation()  # Silence all deprecation warnings
+    # ... rest of app code using deprecated APIs during migration
+    ```
+
+  - Use case: Applications mid-migration that can't update all code immediately
+  - Not end-user facing: No environment variables, no user configuration
+
+- **Rationale:**
+  - Developer problem: Deprecation warnings are for developers, not end users
+  - Migration control: Allows gradual migration without warning spam
+  - Professional UX: End users shouldn't see framework deprecation warnings
+  - Clear ownership: Developer explicitly opts out, not end user configuration
+
+- **Verbose mode (future consideration):**
+  - Could add `suppress_deprecation(verbose=True)` mode
+  - Logs every call instead of once per function
+  - Useful during testing to identify all deprecated usage points
+  - Not in v1.1.0 scope
 
 [↑ Back to top](#table-of-contents)
 
-### 3. Type coercion failure messages
+### 3. Type coercion failure messages - RESOLVED
+
+**Decision:** Log at DEBUG level (Step 10).
 
 When `get_param_int('foo')` fails to coerce value and `strict=False`:
 
-- **Silent fallback:** Current behavior, returns default without logging
-  - Pro: No log noise
-  - Con: Hides bugs (typos in param names, wrong types)
-- **Warning log:** Log at WARNING level before returning default
-  - Pro: Visible in logs for debugging
-  - Con: Can be noisy if many coercions fail
-- **Debug log:** Log at DEBUG level
-  - Pro: Available when needed (verbose mode)
-  - Con: Not visible by default
-- **Recommendation:** Log at DEBUG level with message like `"Failed to coerce param 'foo' to int, returning default"`
+- **Log at DEBUG level** before returning default
+  - Message format: `"Failed to coerce param '{param_name}' to {type}, returning default: {error_msg}"`
+  - Example: `"Failed to coerce param 'port' to int, returning default: invalid literal for int() with base 10: 'abc'"`
+  - Visible when logging level set to DEBUG or lower
+  - Not visible by default (INFO level)
+  - Available for debugging when needed
+
+- **Rationale:**
+  - No log noise: Doesn't spam logs in production
+  - Available when needed: Visible in verbose/debug mode
+  - Helps debugging: Shows why default was returned
+  - Respects strict mode: If developer wants errors, they use `strict=True`
+
+- **Implementation:** Add debug logging in typed getters (Step 10)
 
 [↑ Back to top](#table-of-contents)
 
-### 4. String join edge cases
+### 4. String join edge cases - RESOLVED
 
-`PARAM_JOIN_SEPARATOR` edge cases:
+**Decision:** Flexible separator support with sensible defaults (Steps 1, 8).
 
-- **Empty string separator:** If `PARAM_JOIN_SEPARATOR: ''`, should concatenate directly?
+`PARAM_JOIN_SEPARATOR` edge case handling:
+
+- **Empty string separator (`''`):** Concatenate directly
   - Example: `"hello"` + `"world"` → `"helloworld"`
-  - Seems valid, document behavior
-- **Whitespace separators:** Allow `\n`, `\t`, etc.?
+  - Valid use case
+
+- **Whitespace separators:** Allow `\n`, `\t`, `\r`, etc.
   - Example: `PARAM_JOIN_SEPARATOR: '\n'` for multi-line text
-  - Seems valid, document behavior
-- **None separator:** If `PARAM_JOIN_SEPARATOR: None`, use default space?
-  - Or treat as error?
-  - Recommendation: Use default space
-- **Multi-character separators:** Allow `", "` or `" | "`?
-  - Seems valid, no technical limitation
-  - Document examples
+  - Example: `PARAM_JOIN_SEPARATOR: '\t'` for tab-separated values
+  - Valid use case
+
+- **None separator:** Use default space `' '`
+  - If `PARAM_JOIN_SEPARATOR` not in param definition: default to `' '`
+  - If `PARAM_JOIN_SEPARATOR: None`: treat as missing, default to `' '`
+
+- **Multi-character separators:** Fully supported
+  - Example: `', '` for CSV with space
+  - Example: `' | '` for pipe-separated with padding
+  - Example: `' :: '` for double-colon separator
+  - No technical limitation
+
+- **Common separator constants (Step 1):**
+  - Add to `constants/param.py` for convenience
+  - `SEPARATOR_SPACE = ' '` (default)
+  - `SEPARATOR_COMMA = ','`
+  - `SEPARATOR_COMMA_SPACE = ', '`
+  - `SEPARATOR_PIPE = '|'`
+  - `SEPARATOR_PIPE_PADDED = ' | '`
+  - `SEPARATOR_NEWLINE = '\n'`
+  - `SEPARATOR_TAB = '\t'`
+  - Note in docs: Any string value allowed, constants are for convenience only
+
+- **Documentation (Step 16):**
+  - Show examples with common separators
+  - Clarify that any string is valid
+  - Show empty string and multi-character examples
 
 [↑ Back to top](#table-of-contents)
 
-### 5. Private method testing approach
+### 5. Private method testing approach - RESOLVED
+
+**Decision:** Test everything - both isolated and integrated (Step 18).
 
 Current tests call `_parse_value()` directly (13 matches).
 
-- **Option A:** Refactor tests to use public `set_param()` and `join_param()` APIs
-  - Pro: Tests public behavior, less brittle
-  - Con: Less granular, harder to test individual validation logic
-- **Option B:** Keep testing private validation helpers directly
+- **Test private methods in isolation:**
   - Pro: Better coverage of internal logic, easier to debug failures
-  - Con: Tests tied to implementation details, brittle during refactoring
-- **Option C:** Mix of both approaches
-  - Public API tests for integration behavior
-  - Private helper tests for edge cases and validation rules
-  - Recommendation: Use this approach
-- **Implementation:** Keep existing `_parse_value()` tests, add new public API tests
+  - Pro: Tests edge cases and error paths thoroughly
+  - Pro: Documents expected behavior of internal helpers
+  - Example: Test `_validate_number()` with various invalid inputs
+  - Example: Test `_deep_merge_dicts()` with complex nested structures
+
+- **Test public API for integration:**
+  - Pro: Tests public behavior, less brittle during refactoring
+  - Pro: Validates end-to-end workflows
+  - Example: Test `set_param()` → validates → stores correctly
+  - Example: Test `get_param_int()` → retrieves → coerces correctly
+
+- **Implementation strategy:**
+  - Keep existing `_parse_value()` tests (isolated helper tests)
+  - Add new public API tests (integration tests)
+  - Add isolated tests for new helpers (`_validate_number()`, `_deep_merge_dicts()`, etc.)
+  - Test both normal paths and error handling
+  - Test edge cases in isolation, common cases in integration
+
+- **Coverage target:**
+  - 80% minimum (enforced by CI/CD)
+  - 90% target for new code
+  - Focus on error paths and edge cases
 
 [↑ Back to top](#table-of-contents)
 
-### 6. Flexible param resolution usage patterns
+### 6. Flexible param resolution usage patterns - RESOLVED
+
+**Decision:** Document both patterns with clear guidelines (Step 16).
 
 The `_resolve_param_definition()` helper enables three levels of specificity:
 
 - **Failover mode (user-friendly):** `set_param_value('database', value='postgres')`
   - Tries param_name → bind_name → alias until match found
-  - Best for interactive use and simple scripts
+  - Best for: Interactive use and simple scripts
+  - Best for: Example code demonstrating user-friendly API
   - Risk: Ambiguity if same string exists in multiple address spaces
   
 - **Named argument mode (explicit):** `set_param_value(bind_name='database_host', value='localhost')`
   - Only checks specified address space
-  - Best for programmatic use where param identity is certain
+  - Best for: Programmatic use where param identity is certain
+  - Best for: Internal framework code (cli.py, config_func.py)
   - Prevents unexpected matches from other address spaces
   
-- **Mixed usage considerations:**
-  - Framework code (cli.py, config_func.py) should use named arguments for clarity
-  - Example code should use failover mode to demonstrate user-friendly API
-  - Documentation should show both patterns with guidance on when to use each
+- **Usage guidelines (documented in Step 16):**
+  - **Framework code:** Use named arguments for clarity and correctness
+    - Example: `cli.py` uses `param.set_param_value(alias='--db-host', value=...)`
+    - Example: `config_func.py` uses `param.set_param_value(bind_name='database_host', value=...)`
+  - **Example code:** Use failover mode to demonstrate user-friendly API
+    - Example: `examples/params_basic.py` shows `spafw37.set_param('database', 'postgres')`
+  - **User code:** Developers choose based on their needs
+    - Failover mode: Quick scripts, prototypes, when identifier is unambiguous
+    - Named mode: Production code, when precision is required
 
-**Recommendation:** Document both patterns with clear guidelines. Internal framework code uses named arguments, user-facing examples use failover mode.
+- **Documentation (Step 16):**
+  - Show both patterns with examples
+  - Explain when to use each
+  - Note framework code consistency (always uses named arguments internally)
 
 [↑ Back to top](#table-of-contents)
 
-### 7. Migration path for `set_config_list_value()` users
+### 7. Migration path for `set_config_list_value()` users - RESOLVED
+
+**Decision:** All non-framework code uses param API exclusively (Steps 15, 16).
 
 Current usage analysis:
 
 - Cycle examples use `config.set_config_value()` for loop variables (runtime state)
-- These are NOT params (no definition, no validation)
-- Distinction: "param values" (validated, typed) vs "config values" (raw runtime state)
+- These ARE params if they need to be set/retrieved by user code
+- Distinction: All user-accessible values should go through param API
 
-**Documentation needed:**
+**Updated approach:**
 
-- When to use param API: For defined parameters with types and validation
-- When to use config API: For runtime state that's not a parameter
-- Examples:
-  - Param: `--max-retries` defined with `PARAM_TYPE_NUMBER`
-  - Config: `loop-counter` incremented during cycle execution (not a param)
-- Keep low-level `config.set_config_value()` for runtime state management
-- Document this distinction in `doc/configuration.md`
+- **Use param API everywhere in examples and documentation:**
+  - `spafw37.set_param()` for setting any value (including loop counters, runtime state)
+  - `spafw37.get_param_int()`, `spafw37.get_param_str()`, etc. for getting values
+  - Cycles examples: Use `set_param('loop-counter', value)` not `config.set_config_value()`
+  - All 20+ examples updated to use param API consistently
+
+- **Rationale:**
+  - **Consistency:** One API for all user-facing code
+  - **Validation:** Even runtime state benefits from type checking
+  - **Best practices:** Examples should show the recommended way, not internal implementation
+  - **Future-proof:** If config API becomes truly private, examples won't break
+
+- **Internal framework use only:**
+  - Low-level `config.set_config_value()` remains for internal framework use
+  - CLI layer, config persistence, internal state management
+  - Not exposed in examples or documentation as recommended practice
+
+- **Documentation (Step 16):**
+  - Clarify: "Use param API for all application code"
+  - Note: "Config API is for internal framework use"
+  - Examples:
+    - ✅ Param API: `spafw37.set_param('loop-counter', count)` in cycle action
+    - ❌ Config API: `config.set_config_value('loop-counter', count)` - internal only
+  - Migration guide: Replace all `set_config_value()` with `set_param()` in application code
 
 [↑ Back to top](#table-of-contents)
 
