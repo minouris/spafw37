@@ -8,3 +8,5 @@ build/
 .coverage
 logs/
 *.json
+htmlcov
+.pytest_cache
