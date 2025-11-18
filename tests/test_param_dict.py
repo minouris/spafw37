@@ -1,6 +1,7 @@
 import json
 import os
 from spafw37 import cli, param
+from spafw37 import file as spafw37_file
 import spafw37.config
 from spafw37 import config_func as config_func
 
@@ -541,7 +542,7 @@ def test_read_file_raw_file_not_found():
     import pytest
     
     with pytest.raises(FileNotFoundError, match="Parameter file not found"):
-        param._read_file_raw('/nonexistent/file.txt')
+        spafw37_file._read_file_raw('/nonexistent/file.txt')
 
 
 def test_read_file_raw_permission_denied(tmp_path):
@@ -561,7 +562,7 @@ def test_read_file_raw_permission_denied(tmp_path):
     
     try:
         with pytest.raises(PermissionError, match="Permission denied"):
-            param._read_file_raw(str(p))
+            spafw37_file._read_file_raw(str(p))
     finally:
         # Restore permissions
         p.chmod(stat.S_IRUSR | stat.S_IWUSR)
