@@ -1,7 +1,6 @@
 import re
 import json
 import os
-from typing import List, Dict, Any, Optional
 
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -113,16 +112,16 @@ def is_long_alias_with_value(arg):
 def is_short_alias(arg):
     return bool(re.match(PATTERN_SHORT_ALIAS, arg))
 
-def is_param_type(param: dict, param_type: str) -> bool:
+def is_param_type(param, param_type):
     return param.get(PARAM_TYPE, PARAM_TYPE_TEXT) == param_type
 
-def is_number_param(param: dict) -> bool:
+def is_number_param(param):
     return is_param_type(param, PARAM_TYPE_NUMBER)
 
-def is_list_param(param: dict) -> bool:
+def is_list_param(param):
     return is_param_type(param, PARAM_TYPE_LIST)
 
-def is_dict_param(param: dict) -> bool:
+def is_dict_param(param):
     """Return True if the parameter definition indicates a dict type.
 
     Args:
@@ -133,18 +132,18 @@ def is_dict_param(param: dict) -> bool:
     """
     return is_param_type(param, PARAM_TYPE_DICT)
 
-def is_toggle_param(param: dict) -> bool:
+def is_toggle_param(param):
     return is_param_type(param, PARAM_TYPE_TOGGLE)
 
 
-def is_alias(alias: str) -> bool:
+def is_alias(alias):
     return bool(re.match(PATTERN_LONG_ALIAS, alias)
                 or re.match(PATTERN_SHORT_ALIAS, alias))
 
-def is_persistence_always(param: dict) -> bool:
+def is_persistence_always(param):
     return param.get(PARAM_PERSISTENCE, None) == PARAM_PERSISTENCE_ALWAYS
 
-def is_persistence_never(param: dict) -> bool:
+def is_persistence_never(param):
     return param.get(PARAM_PERSISTENCE, None) == PARAM_PERSISTENCE_NEVER
 
 def is_runtime_only_param(_param):
@@ -320,18 +319,18 @@ def _parse_value(param, value):
     else:
         return value
 
-def _add_param_xor(param_name: str, xor_param_name: str):
+def _add_param_xor(param_name, xor_param_name):
     if param_name not in _xor_list:
         _xor_list[param_name] = [ xor_param_name]
         return
     if xor_param_name not in _xor_list[param_name]:
         _xor_list[param_name].append(xor_param_name)
 
-def has_xor_with(param_name: str, other_param_name: str) -> bool:
+def has_xor_with(param_name, other_param_name):
     xor_list = _xor_list.get(param_name, [])
     return other_param_name in xor_list
 
-def get_xor_params(param_name: str):
+def get_xor_params(param_name):
     """Get list of params that are mutually exclusive with given param.
     
     Args:
@@ -342,10 +341,14 @@ def get_xor_params(param_name: str):
     """
     return _xor_list.get(param_name, [])
 
-def _set_param_xor_list(param_name: str, xor_list: list):
+def _set_param_xor_list(param_name, xor_list):
     for xor_param_name in xor_list:
         _add_param_xor(param_name, xor_param_name)
         _add_param_xor(xor_param_name, param_name)
+
+
+def has_xor_with(param_name, other_param_name):
+    return other_param_name in _xor_list.get(param_name, [])
 
 
 def _get_param_definition(param_name):
@@ -471,7 +474,7 @@ def get_param_by_name(param_name):
 
 
 # Params to set on the command line
-def get_param_by_alias(alias: str) -> dict:
+def get_param_by_alias(alias):
     """Get parameter definition by alias.
     
     Public API - delegates to private _get_param_definition_by_alias().
@@ -486,7 +489,7 @@ def get_param_by_alias(alias: str) -> dict:
     result = _get_param_definition_by_alias(alias)
     return result if result else {}
 
-def is_param_alias(_param: dict, alias: str) -> bool:
+def is_param_alias(_param, alias):
     aliases = _param.get(PARAM_ALIASES, [])
     return alias in aliases
 
@@ -512,7 +515,7 @@ def param_in_args(param_name, args):
                 return True
     return False
 
-def add_param(_param: dict):
+def add_param(_param):
     """Add a parameter and activate it immediately.
     
     Args:
@@ -578,7 +581,7 @@ def _param_has_default(_param):
     """Check if parameter has a default value defined."""
     return PARAM_DEFAULT in _param
 
-def add_params(params: List[Dict[str, Any]]):
+def add_params(params):
     """Add multiple parameter dictionaries.
 
     Args:
@@ -623,7 +626,7 @@ def get_all_param_definitions():
 
 
 # Helper functions ---------------------------------------------------------
-def _load_json_file(path: str) -> dict:
+def _load_json_file(path):
     """Load and parse JSON from a file path.
 
     Args:
@@ -654,7 +657,7 @@ def _load_json_file(path: str) -> dict:
     return parsed_json
 
 
-def _parse_json_text(text: str) -> dict:
+def _parse_json_text(text):
     """Parse a JSON string and validate it is an object.
 
     Args:
@@ -675,7 +678,7 @@ def _parse_json_text(text: str) -> dict:
     return parsed_json
 
 
-def _normalize_dict_input(value) -> str:
+def _normalize_dict_input(value):
     """Normalize raw dict parameter input into a JSON text string.
 
     Accepts a list of tokens or a single-string token and returns a
