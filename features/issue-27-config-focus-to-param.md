@@ -24,19 +24,43 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 - Used by `join_param_value()` when concatenating multiple string values
 - Example: `PARAM_JOIN_SEPARATOR: ','` for CSV-style tags
 
-### 2. Make internal `param.py` helpers private
+### 2. Make internal `param.py` helpers private and reorganize modules
 
-**File:** `src/spafw37/param.py`
+**Files:** `src/spafw37/param.py`, `src/spafw37/file.py` (new), `src/spafw37/cli.py`
 
-- Rename `get_bind_name()` → `_get_bind_name()`
-- Rename `get_param_default()` → `_get_param_default()`
-- Rename `param_has_default()` → `_param_has_default()`
-- Update 30+ call sites across multiple files:
-  - `param.py` internal calls
-  - `cli.py` param binding references
-  - `config_func.py` config key lookups
-  - `help.py` parameter display logic
-  - `cycle.py` cycle parameter handling
+- **Rename param.py helpers to private:**
+  - Rename `get_bind_name()` → `_get_bind_name()`
+  - Rename `get_param_default()` → `_get_param_default()`
+  - Rename `param_has_default()` → `_param_has_default()`
+  - Update 30+ call sites across multiple files:
+    - `param.py` internal calls
+    - `cli.py` param binding references
+    - `config_func.py` config key lookups
+    - `help.py` parameter display logic
+    - `cycle.py` cycle parameter handling
+
+- **Create file.py for file utilities:**
+  - Create new `src/spafw37/file.py` module
+  - Move from param.py: `_validate_file_for_reading()`, `_read_file_raw()`
+  - Used by both cli.py (`@file` loading) and config_func.py (config file loading)
+  - Update imports in param.py, cli.py, config_func.py
+
+- **Move CLI-specific functions from param.py to cli.py:**
+  - Move `is_long_alias_with_value()` → `cli._is_long_alias_with_value()` (private)
+  - Move `param_in_args()` → `cli._param_in_args()` (private)
+  - These are pure CLI token parsing concerns
+  - Update call sites in cli.py
+
+- **Module organization summary after Step 2:**
+  - **file.py** - File I/O utilities (no domain logic)
+    - `_validate_file_for_reading()`, `_read_file_raw()`
+  - **param.py** - Parameter metadata and validation
+    - Metadata: `is_alias()`, `is_toggle_param()`, `is_list_param()`, `is_dict_param()`, `is_param_alias()`
+    - Registry: `get_all_param_definitions()`, `get_pre_parse_args()`
+    - Validation: `has_xor_with()`, `get_xor_params()`
+  - **cli.py** - CLI token parsing
+    - `_is_long_alias_with_value()`, `_param_in_args()`
+    - After refactoring: CLI only calls `param.is_alias()` and `param.set_param_value()`
 
 ### 3. Create flexible param resolution system
 
@@ -143,6 +167,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **File:** `src/spafw37/cli.py`
 
+- **Note:** file.py module created in Step 2, file utilities already moved
+
 - **Create new `_parse_cli_args()` function:**
   - Simplified parsing logic focused on three token patterns
   - Returns structured dict with commands and params
@@ -196,7 +222,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   
   - `_load_file_contents(token)`:
     - Check if token starts with `@`
-    - Use `_validate_file_for_reading()` (moved from param.py)
+    - Use `file._validate_file_for_reading()` (from new file.py module)
+    - Use `file._read_file_raw()` (from new file.py module)
     - Read raw file contents as string
     - Return loaded string (replacing `@filename`)
     - This is the ONLY place `@file` syntax should be handled
@@ -361,30 +388,53 @@ Pivot from config dict access to param-focused interface with metadata-driven va
   - `_handle_alias_param()` - replaced by `_handle_alias_with_values()` and `_is_alias_token()` helpers
   - `_handle_long_alias_param()` - replaced by `_handle_long_alias_token()` and `_is_long_alias_with_value()` helpers
   - `_handle_command()` - replaced by `_handle_command_token()` and `_is_command_token()` helpers
-  - `test_switch_xor()` - XOR validation moved to param layer (`_validate_xor_conflicts()`)
-  - `_current_args` global - no longer needed with new parsing approach
+  - `test_switch_xor()` - **REMOVE** XOR validation moved to param layer (`_validate_xor_conflicts()`)
+  - `_current_args` global - **REMOVE** no longer needed with new parsing approach
+  - `_accumulate_json_for_dict_param()` - **REMOVE** dict parsing handled by param layer validation
 
-- **Move file helpers from param.py to cli.py:**
-  - `param._validate_file_for_reading()` → `cli._validate_file_for_reading()`
-  - `param._read_file_raw()` → inline in `cli._load_file_contents()` (no separate helper needed)
-  - **Important:** `_validate_file_for_reading()` is also used by config_func for loading config files
-  - **Solution:** Keep `_validate_file_for_reading()` in param.py until config_func is refactored, OR
-  - **Better solution:** Move to a shared utility module, OR
-  - **Simplest solution:** Keep in param.py, just use it from cli.py (it's a generic file utility)
+- **Result of CLI cleanup:**
+  - CLI no longer needs XOR functions (has_xor_with, get_xor_params, param_in_args)
+  - CLI no longer needs type checking (is_toggle_param, is_list_param, is_dict_param)
+  - CLI only needs: `param.is_alias()` to detect param aliases during parsing
+  - All validation, type conversion, and XOR checking happens in param.set_param_value()
 
-- **Helper functions that MUST remain in param.py (used by CLI):**
-  - `is_alias(alias)` - check if string is registered param alias
-  - `is_toggle_param(param_def)` - check param type (used by pre-parse, defaults)
-  - `is_list_param(param_def)` - check param type (used by capture_param_values currently)
-  - `is_dict_param(param_def)` - check param type (used by capture_param_values currently)
-  - `is_param_alias(param_def, alias)` - check if alias belongs to specific param
-  - `is_long_alias_with_value(arg)` - pattern detection (used in pre-parse)
-  - `param_in_args(param_name, args)` - check if param in args list (used by XOR)
-  - `get_xor_params(param_name)` - get conflicting params (used by XOR validation)
-  - `has_xor_with(param_name, other)` - check XOR relationship (used by test_switch_xor)
-  - `get_all_param_definitions()` - get all params (used by _set_defaults)
-  - `get_pre_parse_args()` - get pre-parse param list (used by _pre_parse_params)
-  - NOTE: Many of these will become internal after refactoring, but must remain callable from cli.py
+- **Create new `file.py` module for file I/O utilities:**
+  - Create `src/spafw37/file.py` for file operations shared across modules
+  - Move file helpers here:
+    - `_validate_file_for_reading(file_path)` - used by cli.py (for `@file` loading) AND config_func.py (for config file loading)
+    - `_read_file_raw(file_path)` - used by cli.py for `@file` token expansion
+  - These are generic file I/O utilities with no domain-specific logic
+  - Both cli.py and config_func.py will import from file.py
+
+- **CLI-specific helper functions (keep/move to cli.py):**
+  - `is_long_alias_with_value(arg)` → **MOVE to cli.py** as `_is_long_alias_with_value()`
+    - Pure CLI token parsing concern - checks if token matches `--alias=value` pattern
+    - Param module never needs to parse tokens this way
+    - Currently used in: cli.py capture_param_values, _pre_parse_params
+  - `param_in_args(param_name, args)` → **MOVE to cli.py** as `_param_in_args()`
+    - Searches CLI args list for param presence
+    - Only used by CLI's `test_switch_xor()` function
+    - Pure CLI concern, param module doesn't work with raw args lists
+
+- **Param-specific helper functions (stay in param.py):**
+  - `is_alias(alias)` - checks if string is registered param alias (param registry concern)
+  - `is_toggle_param(param_def)` - checks param type (param metadata concern)
+  - `is_list_param(param_def)` - checks param type (param metadata concern)
+  - `is_dict_param(param_def)` - checks param type (param metadata concern)
+  - `is_param_alias(param_def, alias)` - checks if alias belongs to param (param metadata concern)
+  - `get_xor_params(param_name)` - gets conflicting params (param validation concern)
+  - `has_xor_with(param_name, other)` - checks XOR relationship (param validation concern)
+  - `get_all_param_definitions()` - retrieves all params (param registry concern)
+  - `get_pre_parse_args()` - retrieves pre-parse params (param registry concern)
+  - **NOTE:** XOR functions (has_xor_with, get_xor_params) used by CLI's test_switch_xor()
+  - **AFTER REFACTORING:** test_switch_xor() will be REMOVED (XOR moves to param layer)
+  - **RESULT:** All these functions become internal param concerns only
+
+- **Functions CLI uses that will remain in param.py:**
+  - `is_alias(alias)` - CLI needs to detect if token is a param alias
+  - Type checking functions (is_toggle_param, is_list_param, is_dict_param) - CLI uses during capture_param_values
+  - **AFTER REFACTORING:** CLI won't need type checkers (no type-specific logic in CLI)
+  - **RESULT:** CLI only calls param.set_param_value() which handles all type logic internally
 
 - **Helper functions being RENAMED in Step 2/3 (CLI must use new names):**
   - `get_bind_name()` → `_get_bind_name()` - CLI uses this in test_switch_xor, _set_defaults
