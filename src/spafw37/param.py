@@ -154,6 +154,106 @@ def _parse_number(value, default=0):
             except ValueError:
                 return default
 
+
+def _validate_number(value):
+    """Validate and coerce a value to a number (int or float).
+    
+    Args:
+        value: Value to validate and coerce.
+        
+    Returns:
+        Coerced numeric value (int or float).
+        
+    Raises:
+        ValueError: If value cannot be coerced to a number.
+    """
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Cannot coerce value to number: {value}")
+
+
+def _validate_toggle(param_def):
+    """Validate and return toggle value (flipped default).
+    
+    Toggles don't take a value parameter - they flip on presence.
+    
+    Args:
+        param_def: Parameter definition dict.
+        
+    Returns:
+        Flipped boolean value (opposite of default).
+    """
+    return not bool(param_def.get(PARAM_DEFAULT, False))
+
+
+def _validate_list(value):
+    """Validate and coerce a value to a list.
+    
+    Args:
+        value: Value to validate and coerce.
+        
+    Returns:
+        List value (wraps non-list values in a list).
+    """
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _validate_dict(value):
+    """Validate and coerce a value to a dict.
+    
+    Accepts dict directly, or parses JSON strings starting with '{'.
+    File loading (@file) is handled by CLI layer before validation.
+    
+    Args:
+        value: Value to validate and coerce.
+        
+    Returns:
+        Dict value.
+        
+    Raises:
+        ValueError: If value cannot be coerced to a dict.
+    """
+    if isinstance(value, dict):
+        return value
+    
+    # Normalize raw input into a single JSON text string
+    json_text = _normalize_dict_input(value)
+    
+    # File reference notation: @/path/to/file.json
+    # Note: CLI layer should have already loaded this, but handle it anyway
+    if json_text.startswith('@'):
+        return _load_json_file(json_text[1:])
+    
+    # JSON object string
+    if json_text.startswith('{'):
+        return _parse_json_text(json_text)
+    
+    # Not a valid dict format
+    raise ValueError("Dict parameter expects JSON object or @file reference")
+
+
+def _validate_text(value):
+    """Validate and coerce a value to text (string).
+    
+    Args:
+        value: Value to validate and coerce.
+        
+    Returns:
+        String value.
+    """
+    if not isinstance(value, str):
+        return str(value)
+    return value
+
+
 def _parse_value(param, value):
     """Parse and coerce a raw parameter value according to param type.
 
@@ -237,19 +337,144 @@ def _set_param_xor_list(param_name: str, xor_list: list):
         _add_param_xor(param_name, xor_param_name)
         _add_param_xor(xor_param_name, param_name)
 
-def get_param_by_name(param_name):
+
+def _get_param_definition(param_name):
+    """Get parameter definition by parameter name.
+    
+    Private version of get_param_by_name for internal use.
+    
+    Args:
+        param_name: Parameter name to look up.
+        
+    Returns:
+        Parameter definition dict or None if not found.
+    """
     if param_name in _params:
         return _params.get(param_name)
     return None
 
-# Params to set on the command line
-def get_param_by_alias(alias: str) -> dict:
-    param_name: Optional[str] = _param_aliases.get(alias)
+
+def _get_param_definition_by_alias(alias):
+    """Get parameter definition by alias.
+    
+    Private version of get_param_by_alias for internal use.
+    
+    Args:
+        alias: Parameter alias to look up.
+        
+    Returns:
+        Parameter definition dict or None if not found.
+    """
+    param_name = _param_aliases.get(alias)
     if param_name:
-        param: Optional[dict] = _params.get(param_name)
+        param = _params.get(param_name)
         if param:
             return param
-    return {}
+    return None
+
+
+def _get_param_definition_by_bind_name(bind_name):
+    """Get parameter definition by config bind name.
+    
+    Searches all parameters for one whose bind name matches.
+    
+    Args:
+        bind_name: Config bind name to look up.
+        
+    Returns:
+        Parameter definition dict or None if not found.
+    """
+    for param_def in _params.values():
+        if _get_bind_name(param_def) == bind_name:
+            return param_def
+    return None
+
+
+def _resolve_param_definition(param_name=None, bind_name=None, alias=None):
+    """Resolve parameter definition from multiple address spaces.
+    
+    Flexible param resolution supporting three address spaces:
+    - param_name: parameter name (e.g., 'database-host')
+    - bind_name: config key (e.g., 'database_host')  
+    - alias: CLI alias (e.g., '--db-host', '-d')
+    
+    When using named arguments, only checks the specified address space.
+    When using positional argument, uses failover pattern (name → bind → alias).
+    
+    Args:
+        param_name: Parameter name to resolve (first positional arg).
+        bind_name: Config bind name to resolve.
+        alias: CLI alias to resolve.
+        
+    Returns:
+        Parameter definition dict or None if not found.
+        
+    Examples:
+        # Named argument - only checks param names:
+        _resolve_param_definition(param_name='database')
+        
+        # Positional argument - tries all three address spaces:
+        _resolve_param_definition('database')
+        
+        # Named bind_name - only checks bind names:
+        _resolve_param_definition(bind_name='database_host')
+    """
+    # If multiple address spaces specified, check each in priority order
+    if param_name is not None:
+        param_def = _get_param_definition(param_name)
+        if param_def:
+            return param_def
+        # If only param_name provided (positional usage), try failover
+        if bind_name is None and alias is None:
+            param_def = _get_param_definition_by_bind_name(param_name)
+            if param_def:
+                return param_def
+            param_def = _get_param_definition_by_alias(param_name)
+            if param_def:
+                return param_def
+    
+    if bind_name is not None:
+        param_def = _get_param_definition_by_bind_name(bind_name)
+        if param_def:
+            return param_def
+    
+    if alias is not None:
+        param_def = _get_param_definition_by_alias(alias)
+        if param_def:
+            return param_def
+    
+    return None
+
+
+def get_param_by_name(param_name):
+    """Get parameter definition by parameter name.
+    
+    Public API - delegates to private _get_param_definition().
+    
+    Args:
+        param_name: Parameter name to look up.
+        
+    Returns:
+        Parameter definition dict or None if not found.
+    """
+    return _get_param_definition(param_name)
+
+
+# Params to set on the command line
+def get_param_by_alias(alias: str) -> dict:
+    """Get parameter definition by alias.
+    
+    Public API - delegates to private _get_param_definition_by_alias().
+    Returns empty dict for backward compatibility when not found.
+    
+    Args:
+        alias: Parameter alias to look up.
+        
+    Returns:
+        Parameter definition dict or empty dict if not found.
+    """
+    result = _get_param_definition_by_alias(alias)
+    return result if result else {}
 
 def is_param_alias(_param: dict, alias: str) -> bool:
     aliases = _param.get(PARAM_ALIASES, [])
