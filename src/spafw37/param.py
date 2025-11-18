@@ -927,4 +927,110 @@ def get_param_dict(param_name=None, bind_name=None, alias=None, default=None, st
     )
 
 
+def _validate_param_value(param_definition, value, strict=True):
+    """
+    Validate and coerce value according to parameter type definition.
+    
+    Applies type-specific validation using existing validation helpers. In strict
+    mode, raises ValueError for validation failures. In non-strict mode, attempts
+    best-effort coercion.
+    
+    Args:
+        param_definition: Parameter definition dict containing type information
+        value: Value to validate and potentially coerce
+        strict: If True, raises ValueError on validation failure (default: True)
+    
+    Returns:
+        Validated and potentially coerced value appropriate for the parameter type
+    
+    Raises:
+        ValueError: If strict=True and validation fails
+    """
+    param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    
+    if param_type == PARAM_TYPE_NUMBER:
+        return _validate_number(value)
+    elif param_type == PARAM_TYPE_TOGGLE:
+        # For programmatic setting, use the value as-is (toggles are just booleans)
+        return bool(value)
+    elif param_type == PARAM_TYPE_LIST:
+        return _validate_list(value)
+    elif param_type == PARAM_TYPE_DICT:
+        return _validate_dict(value)
+    elif param_type == PARAM_TYPE_TEXT:
+        return _validate_text(value)
+    else:
+        return value
 
+
+def _validate_xor_conflicts(param_definition):
+    """
+    Check for XOR conflicts when setting a toggle parameter.
+    
+    Verifies that no mutually exclusive toggle is already set in configuration.
+    For toggle parameters, checks if any other toggle in the same switch-list
+    is currently enabled.
+    
+    Args:
+        param_definition: Parameter definition dict to check for conflicts
+    
+    Raises:
+        ValueError: If a conflicting toggle is already set
+    """
+    if not is_toggle_param(param_definition):
+        return
+    
+    bind_name = _get_bind_name(param_definition)
+    xor_params = get_xor_params(bind_name)
+    
+    if not xor_params:
+        return
+    
+    for xor_param_bind_name in xor_params:
+        if xor_param_bind_name == bind_name:
+            continue
+        
+        existing_value = config.get_config_value(xor_param_bind_name)
+        if existing_value is True:
+            raise ValueError(
+                "Cannot set '{}', conflicts with '{}'".format(bind_name, xor_param_bind_name)
+            )
+
+
+def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True):
+    """
+    Set parameter value with flexible resolution and type validation.
+    
+    Resolves parameter using param_name, bind_name, or alias with failover logic,
+    validates the value against parameter type, checks XOR conflicts for toggles,
+    and stores the validated value in configuration.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        value: Value to set (required)
+        strict: If True, enforces strict type validation (default: True)
+    
+    Raises:
+        ValueError: If parameter not found, validation fails, or XOR conflict detected
+    """
+    param_definition = _resolve_param_definition(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias
+    )
+    
+    if param_definition is None:
+        raise ValueError("Unknown parameter: '{}'".format(param_name or bind_name or alias))
+    
+    # Check XOR conflicts for toggles before setting
+    if is_toggle_param(param_definition) and value is True:
+        _validate_xor_conflicts(param_definition)
+    
+    # Validate and coerce value according to parameter type
+    validated_value = _validate_param_value(param_definition, value, strict)
+    
+    # Store value using bind name as config key
+    config_key = _get_bind_name(param_definition)
+    config.set_config_value(config_key, validated_value)
