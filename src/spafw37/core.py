@@ -6,6 +6,53 @@ spafw37 application framework, including configuration management,
 command registration, and parameter handling.
 """
 
+# Deprecation tracking
+_deprecated_warnings_shown = set()
+_suppress_deprecation_warnings = False
+
+
+def _deprecated(message):
+    """
+    Decorator to mark functions as deprecated with one-time warning.
+    
+    Args:
+        message: Deprecation message explaining the alternative.
+    
+    Returns:
+        Decorator function that wraps the deprecated function.
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not _suppress_deprecation_warnings:
+                func_name = func.__name__
+                if func_name not in _deprecated_warnings_shown:
+                    _deprecated_warnings_shown.add(func_name)
+                    from spafw37 import logging as spafw37_logging
+                    spafw37_logging.warning(f"{func_name}() is deprecated. {message}")
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def suppress_deprecation(suppress=True):
+    """
+    Control deprecation warning display.
+    
+    Allows developers to suppress deprecation warnings during migration.
+    Useful for large codebases migrating to new API gradually.
+    
+    Args:
+        suppress: If True, suppress deprecation warnings. If False, enable them.
+    
+    Example:
+        import spafw37
+        spafw37.suppress_deprecation(True)  # Silence warnings during migration
+        # ... migration code ...
+        spafw37.suppress_deprecation(False)  # Re-enable warnings
+    """
+    global _suppress_deprecation_warnings
+    _suppress_deprecation_warnings = suppress
+
 
 def run_cli():
     """

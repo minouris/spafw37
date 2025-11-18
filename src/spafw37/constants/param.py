@@ -29,3 +29,30 @@ PARAM_TYPE_NUMBER = 'number'
 PARAM_TYPE_TOGGLE = 'toggle'
 PARAM_TYPE_LIST = 'list'
 PARAM_TYPE_DICT = 'dict'
+
+# Param Join Configuration
+PARAM_JOIN_SEPARATOR = 'join-separator'  # Separator for joining string values in join_param(). Defaults to SEPARATOR_SPACE.
+
+# Dict Merge Type Options (for join_param with dicts)
+DICT_MERGE_SHALLOW = 'shallow'  # Only merge top-level keys (default)
+DICT_MERGE_DEEP = 'deep'  # Recursively merge nested dicts
+
+# Dict Merge Type Configuration
+PARAM_DICT_MERGE_TYPE = 'dict-merge-type'  # Controls dict merge behavior: DICT_MERGE_SHALLOW (default) or DICT_MERGE_DEEP
+
+# Dict Override Strategy Options (for join_param with dicts)
+DICT_OVERRIDE_RECENT = 'recent'  # New value overwrites existing (default)
+DICT_OVERRIDE_OLDEST = 'oldest'  # Existing value kept, new value ignored
+DICT_OVERRIDE_ERROR = 'error'  # Raise error on key collision
+
+# Dict Override Strategy Configuration
+PARAM_DICT_OVERRIDE_STRATEGY = 'dict-override-strategy'  # Controls collision handling: DICT_OVERRIDE_RECENT (default), DICT_OVERRIDE_OLDEST, or DICT_OVERRIDE_ERROR
+
+# Common Separator Constants (for convenience)
+SEPARATOR_SPACE = ' '
+SEPARATOR_COMMA = ','
+SEPARATOR_COMMA_SPACE = ', '
+SEPARATOR_PIPE = '|'
+SEPARATOR_PIPE_PADDED = ' | '
+SEPARATOR_NEWLINE = '\n'
+SEPARATOR_TAB = '\t'

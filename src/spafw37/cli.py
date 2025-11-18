@@ -6,6 +6,7 @@ from spafw37 import command
 from spafw37 import config_func as config
 from spafw37 import logging as logging_module
 from spafw37 import param
+from spafw37 import file as spafw37_file
 import spafw37.config
 from spafw37.constants.param import (
     PARAM_HAS_VALUE,
@@ -71,8 +72,8 @@ def capture_param_values(args, param_definition):
         # If this argument is a file reference (@path), load the file immediately
         # and treat its contents as if they were a single argument token.
         if isinstance(argument, str) and argument.startswith('@'):
-            # Use the param module's helper to read raw file contents
-            file_contents = param._read_file_raw(argument[1:])
+            # Use the file module's helper to read raw file contents
+            file_contents = spafw37_file._read_file_raw(argument[1:])
             # Replace in the args list so downstream logic sees the file content
             args[argument_index] = file_contents
             argument = file_contents
@@ -228,7 +229,7 @@ def _handle_long_alias_param(argument):
     # If the embedded value is a file reference, load it now so parsing gets
     # the file contents rather than the '@path' token.
     if isinstance(raw_value, str) and raw_value.startswith('@'):
-        raw_value = param._read_file_raw(raw_value[1:])
+        raw_value = spafw37_file._read_file_raw(raw_value[1:])
     return param._parse_value(param_definition, raw_value), param_definition
 
 def _handle_command(argument):

@@ -2,6 +2,7 @@
 from spafw37 import param
 from spafw37 import logging
 from spafw37 import config
+from spafw37 import file as spafw37_file
 from spafw37.constants.config import (
     CONFIG_INFILE_PARAM,
     CONFIG_OUTFILE_PARAM,
@@ -85,19 +86,19 @@ def _manage_config_persistence(param_def, value):
 def load_config(config_file_in):
     if config_file_in:
         try:
-            validated_path = param._validate_file_for_reading(config_file_in)
+            validated_path = spafw37_file._validate_file_for_reading(config_file_in)
         except ValueError as value_error:
             # Catch binary file or directory errors from validator
             logging.log_error(_scope='config', _message=str(value_error))
             raise value_error
         
         try:
-            with open(validated_path, 'r') as f:
-                content = f.read()
+            with open(validated_path, 'r') as file_handle:
+                content = file_handle.read()
                 if not content.strip():
                     # Treat empty files as empty configuration
                     return {}
-                f.seek(0)
+                file_handle.seek(0)
                 return json.loads(content)
         except FileNotFoundError:
             logging.log_error(_scope='config', _message=f"Config file '{config_file_in}' not found")
