@@ -91,12 +91,12 @@ params = [
 ```
 
 Each parameter definition includes:
-- **`PARAM_NAME`** - Internal name used with `get_config()`
+- **`PARAM_NAME`** - Internal name used with `get_param_str()`, `get_param_int()`, etc.
 - **`PARAM_DESCRIPTION`** - Shown in help text
 - **`PARAM_ALIASES`** - CLI flags (e.g., `--name` or `-n`)
 - **`PARAM_TYPE`** - Type of value (e.g., `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`)
 
-When parameter values are set from the command line, they are stored in the configuration store and can be retrieved by commands using `get_config()`.
+When parameter values are set from the command line, they are stored in the configuration store and can be retrieved by commands using the typed getters.
 
 #### Step 4: Define Your Command Action
 
@@ -105,11 +105,11 @@ Write the function that will execute when your command runs.
 ```python
 def greet_action():
     """Greet the user by name."""
-    name = spafw37.get_config('user-name')
+    name = spafw37.get_param_str('user-name')
     spafw37.output(f"Hello, {name}!")
 ```
 
-Command actions are regular Python functions. Use `spafw37.get_config()` to retrieve parameter values that were set from the command line.
+Command actions are regular Python functions. Use typed parameter getters like `get_param_str()`, `get_param_int()`, `get_param_bool()` to retrieve parameter values that were set from the command line.
 
 #### Step 5: Define Commands
 
@@ -235,8 +235,8 @@ Access configuration values set by parameters or loaded from files:
 ```python
 # In your command action
 def process_action():
-    input_file = spafw37.get_config('input-file')
-    verbose = spafw37.get_config('verbose', default=False)
+    input_file = spafw37.get_param_str('input-file')
+    debug_mode = spafw37.get_param_bool('debug-mode')
     # ... process ...
 ```
 
@@ -281,6 +281,10 @@ Complete working examples demonstrating each feature are available in the [`exam
 - Configuration: basic, persistence
 
 See individual example files for focused demonstrations of specific features.
+
+## What's New in v1.1.0
+
+- **New Parameter API** - Access parameters with type-safe functions like `get_param_str()`, `get_param_int()`, etc. Set values with `set_param()` or accumulate them with `join_param()`
 
 ## Requirements
 

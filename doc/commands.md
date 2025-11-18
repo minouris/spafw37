@@ -143,9 +143,9 @@ from spafw37.constants.command import COMMAND_REQUIRED_PARAMS
 
 def deploy_action():
     """Deploy to target environment."""
-    target = spafw37.get_config('environment')
-    api_key = spafw37.get_config('api-key')
-    instance_count = spafw37.get_config('instance-count')
+    target = spafw37.get_param_str('environment')
+    api_key = spafw37.get_param_str('api-key')
+    instance_count = spafw37.get_param_int('instance-count')
     spafw37.output(f"Deploying to {target}...")
     spafw37.output(f"Instances: {instance_count}")
     # Deploy logic using api_key
@@ -333,7 +333,7 @@ commands = [
                 # Inline command with inline parameter!
                 COMMAND_NAME: "setup",
                 COMMAND_ACTION: lambda: spafw37.output(
-                    f"Setting up with config: {spafw37.get_config_value('setup-config')}"
+                    f"Setting up with config: {spafw37.get_param_str('setup-config')}"
                 ),
                 COMMAND_REQUIRED_PARAMS: [
                     {
@@ -504,7 +504,7 @@ from spafw37.constants.command import COMMAND_TRIGGER_PARAM
 
 def load_plugins_action():
     """Load plugins from a specified directory."""
-    plugin_dir = spafw37.get_config('plugin-dir')
+    plugin_dir = spafw37.get_param_str('plugin-dir')
     spafw37.output(f"Loading plugins from {plugin_dir}...")
     # Plugin loading logic here
 

@@ -130,28 +130,28 @@ Then use these parameters in your cycle functions:
 
 ```python
 def init_files():
-    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
-    spafw37.set_config_value('file-index', 0)
+    spafw37.set_param(['file1.txt', 'file2.txt', 'file3.txt'], 'file-list')
+    spafw37.set_param(0, 'file-index')
 
 def has_more_files():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('current-file', file_list[file_index])
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(file_list[file_index], 'current-file')
 
 def finalize_files():
-    file_index = spafw37.get_config_value('file-index')
+    file_index = spafw37.get_param_int('file-index')
     spafw37.output(f"Completed {file_index} files")
 
 def process_file():
-    current_file = spafw37.get_config_value('current-file')
+    current_file = spafw37.get_param_str('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('file-index', file_index + 1)
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(file_index + 1, 'file-index')
 ```
 
 **Only use module-level variables for truly local state** that shouldn't be saved or shared:

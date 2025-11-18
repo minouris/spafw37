@@ -35,7 +35,7 @@ The spafw37 framework provides a flexible configuration system for managing appl
 - **Scoped appropriately** - Always saved, never saved, or user-config only
 
 Key capabilities:
-- Runtime parameter access via `get_config_value()` and `set_config_value()`
+- Runtime parameter access via typed getters (`get_param_str()`, `get_param_int()`, etc.) and setters (`set_param()`, `join_param()`)
 - Automatic persistence for designated parameters
 - User config file save/load (`--save-config`, `--load-config`)
 - Runtime-only parameters for temporary state
@@ -47,13 +47,34 @@ The configuration system stores parameter values in an internal dictionary that'
 
 ### Getting Configuration Values
 
-Use `get_config_value()` to retrieve parameter values:
+**Recommended (v1.1.0):** Use the parameter-focused API with typed getters for better type safety and flexible resolution:
 
 ```python
 from spafw37 import core as spafw37
 
 def process_file():
-    # Get a configuration value
+    # Get parameter values using the new API
+    input_file = spafw37.get_param_str('input-file')
+    debug_mode = spafw37.get_param_bool('debug-mode')
+    thread_count = spafw37.get_param_int('thread-count', 4)
+    
+    if debug_mode:
+        spafw37.output(f"Processing {input_file} with {thread_count} threads")
+    
+    # Flexible resolution - reference by name, binding, or alias
+    output_dir = spafw37.get_param_str(bind_name='output-dir')
+    timeout = spafw37.get_param_float(alias='timeout')  # From '--timeout' alias
+```
+
+**See:** [Parameters Guide - Accessing Parameter Values](parameters.md#accessing-parameter-values) for complete parameter API documentation.
+
+**Deprecated (still supported):** The older `get_config_value()` function still works but shows a one-time deprecation warning:
+
+```python
+from spafw37 import core as spafw37
+
+def process_file():
+    # ⚠️ Deprecated - use get_param_str() instead
     input_file = spafw37.get_config_value('input-file')
     verbose = spafw37.get_config_value('verbose')
     
@@ -66,7 +87,9 @@ def process_file():
         output_dir = '.'
 ```
 
-#### Typed Configuration Getters
+#### Typed Configuration Getters (Deprecated)
+
+**⚠️ Deprecated as of v1.1.0** - Use the new parameter API functions (`get_param_str()`, `get_param_int()`, etc.) instead. These functions still work for backward compatibility but will show a one-time deprecation warning.
 
 For better type safety and linter support, use typed getters that cast values to specific types:
 
@@ -74,6 +97,8 @@ For better type safety and linter support, use typed getters that cast values to
 from spafw37 import core as spafw37
 
 def process_files():
+    # ⚠️ All of these are deprecated - use get_param_*() instead
+    
     # Get integer values with defaults
     max_workers = spafw37.get_config_int('max-workers', 4)
     file_index = spafw37.get_config_int('file-index')  # default: 0
@@ -93,45 +118,95 @@ def process_files():
     # Get list values
     tags = spafw37.get_config_list('tags')  # default: []
     files = spafw37.get_config_list('files', [])
+    
+    # Get dict values
+    settings = spafw37.get_config_dict('settings')  # default: {}
+    metadata = spafw37.get_config_dict('metadata', {})
 ```
 
-**Available typed getters:**
-- `get_config_int(config_key, default=0)` - Returns integer
-- `get_config_str(config_key, default='')` - Returns string
-- `get_config_bool(config_key, default=False)` - Returns boolean
-- `get_config_float(config_key, default=0.0)` - Returns float
-- `get_config_list(config_key, default=None)` - Returns list (wraps single values)
+**Available typed getters (all deprecated):**
+- `get_config_int(config_key, default=0)` - Returns integer - **⚠️ Use `get_param_int()` instead**
+- `get_config_str(config_key, default='')` - Returns string - **⚠️ Use `get_param_str()` instead**
+- `get_config_bool(config_key, default=False)` - Returns boolean - **⚠️ Use `get_param_bool()` instead**
+- `get_config_float(config_key, default=0.0)` - Returns float - **⚠️ Use `get_param_float()` instead**
+- `get_config_list(config_key, default=None)` - Returns list - **⚠️ Use `get_param_list()` instead**
+- `get_config_dict(config_key, default=None)` - Returns dict - **⚠️ Use `get_param_dict()` instead**
 
-**Benefits:**
-- Eliminates linter warnings about None types
-- Provides sensible defaults automatically
-- Makes type expectations explicit
-- Simplifies type-dependent operations (arithmetic, string formatting, etc.)
+**Migration guide:**
 
+```python
+# Old (deprecated):
+max_workers = spafw37.get_config_int('max-workers', 4)
+project_dir = spafw37.get_config_str('project-dir', './project')
+debug_mode = spafw37.get_param_bool('debug-mode')
+tags = spafw37.get_config_list('tags')
+
+# New (recommended):
+max_workers = spafw37.get_param_int('max-workers', 4)
+project_dir = spafw37.get_param_str('project-dir', './project')
+debug_mode = spafw37.get_param_bool('debug-mode')
+tags = spafw37.get_param_list('tags')
+```
+
+**Benefits of new API:**
+- Flexible resolution (by name, binding, or alias)
+- Type-specific operations (string joining, list appending, dict merging)
+- Clearer separation between replacing (`set_param`) and accumulating (`join_param`) values
 ### Setting Configuration Values
 
-Use `set_config_value()` to set parameter values programmatically:
+**Recommended (v1.1.0):** Use `set_param()` to replace values or `join_param()` to accumulate them:
 
 ```python
 from spafw37 import core as spafw37
 
 def init_cycle():
-    # Initialise cycle state
+    # Replace values with set_param()
+    spafw37.set_param(0, 'file-index')
+    spafw37.set_param(0, 'files-processed')
+    spafw37.set_param([], 'errors')
+
+def process_batch():
+    # Update state during execution
+    files_processed = spafw37.get_param_int('files-processed')
+    spafw37.set_param(files_processed + 1, 'files-processed')
+    
+    # Accumulate list values with join_param() - much simpler!
+    if error_occurred:
+        spafw37.join_param(error_message, 'errors')
+```
+
+**See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for details on `join_param()` type-specific behavior (string concat, list append, dict merge).
+
+**Deprecated (still supported):** The older `set_config_value()` function still works but shows a one-time deprecation warning:
+
+```python
+from spafw37 import core as spafw37
+
+def init_cycle():
+    # ⚠️ Deprecated - use set_param() instead
     spafw37.set_config_value('file-index', 0)
     spafw37.set_config_value('files-processed', 0)
     spafw37.set_config_value('errors', [])
 
 def process_batch():
-    # Update state during execution
+    # ⚠️ Deprecated - manual list manipulation
     files_processed = spafw37.get_config_value('files-processed')
     spafw37.set_config_value('files-processed', files_processed + 1)
     
-    # Append to list values
+    # ⚠️ Deprecated - manual list handling is error-prone
     errors = spafw37.get_config_value('errors') or []
     if error_occurred:
         errors.append(error_message)
         spafw37.set_config_value('errors', errors)
 ```
+
+**Migration guide:**
+
+| Old (Deprecated) | New (Recommended) | Notes |
+|------------------|-------------------|-------|
+| `set_config_value(key, value)` | `set_param(value, bind_name=key)` | Replaces existing value |
+| `set_config_list_value(key, value)` | `join_param(value, bind_name=key)` | Accumulates list values automatically |
+| Manual list append + set | `join_param(value, bind_name=key)` | Framework handles list logic |
 
 **Important:** Use runtime-only parameters for temporary state that shouldn't be persisted. See [Runtime-Only Parameters](#runtime-only-parameters).
 
@@ -422,18 +497,18 @@ spafw37.add_params(params)
 # 3. Define commands that use configuration
 def process_files():
     # Get persistent preference
-    last_dir = spafw37.get_config_value('last-directory')
+    last_dir = spafw37.get_param_str('last-directory')
     
     # Get current run parameter
-    input_file = spafw37.get_config_value('input-file')
+    input_file = spafw37.get_param_str('input-file')
     
     # Set runtime state
-    spafw37.set_config_value('current-index', 0)
+    spafw37.set_param(0, 'current-index')
     
     # Update persistent preference for next run
     import os
     new_dir = os.path.dirname(input_file)
-    spafw37.set_config_value('last-directory', new_dir)
+    spafw37.set_param(new_dir, 'last-directory')
 
 commands = [
     {
@@ -461,8 +536,8 @@ spafw37.run_cli()
    - User config loaded (if `--load-config` specified)
 
 2. **Execution**
-   - Commands access config via `get_config_value()`
-   - Commands update config via `set_config_value()`
+   - Commands access params via `get_param_str()`, `get_param_int()`, etc.
+   - Commands update params via `set_param()` or `join_param()`
    - Runtime-only params used for temporary state
 
 3. **Shutdown**
@@ -485,10 +560,10 @@ params = [
 ]
 
 def init_cycle():
-    spafw37.set_config_value('batch-index', 0)
+    spafw37.set_param(0, 'batch-index')
 
 def has_more_batches():
-    index = spafw37.get_config_value('batch-index')
+    index = spafw37.get_param_int('batch-index')
     return index < total_batches
 ```
 
@@ -548,11 +623,11 @@ myapp --load-config low-volume.json
 ```python
 def process():
     # Provide defaults for optional config
-    output_dir = spafw37.get_config_value('output-dir') or './output'
-    timeout = spafw37.get_config_value('timeout') or 30
+    output_dir = spafw37.get_param_str('output-dir', './output')
+    timeout = spafw37.get_param_int('timeout', 30)
     
     # Check required config
-    input_file = spafw37.get_config_value('input-file')
+    input_file = spafw37.get_param_str('input-file')
     if not input_file:
         raise ValueError("input-file is required")
 ```
@@ -589,7 +664,7 @@ if __name__ == '__main__':
 
 Complete working examples demonstrating configuration features:
 
-- **[config_basic.py](../examples/config_basic.py)** - Runtime configuration with get_config_value and set_config_value
+- **[config_basic.py](../examples/config_basic.py)** - Runtime configuration access with typed param getters
 - **[config_persistence.py](../examples/config_persistence.py)** - Configuration persistence with PARAM_PERSISTENCE_ALWAYS vs PARAM_PERSISTENCE_NEVER
 
 See [examples/README.md](../examples/README.md) for a complete guide to all available examples.

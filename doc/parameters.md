@@ -133,7 +133,7 @@ commands = [
     {
         COMMAND_NAME: "greet",
         COMMAND_ACTION: lambda: spafw37.output(
-            f"Hello, {spafw37.get_config_value('user-name')}!"
+            f"Hello, {spafw37.get_param_str('user-name')}!"
         ),
         # Define parameter inline - no separate add_param() needed!
         COMMAND_REQUIRED_PARAMS: [
@@ -545,7 +545,7 @@ By default, parameters are stored in configuration using `PARAM_NAME`. Use `PARA
 Access in commands:
 ```python
 def my_command():
-    path = spafw37.get_config('input-file-path')  # Use config name
+    path = spafw37.get_param_str('input-file-path')  # Use param name
 ```
 
 ## Persistence Control
@@ -710,12 +710,12 @@ def init_session_command():
     """Initialise a new session."""
     import uuid
     session_id = str(uuid.uuid4())
-    spafw37.set_config('session-id', session_id)
+    spafw37.set_param(session_id, 'session-id')
     spafw37.output(f"Session started: {session_id}")
 
 def use_session_command():
     """Use the current session."""
-    session_id = spafw37.get_config('session-id')
+    session_id = spafw37.get_param_str('session-id')
     spafw37.output(f"Using session: {session_id}")
     # ... work with session ...
 ```
@@ -761,8 +761,8 @@ params = [
 ]
 
 def my_command():
-    verbose = spafw37.get_config_bool('verbose-mode')
-    quiet = spafw37.get_config_bool('quiet-mode')
+    verbose = spafw37.get_param_bool('verbose-mode')
+    quiet = spafw37.get_param_bool('quiet-mode')
     
     if verbose:
         spafw37.output("[VERBOSE] Processing...")  # Don't do this!
@@ -806,19 +806,250 @@ def my_command():
 
 ## Accessing Parameter Values
 
-In command actions, retrieve parameter values from configuration:
+**v1.1.0** The framework now provides a dedicated parameter-focused API for accessing and modifying parameter values. This API offers better type safety, flexible resolution, and supports both replacing and accumulating parameter values.
+
+### Getting Parameter Values
+
+Use the typed getters to retrieve parameter values with automatic type conversion and sensible defaults:
 
 ```python
+from spafw37 import core as spafw37
+
 def process_command():
-    input_file = spafw37.get_config('input-file')
-    verbose = spafw37.get_config('verbose', default=False)
-    thread_count = spafw37.get_config('thread-count', default=1)
+    # Get string values
+    input_file = spafw37.get_param_str('input-file')
+    project_dir = spafw37.get_param_str('project-dir', './project')
+    
+    # Get integer values
+    thread_count = spafw37.get_param_int('thread-count', 1)
+    max_retries = spafw37.get_param_int('max-retries', 3)
+    
+    # Get boolean values
+    verbose = spafw37.get_param_bool('verbose')
+    enable_cache = spafw37.get_param_bool('enable-cache', True)
+    
+    # Get float values
+    timeout = spafw37.get_param_float('timeout', 30.0)
+    threshold = spafw37.get_param_float('threshold', 0.5)
+    
+    # Get list values
+    input_files = spafw37.get_param_list('input-files')
+    tags = spafw37.get_param_list('tags', [])
+    
+    # Get dict values
+    settings = spafw37.get_param_dict('settings')
+    metadata = spafw37.get_param_dict('metadata', {})
     
     if verbose:
         spafw37.output(f"Processing {input_file} with {thread_count} threads")
-    
-    # ... process ...
 ```
+
+**Available typed getters:**
+- `get_param_str(param_name=None, bind_name=None, alias=None, default='')` - Returns string
+- `get_param_int(param_name=None, bind_name=None, alias=None, default=0)` - Returns integer
+- `get_param_bool(param_name=None, bind_name=None, alias=None, default=False)` - Returns boolean
+- `get_param_float(param_name=None, bind_name=None, alias=None, default=0.0)` - Returns float
+- `get_param_list(param_name=None, bind_name=None, alias=None, default=None)` - Returns list
+- `get_param_dict(param_name=None, bind_name=None, alias=None, default=None)` - Returns dict
+
+**Flexible resolution:** All getters support three ways to identify a parameter:
+- `param_name` - The parameter's PARAM_NAME
+- `bind_name` - The parameter's PARAM_CONFIG_NAME (config binding name)
+- `alias` - Any of the parameter's PARAM_ALIASES (without the `--` prefix)
+
+```python
+# All three resolve to the same parameter:
+value1 = spafw37.get_param_str(param_name='input-file')
+value2 = spafw37.get_param_str(bind_name='input-file')
+value3 = spafw37.get_param_str(alias='input')  # From '--input' alias
+```
+
+### Setting Parameter Values
+
+**v1.1.0** Use `set_param()` to replace parameter values with type validation:
+
+```python
+from spafw37 import core as spafw37
+
+def init_command():
+    # Set string values
+    spafw37.set_param('default', param_name='mode')
+    spafw37.set_param('./output', param_name='output-dir')
+    
+    # Set numeric values
+    spafw37.set_param(0, param_name='file-index')
+    spafw37.set_param(3.14, param_name='threshold')
+    
+    # Set boolean values
+    spafw37.set_param(True, param_name='processing-complete')
+    
+    # Set list values
+    spafw37.set_param(['file1.txt', 'file2.txt'], param_name='files')
+    
+    # Set dict values
+    spafw37.set_param({'key': 'value'}, param_name='settings')
+```
+
+The `set_param()` function **replaces** the existing value and validates that the type matches the parameter's PARAM_TYPE definition.
+
+### Accumulating Parameter Values
+
+**v1.1.0** Use `join_param()` to accumulate values instead of replacing them. The behavior depends on the parameter type:
+
+**String parameters:** Concatenate with a separator (configurable via `PARAM_JOIN_SEPARATOR`):
+
+```python
+from spafw37.constants.param import (
+    PARAM_JOIN_SEPARATOR,
+    SEPARATOR_COMMA_SPACE,
+)
+
+# Default separator is space
+spafw37.join_param('First', param_name='message')
+spafw37.join_param('Second', param_name='message')
+value = spafw37.get_param_str('message')  # 'First Second'
+
+# Custom separator in parameter definition
+{
+    PARAM_NAME: 'tags-string',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_JOIN_SEPARATOR: SEPARATOR_COMMA_SPACE,  # Comma-space separator
+}
+spafw37.join_param('python', param_name='tags-string')
+spafw37.join_param('cli', param_name='tags-string')
+value = spafw37.get_param_str('tags-string')  # 'python, cli'
+```
+
+**Available separator constants:** `SEPARATOR_SPACE` (default), `SEPARATOR_COMMA`, `SEPARATOR_COMMA_SPACE`, `SEPARATOR_PIPE`, `SEPARATOR_PIPE_PADDED`, `SEPARATOR_NEWLINE`, `SEPARATOR_TAB`, or any custom string.
+
+**List parameters:** Append single values or extend with lists:
+
+```python
+# Append single values
+spafw37.join_param('file1.txt', param_name='files')
+spafw37.join_param('file2.txt', param_name='files')
+files = spafw37.get_param_list('files')  # ['file1.txt', 'file2.txt']
+
+# Extend with a list
+spafw37.join_param(['file3.txt', 'file4.txt'], param_name='files')
+files = spafw37.get_param_list('files')  # ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
+```
+
+**Dict parameters:** Merge dictionaries with configurable merge strategy:
+
+```python
+from spafw37.constants.param import (
+    PARAM_DICT_MERGE_TYPE,
+    PARAM_DICT_OVERRIDE_STRATEGY,
+    DICT_MERGE_SHALLOW,
+    DICT_MERGE_DEEP,
+    DICT_OVERRIDE_RECENT,
+)
+
+# Shallow merge (default) - top-level keys only
+{
+    PARAM_NAME: 'config',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_MERGE_TYPE: DICT_MERGE_SHALLOW,  # Default
+}
+spafw37.join_param({'db': 'postgres', 'port': 5432}, param_name='config')
+spafw37.join_param({'db': 'mysql'}, param_name='config')
+config = spafw37.get_param_dict('config')  # {'db': 'mysql', 'port': 5432}
+
+# Deep merge - recursively merge nested dicts
+{
+    PARAM_NAME: 'settings',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_MERGE_TYPE: DICT_MERGE_DEEP,
+}
+spafw37.join_param({'api': {'timeout': 30, 'retries': 3}}, param_name='settings')
+spafw37.join_param({'api': {'timeout': 60}}, param_name='settings')
+settings = spafw37.get_param_dict('settings')  # {'api': {'timeout': 60, 'retries': 3}}
+
+# Override strategies for conflicting keys
+{
+    PARAM_NAME: 'metadata',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_OVERRIDE_STRATEGY: DICT_OVERRIDE_RECENT,  # Options: DICT_OVERRIDE_RECENT, DICT_OVERRIDE_OLDEST, DICT_OVERRIDE_ERROR
+}
+```
+
+**Override strategies:**
+- `DICT_OVERRIDE_RECENT` (default) - New value overwrites existing value
+- `DICT_OVERRIDE_OLDEST` - Keep existing value, ignore new value
+- `DICT_OVERRIDE_ERROR` - Raise error if key already exists
+
+### Flexible Parameter Resolution
+
+**v1.1.0** All parameter API functions support flexible resolution, allowing you to reference parameters by name, config binding name, or any alias:
+
+```python
+# Parameter definition
+{
+    PARAM_NAME: 'input-file',
+    PARAM_CONFIG_NAME: 'input_path',
+    PARAM_ALIASES: ['--input', '-i'],
+    PARAM_TYPE: PARAM_TYPE_TEXT
+}
+
+# All of these work and reference the same parameter:
+spafw37.set_param('/data/input.txt', param_name='input-file')
+spafw37.set_param('/data/input.txt', bind_name='input_path')
+spafw37.set_param('/data/input.txt', alias='input')  # From '--input' alias
+
+value1 = spafw37.get_param_str(param_name='input-file')
+value2 = spafw37.get_param_str(bind_name='input_path')
+value3 = spafw37.get_param_str(alias='i')  # From '-i' alias
+# All return '/data/input.txt'
+```
+
+### Legacy Configuration API (Deprecated)
+
+The older configuration-focused API (`get_config_value()`, `set_config_value()`, etc.) is **deprecated as of v1.1.0**. These functions still work for backward compatibility but will show a one-time deprecation warning.
+
+**Migration guide:**
+
+| Deprecated Function | New Function | Notes |
+|---------------------|--------------|-------|
+| `get_config_value(key)` | `get_param_str(bind_name=key)` | Use typed getter for better type safety |
+| `get_config_str(key, default)` | `get_param_str(bind_name=key, default=default)` | Direct replacement |
+| `get_config_int(key, default)` | `get_param_int(bind_name=key, default=default)` | Direct replacement |
+| `get_config_bool(key, default)` | `get_param_bool(bind_name=key, default=default)` | Direct replacement |
+| `get_config_float(key, default)` | `get_param_float(bind_name=key, default=default)` | Direct replacement |
+| `get_config_list(key, default)` | `get_param_list(bind_name=key, default=default)` | Direct replacement |
+| `get_config_dict(key, default)` | `get_param_dict(bind_name=key, default=default)` | Direct replacement |
+| `set_config_value(key, value)` | `set_param(value, bind_name=key)` | Use for replacing values |
+| `set_config_list_value(key, value)` | `join_param(value, bind_name=key)` | Use for accumulating list values |
+
+**Example migration:**
+
+```python
+# Old (deprecated):
+def old_process():
+    input_file = spafw37.get_config_str('input-file')
+    max_workers = spafw37.get_config_int('max-workers', 4)
+    spafw37.set_config_value('file-index', 0)
+    
+    files = spafw37.get_config_list('files', [])
+    files.append('newfile.txt')
+    spafw37.set_config_value('files', files)
+
+# New (recommended):
+def new_process():
+    input_file = spafw37.get_param_str('input-file')
+    max_workers = spafw37.get_param_int('max-workers', 4)
+    spafw37.set_param(0, 'file-index')
+    
+    # join_param() handles list accumulation automatically
+    spafw37.join_param('newfile.txt', 'files')
+```
+
+**Why migrate?**
+- **Better type safety:** Typed getters eliminate None-type issues
+- **Clearer intent:** `join_param()` vs `set_param()` makes accumulation vs replacement explicit
+- **Flexible resolution:** Reference parameters by name, binding, or alias
+- **Type-specific behavior:** Automatic string concatenation, list appending, dict merging
+- **Future-proof:** New features will use the param API
 
 ---
 
