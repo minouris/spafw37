@@ -25,6 +25,7 @@ from spafw37.constants.command import (
     COMMAND_FRAMEWORK,
 )
 from spafw37 import file as spafw37_file
+from spafw37 import config
 
 
 # RegExp Patterns
@@ -681,5 +682,249 @@ def _normalize_dict_input(value) -> str:
     if not isinstance(value, str):
         raise ValueError("Invalid dict parameter value")
     return value.strip()
+
+
+def get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+    """
+    Retrieve raw parameter value from configuration with flexible resolution.
+    
+    Resolves parameter using param_name, bind_name, or alias with failover logic,
+    then retrieves the value from internal configuration. Returns default if not found
+    unless strict mode is enabled.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found (default: None)
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Returns:
+        The raw value from configuration, or default if not found
+    
+    Raises:
+        ValueError: If strict=True and parameter not found
+    """
+    param_definition = _resolve_param_definition(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias
+    )
+    
+    if param_definition is None:
+        if strict:
+            raise ValueError("Parameter '{}' not found".format(param_name or bind_name or alias))
+        return default
+    
+    resolved_param_name = _get_param_name(param_definition)
+    value = config.get_config_value(resolved_param_name)
+    
+    if value is None:
+        if strict:
+            raise ValueError("Parameter '{}' not found in configuration".format(resolved_param_name))
+        return default
+    
+    return value
+
+
+def get_param_str(param_name=None, bind_name=None, alias=None, default='', strict=False):
+    """
+    Retrieve string parameter value with type coercion.
+    
+    Gets raw value via get_param_value() and coerces to string using str().
+    Any value type can be converted to string representation.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found (default: '')
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Returns:
+        The value coerced to string, or default if not found
+    
+    Raises:
+        ValueError: If strict=True and parameter not found
+    """
+    value = get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=strict
+    )
+    
+    return str(value)
+
+
+def get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict=False):
+    """
+    Retrieve integer parameter value with type coercion and truncation.
+    
+    Gets raw value via get_param_value() and coerces to int via int(float(value))
+    for truncation behavior. In strict mode, raises ValueError on coercion failure.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found or coercion fails (default: 0)
+        strict: If True, raises ValueError on coercion failure (default: False)
+    
+    Returns:
+        The value coerced to int (truncated), or default if not found or coercion fails
+    
+    Raises:
+        ValueError: If strict=True and coercion fails
+    """
+    value = get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=False  # Handle strict mode ourselves after coercion
+    )
+    
+    try:
+        # Use int(float(value)) for truncation behavior
+        return int(float(value))
+    except (ValueError, TypeError) as error:
+        if strict:
+            raise ValueError("Cannot convert '{}' to int: {}".format(value, error))
+        return default
+
+
+def get_param_bool(param_name=None, bind_name=None, alias=None, default=False, strict=False):
+    """
+    Retrieve boolean parameter value with truthiness coercion.
+    
+    Gets raw value via get_param_value() and coerces using Python's bool()
+    for truthy/falsy evaluation. Non-empty strings, non-zero numbers, and
+    non-empty collections are True; empty values are False.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found (default: False)
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Returns:
+        The value coerced to boolean, or default if not found
+    
+    Raises:
+        ValueError: If strict=True and parameter not found
+    """
+    value = get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=strict
+    )
+    
+    return bool(value)
+
+
+def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, strict=False):
+    """
+    Retrieve float parameter value with type coercion.
+    
+    Gets raw value via get_param_value() and coerces to float using float().
+    In strict mode, raises ValueError on coercion failure.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found or coercion fails (default: 0.0)
+        strict: If True, raises ValueError on coercion failure (default: False)
+    
+    Returns:
+        The value coerced to float, or default if not found or coercion fails
+    
+    Raises:
+        ValueError: If strict=True and coercion fails
+    """
+    value = get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=False  # Handle strict mode ourselves after coercion
+    )
+    
+    try:
+        return float(value)
+    except (ValueError, TypeError) as error:
+        if strict:
+            raise ValueError("Cannot convert '{}' to float: {}".format(value, error))
+        return default
+
+
+def get_param_list(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+    """
+    Retrieve list parameter value without coercion.
+    
+    Gets raw value via get_param_value() and returns as-is. Defaults to empty list
+    if not found and no explicit default provided. Does not perform type coercion.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found (default: empty list)
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Returns:
+        The value as-is, or empty list if not found and no default provided
+    
+    Raises:
+        ValueError: If strict=True and parameter not found
+    """
+    if default is None:
+        default = []
+    
+    return get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=strict
+    )
+
+
+def get_param_dict(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+    """
+    Retrieve dict parameter value without coercion.
+    
+    Gets raw value via get_param_value() and returns as-is. Defaults to empty dict
+    if not found and no explicit default provided. Does not perform type coercion.
+    
+    Args:
+        param_name: Parameter name to look up (optional if bind_name or alias provided)
+        bind_name: Bind name to look up (optional if param_name or alias provided)
+        alias: Alias to look up (optional if param_name or bind_name provided)
+        default: Value to return if parameter not found (default: empty dict)
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Returns:
+        The value as-is, or empty dict if not found and no default provided
+    
+    Raises:
+        ValueError: If strict=True and parameter not found
+    """
+    if default is None:
+        default = {}
+    
+    return get_param_value(
+        param_name=param_name,
+        bind_name=bind_name,
+        alias=alias,
+        default=default,
+        strict=strict
+    )
+
 
 
