@@ -61,8 +61,8 @@ def process_file():
     if debug_mode:
         spafw37.output(f"Processing {input_file} with {thread_count} threads")
     
-    # Flexible resolution - reference by name, binding, or alias
-    output_dir = spafw37.get_param_str(bind_name='output-dir')
+    # Advanced: Flexible resolution by binding or alias
+    output_dir = spafw37.get_param_str(bind_name='output_path')  # If PARAM_CONFIG_NAME differs
     timeout = spafw37.get_param_float(alias='timeout')  # From '--timeout' alias
 ```
 
@@ -161,18 +161,18 @@ from spafw37 import core as spafw37
 
 def init_cycle():
     # Replace values with set_param()
-    spafw37.set_param(0, 'file-index')
-    spafw37.set_param(0, 'files-processed')
-    spafw37.set_param([], 'errors')
+    spafw37.set_param(param_name='file-index', value=0)
+    spafw37.set_param(param_name='files-processed', value=0)
+    spafw37.set_param(param_name='errors', value=[])
 
 def process_batch():
     # Update state during execution
     files_processed = spafw37.get_param_int('files-processed')
-    spafw37.set_param(files_processed + 1, 'files-processed')
+    spafw37.set_param(param_name='files-processed', value=files_processed + 1)
     
     # Accumulate list values with join_param() - much simpler!
     if error_occurred:
-        spafw37.join_param(error_message, 'errors')
+        spafw37.join_param(param_name='errors', value=error_message)
 ```
 
 **See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for details on `join_param()` type-specific behavior (string concat, list append, dict merge).
@@ -204,9 +204,9 @@ def process_batch():
 
 | Old (Deprecated) | New (Recommended) | Notes |
 |------------------|-------------------|-------|
-| `set_config_value(key, value)` | `set_param(value, bind_name=key)` | Replaces existing value |
-| `set_config_list_value(key, value)` | `join_param(value, bind_name=key)` | Accumulates list values automatically |
-| Manual list append + set | `join_param(value, bind_name=key)` | Framework handles list logic |
+| `set_config_value(key, value)` | `set_param(param_name=key, value=value)` | Replaces existing value |
+| `set_config_list_value(key, value)` | `join_param(param_name=key, value=value)` | Accumulates list values automatically |
+| Manual list append + set | `join_param(param_name=key, value=value)` | Framework handles list logic |
 
 **Important:** Use runtime-only parameters for temporary state that shouldn't be persisted. See [Runtime-Only Parameters](#runtime-only-parameters).
 
@@ -503,12 +503,12 @@ def process_files():
     input_file = spafw37.get_param_str('input-file')
     
     # Set runtime state
-    spafw37.set_param(0, 'current-index')
+    spafw37.set_param(param_name='current-index', value=0)
     
     # Update persistent preference for next run
     import os
     new_dir = os.path.dirname(input_file)
-    spafw37.set_param(new_dir, 'last-directory')
+    spafw37.set_param(param_name='last-directory', value=new_dir)
 
 commands = [
     {
@@ -560,7 +560,7 @@ params = [
 ]
 
 def init_cycle():
-    spafw37.set_param(0, 'batch-index')
+    spafw37.set_param(param_name='batch-index', value=0)
 
 def has_more_batches():
     index = spafw37.get_param_int('batch-index')

@@ -702,11 +702,15 @@ def get_param_value(param_name=None, bind_name=None, alias=None, default=None, s
     unless strict mode is enabled.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found (default: None)
         strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The raw value from configuration, or default if not found
@@ -744,11 +748,15 @@ def get_param_str(param_name=None, bind_name=None, alias=None, default='', stric
     Any value type can be converted to string representation.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found (default: '')
         strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value coerced to string, or default if not found
@@ -775,11 +783,15 @@ def get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict
     for truncation behavior. In strict mode, raises ValueError on coercion failure.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found or coercion fails (default: 0)
         strict: If True, raises ValueError on coercion failure (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value coerced to int (truncated), or default if not found or coercion fails
@@ -813,11 +825,15 @@ def get_param_bool(param_name=None, bind_name=None, alias=None, default=False, s
     non-empty collections are True; empty values are False.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found (default: False)
         strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value coerced to boolean, or default if not found
@@ -844,11 +860,15 @@ def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, st
     In strict mode, raises ValueError on coercion failure.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found or coercion fails (default: 0.0)
         strict: If True, raises ValueError on coercion failure (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value coerced to float, or default if not found or coercion fails
@@ -880,11 +900,15 @@ def get_param_list(param_name=None, bind_name=None, alias=None, default=None, st
     if not found and no explicit default provided. Does not perform type coercion.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found (default: empty list)
         strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value as-is, or empty list if not found and no default provided
@@ -912,11 +936,15 @@ def get_param_dict(param_name=None, bind_name=None, alias=None, default=None, st
     if not found and no explicit default provided. Does not perform type coercion.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         default: Value to return if parameter not found (default: empty dict)
         strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Returns:
         The value as-is, or empty dict if not found and no default provided
@@ -1015,11 +1043,15 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
     and stores the validated value in configuration.
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         value: Value to set (required)
         strict: If True, enforces strict type validation (default: True)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Raises:
         ValueError: If parameter not found, validation fails, or XOR conflict detected
@@ -1196,10 +1228,14 @@ def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
     - Dict: merges with configurable strategy
     
     Args:
-        param_name: Parameter name to look up (optional if bind_name or alias provided)
-        bind_name: Bind name to look up (optional if param_name or alias provided)
-        alias: Alias to look up (optional if param_name or bind_name provided)
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         value: Value to join/append (required)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
     
     Raises:
         ValueError: If parameter not found or type doesn't support joining (number/toggle)

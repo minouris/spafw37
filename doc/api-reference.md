@@ -342,13 +342,14 @@ The framework provides two APIs for accessing configuration values:
 Get a parameter value as a string.
 
 ```python
-# Reference by parameter name
-input_file = spafw37.get_param_str(param_name='input-file')
+# Reference by parameter name (most common)
+input_file = spafw37.get_param_str('input-file')
+project_dir = spafw37.get_param_str('project-dir', './project')
 
-# Reference by config binding name
-project_dir = spafw37.get_param_str(bind_name='project-dir', default='./project')
+# Advanced: Reference by config binding name
+alt_input = spafw37.get_param_str(bind_name='input-path')
 
-# Reference by alias (without -- prefix)
+# Advanced: Reference by alias (without -- prefix)
 author = spafw37.get_param_str(alias='author')  # From '--author' alias
 ```
 
@@ -368,9 +369,9 @@ author = spafw37.get_param_str(alias='author')  # From '--author' alias
 Get a parameter value as an integer.
 
 ```python
-max_workers = spafw37.get_param_int(param_name='max-workers', default=4)
-file_index = spafw37.get_param_int(bind_name='file-index')
-thread_count = spafw37.get_param_int(alias='threads', default=1)
+max_workers = spafw37.get_param_int('max-workers', 4)
+file_index = spafw37.get_param_int('file-index')
+thread_count = spafw37.get_param_int('threads', 1)  # If 'threads' is the param name
 ```
 
 **Args:**
@@ -387,9 +388,9 @@ thread_count = spafw37.get_param_int(alias='threads', default=1)
 Get a parameter value as a boolean.
 
 ```python
-debug_mode = spafw37.get_param_bool(param_name='debug-mode')
-is_enabled = spafw37.get_param_bool(bind_name='feature-enabled', default=True)
-use_cache = spafw37.get_param_bool(alias='cache')
+debug_mode = spafw37.get_param_bool('debug-mode')
+is_enabled = spafw37.get_param_bool('feature-enabled', True)
+use_cache = spafw37.get_param_bool('use-cache')
 ```
 
 **Args:**
@@ -406,9 +407,9 @@ use_cache = spafw37.get_param_bool(alias='cache')
 Get a parameter value as a float.
 
 ```python
-timeout = spafw37.get_param_float(param_name='timeout', default=30.0)
-threshold = spafw37.get_param_float(bind_name='threshold', default=0.5)
-rate = spafw37.get_param_float(alias='rate')
+timeout = spafw37.get_param_float('timeout', 30.0)
+threshold = spafw37.get_param_float('threshold', 0.5)
+rate = spafw37.get_param_float('rate')
 ```
 
 **Args:**
@@ -425,9 +426,9 @@ rate = spafw37.get_param_float(alias='rate')
 Get a parameter value as a list.
 
 ```python
-tags = spafw37.get_param_list(param_name='tags')
-files = spafw37.get_param_list(bind_name='input-files', default=[])
-items = spafw37.get_param_list(alias='items')
+tags = spafw37.get_param_list('tags')
+files = spafw37.get_param_list('input-files', [])
+items = spafw37.get_param_list('items')
 ```
 
 **Args:**
@@ -444,9 +445,9 @@ items = spafw37.get_param_list(alias='items')
 Get a parameter value as a dictionary.
 
 ```python
-settings = spafw37.get_param_dict(param_name='settings')
-metadata = spafw37.get_param_dict(bind_name='metadata', default={})
-config = spafw37.get_param_dict(alias='config')
+settings = spafw37.get_param_dict('settings')
+metadata = spafw37.get_param_dict('metadata', {})
+config = spafw37.get_param_dict('config')
 ```
 
 **Args:**
@@ -458,28 +459,28 @@ config = spafw37.get_param_dict(alias='config')
 **Returns:**
 - Dictionary value or default
 
-##### `set_param(value, param_name=None, bind_name=None, alias=None)`
+##### `set_param(param_name=None, bind_name=None, alias=None, value=None)`
 
 **v1.1.0** Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE.
 
 ```python
 # Set by parameter name
-spafw37.set_param('default', param_name='mode')
-spafw37.set_param(0, param_name='file-index')
+spafw37.set_param(param_name='mode', value='default')
+spafw37.set_param(param_name='file-index', value=0)
 
 # Set by config binding name
-spafw37.set_param('./output', bind_name='output-dir')
-spafw37.set_param(True, bind_name='processing-complete')
+spafw37.set_param(bind_name='output-dir', value='./output')
+spafw37.set_param(bind_name='processing-complete', value=True)
 
 # Set by alias
-spafw37.set_param(['file1.txt', 'file2.txt'], alias='files')
+spafw37.set_param(alias='files', value=['file1.txt', 'file2.txt'])
 ```
 
 **Args:**
-- `value` - Value to set (must match parameter's PARAM_TYPE)
 - `param_name` (str, optional) - Parameter's PARAM_NAME
 - `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
 - `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+- `value` - Value to set (must match parameter's PARAM_TYPE)
 
 **Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
 
@@ -491,7 +492,7 @@ spafw37.set_param(['file1.txt', 'file2.txt'], alias='files')
 - Replacing parameter values during execution
 - Resetting parameters to specific values
 
-##### `join_param(value, param_name=None, bind_name=None, alias=None)`
+##### `join_param(param_name=None, bind_name=None, alias=None, value=None)`
 
 **v1.1.0** Accumulate a parameter value using type-specific logic instead of replacing it. Behavior depends on parameter type:
 
@@ -501,27 +502,27 @@ spafw37.set_param(['file1.txt', 'file2.txt'], alias='files')
 
 ```python
 # String concatenation with default space separator
-spafw37.join_param('First', param_name='message')
-spafw37.join_param('Second', param_name='message')
+spafw37.join_param(param_name='message', value='First')
+spafw37.join_param(param_name='message', value='Second')
 # Result: 'First Second'
 
 # List accumulation
-spafw37.join_param('file1.txt', param_name='files')
-spafw37.join_param('file2.txt', param_name='files')
-spafw37.join_param(['file3.txt', 'file4.txt'], param_name='files')
+spafw37.join_param(param_name='files', value='file1.txt')
+spafw37.join_param(param_name='files', value='file2.txt')
+spafw37.join_param(param_name='files', value=['file3.txt', 'file4.txt'])
 # Result: ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
 
 # Dictionary merging
-spafw37.join_param({'db': 'postgres', 'port': 5432}, param_name='config')
-spafw37.join_param({'db': 'mysql'}, param_name='config')
+spafw37.join_param(param_name='config', value={'db': 'postgres', 'port': 5432})
+spafw37.join_param(param_name='config', value={'db': 'mysql'})
 # Result: {'db': 'mysql', 'port': 5432}
 ```
 
 **Args:**
-- `value` - Value to accumulate (must match parameter's PARAM_TYPE)
 - `param_name` (str, optional) - Parameter's PARAM_NAME
 - `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
 - `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+- `value` - Value to accumulate (must match parameter's PARAM_TYPE)
 
 **Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
 
@@ -714,7 +715,7 @@ metadata = spafw37.get_param_dict(bind_name='metadata', default={})
 
 ##### `set_config_value(config_key, value)` (Deprecated)
 
-**⚠️ Deprecated:** Use `set_param(value, bind_name=config_key)` to replace values, or `join_param(value, bind_name=config_key)` to accumulate them.
+**⚠️ Deprecated:** Use `set_param(bind_name=config_key, value=value)` to replace values, or `join_param(bind_name=config_key, value=value)` to accumulate them.
 
 Set a configuration value.
 
@@ -724,8 +725,8 @@ spafw37.set_config_value('file-index', 0)
 spafw37.set_config_value('processing-complete', True)
 
 # Recommended replacement
-spafw37.set_param(0, bind_name='file-index')
-spafw37.set_param(True, bind_name='processing-complete')
+spafw37.set_param(bind_name='file-index', value=0)
+spafw37.set_param(bind_name='processing-complete', value=True)
 ```
 
 **Args:**

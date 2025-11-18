@@ -350,7 +350,7 @@ def is_silent():
 
 # Parameter API - Modern param-focused interface
 
-def set_param(value, param_name=None, bind_name=None, alias=None):
+def set_param(param_name=None, bind_name=None, alias=None, value=None):
     """
     Set a parameter value (replaces existing value).
     
@@ -358,24 +358,24 @@ def set_param(value, param_name=None, bind_name=None, alias=None):
     This replaces any existing value. Use join_param() to accumulate values instead.
     
     Args:
-        value: The value to set for the parameter.
         param_name: Parameter name to set (flexible resolution).
         bind_name: Config bind name to set (flexible resolution).
         alias: Parameter alias to set (flexible resolution).
+        value: The value to set for the parameter.
     
     Raises:
         ValueError: If parameter not found or value validation fails.
     
     Example:
-        set_param('localhost', param_name='host')
-        set_param(8080, bind_name='server_port')
-        set_param(True, alias='--verbose')
+        set_param(param_name='host', value='localhost')
+        set_param(bind_name='server_port', value=8080)
+        set_param(alias='--verbose', value=True)
     """
     from spafw37 import param
     param.set_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
 
 
-def join_param(value, param_name=None, bind_name=None, alias=None):
+def join_param(param_name=None, bind_name=None, alias=None, value=None):
     """
     Join/accumulate a parameter value (does not replace existing value).
     
@@ -385,18 +385,18 @@ def join_param(value, param_name=None, bind_name=None, alias=None):
     - Dicts: Merges (shallow or deep based on PARAM_DICT_MERGE_TYPE)
     
     Args:
-        value: The value to join to the parameter.
         param_name: Parameter name to join (flexible resolution).
         bind_name: Config bind name to join (flexible resolution).
         alias: Parameter alias to join (flexible resolution).
+        value: The value to join to the parameter.
     
     Raises:
         ValueError: If parameter not found, unsupported type, or validation fails.
     
     Example:
-        join_param('tag1', param_name='tags')
-        join_param(['item1', 'item2'], bind_name='file_list')
-        join_param({'key': 'value'}, alias='--config')
+        join_param(param_name='tags', value='tag1')
+        join_param(bind_name='file_list', value=['item1', 'item2'])
+        join_param(alias='--config', value={'key': 'value'})
     """
     from spafw37 import param
     param.join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)

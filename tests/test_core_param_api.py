@@ -41,7 +41,7 @@ class TestCoreSetParam:
         test_param = {'name': 'hostname', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        core.set_param('localhost', param_name='hostname')
+        core.set_param(param_name='hostname', value='localhost')
         
         result = config.get_config_value('hostname')
         assert result == 'localhost'
@@ -56,7 +56,7 @@ class TestCoreSetParam:
         test_param = {'name': 'port', 'type': PARAM_TYPE_NUMBER, 'config-name': 'server_port'}
         param.add_params([test_param])
         
-        core.set_param(8080, bind_name='server_port')
+        core.set_param(bind_name='server_port', value=8080)
         
         result = config.get_config_value('server_port')
         assert result == 8080
@@ -71,7 +71,7 @@ class TestCoreSetParam:
         test_param = {'name': 'verbose', 'type': PARAM_TYPE_TOGGLE, 'aliases': ['--verbose', '-v']}
         param.add_params([test_param])
         
-        core.set_param(True, alias='--verbose')
+        core.set_param(alias='--verbose', value=True)
         
         result = config.get_config_value('verbose')
         assert result is True
@@ -86,8 +86,8 @@ class TestCoreSetParam:
         test_param = {'name': 'message', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        core.set_param('first', param_name='message')
-        core.set_param('second', param_name='message')
+        core.set_param(param_name='message', value='first')
+        core.set_param(param_name='message', value='second')
         
         result = config.get_config_value('message')
         assert result == 'second'
@@ -111,8 +111,8 @@ class TestCoreJoinParam:
         test_param = {'name': 'keywords', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        core.join_param('python', param_name='keywords')
-        core.join_param('testing', param_name='keywords')
+        core.join_param(param_name='keywords', value='python')
+        core.join_param(param_name='keywords', value='testing')
         
         result = config.get_config_value('keywords')
         assert result == 'python testing'
@@ -127,8 +127,8 @@ class TestCoreJoinParam:
         test_param = {'name': 'filenames', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        core.join_param('file1.txt', param_name='filenames')
-        core.join_param('file2.txt', param_name='filenames')
+        core.join_param(param_name='filenames', value='file1.txt')
+        core.join_param(param_name='filenames', value='file2.txt')
         
         result = config.get_config_value('filenames')
         assert result == ['file1.txt', 'file2.txt']
@@ -143,8 +143,8 @@ class TestCoreJoinParam:
         test_param = {'name': 'app_config', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        core.join_param({'host': 'localhost'}, param_name='app_config')
-        core.join_param({'port': 8080}, param_name='app_config')
+        core.join_param(param_name='app_config', value={'host': 'localhost'})
+        core.join_param(param_name='app_config', value={'port': 8080})
         
         result = config.get_config_value('app_config')
         assert result == {'host': 'localhost', 'port': 8080}
@@ -159,8 +159,8 @@ class TestCoreJoinParam:
         test_param = {'name': 'tags', 'type': PARAM_TYPE_LIST, 'config-name': 'tag_list'}
         param.add_params([test_param])
         
-        core.join_param('tag1', bind_name='tag_list')
-        core.join_param('tag2', bind_name='tag_list')
+        core.join_param(bind_name='tag_list', value='tag1')
+        core.join_param(bind_name='tag_list', value='tag2')
         
         result = config.get_config_value('tag_list')
         assert result == ['tag1', 'tag2']

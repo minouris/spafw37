@@ -130,8 +130,8 @@ Then use these parameters in your cycle functions:
 
 ```python
 def init_files():
-    spafw37.set_param(['file1.txt', 'file2.txt', 'file3.txt'], 'file-list')
-    spafw37.set_param(0, 'file-index')
+    spafw37.set_param(param_name='file-list', value=['file1.txt', 'file2.txt', 'file3.txt'])
+    spafw37.set_param(param_name='file-index', value=0)
 
 def has_more_files():
     file_list = spafw37.get_param_list('file-list')
@@ -141,7 +141,7 @@ def has_more_files():
 def prepare_next_file():
     file_list = spafw37.get_param_list('file-list')
     file_index = spafw37.get_param_int('file-index')
-    spafw37.set_param(file_list[file_index], 'current-file')
+    spafw37.set_param(param_name='current-file', value=file_list[file_index])
 
 def finalize_files():
     file_index = spafw37.get_param_int('file-index')
@@ -151,7 +151,7 @@ def process_file():
     current_file = spafw37.get_param_str('current-file')
     # ... process current_file ...
     file_index = spafw37.get_param_int('file-index')
-    spafw37.set_param(file_index + 1, 'file-index')
+    spafw37.set_param(param_name='file-index', value=file_index + 1)
 ```
 
 **Only use module-level variables for truly local state** that shouldn't be saved or shared:
@@ -170,8 +170,8 @@ Sets up resources and state before the loop begins:
 
 ```python
 def init_files():
-    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
-    spafw37.set_config_value('file-index', 0)
+    spafw37.set_param(param_name='file-list', value=['file1.txt', 'file2.txt', 'file3.txt'])
+    spafw37.set_param(param_name='file-index', value=0)
 ```
 
 ### Loop Condition Function
@@ -180,8 +180,8 @@ Checks if iteration should continue:
 
 ```python
 def has_more_files():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
     return file_index < len(file_list)
 ```
 
@@ -191,9 +191,9 @@ Prepares data for the next iteration ([see example](../examples/cycles_loop_star
 
 ```python
 def prepare_next_file():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('current-file', file_list[file_index])
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(param_name='current-file', value=file_list[file_index])
 ```
 
 ### Finalisation Function
@@ -202,7 +202,7 @@ Cleans up resources and reports results after the loop completes:
 
 ```python
 def finalize_files():
-    file_index = spafw37.get_config_value('file-index')
+    file_index = spafw37.get_param_int('file-index')
     spafw37.output(f"Completed {file_index} files")
 ```
 
@@ -212,10 +212,10 @@ Define the commands that execute each iteration:
 
 ```python
 def process_file():
-    current_file = spafw37.get_config_value('current-file')
+    current_file = spafw37.get_param_str('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('file-index', file_index + 1)
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(param_name='file-index', value=file_index + 1)
 
 cycle_commands = [
     {
@@ -265,28 +265,28 @@ spafw37.add_params(params)
 
 # Cycle control functions
 def init_files():
-    spafw37.set_config_value('file-list', ['file1.txt', 'file2.txt', 'file3.txt'])
-    spafw37.set_config_value('file-index', 0)
+    spafw37.set_param(param_name='file-list', value=['file1.txt', 'file2.txt', 'file3.txt'])
+    spafw37.set_param(param_name='file-index', value=0)
 
 def has_more_files():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    file_list = spafw37.get_config_value('file-list')
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('current-file', file_list[file_index])
+    file_list = spafw37.get_param_list('file-list')
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(param_name='current-file', value=file_list[file_index])
 
 def finalize_files():
-    file_index = spafw37.get_config_value('file-index')
+    file_index = spafw37.get_param_int('file-index')
     spafw37.output(f"Completed {file_index} files")
 
 def process_file():
-    current_file = spafw37.get_config_value('current-file')
+    current_file = spafw37.get_param_str('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_config_value('file-index')
-    spafw37.set_config_value('file-index', file_index + 1)
+    file_index = spafw37.get_param_int('file-index')
+    spafw37.set_param(param_name='file-index', value=file_index + 1)
 
 # Define parent command with cycle
 commands = [
@@ -360,23 +360,23 @@ params = [
 spafw37.add_params(params)
 
 def init_cycle():
-    spafw37.set_config_value('iteration-count', 0)
-    spafw37.set_config_value('max-iterations', 3)
+    spafw37.set_param(param_name='iteration-count', value=0)
+    spafw37.set_param(param_name='max-iterations', value=3)
     spafw37.output("Cycle initialised")
 
 def should_continue():
-    iteration_count = spafw37.get_config_value('iteration-count')
-    max_iterations = spafw37.get_config_value('max-iterations')
+    iteration_count = spafw37.get_param_int('iteration-count')
+    max_iterations = spafw37.get_param_int('max-iterations')
     return iteration_count < max_iterations
 
 def finalize_cycle():
-    iteration_count = spafw37.get_config_value('iteration-count')
+    iteration_count = spafw37.get_param_int('iteration-count')
     spafw37.output(f"Cycle completed after {iteration_count} iterations")
 
 def do_work():
-    iteration_count = spafw37.get_config_value('iteration-count')
+    iteration_count = spafw37.get_param_int('iteration-count')
     iteration_count += 1
-    spafw37.set_config_value('iteration-count', iteration_count)
+    spafw37.set_param(param_name='iteration-count', value=iteration_count)
     spafw37.output(f"Iteration {iteration_count}: doing work")
 
 commands = [
@@ -484,40 +484,40 @@ spafw37.add_params(params)
 # Outer cycle functions
 def init_batches():
     # Initialise batch list and index
-    spafw37.set_config_value('batches', ['batch-A', 'batch-B'])
-    spafw37.set_config_value('batch-index', 0)
+    spafw37.set_param(param_name='batches', value=['batch-A', 'batch-B'])
+    spafw37.set_param(param_name='batch-index', value=0)
 
 def has_more_batches():
     # Check if more batches remain
-    batches = spafw37.get_config_value('batches')
-    batch_index = spafw37.get_config_value('batch-index')
+    batches = spafw37.get_param_list('batches')
+    batch_index = spafw37.get_param_int('batch-index')
     return batch_index < len(batches)
 
 def prepare_next_batch():
     # Set current batch and increment index
-    batch_index = spafw37.get_config_value('batch-index')
-    spafw37.set_config_value('batch-index', batch_index + 1)
+    batch_index = spafw37.get_param_int('batch-index')
+    spafw37.set_param(param_name='batch-index', value=batch_index + 1)
 
 # Inner cycle functions
 def init_items():
     # Initialise items for current batch
-    spafw37.set_config_value('items', ['item1', 'item2'])
-    spafw37.set_config_value('item-index', 0)
+    spafw37.set_param(param_name='items', value=['item1', 'item2'])
+    spafw37.set_param(param_name='item-index', value=0)
 
 def has_more_items():
     # Check if more items remain
-    items = spafw37.get_config_value('items')
-    item_index = spafw37.get_config_value('item-index')
+    items = spafw37.get_param_list('items')
+    item_index = spafw37.get_param_int('item-index')
     return item_index < len(items)
 
 def prepare_next_item():
     # Increment item index
-    item_index = spafw37.get_config_value('item-index')
-    spafw37.set_config_value('item-index', item_index + 1)
+    item_index = spafw37.get_param_int('item-index')
+    spafw37.set_param(param_name='item-index', value=item_index + 1)
 
 def process_item():
     # Process current item
-    item_index = spafw37.get_config_value('item-index')
+    item_index = spafw37.get_param_int('item-index')
     spafw37.output(f"Processing item {item_index}")
 
 # Top-level command with nested cycles
@@ -714,34 +714,34 @@ spafw37.add_params(params)
 def init_processing():
     """Initialise processing state."""
     batches = load_batches()
-    spafw37.set_config_value('batches', batches)
-    spafw37.set_config_value('batch-index', 0)
-    spafw37.set_config_value('processing-results', [])
+    spafw37.set_param(param_name='batches', value=batches)
+    spafw37.set_param(param_name='batch-index', value=0)
+    spafw37.set_param(param_name='processing-results', value=[])
 
 def has_more_batches():
     """Check if more batches remain."""
-    batches = spafw37.get_config_value('batches')
-    batch_index = spafw37.get_config_value('batch-index')
+    batches = spafw37.get_param_list('batches')
+    batch_index = spafw37.get_param_int('batch-index')
     return batch_index < len(batches)
 
 def prepare_next_batch():
     """Prepare next batch for processing."""
-    batches = spafw37.get_config_value('batches')
-    batch_index = spafw37.get_config_value('batch-index')
+    batches = spafw37.get_param_list('batches')
+    batch_index = spafw37.get_param_int('batch-index')
     current_batch = batches[batch_index]
-    spafw37.set_config_value('current-batch', current_batch)
+    spafw37.set_param(param_name='current-batch', value=current_batch)
 
 def process_batch():
     """Process the current batch."""
-    current_batch = spafw37.get_config_value('current-batch')
-    results = spafw37.get_config_value('processing-results')
-    batch_index = spafw37.get_config_value('batch-index')
+    current_batch = spafw37.get_param_str('current-batch')
+    results = spafw37.get_param_list('processing-results')
+    batch_index = spafw37.get_param_int('batch-index')
     
     result = perform_processing(current_batch)
     results.append(result)
     
-    spafw37.set_config_value('processing-results', results)
-    spafw37.set_config_value('batch-index', batch_index + 1)
+    spafw37.set_param(param_name='processing-results', value=results)
+    spafw37.set_param(param_name='batch-index', value=batch_index + 1)
 ```
 
 **Only use module-level variables for truly local state** that shouldn't be saved or shared outside the module. Never use `global` keyword at function scope - declare variables at module level instead:
