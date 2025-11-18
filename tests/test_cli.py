@@ -592,7 +592,7 @@ def test_handle_command_executes_action():
     command.run_command_queue()
     assert action_executed['executed'] is True
 
-def test_capture_param_values_toggle_direct() -> None:
+def test_capture_param_values_toggle_direct():
     """Directly exercise capture_param_values for a toggle parameter."""
     setup_function()
     _param = { param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE }
