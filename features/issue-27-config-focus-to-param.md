@@ -1315,3 +1315,89 @@ Current usage analysis:
 - [ ] Issue #27 closed
 
 [↑ Back to top](#table-of-contents)
+
+## Implementation Changes
+
+This section documents significant deviations from the original implementation plan that were discovered or decided during implementation.
+
+### API Simplification: Unified `get_param()` Instead of Typed Getters
+
+**Original Plan:** Step 10 specified six typed getters (`get_param_str()`, `get_param_int()`, `get_param_bool()`, `get_param_float()`, `get_param_list()`, `get_param_dict()`), each with flexible resolution and coercion logic.
+
+**Actual Implementation:** Created a single unified `get_param()` function that automatically routes to the appropriate typed getter based on `PARAM_TYPE` from the parameter definition.
+
+**Rationale:**
+- **Simpler user API:** Users call one function (`get_param()`) instead of remembering which typed getter matches their parameter
+- **Automatic type handling:** The framework knows the parameter type from its definition, so users don't need to specify it
+- **Reduced API surface:** From 6 typed functions to 1 unified function in the public API
+- **Internal typed getters preserved:** All original typed getters (`_get_param_str()`, `_get_param_int()`, etc.) remain as private helpers with full validation and coercion logic
+- **Backward compatibility maintained:** All functionality from Step 10 implemented, just organized differently
+
+**Code Changes:**
+- Created `get_param()` in `param.py` that resolves parameter and dispatches to private typed getters
+- Renamed all typed getters to private (`_get_param_str()`, `_get_param_int()`, etc.)
+- Exposed only `get_param()`, `set_param()`, and `join_param()` through `core.py` facade
+- Updated all examples to use unified `get_param()` instead of typed variants
+- Updated all documentation to demonstrate unified API
+
+**Benefits:**
+- **User experience:** "Just call `get_param('database-host')`" instead of "Remember to use `get_param_str()` for text params"
+- **Type safety:** Framework enforces correct type based on definition
+- **Maintainability:** One public function to document and support
+- **Flexibility:** Internal typed getters still available for framework use
+
+**Documentation Impact:**
+- All examples show `spafw37.get_param(param_name, default)` pattern
+- Parameter API section simplified to three core functions instead of eight
+- Migration guide updated to show config getters → unified `get_param()`
+
+### Documentation Version Summaries Added
+
+**Original Plan:** Step 16 specified updating documentation with new API examples and migration guides, but did not include version-specific change summaries.
+
+**Actual Implementation:** Added "Version Changes" sections to all 8 documentation files after the Overview section, tailored to each file's subject matter.
+
+**Rationale:**
+- **User navigation:** Helps users quickly understand what's new in v1.1.0 for each topic area
+- **Contextual documentation:** Changes described in the context of the specific feature (parameters, commands, cycles, etc.)
+- **Discoverability:** Version information immediately visible after reading Overview
+- **Structured history:** Establishes pattern for documenting changes in future versions
+
+**Implementation Details:**
+- Added "## Version Changes" section to all documentation files:
+  - `api-reference.md`: Parameter API simplification details
+  - `parameters.md`: Simplified parameter access and manipulation
+  - `configuration.md`: New Parameter API and legacy API deprecation
+  - `commands.md`: Parameter access in command actions
+  - `cycles.md`: Parameter access in cycle functions
+  - `phases.md`: Parameter access in phase commands
+  - `logging.md`: Notes no changes (stable API)
+  - `README.md`: Comprehensive v1.1.0 overview
+
+- Updated Table of Contents in all files to include "Version Changes" entry
+
+- Standardized "Key Capabilities" section naming across all documentation files
+
+**Benefits:**
+- **Version awareness:** Users immediately understand what version introduced which features
+- **Migration clarity:** Clear documentation of what changed and why
+- **Professional documentation:** Industry-standard practice for versioned APIs
+- **Future-proofing:** Template for documenting v1.2.0, v2.0.0, etc.
+
+### Documentation Structure Improvements
+
+**Original Plan:** Step 16 focused on API migration examples and replacing config API references with param API.
+
+**Actual Implementation:** Beyond API updates, improved documentation structure and consistency:
+
+**Changes Made:**
+1. **Consistent section naming:** Standardized "Key Capabilities" heading across all documentation files (previously mixed "Key Features"/"Key Capabilities")
+2. **ToC updates:** Added "Version Changes" and "Key Capabilities" entries to all Table of Contents
+3. **Overview clarity:** Simplified Overview sections to focus on core concepts before diving into version changes
+4. **Version marker accuracy:** Fixed incorrect v1.2.0 markers (changed to v1.1.0) throughout documentation
+
+**Benefits:**
+- **Consistency:** Professional, consistent structure across all documentation
+- **Navigation:** Complete and accurate Table of Contents in every file
+- **Clarity:** Clear separation between timeless concepts (Overview) and version-specific changes (Version Changes)
+- **Accuracy:** Version markers correctly reflect development timeline
