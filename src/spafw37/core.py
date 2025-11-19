@@ -402,124 +402,35 @@ def join_param(param_name=None, bind_name=None, alias=None, value=None):
     param.join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
 
 
-def get_param_str(param_name=None, bind_name=None, alias=None, default=''):
+def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
-    Get a parameter value as string.
+    Get a parameter value with automatic type coercion.
+    
+    This is the primary method for retrieving parameter values. It automatically
+    determines the parameter type from the definition and returns a properly
+    coerced value (string, int, bool, float, list, or dict).
     
     Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found.
+        param_name: Parameter name to get (use this in application code).
+        bind_name: Config bind name to get (advanced use, for internal config key).
+        alias: Parameter alias to get (advanced use).
+        default: Default value if not found (default: None).
+        strict: If True, raises ValueError when parameter not found (default: False).
     
     Returns:
-        String parameter value or default.
+        Parameter value coerced to the appropriate type based on PARAM_TYPE,
+        or default if not found.
+    
+    Raises:
+        ValueError: If strict=True and parameter not found.
     
     Example:
-        host = get_param_str(param_name='host', default='localhost')
+        host = get_param('database-host')  # Returns string
+        port = get_param('server-port')  # Returns int (based on PARAM_TYPE)
+                verbose = get_param('verbose')  # Returns bool
     """
     from spafw37 import param
-    return param.get_param_str(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
-
-
-def get_param_int(param_name=None, bind_name=None, alias=None, default=0):
-    """
-    Get a parameter value as integer.
-    
-    Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found.
-    
-    Returns:
-        Integer parameter value or default.
-    
-    Example:
-        port = get_param_int(bind_name='server_port', default=8080)
-    """
-    from spafw37 import param
-    return param.get_param_int(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
-
-
-def get_param_bool(param_name=None, bind_name=None, alias=None, default=False):
-    """
-    Get a parameter value as boolean.
-    
-    Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found.
-    
-    Returns:
-        Boolean parameter value or default.
-    
-    Example:
-        verbose = get_param_bool(alias='--verbose', default=False)
-    """
-    from spafw37 import param
-    return param.get_param_bool(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
-
-
-def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0):
-    """
-    Get a parameter value as float.
-    
-    Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found.
-    
-    Returns:
-        Float parameter value or default.
-    
-    Example:
-        threshold = get_param_float(param_name='threshold', default=0.5)
-    """
-    from spafw37 import param
-    return param.get_param_float(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
-
-
-def get_param_list(param_name=None, bind_name=None, alias=None, default=None):
-    """
-    Get a parameter value as list.
-    
-    Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found (empty list if None).
-    
-    Returns:
-        List parameter value or default.
-    
-    Example:
-        files = get_param_list(param_name='input_files', default=[])
-    """
-    from spafw37 import param
-    return param.get_param_list(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
-
-
-def get_param_dict(param_name=None, bind_name=None, alias=None, default=None):
-    """
-    Get a parameter value as dictionary.
-    
-    Args:
-        param_name: Parameter name to get (flexible resolution).
-        bind_name: Config bind name to get (flexible resolution).
-        alias: Parameter alias to get (flexible resolution).
-        default: Default value if not found (empty dict if None).
-    
-    Returns:
-        Dictionary parameter value or default.
-    
-    Example:
-        settings = get_param_dict(param_name='app_config', default={})
-    """
-    from spafw37 import param
-    return param.get_param_dict(param_name=param_name, bind_name=bind_name, alias=alias, default=default)
+    return param.get_param(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
 # Logging delegates

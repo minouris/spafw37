@@ -732,18 +732,18 @@ def get_param_value(param_name=None, bind_name=None, alias=None, default=None, s
             raise ValueError("Parameter '{}' not found".format(param_name or bind_name or alias))
         return default
     
-    resolved_param_name = _get_param_name(param_definition)
-    value = config.get_config_value(resolved_param_name)
+    config_key = _get_bind_name(param_definition)
+    value = config.get_config_value(config_key)
     
     if value is None:
         if strict:
-            raise ValueError("Parameter '{}' not found in configuration".format(resolved_param_name))
+            raise ValueError("Parameter '{}' not found in configuration".format(config_key))
         return default
     
     return value
 
 
-def get_param_str(param_name=None, bind_name=None, alias=None, default='', strict=False):
+def _get_param_str(param_name=None, bind_name=None, alias=None, default='', strict=False):
     """
     Retrieve string parameter value with type coercion.
     
@@ -778,7 +778,7 @@ def get_param_str(param_name=None, bind_name=None, alias=None, default='', stric
     return str(value)
 
 
-def get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict=False):
+def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict=False):
     """
     Retrieve integer parameter value with type coercion and truncation.
     
@@ -819,7 +819,7 @@ def get_param_int(param_name=None, bind_name=None, alias=None, default=0, strict
         return default
 
 
-def get_param_bool(param_name=None, bind_name=None, alias=None, default=False, strict=False):
+def _get_param_bool(param_name=None, bind_name=None, alias=None, default=False, strict=False):
     """
     Retrieve boolean parameter value with truthiness coercion.
     
@@ -855,7 +855,7 @@ def get_param_bool(param_name=None, bind_name=None, alias=None, default=False, s
     return bool(value)
 
 
-def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, strict=False):
+def _get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, strict=False):
     """
     Retrieve float parameter value with type coercion.
     
@@ -895,7 +895,7 @@ def get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, st
         return default
 
 
-def get_param_list(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+def _get_param_list(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
     Retrieve list parameter value without coercion.
     
@@ -931,7 +931,7 @@ def get_param_list(param_name=None, bind_name=None, alias=None, default=None, st
     )
 
 
-def get_param_dict(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+def _get_param_dict(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
     Retrieve dict parameter value without coercion.
     
@@ -965,6 +965,66 @@ def get_param_dict(param_name=None, bind_name=None, alias=None, default=None, st
         default=default,
         strict=strict
     )
+
+
+def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+    """
+    Retrieve parameter value with automatic type coercion based on parameter definition.
+    
+    This is the primary facade method for retrieving parameter values. It automatically
+    determines the parameter type from the definition and calls the appropriate typed
+    getter (_get_param_str, _get_param_int, etc.) to return a properly coerced value.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME (use this in application code)
+        bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
+        alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
+        default: Value to return if parameter not found (default: None)
+        strict: If True, raises ValueError when parameter not found (default: False)
+    
+    Note:
+        At least one of param_name, bind_name, or alias must be provided.
+        In most cases, use param_name with the parameter's PARAM_NAME.
+    
+    Returns:
+        The parameter value coerced to the appropriate type based on PARAM_TYPE,
+        or default if not found
+    
+    Raises:
+        ValueError: If strict=True and parameter not found, or if parameter definition not found
+    
+    Example:
+        >>> get_param('database-host')  # Returns string value
+        'localhost'
+        >>> get_param('port')  # Returns int value based on PARAM_TYPE
+        5432
+        >>> get_param('verbose')  # Returns bool value
+        True
+    """
+    # Resolve parameter definition to determine type
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    
+    if not param_def:
+        if strict:
+            raise ValueError("Parameter definition not found for param_name={}, bind_name={}, alias={}".format(
+                param_name, bind_name, alias))
+        return default
+    
+    # Get parameter type from definition
+    param_type = param_def.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    
+    # Route to appropriate typed getter based on parameter type
+    if param_type == PARAM_TYPE_NUMBER:
+        # Number params could be int or float, use int getter for consistency
+        return _get_param_int(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
+    elif param_type == PARAM_TYPE_TOGGLE:
+        return _get_param_bool(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
+    elif param_type == PARAM_TYPE_LIST:
+        return _get_param_list(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
+    elif param_type == PARAM_TYPE_DICT:
+        return _get_param_dict(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
+    else:  # PARAM_TYPE_TEXT or unknown
+        return _get_param_str(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
 def _validate_param_value(param_definition, value, strict=True):

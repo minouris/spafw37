@@ -166,244 +166,144 @@ class TestCoreJoinParam:
         assert result == ['tag1', 'tag2']
 
 
-class TestCoreGetParamStr:
+class TestCoreGetParam:
     """
-    Tests for core.get_param_str() function.
+    Tests for core.get_param() function.
     
-    The get_param_str() function should delegate to param.get_param_str() and
-    return string values with proper defaults.
+    The get_param() function should intelligently route to the correct typed getter
+    based on the parameter's PARAM_TYPE and return properly coerced values.
     """
 
-    def test_get_param_str_returns_value(self):
+    def test_get_param_returns_string_for_text_type(self):
         """
-        Tests that get_param_str() returns existing string value.
+        Tests that get_param() returns string for PARAM_TYPE_TEXT.
         
-        When parameter has a value, that value should be returned as string
-        because get_param_str() retrieves and type-casts the value.
+        When parameter type is TEXT, the value should be returned as string
+        because get_param() routes to _get_param_str().
         """
         test_param = {'name': 'name', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         param.set_param_value(param_name='name', value='Alice')
         
-        result = core.get_param_str(param_name='name')
+        result = core.get_param(param_name='name')
         
         assert result == 'Alice'
+        assert isinstance(result, str)
 
-    def test_get_param_str_returns_default(self):
+    def test_get_param_returns_int_for_number_type(self):
         """
-        Tests that get_param_str() returns default when param not set.
+        Tests that get_param() returns int for PARAM_TYPE_NUMBER.
         
-        When parameter has no value, the default should be returned
-        because get_param_str() provides default fallback behavior.
-        """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_TEXT}
-        param.add_params([test_param])
-        
-        result = core.get_param_str(param_name='missing', default='fallback')
-        
-        assert result == 'fallback'
-
-    def test_get_param_str_by_alias(self):
-        """
-        Tests that get_param_str() works with alias resolution.
-        
-        When called with alias, the parameter should be resolved and value returned
-        because get_param_str() supports flexible resolution.
-        """
-        test_param = {'name': 'url', 'type': PARAM_TYPE_TEXT, 'aliases': ['--url', '-u']}
-        param.add_params([test_param])
-        param.set_param_value(param_name='url', value='https://example.com')
-        
-        result = core.get_param_str(alias='--url')
-        
-        assert result == 'https://example.com'
-
-
-class TestCoreGetParamInt:
-    """
-    Tests for core.get_param_int() function.
-    
-    The get_param_int() function should delegate to param.get_param_int() and
-    return integer values with proper defaults.
-    """
-
-    def test_get_param_int_returns_value(self):
-        """
-        Tests that get_param_int() returns existing integer value.
-        
-        When parameter has a numeric value, that value should be returned as integer
-        because get_param_int() retrieves and type-casts the value.
+        When parameter type is NUMBER, the value should be returned as int
+        because get_param() routes to _get_param_int().
         """
         test_param = {'name': 'count', 'type': PARAM_TYPE_NUMBER}
         param.add_params([test_param])
         param.set_param_value(param_name='count', value=42)
         
-        result = core.get_param_int(param_name='count')
+        result = core.get_param(param_name='count')
         
         assert result == 42
+        assert isinstance(result, int)
 
-    def test_get_param_int_returns_default(self):
+    def test_get_param_returns_bool_for_toggle_type(self):
         """
-        Tests that get_param_int() returns default when param not set.
+        Tests that get_param() returns bool for PARAM_TYPE_TOGGLE.
         
-        When parameter has no value, the default should be returned
-        because get_param_int() provides default fallback behavior.
-        """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_NUMBER}
-        param.add_params([test_param])
-        
-        result = core.get_param_int(param_name='missing', default=99)
-        
-        assert result == 99
-
-
-class TestCoreGetParamBool:
-    """
-    Tests for core.get_param_bool() function.
-    
-    The get_param_bool() function should delegate to param.get_param_bool() and
-    return boolean values with proper defaults.
-    """
-
-    def test_get_param_bool_returns_value(self):
-        """
-        Tests that get_param_bool() returns existing boolean value.
-        
-        When parameter has a boolean value, that value should be returned
-        because get_param_bool() retrieves the toggle value.
+        When parameter type is TOGGLE, the value should be returned as bool
+        because get_param() routes to _get_param_bool().
         """
         test_param = {'name': 'enabled', 'type': PARAM_TYPE_TOGGLE}
         param.add_params([test_param])
         param.set_param_value(param_name='enabled', value=True)
         
-        result = core.get_param_bool(param_name='enabled')
+        result = core.get_param(param_name='enabled')
         
         assert result is True
+        assert isinstance(result, bool)
 
-    def test_get_param_bool_returns_default(self):
+    def test_get_param_returns_list_for_list_type(self):
         """
-        Tests that get_param_bool() returns default when param not set.
+        Tests that get_param() returns list for PARAM_TYPE_LIST.
         
-        When parameter has no value, the default should be returned
-        because get_param_bool() provides default fallback behavior.
-        """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_TOGGLE}
-        param.add_params([test_param])
-        
-        result = core.get_param_bool(param_name='missing', default=False)
-        
-        assert result is False
-
-
-class TestCoreGetParamFloat:
-    """
-    Tests for core.get_param_float() function.
-    
-    The get_param_float() function should delegate to param.get_param_float() and
-    return float values with proper defaults.
-    """
-
-    def test_get_param_float_returns_value(self):
-        """
-        Tests that get_param_float() returns existing float value.
-        
-        When parameter has a numeric value, that value should be returned as float
-        because get_param_float() retrieves and type-casts the value.
-        """
-        test_param = {'name': 'threshold', 'type': PARAM_TYPE_NUMBER}
-        param.add_params([test_param])
-        param.set_param_value(param_name='threshold', value=3.14)
-        
-        result = core.get_param_float(param_name='threshold')
-        
-        assert result == 3.14
-
-    def test_get_param_float_returns_default(self):
-        """
-        Tests that get_param_float() returns default when param not set.
-        
-        When parameter has no value, the default should be returned
-        because get_param_float() provides default fallback behavior.
-        """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_NUMBER}
-        param.add_params([test_param])
-        
-        result = core.get_param_float(param_name='missing', default=2.71)
-        
-        assert result == 2.71
-
-
-class TestCoreGetParamList:
-    """
-    Tests for core.get_param_list() function.
-    
-    The get_param_list() function should delegate to param.get_param_list() and
-    return list values with proper defaults.
-    """
-
-    def test_get_param_list_returns_value(self):
-        """
-        Tests that get_param_list() returns existing list value.
-        
-        When parameter has a list value, that value should be returned
-        because get_param_list() retrieves the list.
+        When parameter type is LIST, the value should be returned as list
+        because get_param() routes to _get_param_list().
         """
         test_param = {'name': 'items', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         param.set_param_value(param_name='items', value=['a', 'b', 'c'])
         
-        result = core.get_param_list(param_name='items')
+        result = core.get_param(param_name='items')
         
         assert result == ['a', 'b', 'c']
+        assert isinstance(result, list)
 
-    def test_get_param_list_returns_default(self):
+    def test_get_param_returns_dict_for_dict_type(self):
         """
-        Tests that get_param_list() returns default when param not set.
+        Tests that get_param() returns dict for PARAM_TYPE_DICT.
         
-        When parameter has no value, the default should be returned
-        because get_param_list() provides default fallback behavior.
-        """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_LIST}
-        param.add_params([test_param])
-        
-        result = core.get_param_list(param_name='missing', default=['x', 'y'])
-        
-        assert result == ['x', 'y']
-
-
-class TestCoreGetParamDict:
-    """
-    Tests for core.get_param_dict() function.
-    
-    The get_param_dict() function should delegate to param.get_param_dict() and
-    return dict values with proper defaults.
-    """
-
-    def test_get_param_dict_returns_value(self):
-        """
-        Tests that get_param_dict() returns existing dict value.
-        
-        When parameter has a dict value, that value should be returned
-        because get_param_dict() retrieves the dictionary.
+        When parameter type is DICT, the value should be returned as dict
+        because get_param() routes to _get_param_dict().
         """
         test_param = {'name': 'config', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         param.set_param_value(param_name='config', value={'key': 'value'})
         
-        result = core.get_param_dict(param_name='config')
+        result = core.get_param(param_name='config')
         
         assert result == {'key': 'value'}
+        assert isinstance(result, dict)
 
-    def test_get_param_dict_returns_default(self):
+    def test_get_param_returns_default_when_missing(self):
         """
-        Tests that get_param_dict() returns default when param not set.
+        Tests that get_param() returns default when parameter not found.
         
-        When parameter has no value, the default should be returned
-        because get_param_dict() provides default fallback behavior.
+        When parameter doesn't exist, the default should be returned
+        because get_param() provides fallback behavior.
         """
-        test_param = {'name': 'missing', 'type': PARAM_TYPE_DICT}
+        test_param = {'name': 'missing', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        result = core.get_param_dict(param_name='missing', default={'fallback': 'data'})
+        result = core.get_param(param_name='missing', default='fallback')
         
-        assert result == {'fallback': 'data'}
+        assert result == 'fallback'
+
+    def test_get_param_by_alias(self):
+        """
+        Tests that get_param() works with alias resolution.
+        
+        When called with alias, the parameter should be resolved and value returned
+        because get_param() supports flexible resolution.
+        """
+        test_param = {'name': 'url', 'type': PARAM_TYPE_TEXT, 'aliases': ['--url', '-u']}
+        param.add_params([test_param])
+        param.set_param_value(param_name='url', value='https://example.com')
+        
+        result = core.get_param(alias='--url')
+        
+        assert result == 'https://example.com'
+
+    def test_get_param_by_bind_name(self):
+        """
+        Tests that get_param() works with bind_name resolution.
+        
+        When called with bind_name, the parameter should be resolved and value returned
+        because get_param() supports flexible resolution.
+        """
+        test_param = {'name': 'port', 'type': PARAM_TYPE_NUMBER, 'config-name': 'server_port'}
+        param.add_params([test_param])
+        param.set_param_value(param_name='port', value=8080)
+        
+        result = core.get_param(bind_name='server_port')
+        
+        assert result == 8080
+
+    def test_get_param_strict_mode_raises_on_missing(self):
+        """
+        Tests that get_param() raises ValueError in strict mode when parameter missing.
+        
+        When strict=True and parameter definition not found, ValueError should be raised
+        because strict mode enforces that the parameter must exist.
+        """
+        with pytest.raises(ValueError, match="Parameter definition not found"):
+            core.get_param(param_name='nonexistent', strict=True)

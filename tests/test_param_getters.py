@@ -36,7 +36,7 @@ class TestGetParamValue:
         
         test_param = {'name': 'database', 'type': 'str', 'config-name': 'db'}
         param.add_params([test_param])
-        config.set_config_value('database', 'production')
+        config.set_config_value('db', 'production')  # Store using bind_name (config-name)
         
         result = param.get_param_value(param_name='database')
         assert result == 'production'
@@ -51,7 +51,7 @@ class TestGetParamValue:
         
         test_param = {'name': 'database', 'type': 'str', 'config-name': 'db'}
         param.add_params([test_param])
-        config.set_config_value('database', 'staging')
+        config.set_config_value('db', 'staging')  # Store using bind_name (config-name)
         
         result = param.get_param_value(bind_name='db')
         assert result == 'staging'
@@ -81,7 +81,7 @@ class TestGetParamValue:
         
         test_param = {'name': 'max_connections', 'type': 'int', 'config-name': 'max_conn'}
         param.add_params([test_param])
-        config.set_config_value('max_connections', 100)
+        config.set_config_value('max_conn', 100)  # Store using bind_name (config-name)
         
         # Call with what looks like bind_name but using param_name argument
         result = param.get_param_value(param_name='max_conn')
@@ -110,7 +110,7 @@ class TestGetParamValue:
             param.get_param_value(param_name='nonexistent', strict=True)
 class TestGetParamStr:
     """
-    Tests for get_param_str() function that retrieves string parameter values.
+    Tests for __get_param_str() function that retrieves string parameter values.
     
     This function coerces any value to string using str() and should handle
     various input types with proper string conversion.
@@ -118,7 +118,7 @@ class TestGetParamStr:
 
     def test_get_param_str_returns_string_value(self):
         """
-        Tests that get_param_str() returns a string value directly.
+        Tests that __get_param_str() returns a string value directly.
         
         When a parameter is already stored as a string, it should be returned
         as-is because no coercion is needed.
@@ -128,15 +128,15 @@ class TestGetParamStr:
         param.add_params([test_param])
         config.set_config_value('name', 'John')
         
-        result = param.get_param_str(param_name='name')
+        result = param._get_param_str(param_name='name')
         assert result == 'John'
         assert isinstance(result, str)
 
     def test_get_param_str_coerces_int_to_string(self):
         """
-        Tests that get_param_str() coerces integer to string.
+        Tests that __get_param_str() coerces integer to string.
         
-        When a parameter is stored as an integer, get_param_str() should convert it
+        When a parameter is stored as an integer, __get_param_str() should convert it
         to string using str() because the caller expects string output.
         """
         
@@ -144,15 +144,15 @@ class TestGetParamStr:
         param.add_params([test_param])
         config.set_config_value('count', 123)
         
-        result = param.get_param_str(param_name='count')
+        result = param._get_param_str(param_name='count')
         assert result == '123'
         assert isinstance(result, str)
 
     def test_get_param_str_coerces_float_to_string(self):
         """
-        Tests that get_param_str() coerces float to string.
+        Tests that _get_param_str() coerces float to string.
         
-        When a parameter is stored as a float, get_param_str() should convert it
+        When a parameter is stored as a float, _get_param_str() should convert it
         to string preserving the decimal representation because precision matters.
         """
         
@@ -160,15 +160,15 @@ class TestGetParamStr:
         param.add_params([test_param])
         config.set_config_value('pi', 3.14)
         
-        result = param.get_param_str(param_name='pi')
+        result = param._get_param_str(param_name='pi')
         assert result == '3.14'
         assert isinstance(result, str)
 
     def test_get_param_str_coerces_list_to_string_representation(self):
         """
-        Tests that get_param_str() coerces list to its string representation.
+        Tests that __get_param_str() coerces list to its string representation.
         
-        When a parameter is stored as a list, get_param_str() should convert it
+        When a parameter is stored as a list, __get_param_str() should convert it
         to string using str() which produces Python's list representation format.
         """
         
@@ -176,34 +176,34 @@ class TestGetParamStr:
         param.add_params([test_param])
         config.set_config_value('tags', ['a', 'b', 'c'])
         
-        result = param.get_param_str(param_name='tags')
+        result = param._get_param_str(param_name='tags')
         assert result == "['a', 'b', 'c']"
         assert isinstance(result, str)
 
     def test_get_param_str_missing_returns_default(self):
         """
-        Tests that get_param_str() returns default when parameter not found.
+        Tests that __get_param_str() returns default when parameter not found.
         
         When a parameter doesn't exist and default is provided, the default should
-        be returned because get_param_str() inherits fallback behavior from get_param_value().
+        be returned because __get_param_str() inherits fallback behavior from get_param_value().
         """
         
-        result = param.get_param_str(param_name='missing', default='default_value')
+        result = param._get_param_str(param_name='missing', default='default_value')
         assert result == 'default_value'
 
     def test_get_param_str_missing_strict_raises_error(self):
         """
-        Tests that get_param_str() raises ValueError in strict mode when parameter missing.
+        Tests that __get_param_str() raises ValueError in strict mode when parameter missing.
         
         When strict=True and parameter is not found, ValueError should be raised
         because strict mode requires the parameter to exist.
         """
         
         with pytest.raises(ValueError, match="Parameter .* not found"):
-            param.get_param_str(param_name='missing', strict=True)
+            param._get_param_str(param_name='missing', strict=True)
 class TestGetParamInt:
     """
-    Tests for get_param_int() function that retrieves integer parameter values.
+    Tests for __get_param_int() function that retrieves integer parameter values.
     
     This function coerces values to int via int(float(value)) for truncation behavior
     and should handle string and float inputs with proper conversion.
@@ -211,7 +211,7 @@ class TestGetParamInt:
 
     def test_get_param_int_returns_int_value(self):
         """
-        Tests that get_param_int() returns an integer value directly.
+        Tests that _get_param_int() returns an integer value directly.
         
         When a parameter is already stored as an integer, it should be returned
         as-is because no coercion is needed.
@@ -221,15 +221,15 @@ class TestGetParamInt:
         param.add_params([test_param])
         config.set_config_value('count', 42)
         
-        result = param.get_param_int(param_name='count')
+        result = param._get_param_int(param_name='count')
         assert result == 42
         assert isinstance(result, int)
 
     def test_get_param_int_coerces_string_to_int(self):
         """
-        Tests that get_param_int() coerces string representation of integer.
+        Tests that _get_param_int() coerces string representation of integer.
         
-        When a parameter is stored as a string containing an integer, get_param_int()
+        When a parameter is stored as a string containing an integer, _get_param_int()
         should parse it to int because users may provide numeric strings via CLI.
         """
         
@@ -237,15 +237,15 @@ class TestGetParamInt:
         param.add_params([test_param])
         config.set_config_value('port', '8080')
         
-        result = param.get_param_int(param_name='port')
+        result = param._get_param_int(param_name='port')
         assert result == 8080
         assert isinstance(result, int)
 
     def test_get_param_int_truncates_float_value(self):
         """
-        Tests that get_param_int() truncates float to integer.
+        Tests that _get_param_int() truncates float to integer.
         
-        When a parameter is stored as a float, get_param_int() should truncate (not round)
+        When a parameter is stored as a float, _get_param_int() should truncate (not round)
         to integer because int(float()) behavior drops the decimal part.
         """
         
@@ -253,15 +253,15 @@ class TestGetParamInt:
         param.add_params([test_param])
         config.set_config_value('ratio', 3.99)
         
-        result = param.get_param_int(param_name='ratio')
+        result = param._get_param_int(param_name='ratio')
         assert result == 3
         assert isinstance(result, int)
 
     def test_get_param_int_truncates_string_float(self):
         """
-        Tests that get_param_int() truncates string representation of float.
+        Tests that _get_param_int() truncates string representation of float.
         
-        When a parameter is stored as a string containing a float, get_param_int()
+        When a parameter is stored as a string containing a float, _get_param_int()
         should parse and truncate to int because the coercion path is str -> float -> int.
         """
         
@@ -269,13 +269,13 @@ class TestGetParamInt:
         param.add_params([test_param])
         config.set_config_value('value', '3.14')
         
-        result = param.get_param_int(param_name='value')
+        result = param._get_param_int(param_name='value')
         assert result == 3
         assert isinstance(result, int)
 
     def test_get_param_int_invalid_string_strict_raises_error(self):
         """
-        Tests that get_param_int() raises ValueError on invalid string in strict mode.
+        Tests that _get_param_int() raises ValueError on invalid string in strict mode.
         
         When strict=True and value cannot be coerced to int, ValueError should be raised
         because strict mode enforces type safety and conversion must succeed.
@@ -286,11 +286,11 @@ class TestGetParamInt:
         config.set_config_value('bad', 'not_a_number')
         
         with pytest.raises(ValueError, match="Cannot convert .* to int"):
-            param.get_param_int(param_name='bad', strict=True)
+            param._get_param_int(param_name='bad', strict=True)
 
     def test_get_param_int_invalid_string_non_strict_returns_default(self):
         """
-        Tests that get_param_int() returns default on invalid string in non-strict mode.
+        Tests that _get_param_int() returns default on invalid string in non-strict mode.
         
         When strict=False and value cannot be coerced to int, default should be returned
         because non-strict mode prioritizes fault tolerance over strict validation.
@@ -300,22 +300,22 @@ class TestGetParamInt:
         param.add_params([test_param])
         config.set_config_value('bad', 'invalid')
         
-        result = param.get_param_int(param_name='bad', default=999)
+        result = param._get_param_int(param_name='bad', default=999)
         assert result == 999
 
     def test_get_param_int_missing_returns_default(self):
         """
-        Tests that get_param_int() returns default when parameter not found.
+        Tests that _get_param_int() returns default when parameter not found.
         
         When a parameter doesn't exist and default is provided, the default should
-        be returned because get_param_int() inherits fallback behavior from get_param_value().
+        be returned because _get_param_int() inherits fallback behavior from get_param_value().
         """
         
-        result = param.get_param_int(param_name='missing', default=100)
+        result = param._get_param_int(param_name='missing', default=100)
         assert result == 100
 class TestGetParamBool:
     """
-    Tests for get_param_bool() function that retrieves boolean parameter values.
+    Tests for __get_param_bool() function that retrieves boolean parameter values.
     
     This function coerces values using Python's bool() for truthy/falsy evaluation
     and should handle various input types with standard truthiness rules.
@@ -323,7 +323,7 @@ class TestGetParamBool:
 
     def test_get_param_bool_returns_true_value(self):
         """
-        Tests that get_param_bool() returns True for boolean True.
+        Tests that _get_param_bool() returns True for boolean True.
         
         When a parameter is stored as boolean True, it should be returned
         as-is because no coercion is needed.
@@ -333,12 +333,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('enabled', True)
         
-        result = param.get_param_bool(param_name='enabled')
+        result = param._get_param_bool(param_name='enabled')
         assert result is True
 
     def test_get_param_bool_returns_false_value(self):
         """
-        Tests that get_param_bool() returns False for boolean False.
+        Tests that _get_param_bool() returns False for boolean False.
         
         When a parameter is stored as boolean False, it should be returned
         as-is because no coercion is needed.
@@ -348,12 +348,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('disabled', False)
         
-        result = param.get_param_bool(param_name='disabled')
+        result = param._get_param_bool(param_name='disabled')
         assert result is False
 
     def test_get_param_bool_coerces_non_empty_string_to_true(self):
         """
-        Tests that get_param_bool() coerces non-empty string to True.
+        Tests that _get_param_bool() coerces non-empty string to True.
         
         When a parameter is stored as a non-empty string, bool() evaluation should
         return True because non-empty strings are truthy in Python.
@@ -363,12 +363,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('flag', 'yes')
         
-        result = param.get_param_bool(param_name='flag')
+        result = param._get_param_bool(param_name='flag')
         assert result is True
 
     def test_get_param_bool_coerces_empty_string_to_false(self):
         """
-        Tests that get_param_bool() coerces empty string to False.
+        Tests that _get_param_bool() coerces empty string to False.
         
         When a parameter is stored as an empty string, bool() evaluation should
         return False because empty strings are falsy in Python.
@@ -378,12 +378,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('flag', '')
         
-        result = param.get_param_bool(param_name='flag')
+        result = param._get_param_bool(param_name='flag')
         assert result is False
 
     def test_get_param_bool_coerces_positive_int_to_true(self):
         """
-        Tests that get_param_bool() coerces positive integer to True.
+        Tests that _get_param_bool() coerces positive integer to True.
         
         When a parameter is stored as a positive integer, bool() evaluation should
         return True because non-zero integers are truthy in Python.
@@ -393,12 +393,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('count', 1)
         
-        result = param.get_param_bool(param_name='count')
+        result = param._get_param_bool(param_name='count')
         assert result is True
 
     def test_get_param_bool_coerces_zero_to_false(self):
         """
-        Tests that get_param_bool() coerces zero to False.
+        Tests that _get_param_bool() coerces zero to False.
         
         When a parameter is stored as zero, bool() evaluation should return False
         because zero is falsy in Python.
@@ -408,12 +408,12 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('count', 0)
         
-        result = param.get_param_bool(param_name='count')
+        result = param._get_param_bool(param_name='count')
         assert result is False
 
     def test_get_param_bool_coerces_empty_list_to_false(self):
         """
-        Tests that get_param_bool() coerces empty list to False.
+        Tests that _get_param_bool() coerces empty list to False.
         
         When a parameter is stored as an empty list, bool() evaluation should
         return False because empty lists are falsy in Python.
@@ -423,22 +423,22 @@ class TestGetParamBool:
         param.add_params([test_param])
         config.set_config_value('items', [])
         
-        result = param.get_param_bool(param_name='items')
+        result = param._get_param_bool(param_name='items')
         assert result is False
 
     def test_get_param_bool_missing_returns_default(self):
         """
-        Tests that get_param_bool() returns default when parameter not found.
+        Tests that _get_param_bool() returns default when parameter not found.
         
         When a parameter doesn't exist and default is provided, the default should
-        be returned because get_param_bool() inherits fallback behavior from get_param_value().
+        be returned because _get_param_bool() inherits fallback behavior from get_param_value().
         """
         
-        result = param.get_param_bool(param_name='missing', default=True)
+        result = param._get_param_bool(param_name='missing', default=True)
         assert result is True
 class TestGetParamFloat:
     """
-    Tests for get_param_float() function that retrieves float parameter values.
+    Tests for __get_param_float() function that retrieves float parameter values.
     
     This function coerces values to float using float() and should handle
     string and integer inputs with proper conversion.
@@ -446,7 +446,7 @@ class TestGetParamFloat:
 
     def test_get_param_float_returns_float_value(self):
         """
-        Tests that get_param_float() returns a float value directly.
+        Tests that _get_param_float() returns a float value directly.
         
         When a parameter is already stored as a float, it should be returned
         as-is because no coercion is needed.
@@ -456,15 +456,15 @@ class TestGetParamFloat:
         param.add_params([test_param])
         config.set_config_value('ratio', 3.14)
         
-        result = param.get_param_float(param_name='ratio')
+        result = param._get_param_float(param_name='ratio')
         assert result == 3.14
         assert isinstance(result, float)
 
     def test_get_param_float_coerces_int_to_float(self):
         """
-        Tests that get_param_float() coerces integer to float.
+        Tests that _get_param_float() coerces integer to float.
         
-        When a parameter is stored as an integer, get_param_float() should convert it
+        When a parameter is stored as an integer, _get_param_float() should convert it
         to float because the caller expects float output.
         """
         
@@ -472,15 +472,15 @@ class TestGetParamFloat:
         param.add_params([test_param])
         config.set_config_value('count', 123)
         
-        result = param.get_param_float(param_name='count')
+        result = param._get_param_float(param_name='count')
         assert result == 123.0
         assert isinstance(result, float)
 
     def test_get_param_float_coerces_string_int_to_float(self):
         """
-        Tests that get_param_float() coerces string integer to float.
+        Tests that _get_param_float() coerces string integer to float.
         
-        When a parameter is stored as a string containing an integer, get_param_float()
+        When a parameter is stored as a string containing an integer, _get_param_float()
         should parse it to float because users may provide numeric strings via CLI.
         """
         
@@ -488,15 +488,15 @@ class TestGetParamFloat:
         param.add_params([test_param])
         config.set_config_value('value', '42')
         
-        result = param.get_param_float(param_name='value')
+        result = param._get_param_float(param_name='value')
         assert result == 42.0
         assert isinstance(result, float)
 
     def test_get_param_float_coerces_string_float_to_float(self):
         """
-        Tests that get_param_float() coerces string float to float.
+        Tests that _get_param_float() coerces string float to float.
         
-        When a parameter is stored as a string containing a float, get_param_float()
+        When a parameter is stored as a string containing a float, _get_param_float()
         should parse it to float preserving decimal precision.
         """
         
@@ -504,13 +504,13 @@ class TestGetParamFloat:
         param.add_params([test_param])
         config.set_config_value('pi', '3.14159')
         
-        result = param.get_param_float(param_name='pi')
+        result = param._get_param_float(param_name='pi')
         assert result == 3.14159
         assert isinstance(result, float)
 
     def test_get_param_float_invalid_string_strict_raises_error(self):
         """
-        Tests that get_param_float() raises ValueError on invalid string in strict mode.
+        Tests that _get_param_float() raises ValueError on invalid string in strict mode.
         
         When strict=True and value cannot be coerced to float, ValueError should be raised
         because strict mode enforces type safety and conversion must succeed.
@@ -521,11 +521,11 @@ class TestGetParamFloat:
         config.set_config_value('bad', 'not_a_number')
         
         with pytest.raises(ValueError, match="Cannot convert .* to float"):
-            param.get_param_float(param_name='bad', strict=True)
+            param._get_param_float(param_name='bad', strict=True)
 
     def test_get_param_float_invalid_string_non_strict_returns_default(self):
         """
-        Tests that get_param_float() returns default on invalid string in non-strict mode.
+        Tests that _get_param_float() returns default on invalid string in non-strict mode.
         
         When strict=False and value cannot be coerced to float, default should be returned
         because non-strict mode prioritizes fault tolerance over strict validation.
@@ -535,22 +535,22 @@ class TestGetParamFloat:
         param.add_params([test_param])
         config.set_config_value('bad', 'invalid')
         
-        result = param.get_param_float(param_name='bad', default=99.9)
+        result = param._get_param_float(param_name='bad', default=99.9)
         assert result == 99.9
 
     def test_get_param_float_missing_returns_default(self):
         """
-        Tests that get_param_float() returns default when parameter not found.
+        Tests that _get_param_float() returns default when parameter not found.
         
         When a parameter doesn't exist and default is provided, the default should
-        be returned because get_param_float() inherits fallback behavior from get_param_value().
+        be returned because _get_param_float() inherits fallback behavior from get_param_value().
         """
         
-        result = param.get_param_float(param_name='missing', default=1.5)
+        result = param._get_param_float(param_name='missing', default=1.5)
         assert result == 1.5
 class TestGetParamList:
     """
-    Tests for get_param_list() function that retrieves list parameter values.
+    Tests for __get_param_list() function that retrieves list parameter values.
     
     This function returns list values as-is without coercion and defaults to
     empty list when not found, matching typical list parameter usage patterns.
@@ -558,7 +558,7 @@ class TestGetParamList:
 
     def test_get_param_list_returns_list_value(self):
         """
-        Tests that get_param_list() returns a list value directly.
+        Tests that _get_param_list() returns a list value directly.
         
         When a parameter is stored as a list, it should be returned as-is
         because no coercion is needed for list type parameters.
@@ -568,51 +568,51 @@ class TestGetParamList:
         param.add_params([test_param])
         config.set_config_value('tags', ['a', 'b', 'c'])
         
-        result = param.get_param_list(param_name='tags')
+        result = param._get_param_list(param_name='tags')
         assert result == ['a', 'b', 'c']
         assert isinstance(result, list)
 
     def test_get_param_list_returns_empty_list_by_default(self):
         """
-        Tests that get_param_list() returns empty list when parameter not found.
+        Tests that _get_param_list() returns empty list when parameter not found.
         
         When a parameter doesn't exist and no default is provided, an empty list should
         be returned because this matches typical list parameter usage patterns.
         """
         
-        result = param.get_param_list(param_name='missing')
+        result = param._get_param_list(param_name='missing')
         assert result == []
         assert isinstance(result, list)
 
     def test_get_param_list_respects_custom_default(self):
         """
-        Tests that get_param_list() respects custom default value.
+        Tests that _get_param_list() respects custom default value.
         
         When a parameter doesn't exist and custom default is provided, that default
         should be returned because explicit defaults override the empty list default.
         """
         
-        result = param.get_param_list(param_name='missing', default=['default'])
+        result = param._get_param_list(param_name='missing', default=['default'])
         assert result == ['default']
 
     def test_get_param_list_no_coercion_from_string(self):
         """
-        Tests that get_param_list() returns string value without coercion.
+        Tests that _get_param_list() returns string value without coercion.
         
-        When a parameter is stored as a string, get_param_list() should return it as-is
-        because get_param_list() does not perform type coercion (caller must ensure correct type).
+        When a parameter is stored as a string, _get_param_list() should return it as-is
+        because _get_param_list() does not perform type coercion (caller must ensure correct type).
         """
         
         test_param = {'name': 'value', 'type': 'str'}
         param.add_params([test_param])
         config.set_config_value('value', 'not_a_list')
         
-        result = param.get_param_list(param_name='value')
+        result = param._get_param_list(param_name='value')
         assert result == 'not_a_list'
         assert isinstance(result, str)
 class TestGetParamDict:
     """
-    Tests for get_param_dict() function that retrieves dict parameter values.
+    Tests for __get_param_dict() function that retrieves dict parameter values.
     
     This function returns dict values as-is without coercion and defaults to
     empty dict when not found, matching typical dict parameter usage patterns.
@@ -620,7 +620,7 @@ class TestGetParamDict:
 
     def test_get_param_dict_returns_dict_value(self):
         """
-        Tests that get_param_dict() returns a dict value directly.
+        Tests that _get_param_dict() returns a dict value directly.
         
         When a parameter is stored as a dict, it should be returned as-is
         because no coercion is needed for dict type parameters.
@@ -630,45 +630,45 @@ class TestGetParamDict:
         param.add_params([test_param])
         config.set_config_value('config', {'key': 'value'})
         
-        result = param.get_param_dict(param_name='config')
+        result = param._get_param_dict(param_name='config')
         assert result == {'key': 'value'}
         assert isinstance(result, dict)
 
     def test_get_param_dict_returns_empty_dict_by_default(self):
         """
-        Tests that get_param_dict() returns empty dict when parameter not found.
+        Tests that _get_param_dict() returns empty dict when parameter not found.
         
         When a parameter doesn't exist and no default is provided, an empty dict should
         be returned because this matches typical dict parameter usage patterns.
         """
         
-        result = param.get_param_dict(param_name='missing')
+        result = param._get_param_dict(param_name='missing')
         assert result == {}
         assert isinstance(result, dict)
 
     def test_get_param_dict_respects_custom_default(self):
         """
-        Tests that get_param_dict() respects custom default value.
+        Tests that _get_param_dict() respects custom default value.
         
         When a parameter doesn't exist and custom default is provided, that default
         should be returned because explicit defaults override the empty dict default.
         """
         
-        result = param.get_param_dict(param_name='missing', default={'default': 'value'})
+        result = param._get_param_dict(param_name='missing', default={'default': 'value'})
         assert result == {'default': 'value'}
 
     def test_get_param_dict_no_coercion_from_string(self):
         """
-        Tests that get_param_dict() returns string value without coercion.
+        Tests that _get_param_dict() returns string value without coercion.
         
-        When a parameter is stored as a string, get_param_dict() should return it as-is
-        because get_param_dict() does not perform type coercion (caller must ensure correct type).
+        When a parameter is stored as a string, _get_param_dict() should return it as-is
+        because _get_param_dict() does not perform type coercion (caller must ensure correct type).
         """
         
         test_param = {'name': 'value', 'type': 'str'}
         param.add_params([test_param])
         config.set_config_value('value', 'not_a_dict')
         
-        result = param.get_param_dict(param_name='value')
+        result = param._get_param_dict(param_name='value')
         assert result == 'not_a_dict'
         assert isinstance(result, str)
