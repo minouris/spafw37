@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
 - [Cycle Constants](#cycle-constants)
 - [Defining a Cycle](#defining-a-cycle)
 - [Cycle Lifecycle](#cycle-lifecycle)
@@ -24,6 +25,15 @@ Cycles enable you to execute a sequence of commands repeatedly in a loop ([see e
 - **Finalisation function**: Clean up resources after the loop completes
 
 Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_nesting_depth()`), automatic parameter validation across all cycle commands, and full integration with the command dependency system.
+
+## Version Changes
+
+### v1.1.0
+
+**Parameter Access in Cycles:**
+- Cycle functions (`CYCLE_INIT`, `CYCLE_LOOP`, `CYCLE_LOOP_START`, `CYCLE_END`) now use `get_param()` for parameter access
+- Use `set_param()` to initialize cycle state in `CYCLE_INIT`
+- Use `join_param()` to accumulate results across iterations
 
 ## Cycle Constants
 

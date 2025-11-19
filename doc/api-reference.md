@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
 - [Import Pattern](#import-pattern)
 - [Core Module (spafw37.core)](#core-module-spafw37core)
   - [Application Control](#application-control)
@@ -30,6 +31,21 @@ The spafw37 framework uses a **facade pattern** where `spafw37.core` provides th
 2. **`spafw37.constants.*`** - Constant definitions for dictionaries
 
 This design keeps the API surface clean and shields applications from internal implementation details.
+
+## Version Changes
+
+### v1.1.0
+
+**Parameter API Simplification:**
+- Added unified `get_param()` function with automatic type routing based on `PARAM_TYPE`
+- Added `set_param()` for setting parameter values with type validation
+- Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
+- Deprecated legacy configuration API (`get_config_value()`, `get_config_str()`, etc.)
+
+**Join and Merge Configuration:**
+- Added `PARAM_JOIN_SEPARATOR` for configurable string concatenation
+- Added `PARAM_DICT_MERGE_TYPE` for shallow/deep dictionary merging
+- Added `PARAM_DICT_OVERRIDE_STRATEGY` for conflict resolution
 
 ## Import Pattern
 
@@ -335,133 +351,60 @@ The framework provides two APIs for accessing configuration values:
 
 #### Parameter API (v1.1.0)
 
-**v1.1.0** The parameter API provides typed getters and setters with flexible resolution and type-specific operations.
+The parameter API provides simple access to parameter values with automatic type handling. Use `get_param()` to retrieve values, `set_param()` to replace them, and `join_param()` to accumulate them.
 
-##### `get_param_str(param_name=None, bind_name=None, alias=None, default='')`
+##### `get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False)`
 
-Get a parameter value as a string.
+Get a parameter value with automatic type conversion based on the parameter's `PARAM_TYPE`. This intelligent method examines the parameter definition and returns the correctly-typed value without requiring separate getter functions for each type.
 
 ```python
-# Reference by parameter name (most common)
-input_file = spafw37.get_param_str('input-file')
-project_dir = spafw37.get_param_str('project-dir', './project')
+# Automatically returns the correct type based on parameter definition
+input_file = spafw37.get_param('input-file')  # Returns string for PARAM_TYPE_TEXT
+max_workers = spafw37.get_param('max-workers', 4)  # Returns int for PARAM_TYPE_NUMBER
+debug_mode = spafw37.get_param('debug-mode')  # Returns bool for PARAM_TYPE_TOGGLE
+tags = spafw37.get_param('tags')  # Returns list for PARAM_TYPE_LIST
+settings = spafw37.get_param('settings')  # Returns dict for PARAM_TYPE_DICT
+
+# With default values
+project_dir = spafw37.get_param('project-dir', './project')
+thread_count = spafw37.get_param('threads', 1)
 
 # Advanced: Reference by config binding name
-alt_input = spafw37.get_param_str(bind_name='input-path')
+alt_input = spafw37.get_param(bind_name='input-path')
 
 # Advanced: Reference by alias (without -- prefix)
-author = spafw37.get_param_str(alias='author')  # From '--author' alias
+author = spafw37.get_param(alias='author')  # From '--author' alias
+
+# Strict mode raises error if parameter not found
+required_value = spafw37.get_param('required-param', strict=True)
 ```
+
+**Type Routing:**
+The method automatically routes to the appropriate typed getter based on `PARAM_TYPE`:
+- `PARAM_TYPE_TEXT` → Returns string (default: '')
+- `PARAM_TYPE_NUMBER` → Returns int (default: 0)
+- `PARAM_TYPE_TOGGLE` → Returns bool (default: False)
+- `PARAM_TYPE_LIST` → Returns list (default: [])
+- `PARAM_TYPE_DICT` → Returns dict (default: {})
 
 **Args:**
 - `param_name` (str, optional) - Parameter's PARAM_NAME
 - `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
 - `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (str) - Default value if not found (default: '')
+- `default` - Default value if not found (type should match parameter's PARAM_TYPE)
+- `strict` (bool) - If True, raises ValueError when parameter not found (default: False)
 
 **Returns:**
-- String value or default
+- Value with correct type based on PARAM_TYPE, or default if not found
+
+**Raises:**
+- `ValueError` - If strict=True and parameter definition or value not found
 
 **Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
 
-##### `get_param_int(param_name=None, bind_name=None, alias=None, default=0)`
-
-Get a parameter value as an integer.
-
-```python
-max_workers = spafw37.get_param_int('max-workers', 4)
-file_index = spafw37.get_param_int('file-index')
-thread_count = spafw37.get_param_int('threads', 1)  # If 'threads' is the param name
-```
-
-**Args:**
-- `param_name` (str, optional) - Parameter's PARAM_NAME
-- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
-- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (int) - Default value if not found (default: 0)
-
-**Returns:**
-- Integer value or default
-
-##### `get_param_bool(param_name=None, bind_name=None, alias=None, default=False)`
-
-Get a parameter value as a boolean.
-
-```python
-debug_mode = spafw37.get_param_bool('debug-mode')
-is_enabled = spafw37.get_param_bool('feature-enabled', True)
-use_cache = spafw37.get_param_bool('use-cache')
-```
-
-**Args:**
-- `param_name` (str, optional) - Parameter's PARAM_NAME
-- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
-- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (bool) - Default value if not found (default: False)
-
-**Returns:**
-- Boolean value or default
-
-##### `get_param_float(param_name=None, bind_name=None, alias=None, default=0.0)`
-
-Get a parameter value as a float.
-
-```python
-timeout = spafw37.get_param_float('timeout', 30.0)
-threshold = spafw37.get_param_float('threshold', 0.5)
-rate = spafw37.get_param_float('rate')
-```
-
-**Args:**
-- `param_name` (str, optional) - Parameter's PARAM_NAME
-- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
-- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (float) - Default value if not found (default: 0.0)
-
-**Returns:**
-- Float value or default
-
-##### `get_param_list(param_name=None, bind_name=None, alias=None, default=None)`
-
-Get a parameter value as a list.
-
-```python
-tags = spafw37.get_param_list('tags')
-files = spafw37.get_param_list('input-files', [])
-items = spafw37.get_param_list('items')
-```
-
-**Args:**
-- `param_name` (str, optional) - Parameter's PARAM_NAME
-- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
-- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (list) - Default value if not found (default: empty list)
-
-**Returns:**
-- List value or default. Single values are automatically wrapped in a list.
-
-##### `get_param_dict(param_name=None, bind_name=None, alias=None, default=None)`
-
-Get a parameter value as a dictionary.
-
-```python
-settings = spafw37.get_param_dict('settings')
-metadata = spafw37.get_param_dict('metadata', {})
-config = spafw37.get_param_dict('config')
-```
-
-**Args:**
-- `param_name` (str, optional) - Parameter's PARAM_NAME
-- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
-- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
-- `default` (dict) - Default value if not found (default: empty dict)
-
-**Returns:**
-- Dictionary value or default
-
 ##### `set_param(param_name=None, bind_name=None, alias=None, value=None)`
 
-**v1.1.0** Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE.
+Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE.
 
 ```python
 # Set by parameter name
@@ -494,7 +437,7 @@ spafw37.set_param(alias='files', value=['file1.txt', 'file2.txt'])
 
 ##### `join_param(param_name=None, bind_name=None, alias=None, value=None)`
 
-**v1.1.0** Accumulate a parameter value using type-specific logic instead of replacing it. Behavior depends on parameter type:
+Accumulate a parameter value using type-specific logic instead of replacing it. Behavior depends on parameter type:
 
 - **String (PARAM_TYPE_TEXT):** Concatenate with separator (configurable via `PARAM_JOIN_SEPARATOR`)
 - **List (PARAM_TYPE_LIST):** Append single values or extend with lists
@@ -544,7 +487,7 @@ spafw37.join_param(param_name='config', value={'db': 'mysql'})
 
 ##### `get_config_value(config_key)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_str(bind_name=config_key)` or other typed param getters instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key)` instead.
 
 Get a configuration value.
 
@@ -554,8 +497,8 @@ input_file = spafw37.get_config_value('input-file')
 debug_mode = spafw37.get_config_value('debug-mode')
 
 # Recommended replacement
-input_file = spafw37.get_param_str('input-file')
-debug_mode = spafw37.get_param_bool('debug-mode')
+input_file = spafw37.get_param('input-file')
+debug_mode = spafw37.get_param('debug-mode')
 ```
 
 **Args:**
@@ -571,13 +514,13 @@ debug_mode = spafw37.get_param_bool('debug-mode')
 
 ##### Typed Configuration Getters (Deprecated)
 
-**⚠️ Deprecated:** Use the new parameter API typed getters instead (`get_param_str()`, `get_param_int()`, etc.).
+**⚠️ Deprecated:** Use the new parameter API `get_param()` function instead.
 
 For better type safety and linter support, use typed getters that cast values to specific types:
 
 ##### `get_config_int(config_key, default=0)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_int(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as integer.
 
@@ -587,8 +530,8 @@ max_workers = spafw37.get_config_int('max-workers', 4)
 file_index = spafw37.get_config_int('file-index')
 
 # Recommended replacement
-max_workers = spafw37.get_param_int(bind_name='max-workers', default=4)
-file_index = spafw37.get_param_int(bind_name='file-index')
+max_workers = spafw37.get_param(bind_name='max-workers', default=4)
+file_index = spafw37.get_param(bind_name='file-index')
 ```
 
 **Args:**
@@ -600,7 +543,7 @@ file_index = spafw37.get_param_int(bind_name='file-index')
 
 ##### `get_config_str(config_key, default='')` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_str(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as string.
 
@@ -610,8 +553,8 @@ project_dir = spafw37.get_config_str('project-dir', './project')
 author = spafw37.get_config_str('author')
 
 # Recommended replacement
-project_dir = spafw37.get_param_str(bind_name='project-dir', default='./project')
-author = spafw37.get_param_str(bind_name='author')
+project_dir = spafw37.get_param(bind_name='project-dir', default='./project')
+author = spafw37.get_param(bind_name='author')
 ```
 
 **Args:**
@@ -623,7 +566,7 @@ author = spafw37.get_param_str(bind_name='author')
 
 ##### `get_config_bool(config_key, default=False)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_bool(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as boolean.
 
@@ -633,8 +576,8 @@ debug_mode = spafw37.get_config_bool('debug-mode')
 is_enabled = spafw37.get_config_bool('feature-enabled', True)
 
 # Recommended replacement
-debug_mode = spafw37.get_param_bool('debug-mode')
-is_enabled = spafw37.get_param_bool('feature-enabled', True)
+debug_mode = spafw37.get_param('debug-mode')
+is_enabled = spafw37.get_param('feature-enabled', True)
 ```
 
 **Args:**
@@ -646,7 +589,7 @@ is_enabled = spafw37.get_param_bool('feature-enabled', True)
 
 ##### `get_config_float(config_key, default=0.0)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_float(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as float.
 
@@ -656,8 +599,8 @@ timeout = spafw37.get_config_float('timeout', 30.0)
 threshold = spafw37.get_config_float('threshold')
 
 # Recommended replacement
-timeout = spafw37.get_param_float(bind_name='timeout', default=30.0)
-threshold = spafw37.get_param_float(bind_name='threshold')
+timeout = spafw37.get_param(bind_name='timeout', default=30.0)
+threshold = spafw37.get_param(bind_name='threshold')
 ```
 
 **Args:**
@@ -669,7 +612,7 @@ threshold = spafw37.get_param_float(bind_name='threshold')
 
 ##### `get_config_list(config_key, default=None)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_list(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as list.
 
@@ -679,8 +622,8 @@ tags = spafw37.get_config_list('tags')
 files = spafw37.get_config_list('files', [])
 
 # Recommended replacement
-tags = spafw37.get_param_list(bind_name='tags')
-files = spafw37.get_param_list(bind_name='files', default=[])
+tags = spafw37.get_param(bind_name='tags')
+files = spafw37.get_param(bind_name='files', default=[])
 ```
 
 **Args:**
@@ -692,7 +635,7 @@ files = spafw37.get_param_list(bind_name='files', default=[])
 
 ##### `get_config_dict(config_key, default=None)` (Deprecated)
 
-**⚠️ Deprecated:** Use `get_param_dict(bind_name=config_key, default=default)` instead.
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as dictionary.
 
@@ -702,8 +645,8 @@ settings = spafw37.get_config_dict('settings')
 metadata = spafw37.get_config_dict('metadata', {})
 
 # Recommended replacement
-settings = spafw37.get_param_dict(bind_name='settings')
-metadata = spafw37.get_param_dict(bind_name='metadata', default={})
+settings = spafw37.get_param(bind_name='settings')
+metadata = spafw37.get_param(bind_name='metadata', default={})
 ```
 
 **Args:**

@@ -5,6 +5,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
+- [Key Capabilities](#key-capabilities)
 - [Configuration Constants](#configuration-constants)
 - [Runtime Configuration](#runtime-configuration)
   - [Getting Configuration Values](#getting-configuration-values)
@@ -34,8 +36,27 @@ The spafw37 framework provides a flexible configuration system for managing appl
 - **Loaded from files** - Restored on startup or on demand
 - **Scoped appropriately** - Always saved, never saved, or user-config only
 
-Key capabilities:
-- Runtime parameter access via typed getters (`get_param_str()`, `get_param_int()`, etc.) and setters (`set_param()`, `join_param()`)
+## Version Changes
+
+### v1.1.0
+
+**New Parameter API:**
+- Introduced `get_param()` for unified parameter value retrieval with automatic type handling
+- Added `set_param()` for type-validated parameter value updates
+- Added `join_param()` for accumulating parameter values with type-specific logic
+
+**Legacy API Deprecation:**
+- Deprecated `get_config_value()`, `get_config_str()`, `get_config_int()`, `get_config_bool()`, `get_config_float()`, `get_config_list()`, `get_config_dict()`
+- Deprecated `set_config_value()` in favor of `set_param()` and `join_param()`
+- All deprecated functions show one-time warning and continue to work for backward compatibility
+
+**Configuration Storage:**
+- Parameter values stored using `PARAM_CONFIG_NAME` (bind name) as the internal key
+- Automatic persistence for parameters marked with `PARAM_PERSISTENCE: PARAM_PERSISTENCE_ALWAYS`
+
+## Key Capabilities
+
+- Runtime parameter access via the intelligent `get_param()` function and setters (`set_param()`, `join_param()`)
 - Automatic persistence for designated parameters
 - User config file save/load (`--save-config`, `--load-config`)
 - Runtime-only parameters for temporary state
@@ -54,16 +75,16 @@ from spafw37 import core as spafw37
 
 def process_file():
     # Get parameter values using the new API
-    input_file = spafw37.get_param_str('input-file')
-    debug_mode = spafw37.get_param_bool('debug-mode')
-    thread_count = spafw37.get_param_int('thread-count', 4)
+    input_file = spafw37.get_param('input-file')
+    debug_mode = spafw37.get_param('debug-mode')
+    thread_count = spafw37.get_param('thread-count', 4)
     
     if debug_mode:
         spafw37.output(f"Processing {input_file} with {thread_count} threads")
     
     # Advanced: Flexible resolution by binding or alias
-    output_dir = spafw37.get_param_str(bind_name='output_path')  # If PARAM_CONFIG_NAME differs
-    timeout = spafw37.get_param_float(alias='timeout')  # From '--timeout' alias
+    output_dir = spafw37.get_param(bind_name='output_path')  # If PARAM_CONFIG_NAME differs
+    timeout = spafw37.get_param(alias='timeout')  # From '--timeout' alias
 ```
 
 **See:** [Parameters Guide - Accessing Parameter Values](parameters.md#accessing-parameter-values) for complete parameter API documentation.
@@ -74,7 +95,7 @@ def process_file():
 from spafw37 import core as spafw37
 
 def process_file():
-    # ⚠️ Deprecated - use get_param_str() instead
+    # ⚠️ Deprecated - use get_param() instead
     input_file = spafw37.get_config_value('input-file')
     verbose = spafw37.get_config_value('verbose')
     
@@ -89,7 +110,7 @@ def process_file():
 
 #### Typed Configuration Getters (Deprecated)
 
-**⚠️ Deprecated as of v1.1.0** - Use the new parameter API functions (`get_param_str()`, `get_param_int()`, etc.) instead. These functions still work for backward compatibility but will show a one-time deprecation warning.
+**⚠️ Deprecated as of v1.1.0** - Use the new parameter API function `get_param()` instead. These functions still work for backward compatibility but will show a one-time deprecation warning.
 
 For better type safety and linter support, use typed getters that cast values to specific types:
 
@@ -125,12 +146,12 @@ def process_files():
 ```
 
 **Available typed getters (all deprecated):**
-- `get_config_int(config_key, default=0)` - Returns integer - **⚠️ Use `get_param_int()` instead**
-- `get_config_str(config_key, default='')` - Returns string - **⚠️ Use `get_param_str()` instead**
-- `get_config_bool(config_key, default=False)` - Returns boolean - **⚠️ Use `get_param_bool()` instead**
-- `get_config_float(config_key, default=0.0)` - Returns float - **⚠️ Use `get_param_float()` instead**
-- `get_config_list(config_key, default=None)` - Returns list - **⚠️ Use `get_param_list()` instead**
-- `get_config_dict(config_key, default=None)` - Returns dict - **⚠️ Use `get_param_dict()` instead**
+- `get_config_int(config_key, default=0)` - Returns integer - **⚠️ Use `get_param()` instead**
+- `get_config_str(config_key, default='')` - Returns string - **⚠️ Use `get_param()` instead**
+- `get_config_bool(config_key, default=False)` - Returns boolean - **⚠️ Use `get_param()` instead**
+- `get_config_float(config_key, default=0.0)` - Returns float - **⚠️ Use `get_param()` instead**
+- `get_config_list(config_key, default=None)` - Returns list - **⚠️ Use `get_param()` instead**
+- `get_config_dict(config_key, default=None)` - Returns dict - **⚠️ Use `get_param()` instead**
 
 **Migration guide:**
 
@@ -138,14 +159,14 @@ def process_files():
 # Old (deprecated):
 max_workers = spafw37.get_config_int('max-workers', 4)
 project_dir = spafw37.get_config_str('project-dir', './project')
-debug_mode = spafw37.get_param_bool('debug-mode')
+debug_mode = spafw37.get_param('debug-mode')
 tags = spafw37.get_config_list('tags')
 
 # New (recommended):
-max_workers = spafw37.get_param_int('max-workers', 4)
-project_dir = spafw37.get_param_str('project-dir', './project')
-debug_mode = spafw37.get_param_bool('debug-mode')
-tags = spafw37.get_param_list('tags')
+max_workers = spafw37.get_param('max-workers', 4)
+project_dir = spafw37.get_param('project-dir', './project')
+debug_mode = spafw37.get_param('debug-mode')
+tags = spafw37.get_param('tags')
 ```
 
 **Benefits of new API:**

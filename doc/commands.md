@@ -5,6 +5,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
+- [Key Capabilities](#key-capabilities)
 - [Command Definition Constants](#command-definition-constants)
 - [Basic Command Definition](#basic-command-definition)
 - [Command Actions](#command-actions)
@@ -18,9 +20,19 @@
 
 ## Overview
 
-Commands define the actions your application can perform. They encapsulate functionality with automatic dependency resolution, parameter validation, topological sorting, and flexible execution control. Commands can be invoked from the CLI, triggered by parameters, or automatically queued based on dependencies.
+Commands are the executable units of a spafw37 application. They define actions, dependencies, sequencing, and execution phases. Commands can trigger other commands, require parameters, and participate in multi-phase execution workflows.
 
-Key capabilities:
+## Version Changes
+
+### v1.1.0
+
+**Parameter Access in Commands:**
+- Command actions now use `get_param()` for simplified parameter value retrieval
+- Automatic type conversion eliminates need for type-specific getters
+- Use `set_param()` and `join_param()` for runtime parameter manipulation
+
+## Key Capabilities
+
 - Declarative action definition with Python functions
 - Automatic parameter validation before execution
 - Dependency management and automatic queueing
@@ -143,9 +155,9 @@ from spafw37.constants.command import COMMAND_REQUIRED_PARAMS
 
 def deploy_action():
     """Deploy to target environment."""
-    target = spafw37.get_param_str('environment')
-    api_key = spafw37.get_param_str('api-key')
-    instance_count = spafw37.get_param_int('instance-count')
+    target = spafw37.get_param('environment')
+    api_key = spafw37.get_param('api-key')
+    instance_count = spafw37.get_param('instance-count')
     spafw37.output(f"Deploying to {target}...")
     spafw37.output(f"Instances: {instance_count}")
     # Deploy logic using api_key
@@ -333,7 +345,7 @@ commands = [
                 # Inline command with inline parameter!
                 COMMAND_NAME: "setup",
                 COMMAND_ACTION: lambda: spafw37.output(
-                    f"Setting up with config: {spafw37.get_param_str('setup-config')}"
+                    f"Setting up with config: {spafw37.get_param('setup-config')}"
                 ),
                 COMMAND_REQUIRED_PARAMS: [
                     {
@@ -504,7 +516,7 @@ from spafw37.constants.command import COMMAND_TRIGGER_PARAM
 
 def load_plugins_action():
     """Load plugins from a specified directory."""
-    plugin_dir = spafw37.get_param_str('plugin-dir')
+    plugin_dir = spafw37.get_param('plugin-dir')
     spafw37.output(f"Loading plugins from {plugin_dir}...")
     # Plugin loading logic here
 

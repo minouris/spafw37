@@ -5,6 +5,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
+- [Default Phases](#default-phases)
 - [Phase Constants](#phase-constants)
 - [Phase Lifecycle](#phase-lifecycle)
 - [Setting Phase Order](#setting-phase-order)
@@ -15,9 +17,25 @@
 
 ## Overview
 
-Phases provide a structured way to organise command execution into distinct lifecycle stages ([see example](../examples/phases_basic.py)). Commands are assigned to phases, and the framework executes all commands in one phase before moving to the next. This ensures proper sequencing of setup, execution, and cleanup operations.
+Phases organize command execution into logical stages. Commands are grouped by phase and executed in a defined order. The framework provides five default phases, and applications can define custom phase orders or add new phases.
 
-By default, all commands run in the `PHASE_EXECUTION` phase. You can customize the phase order and assign commands to specific phases to control execution flow.
+## Version Changes
+
+### v1.1.0
+
+**Parameter Access in Phase Commands:**
+- Commands in all phases now use simplified `get_param()` for parameter access
+- Phase functions can use `set_param()` and `join_param()` for state management
+
+## Default Phases
+
+By default, the framework uses five phases in this execution order:
+
+1. **PHASE_SETUP** - Initialise resources, establish connections, validate preconditions
+2. **PHASE_CLEANUP** - Prepare environment, remove temporary artifacts, reset state
+3. **PHASE_EXECUTION** - Run primary application logic and main operations
+4. **PHASE_TEARDOWN** - Release resources, close connections, finalise operations
+5. **PHASE_END** - Perform final shutdown tasks and reporting
 
 ## Phase Constants
 
