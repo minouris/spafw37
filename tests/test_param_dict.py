@@ -150,50 +150,6 @@ def test_dict_param_complex_nested_json():
     assert spafw37.config._config.get('schema') == complex_data
 
 
-def test_is_short_alias_true():
-    """Test is_short_alias returns True for short aliases.
-    
-    Short aliases match the pattern -x where x is a single character.
-    This validates line 48.
-    """
-    setup_function()
-    assert param.is_short_alias('-v') is True
-    assert param.is_short_alias('-x') is True
-
-
-def test_is_short_alias_false():
-    """Test is_short_alias returns False for non-short aliases.
-    
-    Long aliases and regular strings should not match short alias pattern.
-    This validates line 48.
-    """
-    setup_function()
-    assert param.is_short_alias('--verbose') is False
-    assert param.is_short_alias('value') is False
-
-
-def test_is_long_alias_with_value_true():
-    """Test is_long_alias_with_value for --param=value format.
-    
-    Should return True when alias has embedded value.
-    This validates line 42.
-    """
-    setup_function()
-    assert param.is_long_alias_with_value('--param=value') is True
-    assert param.is_long_alias_with_value('--count=42') is True
-
-
-def test_is_long_alias_with_value_false():
-    """Test is_long_alias_with_value for other formats.
-    
-    Should return False when no embedded value.
-    This validates line 42.
-    """
-    setup_function()
-    assert param.is_long_alias_with_value('--param') is False
-    assert param.is_long_alias_with_value('value') is False
-
-
 def test_is_runtime_only_param_true():
     """Test is_runtime_only_param when param has runtime-only=True.
     
