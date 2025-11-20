@@ -43,9 +43,9 @@ def set_config_file(config_file):
 
 def set_config_value(param_def, value):
     bind_name = param._get_bind_name(param_def)
-    if param.is_list_param(param_def):
+    if param._is_list_param(param_def):
         config.set_config_list_value(value, bind_name)
-    elif param.is_toggle_param(param_def):
+    elif param._is_toggle_param(param_def):
         config.set_config_value(bind_name, bool(value))
     else:
         config.set_config_value(bind_name, param._parse_value(param_def, value))
@@ -64,7 +64,7 @@ def set_config_value_from_cmdline(param_def, value):
     bind_name = param._get_bind_name(param_def)
     
     # If it's a toggle, unset conflicting toggles
-    if param.is_toggle_param(param_def):
+    if param._is_toggle_param(param_def):
         xor_params = param.get_xor_params(bind_name)
         for xor_param in xor_params:
             if xor_param in config.list_config_params():

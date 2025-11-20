@@ -2,7 +2,7 @@ import sys
 import json
 import shlex
 
-from spafw37 import command
+from spafw37 import command, logging
 from spafw37 import config_func as config
 from spafw37 import logging as logging_module
 from spafw37 import param
@@ -49,105 +49,63 @@ def _do_pre_parse_actions():
             logging_module.log_error(_scope='cli', _message=f'Pre-parse action failed: {e}')
             pass
 
-def capture_param_values(args, param_definition):
-    """Capture parameter values from argument list.
+def _parse_cli_args(args):
+    """Parse command-line arguments into structured dict.
+    
+    Tokenizes args into commands and parameters with their values.
     
     Args:
-        args: Remaining arguments to process.
-        param_definition: Parameter definition dictionary.
+        args: List of command-line argument strings.
         
     Returns:
-        Tuple of (offset, value) where offset is args consumed, value is parsed result.
+        Dict with structure:
+        {
+            "commands": [command_names],
+            "params": {"--alias": [captured_tokens]}
+        }
     """
-    if param.is_toggle_param(param_definition):
-        return 1, True
+    parsed = {
+        "commands": [],
+        "params": []
+    }
     
-    values = []
     argument_index = 0
-    base_offset = 1
     arguments_count = len(args)
-
+    current_capture_alias = None
+    
     while argument_index < arguments_count:
-        argument = args[argument_index]
-        # If this argument is a file reference (@path), load the file immediately
-        # and treat its contents as if they were a single argument token.
-        if isinstance(argument, str) and argument.startswith('@'):
-            # Use the file module's helper to read raw file contents
-            file_contents = spafw37_file._read_file_raw(argument[1:])
-            # Replace in the args list so downstream logic sees the file content
-            args[argument_index] = file_contents
-            argument = file_contents
-        
-        if command.is_command(argument) or param.is_long_alias_with_value(argument):
-            break  # Done processing values
-        
-        if param.is_alias(argument):
-            # If the argument is a quoted string that looks like an alias (e.g. '"-x"'),
-            # treat it as a value rather than an alias. Shells usually remove quotes, but
-            # tests or other frontends may preserve them.
-            if _is_quoted_token(argument):
-                # treat quoted alias-like token as a value
-                pass
-            else:
-                if not param.is_param_alias(param_definition, argument):
-                    break  # Done processing values for this param
-                # We are capturing for the correct param, values start on next arg
+        token = args[argument_index].strip()
+        if not _is_quoted_token(token) and command.is_command(token):
+            current_capture_alias = None
+            parsed["commands"].append(token)
+            is_accumulating_value = False
+            argument_index += 1
+            continue
+        if not _is_quoted_token(token) and (param.is_alias(token) or param.is_long_alias_with_value(token)):
+            current_capture_alias = None
+            if not param.is_long_alias_with_value(token):
+                # Simple alias without embedded value
+                parsed["params"].append({ "alias": token, "values": []})
+                current_capture_alias = token
                 argument_index += 1
                 continue
-        
-        # Handle dict type specially (JSON capture / @file capture)
-        if param.is_dict_param(param_definition):
-            return _accumulate_json_for_dict_param(args, argument_index, base_offset, arguments_count, param, command, _is_quoted_token)
-
-        if not param.is_list_param(param_definition):
-            return base_offset + argument_index, argument
-        
-        # For list params, if the captured argument is a string that came from
-        # a file or otherwise contains whitespace, split it into separate list
-        # items so files holding space-separated values behave like multiple
-        # CLI tokens.
-        if isinstance(argument, str) and (" " in argument or "\n" in argument or "\t" in argument):
-            # Use shlex.split so that quoted substrings containing spaces are
-            # preserved as single items (e.g. '"hello world"' -> ['hello world']).
-            parts = shlex.split(argument)
-            values.extend(parts)
-        elif isinstance(argument, str) and argument == '':
-            # Skip empty strings for list params (e.g., from empty files)
-            pass
-        else:
-            values.append(argument)
-        argument_index += 1
-    
-    return argument_index, values
-
-# Module-level variable to hold original args for conflict checking
-_current_args = []
-
-def test_switch_xor(param_definition, args):
-    """Test for mutually exclusive parameter conflicts.
-    
-    Only raises error if BOTH conflicting params were explicitly provided
-    in the command-line args (not just defaults).
-    
-    Args:
-        param_definition: Parameter definition to check for XOR conflicts.
-        args: Command-line arguments list.
-        
-    Raises:
-        ValueError: If conflicting parameters are both in args.
-    """
-    current_param_name = param._get_bind_name(param_definition)
-    
-    # Only check for conflicts if this param is in the args
-    if not param.param_in_args(current_param_name, args):
-        return
-    
-    for bind_name in spafw37.config.list_config_params():
-        if param.has_xor_with(current_param_name, bind_name):
-            # Only raise error if the conflicting param is also in args
-            if param.param_in_args(bind_name, args):
-                param_name = param_definition.get('name')
-                raise ValueError(f"Conflicting parameters provided: {param_name} and {bind_name}")
+            # If it's a long alias with embedded value (--param=value), split it,
+            #  assign the alias to current_capture_alias, and treat the value as token,
+            #  and fall through to capture the value.
+            alias, raw_value = token.split('=', 1)
+            parsed["params"].append({ "alias": alias, "values": []})
+            current_capture_alias = alias
+            token = raw_value
+        # If we have a current param that we're capturing values for...
+        if current_capture_alias:               
+            if token.startswith('@'):
+                # File reference token - treat as value
+                token = spafw37_file._read_file_raw(token)
+            parsed["params"][-1]["values"].append(token)
+            argument_index += 1
+            continue
+        raise ValueError(f"Unknown argument or command: {token}")
+    return parsed
 
 def _parse_command_line(args):
     """Parse command-line arguments and execute commands.
@@ -157,98 +115,49 @@ def _parse_command_line(args):
     Args:
         args: List of command-line argument strings.
     """
-    global _current_args
-    _current_args = args  # Store for conflict checking
-    
-    argument_index = 0
-    arguments_count = len(args)
-    param_definition = None
-    param_value = None
-    
-    while argument_index < arguments_count:
-        argument = args[argument_index]
-        
-        if command.is_command(argument):
-            _handle_command(argument)
-            argument_index += 1
+    tokens = _parse_cli_args(args)
+    for command_name in tokens["commands"]:
+        command.queue_command(command_name)
+    for _param in tokens["params"]:
+        alias = _param["alias"]
+        values = _param["values"]
+        # First check if the alias is registered
+        if not param.get_param_by_alias(alias):
+            raise ValueError(f"Unknown parameter alias: {alias}")
+        if param.is_toggle_param(alias=alias):
+            # Toggles should not have any values assigned
+            if len(values) > 0:
+                raise ValueError(f"Toggle param does not take values: {alias}")
+            param.set_param_value(alias=alias, value=None)
+        elif param.is_number_param(alias=alias):
+            # These params should have one arg value per assignment
+            if len(values) != 1:
+                raise ValueError(f"Number params can only have a single value: {alias}")
+            param.set_param_value(alias=alias, value=values[-1])
+        elif param.is_text_param(alias=alias):
+            # Strings should be joined with spaces if multiple args given
+            param.set_param_value(alias=alias, value=' '.join(values))
+        elif param.is_dict_param(alias=alias):
+            # Join all tokens and pass as string - param layer will parse and validate
+            param.join_param_value(alias=alias, value=''.join(values))
+        elif param.is_list_param(alias=alias):
+            # Just append the values to the list
+            param.join_param_value(alias=alias, value=values)
         else:
-            if param.is_long_alias_with_value(argument):
-                param_value, param_definition = _handle_long_alias_param(argument)
-                argument_index += 1
-            elif param.is_alias(argument):
-                argument_index, param_definition, param_value = _handle_alias_param(args, argument_index, argument)
-                # argument_index already updated by _handle_alias_param
-            else:
-                raise ValueError(f"Unknown argument or command: {argument}")
-            
-            if param_definition and param_value is not None:
-                config.set_config_value_from_cmdline(param_definition, param_value)
+            raise ValueError(f"Unknown param type for alias: {alias}")
 
-def _handle_alias_param(args, argument_index, argument):
-    """Handle a parameter alias argument.
-    
-    Args:
-        args: List of all arguments.
-        argument_index: Current position in args list.
-        argument: The alias argument being processed.
-        
-    Returns:
-        Tuple of (updated_index, param_definition, param_value).
-    """
-    param_definition = param.get_param_by_alias(argument)
-    if not param_definition:
-        raise ValueError(f"Unknown parameter alias: {argument}")
-    
-    test_switch_xor(param_definition, _current_args)
-    
-    if param.is_toggle_param(param_definition):
-        param_value = param._parse_value(param_definition, None)
-        argument_index += 1  # Move past the toggle flag
-    else:
-        offset, param_value = capture_param_values(args[argument_index:], param_definition)
-        argument_index += offset
-    
-    return argument_index, param_definition, param_value
-
-def _handle_long_alias_param(argument):
-    """Handle a long alias with embedded value (--param=value).
-    
-    Args:
-        argument: The argument string containing param=value.
-        
-    Returns:
-        Tuple of (parsed_value, param_definition).
-    """
-    param_alias, raw_value = argument.split('=', 1)
-    param_definition = param.get_param_by_alias(param_alias)
-    
-    if not param_definition:
-        raise ValueError(f"Unknown parameter alias: {param_alias}")
-    
-    test_switch_xor(param_definition, _current_args)
-    # If the embedded value is a file reference, load it now so parsing gets
-    # the file contents rather than the '@path' token.
-    if isinstance(raw_value, str) and raw_value.startswith('@'):
-        raw_value = spafw37_file._read_file_raw(raw_value[1:])
-    return param._parse_value(param_definition, raw_value), param_definition
-
-def _handle_command(argument):
-    """Handle a command argument.
-    
-    Args:
-        argument: The command name.
-    """
-    if not command.is_command(argument):
-        raise ValueError(f"Unknown command alias: {argument}")
-    command.queue_command(argument)
 
 def _set_defaults():
     """Set default values for all registered parameters."""
     for param_definition in param.get_all_param_definitions():  # Updated function name
-        if param.is_toggle_param(param_definition):
+        if param._is_toggle_param(param_definition):
+            _def = param._get_param_default(param_definition, False)
+            print(f"Setting default for toggle param '{param_definition.get(PARAM_NAME)}'= {_def}")
             config.set_config_value(param_definition, param._get_param_default(param_definition, False))
         else:
             if param._param_has_default(param_definition):
+                _def = param._get_param_default(param_definition, None)
+                logging.log_trace(_message=f"Setting default for param '{param_definition.get(PARAM_NAME)}'= {_def}")
                 config.set_config_value(param_definition, param._get_param_default(param_definition))
 
 def _build_preparse_map(preparse_definitions):

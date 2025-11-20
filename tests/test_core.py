@@ -392,15 +392,13 @@ def test_run_cli_success(monkeypatch):
     }
     
     core.add_command(test_cmd)
-    
+
     # Mock sys.argv to simulate command line
     monkeypatch.setattr(sys, 'argv', ['prog', 'test'])
-    
-    core.run_cli()
-    
+
+    core.run_cli(['test'], _embedded=True)
+
     assert executed == ['test']
-
-
 def test_run_cli_command_parameter_error(monkeypatch, capsys):
     """Test run_cli handles CommandParameterError by displaying help and exiting."""
     setup_function()
@@ -415,20 +413,20 @@ def test_run_cli_command_parameter_error(monkeypatch, capsys):
     }
     
     core.add_command(test_cmd)
-    
+
     # Mock sys.argv
     monkeypatch.setattr(sys, 'argv', ['prog', 'failing'])
-    
+
     # Mock sys.exit to capture exit call
     exit_code = []
-    
+
     def mock_exit(code):
         exit_code.append(code)
-    
+
     monkeypatch.setattr(sys, 'exit', mock_exit)
-    
-    core.run_cli()
-    
+
+    core.run_cli(['failing'], _embedded=False)
+
     assert exit_code == [1]
     captured = capsys.readouterr()
     assert "Error: Missing required param" in captured.out

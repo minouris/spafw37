@@ -64,7 +64,7 @@ def _read_file_raw(path):
     Raises clear exceptions on common IO errors.
     
     Args:
-        path: File path (supports ~ expansion)
+        path: File path (supports ~ expansion and @ prefix)
         
     Returns:
         File contents as string
@@ -74,7 +74,9 @@ def _read_file_raw(path):
         PermissionError: If file isn't readable
         ValueError: If file is binary
     """
-    validated_path = _validate_file_for_reading(path)
+    # Strip @ prefix if present (used for CLI @file syntax)
+    clean_path = path[1:] if path.startswith('@') else path
+    validated_path = _validate_file_for_reading(clean_path)
     try:
         with open(validated_path, 'r') as file_handle:
             return file_handle.read()

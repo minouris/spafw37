@@ -81,7 +81,6 @@ def set_max_cycle_nesting_depth(depth):
     """
     cycle_module.set_max_cycle_nesting_depth(depth)
 
-@_deprecated("Use core.get_param_str(), get_param_int(), get_param_bool(), get_param_float(), get_param_list(), or get_param_dict() instead.")
 def get_config_value(name):
     """Get configuration value (DEPRECATED).
     
@@ -97,7 +96,6 @@ def get_config_value(name):
     return _config.get(name)
 
 
-@_deprecated("Use core.get_param_int() instead.")
 def get_config_int(name, default=0):
     """Get configuration value as integer (DEPRECATED).
     
@@ -116,7 +114,6 @@ def get_config_int(name, default=0):
     return int(value)
 
 
-@_deprecated("Use core.get_param_str() instead.")
 def get_config_str(name, default=''):
     """Get configuration value as string (DEPRECATED).
     
@@ -135,7 +132,6 @@ def get_config_str(name, default=''):
     return str(value)
 
 
-@_deprecated("Use core.get_param_bool() instead.")
 def get_config_bool(name, default=False):
     """Get configuration value as boolean (DEPRECATED).
     
@@ -154,7 +150,6 @@ def get_config_bool(name, default=False):
     return bool(value)
 
 
-@_deprecated("Use core.get_param_float() instead.")
 def get_config_float(name, default=0.0):
     """Get configuration value as float (DEPRECATED).
     
@@ -173,7 +168,6 @@ def get_config_float(name, default=0.0):
     return float(value)
 
 
-@_deprecated("Use core.get_param_list() instead.")
 def get_config_list(name, default=None):
     """Get configuration value as list (DEPRECATED).
     
@@ -194,7 +188,6 @@ def get_config_list(name, default=None):
     return value
 
 
-@_deprecated("Use core.get_param_dict() instead.")
 def get_config_dict(name, default=None):
     """Get configuration value as dictionary (DEPRECATED).
     
@@ -215,7 +208,6 @@ def get_config_dict(name, default=None):
     return value
 
 
-@_deprecated("Use core.set_param() instead.")
 def set_config_value(name, value):
     """Set configuration value (DEPRECATED).
     
@@ -228,7 +220,6 @@ def set_config_value(name, value):
     _config[name] = value
 
 
-@_deprecated("Use core.join_param() instead.")
 def set_config_list_value(value, bind_name):
     """Append value to configuration list (DEPRECATED).
     

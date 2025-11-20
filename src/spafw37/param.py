@@ -112,16 +112,16 @@ def is_long_alias_with_value(arg):
 def is_short_alias(arg):
     return bool(re.match(PATTERN_SHORT_ALIAS, arg))
 
-def is_param_type(param, param_type):
+def _is_param_type(param, param_type):
     return param.get(PARAM_TYPE, PARAM_TYPE_TEXT) == param_type
 
-def is_number_param(param):
-    return is_param_type(param, PARAM_TYPE_NUMBER)
+def _is_number_param(param):
+    return _is_param_type(param, PARAM_TYPE_NUMBER)
 
-def is_list_param(param):
-    return is_param_type(param, PARAM_TYPE_LIST)
+def _is_list_param(param):
+    return _is_param_type(param, PARAM_TYPE_LIST)
 
-def is_dict_param(param):
+def _is_dict_param(param):
     """Return True if the parameter definition indicates a dict type.
 
     Args:
@@ -130,10 +130,97 @@ def is_dict_param(param):
     Returns:
         True if the param's type is PARAM_TYPE_DICT, False otherwise.
     """
-    return is_param_type(param, PARAM_TYPE_DICT)
+    return _is_param_type(param, PARAM_TYPE_DICT)
 
-def is_toggle_param(param):
-    return is_param_type(param, PARAM_TYPE_TOGGLE)
+def _is_toggle_param(param):
+    return _is_param_type(param, PARAM_TYPE_TOGGLE)
+
+
+def is_toggle_param(param_name=None, bind_name=None, alias=None):
+    """Check if parameter is a toggle type by name/bind/alias.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME
+        bind_name: Parameter's PARAM_CONFIG_NAME
+        alias: Any of the parameter's PARAM_ALIASES
+        
+    Returns:
+        True if parameter is a toggle type, False otherwise.
+    """
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    return _is_toggle_param(param_def) if param_def else False
+
+
+def is_list_param(param_name=None, bind_name=None, alias=None):
+    """Check if parameter is a list type by name/bind/alias.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME
+        bind_name: Parameter's PARAM_CONFIG_NAME
+        alias: Any of the parameter's PARAM_ALIASES
+        
+    Returns:
+        True if parameter is a list type, False otherwise.
+    """
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    return _is_list_param(param_def) if param_def else False
+
+
+def is_dict_param(param_name=None, bind_name=None, alias=None):
+    """Check if parameter is a dict type by name/bind/alias.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME
+        bind_name: Parameter's PARAM_CONFIG_NAME
+        alias: Any of the parameter's PARAM_ALIASES
+        
+    Returns:
+        True if parameter is a dict type, False otherwise.
+    """
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    return _is_dict_param(param_def) if param_def else False
+
+
+def is_number_param(param_name=None, bind_name=None, alias=None):
+    """Check if parameter is a number type by name/bind/alias.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME
+        bind_name: Parameter's PARAM_CONFIG_NAME
+        alias: Any of the parameter's PARAM_ALIASES
+        
+    Returns:
+        True if parameter is a number type, False otherwise.
+    """
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    return _is_number_param(param_def) if param_def else False
+
+
+def is_text_param(param_name=None, bind_name=None, alias=None):
+    """Check if parameter is a text type by name/bind/alias.
+    
+    Args:
+        param_name: Parameter's PARAM_NAME
+        bind_name: Parameter's PARAM_CONFIG_NAME
+        alias: Any of the parameter's PARAM_ALIASES
+        
+    Returns:
+        True if parameter is a text type, False otherwise.
+    """
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    return _is_text_param(param_def) if param_def else False
+
+
+def _is_text_param(param):
+    """Check if parameter definition is text type.
+    
+    Args:
+        param: Parameter definition dict.
+        
+    Returns:
+        True if parameter type is TEXT or unspecified (defaults to TEXT).
+    """
+    return _is_param_type(param, PARAM_TYPE_TEXT)
 
 
 def is_alias(alias):
@@ -216,37 +303,41 @@ def _validate_list(value):
 
 
 def _validate_dict(value):
-    """Validate and coerce a value to a dict.
+    """Validate and parse a value to a dict.
     
-    Accepts dict directly, or parses JSON strings starting with '{'.
-    File loading (@file) is handled by CLI layer before validation.
+    Accepts dict directly, or parses JSON strings.
+    The CLI passes JSON strings which this function parses and validates.
     
     Args:
-        value: Value to validate and coerce.
+        value: Value to validate (dict or JSON string).
         
     Returns:
         Dict value.
         
     Raises:
-        ValueError: If value cannot be coerced to a dict.
+        ValueError: If value cannot be parsed or is not a dict/object.
     """
     if isinstance(value, dict):
         return value
     
-    # Normalize raw input into a single JSON text string
-    json_text = _normalize_dict_input(value)
+    # Parse JSON string
+    if isinstance(value, str):
+        json_text = value.strip()
+        # Parse JSON
+        try:
+            import json
+            parsed = json.loads(json_text)
+        except json.JSONDecodeError as parse_error:
+            raise ValueError(f"Invalid JSON for dict parameter: {str(parse_error)}")
+        
+        # Validate it's actually a dict/object, not array or primitive
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Dict parameter requires JSON object, got {type(parsed).__name__}")
+        
+        return parsed
     
-    # File reference notation: @/path/to/file.json
-    # Note: CLI layer should have already loaded this, but handle it anyway
-    if json_text.startswith('@'):
-        return _load_json_file(json_text[1:])
-    
-    # JSON object string
-    if json_text.startswith('{'):
-        return _parse_json_text(json_text)
-    
-    # Not a valid dict format
-    raise ValueError("Dict parameter expects JSON object or @file reference")
+    # Reject non-dict, non-string values
+    raise ValueError(f"Dict parameter requires dict or JSON string, got {type(value).__name__}")
 
 
 def _validate_text(value):
@@ -285,22 +376,22 @@ def _parse_value(param, value):
     # If caller provided multiple tokens (list) for a non-list param,
     # normalize into a single string here. This normalization applies to
     # text/number/toggle/dict params and keeps parsing logic simpler.
-    if isinstance(value, list) and not is_list_param(param):
+    if isinstance(value, list) and not _is_list_param(param):
         value = ' '.join(value)
 
     # NOTE: file (@path) handling is performed during argument capture in the
     # CLI layer so that the parser receives the file contents at the appropriate
     # time. Do not read files here; this function only parses values.
 
-    if is_number_param(param):
+    if _is_number_param(param):
         return _parse_number(value)
-    elif is_toggle_param(param):
+    elif _is_toggle_param(param):
         return not bool(param.get(PARAM_DEFAULT, False))
-    elif is_list_param(param):
+    elif _is_list_param(param):
         if not isinstance(value, list):
             return [value]
         return value
-    elif is_dict_param(param):
+    elif _is_dict_param(param):
         # Accept dict value directly
         if isinstance(value, dict):
             return value
@@ -1063,38 +1154,54 @@ def _validate_param_value(param_definition, value, strict=True):
         return value
 
 
-def _validate_xor_conflicts(param_definition):
+def _validate_xor_conflicts(param_definition, value_to_set):
     """
-    Check for XOR conflicts when setting a toggle parameter.
+    Check for XOR conflicts when setting any parameter with a switch list.
     
-    Verifies that no mutually exclusive toggle is already set in configuration.
-    For toggle parameters, checks if any other toggle in the same switch-list
-    is currently enabled.
+    Verifies that no mutually exclusive parameter is already set in configuration.
+    For parameters with PARAM_SWITCH_LIST defined, checks if any other parameter
+    in the same switch-list is currently set.
+    
+    For toggle params: only checks conflict when setting to True (enabling).
+                       Setting to False is allowed (disabling doesn't conflict).
+    For other types: checks conflict if value is not None (setting any value).
     
     Args:
         param_definition: Parameter definition dict to check for conflicts
+        value_to_set: The value that will be set for this parameter
     
     Raises:
-        ValueError: If a conflicting toggle is already set
+        ValueError: If a conflicting parameter is already set
     """
-    if not is_toggle_param(param_definition):
-        return
-    
     bind_name = _get_bind_name(param_definition)
     xor_params = get_xor_params(bind_name)
     
     if not xor_params:
         return
     
-    for xor_param_bind_name in xor_params:
-        if xor_param_bind_name == bind_name:
-            continue
-        
-        existing_value = config.get_config_value(xor_param_bind_name)
-        if existing_value is True:
-            raise ValueError(
-                "Cannot set '{}', conflicts with '{}'".format(bind_name, xor_param_bind_name)
-            )
+    # For toggles being set to False, skip XOR check (disabling doesn't conflict)
+    if _is_toggle_param(param_definition):
+        if not value_to_set:
+            return  # Setting to False - no conflict possible
+        # Setting to True - check if any XOR toggle is already True
+        for xor_param_bind_name in xor_params:
+            if xor_param_bind_name == bind_name:
+                continue
+            existing_value = config.get_config_value(xor_param_bind_name)
+            if existing_value is True:
+                raise ValueError(
+                    "Cannot set '{}', conflicts with '{}'".format(bind_name, xor_param_bind_name)
+                )
+    else:
+        # For non-toggle params, check if any XOR param is already set (not None)
+        for xor_param_bind_name in xor_params:
+            if xor_param_bind_name == bind_name:
+                continue
+            existing_value = config.get_config_value(xor_param_bind_name)
+            if existing_value is not None:
+                raise ValueError(
+                    "Conflicting parameters provided: {} and {}".format(bind_name, xor_param_bind_name)
+                )
 
 
 def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True):
@@ -1128,12 +1235,21 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
     if param_definition is None:
         raise ValueError("Unknown parameter: '{}'".format(param_name or bind_name or alias))
     
-    # Check XOR conflicts for toggles before setting
-    if is_toggle_param(param_definition) and value is True:
-        _validate_xor_conflicts(param_definition)
+    # Handle toggle parameters: use provided value directly for programmatic setting
+    # (CLI layer passes True when toggle is present, we use that value as-is)
+    if _is_toggle_param(param_definition):
+        # If value is explicitly provided, use it; otherwise flip the default
+        if value is None:
+            validated_value = not bool(param_definition.get(PARAM_DEFAULT, False))
+        else:
+            validated_value = bool(value)
+    else:
+        # Validate and coerce value according to parameter type
+        validated_value = _validate_param_value(param_definition, value, strict)
     
-    # Validate and coerce value according to parameter type
-    validated_value = _validate_param_value(param_definition, value, strict)
+    # If param is in a switch list, check for XOR conflicts BEFORE setting value
+    if len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
+        _validate_xor_conflicts(param_definition, validated_value)
     
     # Store value using bind name as config key
     config_key = _get_bind_name(param_definition)
@@ -1323,6 +1439,14 @@ def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
     # Get config key and current value
     config_key = _get_bind_name(param_definition)
     existing_value = config.get_config_value(config_key)
+    
+    # Validate/parse the new value according to type
+    if param_type == PARAM_TYPE_DICT:
+        value = _validate_dict(value)
+    elif param_type == PARAM_TYPE_LIST:
+        value = _validate_list(value)
+    elif param_type == PARAM_TYPE_TEXT:
+        value = _validate_text(value)
     
     # Dispatch to type-specific joiner
     if param_type == PARAM_TYPE_TEXT:

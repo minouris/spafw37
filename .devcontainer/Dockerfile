@@ -60,13 +60,13 @@ parse_python_version() {
 #fi
 
 # Activate venv
-source /workspaces/spafw37/.venv/bin/activate
+# source /workspaces/spafw37/.venv/bin/activate
 
 # Configure pip to trust default PyPI hosts
 pip config set global.trusted-host "pypi.org files.pythonhosted.org pypi.python.org test.pypi.python.org"
 
 export PS1="\[\033[92m\][python-\$(parse_python_version)]\[\033[00m\] \[\033[33m\]\$(parse_git_branch)\[\033[01;34m\] \w\[\033[00m\]\$ "
-export PYTHONPATH="/workspaces/spafw37/src:\$PYTHONPATH"
+export PYTHONPATH="/workspaces/spafw37/src:/woskspaces/tests:\$PYTHONPATH"
 
 # Display MOTD
 echo -e "\n\033[92mWelcome to the SPAFW37 Development Container!\033[0m\n"

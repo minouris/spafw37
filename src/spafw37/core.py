@@ -5,6 +5,7 @@ This module provides a high-level interface for interacting with the
 spafw37 application framework, including configuration management,
 command registration, and parameter handling.
 """
+import sys
 
 # Deprecation tracking
 _deprecated_warnings_shown = set()
@@ -54,22 +55,20 @@ def suppress_deprecation(suppress=True):
     _suppress_deprecation_warnings = suppress
 
 
-def run_cli():
+def run_cli(args=sys.argv[1:], _embedded=False):
     """
     Run the command-line interface for the application.
 
     Import this function and call it in your main application 
     file to handle CLI arguments to set params and run commands.
     """
-    import sys
     import spafw37.configure  # Ensure configuration is set up
     import spafw37.cli as cli
     from spafw37.command import CommandParameterError
     from spafw37 import help
-    
     # Pass user-provided command-line arguments (excluding program name)
     try:
-        cli.handle_cli_args(sys.argv[1:])
+        cli.handle_cli_args(args)
     except CommandParameterError as e:
         # On command parameter error, display help for that specific command
         print(f"Error: {e}")
@@ -78,12 +77,14 @@ def run_cli():
             help.display_command_help(e.command_name)
         else:
             help.display_all_help()
-        sys.exit(1)
+        if not _embedded:
+            sys.exit(1)
     except ValueError as e:
         print(f"Error: {e}")
         print()
         # display_all_help()
-        sys.exit(1)
+        if not _embedded:
+            sys.exit(1)
 
 def _default_output_handler(message):
     print(message)

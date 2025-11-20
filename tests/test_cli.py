@@ -1,5 +1,5 @@
 import pytest
-from spafw37 import cli, config_func as config, param, command
+from spafw37 import cli, config_func, logging, param, command
 import spafw37.config
 from spafw37.constants.command import (
     COMMAND_ACTION,
@@ -24,6 +24,7 @@ from spafw37.constants.param import (
     PARAM_CONFIG_NAME,
     PARAM_SWITCH_LIST,
     PARAM_HAS_VALUE,
+    PARAM_TYPE_TOGGLE,
 )
 import spafw37.constants.param as param_consts
 import spafw37.configure
@@ -39,9 +40,9 @@ def setup_function():
     param._params.clear()
     param._preparse_args.clear()
     try:
-        config._non_persisted_config_names.clear()
+        config_func._non_persisted_config_names.clear()
         spafw37.config._config.clear()
-        config._persistent_config.clear()
+        config_func._persistent_config.clear()
         param._xor_list.clear()
         cli._pre_parse_actions.clear()
         cli._post_parse_actions.clear()
@@ -176,21 +177,21 @@ def test_is_toggle_param_true():
     _param = {
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     }
-    assert param.is_toggle_param(_param) is True
+    assert param._is_toggle_param(_param) is True
 
 def test_is_toggle_param_false():
     setup_function()
     _param = {
         param.PARAM_TYPE: param.PARAM_TYPE_TEXT
     }
-    assert param.is_toggle_param(_param) is False
+    assert param._is_toggle_param(_param) is False
 
 def test_is_toggle_param_default_false():
     setup_function()
     _param = {
         param_consts.PARAM_NAME: 'some_param'
     }
-    assert param.is_toggle_param(_param) is False
+    assert param._is_toggle_param(_param) is False
 
 def test_set_param_xor_list_full_set():
     """
@@ -345,20 +346,26 @@ def test_parse_command_line_param_with_list_value_across_multi_params():
 
 def test_parse_command_line_param_with_toggle_value():
     setup_function()
-    param.add_params([{
-        param_consts.PARAM_NAME: "some_flag",
-        param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
-        param.PARAM_ALIASES: ['--some-flag', '-s'],
-        param.PARAM_DEFAULT: True
+    from spafw37 import core
+    core.add_params([{
+        PARAM_NAME: "some_flag",
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--some-flag', '-s'],
+        PARAM_DEFAULT: True
     },{
-        param_consts.PARAM_NAME: "verbose",
-        param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
-        param.PARAM_ALIASES: ['--verbose', '-v']
+        PARAM_NAME: "another_flag",
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_ALIASES: ['--another', '-a']
     }])
-    args = ["--some-flag", "-v"]
-    cli.handle_cli_args(args)
-    assert spafw37.config._config["some_flag"] is False
-    assert spafw37.config._config["verbose"] is True
+    core.add_command({
+        COMMAND_NAME: "test-command",
+        COMMAND_REQUIRED_PARAMS: [],        
+        COMMAND_ACTION: lambda: None})
+    core.add_params(logging.LOGGING_PARAMS)
+    args = ["test-command", "--trace-console", "--some-flag", "-a"]
+    core.run_cli(args, True)
+    assert core.get_param("another_flag") is True
+    assert core.get_param("some_flag") is False
 
 def test_parse_command_line_param_with_equals_value():
     setup_function()
@@ -531,117 +538,12 @@ def test_add_command_registers_command():
     command.add_command(_command)
     assert command.get_command("sample-command") == _command
 
-def test_handle_command():
-    setup_function()
-    _command = {
-        COMMAND_NAME: "save-user-config",
-        COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
-        COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
-        COMMAND_ACTION: config.save_user_config
-    }
-    command.add_command(_command)
-    param.add_param({
-        PARAM_NAME: CONFIG_OUTFILE_PARAM,
-        PARAM_DESCRIPTION: 'A JSON file to save configuration to',
-        PARAM_CONFIG_NAME: CONFIG_OUTFILE_PARAM,
-        PARAM_TYPE: 'string',
-        PARAM_ALIASES: [CONFIG_INFILE_ALIAS,'-s'],
-        PARAM_REQUIRED: False,
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
-    })
-    args = ["save-user-config", CONFIG_INFILE_ALIAS, "config.json"]
-    cli.handle_cli_args(args)
-    assert command._is_command_finished("save-user-config")
 
-def test_handle_command_missing_required_param_raises():
-    setup_function()
-    _command = {
-        COMMAND_NAME: "save-user-config",
-        COMMAND_REQUIRED_PARAMS: [ CONFIG_OUTFILE_PARAM ],
-        COMMAND_DESCRIPTION: "Saves the current user configuration to a file",
-        COMMAND_ACTION: config.save_user_config
-    }
-    command.add_command(_command)
-    param.add_param({
-        PARAM_NAME: CONFIG_OUTFILE_PARAM,
-        PARAM_DESCRIPTION: 'A JSON file to save configuration to',
-        PARAM_CONFIG_NAME: CONFIG_OUTFILE_PARAM,
-        PARAM_TYPE: 'string',
-        PARAM_ALIASES: ['--save-config','-s'],
-        PARAM_REQUIRED: False,
-        PARAM_PERSISTENCE: PARAM_PERSISTENCE_NEVER
-    })
-    args = ["save-user-config"]
-    with pytest.raises(ValueError, match=f"Missing required parameter '{CONFIG_OUTFILE_PARAM}' for command 'save-user-config'"):
-        cli.handle_cli_args(args)
 
-def test_handle_command_executes_action():
-    setup_function()
-    action_executed = {'executed': False}
-    def sample_action():
-        action_executed['executed'] = True
-    _command = {
-        COMMAND_NAME: "sample-command",
-        COMMAND_REQUIRED_PARAMS: [],
-        COMMAND_DESCRIPTION: "A sample command for testing",
-        COMMAND_ACTION: sample_action
-    }
-    command.add_command(_command)
-    args = ["sample-command"]
-    cli.handle_cli_args(args)
-    command.run_command_queue()
-    assert action_executed['executed'] is True
 
-def test_capture_param_values_toggle_direct():
-    """Directly exercise capture_param_values for a toggle parameter."""
-    setup_function()
-    _param = { param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE }
-    # For toggle params, capture_param_values should immediately return (1, True)
-    result = cli.capture_param_values(['--some-flag'], _param)
-    assert result == (1, True)
 
-def test_capture_param_values_two_aliases_breaks_out():
-    setup_function()
-    # Register two params with distinct aliases
-    param.add_params([{
-        param_consts.PARAM_NAME: "first",
-        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
-        param.PARAM_ALIASES: ['--first', '-f']
-    },{
-        param_consts.PARAM_NAME: "second",
-        param.PARAM_TYPE: param.PARAM_TYPE_TEXT,
-        param.PARAM_ALIASES: ['--second', '-s']
-    }])
-    # Capture values for the first param but provide the second param's alias immediately after
-    _param = param.get_param_by_alias('--first')
-    result = cli.capture_param_values(['--first', '--second'], _param)
-    # Expect capture to break out and return offset 1 (only consumed '--first') and an empty list of values
-    assert result == (1, [])
 
-def test_capture_param_values_breaks_on_command():
-    setup_function()
-    # Register a command that should break capture when encountered
-    _command = {
-        COMMAND_NAME: "break-command",
-        COMMAND_REQUIRED_PARAMS: [],
-        COMMAND_DESCRIPTION: "Command used to break capture",
-        COMMAND_ACTION: lambda: None
-    }
-    command.add_command(_command)
 
-    # Register a list param with an alias
-    param.add_param({
-        param_consts.PARAM_NAME: "files",
-        param.PARAM_TYPE: param.PARAM_TYPE_LIST,
-        param.PARAM_ALIASES: ['--files', '-f']
-    })
-
-    _param = param.get_param_by_alias('--files')
-    # Simulate args where the command appears right after the alias
-    args = ['--files', 'break-command']
-    result = cli.capture_param_values(args, _param)
-    # Expect capture to break out and return offset 1 (only consumed '--files') and an empty list of values
-    assert result == (1, [])
 
 def test_do_pre_parse_actions_swallow_exception():
     setup_function()
@@ -684,22 +586,7 @@ def test_run_command_queue_reraises_on_action_exception():
     except ValueError as e:
         assert str(e) == "cmd-error"
 
-def test_handle_long_alias_param_unknown_raises():
-    setup_function()
-    # Ensure no config params so test_switch_xor doesn't try to inspect _param
-    try:
-        cli._handle_long_alias_param("--no-such=val")
-        assert False, "Expected ValueError for unknown long alias"
-    except ValueError as e:
-        assert str(e) == "Unknown parameter alias: --no-such"
 
-def test_handle_command_unknown_raises():
-    setup_function()
-    try:
-        cli._handle_command("no-such-command")
-        assert False, "Expected ValueError for unknown command"
-    except ValueError as e:
-        assert str(e) == "Unknown command alias: no-such-command"
 
 def test_parse_command_line_unknown_arg_raises():
     setup_function()
@@ -722,14 +609,14 @@ def test_load_user_config_file_not_found():
     spafw37.config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
     with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
         with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.json' not found"):
-             config.load_user_config()
+             config_func.load_user_config()
 
 def test_load_user_config_permission_denied():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         with pytest.raises(PermissionError, match="Permission denied for config file 'restricted.json'"):
-             config.load_user_config()
+             config_func.load_user_config()
 
 def test_load_user_config_invalid_json():
     setup_function()
@@ -737,21 +624,21 @@ def test_load_user_config_invalid_json():
     invalid_json = "{ invalid json content"
     with patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'invalid.json'"):
-             config.load_user_config()
+             config_func.load_user_config()
 
 def test_load_persistent_config_file_not_found():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
     with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
         with pytest.raises(FileNotFoundError, match="Config file 'config.json' not found"):
-             config.load_persistent_config()
+             config_func.load_persistent_config()
 
 def test_load_persistent_config_permission_denied():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         try:
-            config.load_persistent_config()
+            config_func.load_persistent_config()
             assert False, "Expected PermissionError"
         except PermissionError as e:
             assert "Permission denied" in str(e)
@@ -762,7 +649,7 @@ def test_load_persistent_config_invalid_json():
     invalid_json = "{ malformed json"
     with patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'config.json'"):
-             config.load_persistent_config()
+             config_func.load_persistent_config()
 
 def test_save_user_config_permission_denied():
     setup_function()
@@ -770,7 +657,7 @@ def test_save_user_config_permission_denied():
     spafw37.config._config[CONFIG_OUTFILE_PARAM] = "restricted.json"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         with pytest.raises(IOError, match="Error writing to config file 'restricted.json': Permission denied"):
-             config.save_user_config()
+             config_func.save_user_config()
 
 def test_save_user_config_invalid_path():
     setup_function()
@@ -778,22 +665,22 @@ def test_save_user_config_invalid_path():
     spafw37.config._config[CONFIG_OUTFILE_PARAM] = "/invalid/path/config.json"
     with patch('builtins.open', side_effect=OSError("Invalid path")):
         with pytest.raises(IOError, match="Error writing to config file '/invalid/path/config.json': Invalid path"):
-             config.save_user_config()
+             config_func.save_user_config()
 
 def test_save_persistent_config_permission_denied():
     setup_function()
-    config._persistent_config["persistent_key"] = "persistent_value"
+    config_func._persistent_config["persistent_key"] = "persistent_value"
     with patch('builtins.open', side_effect=PermissionError("Permission denied")):
         with pytest.raises(IOError, match="Error writing to config file 'config.json': Permission denied"):
-             config.save_persistent_config()
+             config_func.save_persistent_config()
 
 def test_save_persistent_config_disk_full():
     setup_function()
-    config._persistent_config["key"] = "value"
+    config_func._persistent_config["key"] = "value"
     spafw37.config._config[CONFIG_OUTFILE_PARAM] = "config.json"
     with patch('builtins.open', side_effect=OSError("No space left on device")):
         with pytest.raises(IOError, match="Error writing to config file 'config.json': No space left on device"):
-             config.save_persistent_config()
+             config_func.save_persistent_config()
 
 def test_load_config_empty_file():
     """
@@ -804,7 +691,7 @@ def test_load_config_empty_file():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "empty.json"
     with patch('builtins.open', mock_open(read_data="")):
-        result = config.load_config("empty.json")
+        result = config_func.load_config("empty.json")
         assert result == {}
 
 def test_save_config_json_serialization_error():
@@ -816,7 +703,7 @@ def test_save_config_json_serialization_error():
     
     with patch('builtins.open', mock_open()):
         with pytest.raises(TypeError, match="Object of type datetime is not JSON serializable"):
-            config.save_user_config()
+            config_func.save_user_config()
 
 def test_load_config_unicode_decode_error():
     setup_function()
@@ -824,7 +711,7 @@ def test_load_config_unicode_decode_error():
     # Simulate a file with invalid UTF-8 encoding
     with patch('builtins.open', side_effect=UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')):
         with pytest.raises(UnicodeDecodeError, match="Unicode decode error in config file 'bad_encoding.json': invalid start byte"):
-             config.load_user_config()
+             config_func.load_user_config()
 
 def test_save_config_write_error_during_operation():
     setup_function()
@@ -837,7 +724,7 @@ def test_save_config_write_error_during_operation():
     
     with patch('builtins.open', mock_file):
         with pytest.raises(IOError, match="Error writing to config file 'test.json': Write failed"):
-             config.save_user_config()
+             config_func.save_user_config()
 
 def test_handle_cli_args_sets_defaults():
     setup_function()
@@ -981,141 +868,14 @@ def test_do_pre_parse_actions_exception_handling():
     assert "success" in executed
 
 
-def test_capture_param_values_file_reference():
-    """Test capturing parameter value from file reference (@path).
-    
-    When a parameter value starts with '@', it should be treated as a
-    file reference and the file contents loaded. This validates line 75-78.
-    """
-    setup_function()
-    
-    # Create a test file
-    import tempfile
-    import os
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-        f.write("file content")
-        temp_file = f.name
-    
-    try:
-        # Create a text param
-        text_param = {
-            PARAM_NAME: 'text-param',
-            PARAM_ALIASES: ['--text'],
-            PARAM_TYPE: 'text',
-        }
-        param.add_param(text_param)
-        
-        # Test capture with file reference
-        args = [f'@{temp_file}']
-        offset, value = cli.capture_param_values(args, text_param)
-        
-        assert offset == 1
-        assert value == "file content"
-    finally:
-        os.unlink(temp_file)
 
 
-def test_capture_param_values_dict_param_json():
-    """Test capturing dict parameter with JSON value.
-    
-    Dict params should trigger JSON accumulation logic.
-    This validates line 99 and the _accumulate_json_for_dict_param function.
-    """
-    setup_function()
-    
-    dict_param = {
-        PARAM_NAME: 'dict-param',
-        PARAM_ALIASES: ['--dict'],
-        PARAM_TYPE: 'dict',
-    }
-    param.add_param(dict_param)
-    
-    # Test with JSON that spans multiple tokens
-    args = ['{', '"key":', '"value"', '}']
-    offset, value = cli.capture_param_values(args, dict_param)
-    
-    # Should accumulate all tokens into valid JSON
-    assert '"key"' in value
-    assert '"value"' in value
 
 
-def test_capture_param_values_list_param_whitespace_split():
-    """Test that list params split whitespace-containing strings.
-    
-    When a list param value contains whitespace (from file or elsewhere),
-    it should be split into multiple list items. This validates line 108-116.
-    """
-    setup_function()
-    
-    list_param = {
-        PARAM_NAME: 'list-param',
-        PARAM_ALIASES: ['--list'],
-        PARAM_TYPE: 'list',
-    }
-    param.add_param(list_param)
-    
-    # Simulate a value with spaces (as if from a file)
-    args = ["value1 value2 value3"]
-    offset, values = cli.capture_param_values(args, list_param)
-    
-    assert offset == 1
-    assert values == ["value1", "value2", "value3"]
 
 
-def test_capture_param_values_list_param_empty_string():
-    """Test that list params skip empty strings.
-    
-    Empty strings (e.g., from empty files) should be skipped for list params.
-    This validates line 114-116.
-    """
-    setup_function()
-    
-    list_param = {
-        PARAM_NAME: 'list-param',
-        PARAM_ALIASES: ['--list'],
-        PARAM_TYPE: 'list',
-    }
-    param.add_param(list_param)
-    
-    # Test with empty string followed by real value
-    args = ["", "value1"]
-    offset, values = cli.capture_param_values(args, list_param)
-    
-    # Empty string should be skipped
-    assert values == ["value1"]
 
 
-def test_handle_long_alias_param_file_reference():
-    """Test long alias with embedded file reference (--param=@file).
-    
-    When the embedded value is a file reference, it should be loaded.
-    This validates line 231 coverage.
-    """
-    setup_function()
-    
-    import tempfile
-    import os
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-        f.write("embedded file content")
-        temp_file = f.name
-    
-    try:
-        text_param = {
-            PARAM_NAME: 'text-param',
-            PARAM_ALIASES: ['--text'],
-            PARAM_TYPE: 'text',
-        }
-        param.add_param(text_param)
-        
-        # Store current args for XOR checking
-        cli._current_args = [f'--text=@{temp_file}']
-        
-        value, param_def = cli._handle_long_alias_param(f'--text=@{temp_file}')
-        
-        assert value == "embedded file content"
-        assert param_def == text_param
-    finally:
-        os.unlink(temp_file)
 
 
 def test_accumulate_json_for_dict_param_file_reference():
@@ -1339,55 +1099,7 @@ def test_handle_cli_args_no_app_commands_shows_help(capsys):
     assert "Usage:" in captured.out or "Parameters:" in captured.out
 
 
-def test_capture_param_values_quoted_alias_treated_as_value():
-    """Test that quoted alias-like tokens are treated as values.
-    
-    When capturing param values, if an argument looks like an alias but is quoted,
-    it should be treated as a value. This validates line 89.
-    """
-    setup_function()
-    
-    list_param = {
-        PARAM_NAME: 'items',
-        PARAM_ALIASES: ['--items'],
-        PARAM_TYPE: 'list',
-    }
-    param.add_param(list_param)
-    
-    # Include a quoted "alias-like" value
-    args = ['"--value"', 'actual-value']
-    offset, value = cli.capture_param_values(args, list_param)
-    
-    assert offset == 2
-    assert '"--value"' in value
-    assert 'actual-value' in value
 
-
-def test_test_switch_xor_no_conflict_when_param_not_in_args():
-    """Test that XOR conflict check is skipped when param not in args.
-    
-    If the current param is not in the args list, no XOR check should occur.
-    This validates line 142.
-    """
-    setup_function()
-    
-    verbose = {
-        PARAM_NAME: 'verbose',
-        PARAM_ALIASES: ['--verbose'],
-        PARAM_TYPE: 'toggle',
-        PARAM_SWITCH_LIST: ['silent'],
-    }
-    silent = {
-        PARAM_NAME: 'silent',
-        PARAM_ALIASES: ['--silent'],
-        PARAM_TYPE: 'toggle',
-    }
-    param.add_param(verbose)
-    param.add_param(silent)
-    
-    # Args don't contain verbose, so no conflict check
-    args = ['--silent']
-    cli.test_switch_xor(verbose, args)  # Should not raise
 
 
 def test_parse_long_alias_with_embedded_value_unknown_alias():

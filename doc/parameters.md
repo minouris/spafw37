@@ -44,6 +44,10 @@ Parameters are the foundation of spafw37 applications. They define command-line 
 - `PARAM_DICT_MERGE_TYPE` - Choose shallow or deep dictionary merging
 - `PARAM_DICT_OVERRIDE_STRATEGY` - Handle dictionary key conflicts
 
+**File Loading Improvements:**
+- Multiple `@file` references now supported for list parameters (e.g., `--files @batch1.txt @batch2.txt @batch3.txt`)
+- All files are loaded and their contents combined into a single list
+
 ## Key Capabilities
 - Multiple CLI aliases for the same parameter (e.g., `--verbose`, `-v`)
 - Type validation (text, number, toggle, list)
@@ -450,6 +454,27 @@ file1.txt "my document.pdf" file2.txt "another file.doc"
 python my_app.py process --files @files.txt
 # Result: ['file1.txt', 'my document.pdf', 'file2.txt', 'another file.doc']
 ```
+
+**Multiple file references (v1.1.0):**
+
+You can specify multiple `@file` references in a single parameter occurrence. All files will be loaded and their contents combined:
+
+```bash
+# File: batch1.txt
+file1.txt file2.txt
+
+# File: batch2.txt
+file3.txt file4.txt
+
+# File: batch3.txt
+file5.txt
+
+# Usage - all three files loaded and combined
+python my_app.py process --files @batch1.txt @batch2.txt @batch3.txt
+# Result: ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt', 'file5.txt']
+```
+
+This is particularly useful for organizing file lists into logical groups or combining multiple sources.
 
 ### Dict Parameters with @file
 

@@ -52,6 +52,7 @@ SPAFW37 provides a declarative approach to building CLI applications by defining
 - Added `PARAM_JOIN_SEPARATOR` for configurable string concatenation
 - Added `PARAM_DICT_MERGE_TYPE` for shallow/deep dictionary merging
 - Added `PARAM_DICT_OVERRIDE_STRATEGY` for handling dictionary key conflicts
+- Multiple `@file` references now supported for list parameters
 
 **Backward Compatibility:**
 - All deprecated functions continue to work with one-time deprecation warnings

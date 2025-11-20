@@ -1401,3 +1401,30 @@ This section documents significant deviations from the original implementation p
 - **Navigation:** Complete and accurate Table of Contents in every file
 - **Clarity:** Clear separation between timeless concepts (Overview) and version-specific changes (Version Changes)
 - **Accuracy:** Version markers correctly reflect development timeline
+
+### Multiple File Inputs for List Parameters
+
+**Original Plan:** Step 6 mentioned `@file` loading but didn't explicitly address multiple file inputs in a single parameter occurrence (e.g., `--files @list1.txt @list2.txt @list3.txt`).
+
+**Actual Implementation:** Enhanced CLI file handling to support multiple `@file` arguments for list parameters in a single occurrence.
+
+**Rationale:**
+- **User convenience:** Users can specify multiple file lists in one command: `--files @batch1.txt @batch2.txt @batch3.txt`
+- **Consistency:** Matches expected behavior - all files loaded and combined into one list
+- **CLI responsibility:** File loading is entirely a CLI concern; `param.py` remains ignorant of file loading mechanism
+
+**Code Changes:**
+- Moved file loading (`@file` detection and content loading) earlier in `capture_param_values()` loop
+- Extracted list argument processing into `_process_list_argument()` helper for clarity
+- Continue loop after processing each file argument for list params instead of returning early
+- Updated function docstring to document multiple file reference support
+
+**Test Coverage:**
+- Added `test_capture_param_values_list_param_multiple_file_references()` to verify behavior
+- Test validates three separate files are loaded, contents split on whitespace, and combined into single list
+- All 97 existing CLI tests continue to pass
+
+**Benefits:**
+- **Better UX:** `--files @a.txt @b.txt @c.txt` works as users would expect
+- **Architectural correctness:** File handling stays in CLI layer, param layer unaware
+- **Maintainability:** Clean separation of concerns with focused helper function
