@@ -99,9 +99,15 @@ def _parse_cli_args(args):
         # If we have a current param that we're capturing values for...
         if current_capture_alias:               
             if token.startswith('@'):
-                # File reference token - treat as value
                 token = spafw37_file._read_file_raw(token)
-            parsed["params"][-1]["values"].append(token)
+                # Check if content looks like JSON object (dict param)
+                prefix = token[:10].lstrip()
+                if not prefix.startswith('{'):
+                    parsed["params"][-1]["values"].extend(shlex.split(token))
+                else:
+                    parsed["params"][-1]["values"].append(token)
+            else:
+                parsed["params"][-1]["values"].append(token)
             argument_index += 1
             continue
         raise ValueError(f"Unknown argument or command: {token}")
