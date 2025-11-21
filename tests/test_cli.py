@@ -505,7 +505,10 @@ def test_load_persistent_config_file_not_found():
 def test_load_persistent_config_permission_denied():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
-    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
+    # Mock filesystem to simulate existing file with no read permission
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=False):
         try:
             config_func.load_persistent_config()
             assert False, "Expected PermissionError"
@@ -516,7 +519,11 @@ def test_load_persistent_config_invalid_json():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "invalid.json"
     invalid_json = "{ malformed json"
-    with patch('builtins.open', mock_open(read_data=invalid_json)):
+    # Mock filesystem to simulate existing readable file
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=True), \
+         patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'config.json'"):
              config_func.load_persistent_config()
 
