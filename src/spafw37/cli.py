@@ -43,6 +43,49 @@ def _do_post_parse_actions():
             logging_module.log_error(_scope='cli', _message=f'Post-parse action failed: {e}')
             raise e
 
+
+def _parse_file_value(value):
+    """Replace @file references in value with file contents.
+    
+    Scans the value string for @file tokens and replaces each with the
+    contents of the referenced file. Multiple @file references in a single
+    value are all replaced.
+    
+    Distinguishes between file references (@filepath) and email addresses
+    (user@domain.com) by checking that @ is not preceded by alphanumeric chars.
+    Stops at structural characters like }, ], ), or whitespace.
+    
+    Args:
+        value: String potentially containing @file references
+        
+    Returns:
+        String with @file tokens replaced by file contents
+        
+    Raises:
+        FileNotFoundError: If any referenced file doesn't exist
+        PermissionError: If any referenced file isn't readable
+        ValueError: If any referenced file is binary
+    """
+    import re
+    
+    # Pattern to match @file references but not email addresses:
+    # - Negative lookbehind (?<!\w) ensures @ is not preceded by word char
+    # - @ symbol
+    # - Capture group for filepath: chars that aren't whitespace or JSON/shell delimiters
+    # This matches @path/to/file.txt but not user@example.com
+    # Stops at }, ], ), comma, or whitespace to work inside JSON structures
+    file_pattern = r'(?<!\w)@([^\s\}\]\),]+)'
+    
+    def replace_file_token(match):
+        """Replace a single @file token with its contents."""
+        file_path = match.group(1)
+        # Use the file module's read function (includes @ prefix handling)
+        return spafw37_file._read_file_raw('@' + file_path)
+    
+    # Replace all @file tokens with their contents
+    return re.sub(file_pattern, replace_file_token, value)
+
+
 def _do_pre_parse_actions():
     for action in _pre_parse_actions:
         try:
@@ -125,6 +168,11 @@ def _parse_command_line(tokens):
     for _param in tokens["params"]:
         alias = _param["alias"]
         value = _param["value"]
+        
+        # Replace @file references with file contents
+        # Use regex check to avoid false positives with email addresses
+        if value and re.search(r'(?<!\w)@\S+', value):
+            value = _parse_file_value(value)
         
         # For list and dict params, accumulate values; for all others, set directly
         if param.is_list_param(alias=alias) or param.is_dict_param(alias=alias):

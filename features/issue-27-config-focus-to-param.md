@@ -924,10 +924,20 @@ This ensures:
     - Table entry in "Parameter Definition Constants" section
     - Usage examples showing default space separator
     - Usage examples showing custom separators (comma, pipe, newline)
+  - Add `PARAM_TEXT_FILTER` documentation:
+    - Table entry in "Parameter Definition Constants" section
+    - Explain purpose: custom input processing before validation
+    - Show example with dict params accepting shell-friendly single quotes
+    - Document that framework provides sensible defaults for each param type
   - Document `join_param()` vs `set_param()` semantics:
     - `set_param()` replaces entire value
     - `join_param()` accumulates/appends to existing value
     - Type-specific join behavior (list append, string concat, dict merge)
+  - Add dict parameter advanced features:
+    - Multiple dict blocks: `--config {"a":1} {"b":2}` merges into single dict
+    - File references in JSON: `--config {'data': @file.json}` loads file content into JSON structure
+    - Shell-friendly quotes: Single quotes `{'key':'value'}` automatically converted to valid JSON
+    - Note: email addresses like `user@example.com` correctly ignored (not treated as file references)
   - Document `strict` parameter for getters:
     - `strict=False` (default): returns default on missing param or coercion error
     - `strict=True`: raises `ValueError` on missing param or coercion error
@@ -1428,3 +1438,115 @@ This section documents significant deviations from the original implementation p
 - **Better UX:** `--files @a.txt @b.txt @c.txt` works as users would expect
 - **Architectural correctness:** File handling stays in CLI layer, param layer unaware
 - **Maintainability:** Clean separation of concerns with focused helper function
+
+### Advanced Parameter Input Filtering and Dict Enhancements
+
+**Original Plan:** Steps 1 and 4 specified basic type validation for dict parameters with JSON parsing, but did not include advanced input filtering or enhanced dict handling capabilities.
+
+**Actual Implementation:** Added `PARAM_TEXT_FILTER` configuration and comprehensive dict parameter enhancements including multi-block merging, file references within JSON, and sophisticated quote normalization.
+
+#### PARAM_TEXT_FILTER: Customizable Input Processing
+
+**Functionality:**
+- **Configurable text processing:** Each parameter can define custom input filter function via `PARAM_TEXT_FILTER` key in parameter definition
+- **Applied before validation:** Filter runs on raw string input before type validation/coercion
+- **Type-specific defaults:** Framework provides default filters for each param type (e.g., `_default_filter_dict()` for dict params)
+- **User override capability:** Applications can provide custom filters for specialized parsing needs
+
+**Implementation:**
+- Added `PARAM_TEXT_FILTER` constant to `constants/param.py`
+- Integrated filter application in `join_param_value()` before validation
+- Created `_default_filter_dict()` with quote normalization and JSON parsing
+- Filter receives raw string value, returns processed value ready for validation
+
+**Use Cases:**
+- **Dict params:** Normalize shell-friendly `{'key':'value'}` to valid JSON `{"key":"value"}`
+- **List params:** Custom delimiter handling beyond default whitespace splitting
+- **Text params:** Input sanitization, format conversion, template expansion
+- **Custom formats:** Domain-specific parsing (e.g., connection strings, DSL syntax)
+
+**Example:**
+```python
+def custom_csv_filter(value):
+    """Split CSV input and trim whitespace."""
+    return [item.strip() for item in value.split(',')]
+
+param.add_param({
+    'name': 'tags',
+    'type': 'list',
+    'text-filter': custom_csv_filter  # Override default whitespace splitting
+})
+```
+
+#### Enhanced Dict Parameter Handling
+
+**Multi-Block Dict Merging:**
+- **Multiple JSON objects:** Support `--config {"a":1} {"b":2}` syntax for merging multiple dict blocks
+- **Intelligent splitting:** `_split_top_level_json_objects()` uses brace-depth tracking to identify top-level objects
+- **Recursive processing:** Each detected block processed individually then merged via `join_param_value()`
+- **Nested structure preservation:** Complex nested JSON like `{"users":[{"x":1}]}` correctly treated as single block
+- **Array detection:** JSON arrays `[1,2,3]` correctly identified as non-dict for proper error reporting
+
+**File References in JSON:**
+- **Embedded @file syntax:** Support `{'data': @file.json}` for file references within JSON structures
+- **Smart regex pattern:** `(?<!\w)@([^\s\}\]\),]+)` matches file refs but excludes email addresses
+- **Delimiter awareness:** Stops at JSON structural characters `}`, `]`, `)`, `,` for correct path extraction
+- **CLI layer responsibility:** `_parse_file_value()` handles file loading before param layer sees value
+- **Multiple files:** Support multiple file refs in one value: `{"a": @file1.json, "b": @file2.json}`
+
+**Quote Normalization:**
+- **Shell-friendly syntax:** Accept single quotes `{'key':'value'}` in addition to standard JSON double quotes
+- **Smart conversion:** `_normalize_json_quotes()` converts structural quotes while preserving apostrophes in strings
+- **String delimiter tracking:** Maintains state to only convert quotes outside string literals
+- **Escape handling:** Properly escapes internal quotes when converting: `'O'Brien'` → `"O\"Brien"`
+- **Applied automatically:** All dict input normalized before JSON parsing via `_default_filter_dict()`
+
+**Key Collision Handling:**
+- **Default strategy:** Recent wins - later values override earlier ones when same key appears
+- **Merge semantics:** Consistent with existing `DICT_OVERRIDE_RECENT` behavior from Step 1
+- **Example:** `{"x":1} {"x":99}` → `{"x":99}` (second value wins)
+
+**Implementation Details:**
+
+1. **`_split_top_level_json_objects(text)`:**
+   - Scans string character-by-character tracking brace/bracket depth
+   - Only splits at depth 0 when complete object finished (brace closes)
+   - Filters out non-object results (arrays, primitives) as single blocks
+   - Returns list of JSON object strings for individual processing
+
+2. **`_normalize_json_quotes(text)`:**
+   - Iterates through string maintaining string delimiter state
+   - Converts single quotes to double quotes only outside strings
+   - Escapes existing double quotes found inside single-quoted strings
+   - Preserves apostrophes in string values (e.g., `"don't"`)
+
+3. **`_parse_file_value(value)`:**
+   - Uses regex to find `@filepath` patterns while excluding `user@domain.com`
+   - Negative lookbehind `(?<!\w)` ensures @ not preceded by word character
+   - Character class `[^\s\}\]\),]` stops at whitespace and JSON delimiters
+   - Calls `spafw37_file._read_file_raw()` to load each file
+   - Returns value with all `@file` tokens replaced by file contents
+
+4. **Multi-block detection in `join_param_value()`:**
+   - Runs before input filter to catch multiple blocks early
+   - Checks dict params: splits value if multiple top-level objects detected
+   - Recursively calls `join_param_value()` for each block individually
+   - Each block goes through full filter → validate → merge pipeline
+
+**Test Coverage:**
+- `test_dict_param_multiple_inline_json_objects()` - Multiple `{"a":1} {"b":2}` merging
+- `test_dict_param_multiple_objects_with_key_collision()` - Override strategy validation
+- `test_dict_param_complex_nested_json()` - Nested structures remain intact
+- `test_parse_file_value_inside_json_structure()` - File refs within JSON objects
+- `test_parse_file_value_ignores_email_addresses()` - Email address exclusion
+- `test_parse_file_value_with_parentheses()` - Delimiter handling
+- `test_dict_file_not_dict()` - Proper error for non-dict JSON (arrays)
+- All 509 tests passing with 94.46% coverage
+
+**Benefits:**
+- **User flexibility:** Multiple ways to specify dict values (inline, files, mixed)
+- **Shell ergonomics:** Single quotes work without escaping in shell commands
+- **Composition:** Build complex configs from multiple sources naturally
+- **Correctness:** Proper handling of nested JSON, arrays, file paths
+- **Type safety:** Non-dict JSON (arrays, primitives) properly rejected with clear errors
+- **Maintainability:** Clean separation - CLI handles files, param handles validation

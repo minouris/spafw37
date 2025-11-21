@@ -384,3 +384,156 @@ def test_read_file_raw_permission_denied(tmp_path):
     finally:
         # Restore permissions
         file_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_parse_file_value_single_file(tmp_path):
+    """Test _parse_file_value replaces single @file reference with contents.
+    
+    Should load the file and return its contents in place of the @file token.
+    This validates basic file replacement functionality.
+    """
+    setup_function()
+    
+    file_path = tmp_path / "data.txt"
+    file_path.write_text('file contents')
+    
+    result = cli._parse_file_value(f'@{str(file_path)}')
+    assert result == 'file contents'
+
+
+def test_parse_file_value_multiple_files(tmp_path):
+    """Test _parse_file_value replaces multiple @file references.
+    
+    When value contains multiple @file tokens, all should be replaced
+    with their respective file contents.
+    This validates handling of multiple file references in one value.
+    """
+    setup_function()
+    
+    file1 = tmp_path / "first.txt"
+    file1.write_text('{"a":1}')
+    
+    file2 = tmp_path / "second.txt"
+    file2.write_text('{"b":2}')
+    
+    result = cli._parse_file_value(f'@{str(file1)} @{str(file2)}')
+    assert result == '{"a":1} {"b":2}'
+
+
+def test_parse_file_value_no_files():
+    """Test _parse_file_value returns value unchanged when no @file references.
+    
+    When value doesn't contain @file tokens, it should be returned as-is.
+    This validates no-op behavior for non-file values.
+    """
+    setup_function()
+    
+    result = cli._parse_file_value('{"inline":"json"}')
+    assert result == '{"inline":"json"}'
+
+
+def test_parse_file_value_mixed_inline_and_file(tmp_path):
+    """Test _parse_file_value handles mix of inline content and @file references.
+    
+    Should preserve inline content while replacing only the @file tokens.
+    This validates selective replacement in mixed-content values.
+    """
+    setup_function()
+    
+    file_path = tmp_path / "data.txt"
+    file_path.write_text('{"from_file":true}')
+    
+    result = cli._parse_file_value(f'{{"inline":123}} @{str(file_path)}')
+    assert result == '{"inline":123} {"from_file":true}'
+
+
+def test_parse_file_value_file_not_found(tmp_path):
+    """Test _parse_file_value raises FileNotFoundError for missing file.
+    
+    Should raise clear error when referenced file doesn't exist.
+    This validates error handling for non-existent files.
+    """
+    setup_function()
+    
+    nonexistent = tmp_path / "missing.txt"
+    with pytest.raises(FileNotFoundError):
+        cli._parse_file_value(f'@{str(nonexistent)}')
+
+
+def test_parse_file_value_file_permission_denied(tmp_path):
+    """Test _parse_file_value raises PermissionError for unreadable file.
+    
+    Should raise clear error when file cannot be read.
+    This validates error handling for permission issues.
+    """
+    setup_function()
+    
+    file_path = tmp_path / "noperm.txt"
+    file_path.write_text('content')
+    file_path.chmod(stat.S_IWUSR)  # Write only, no read
+    
+    try:
+        with pytest.raises(PermissionError):
+            cli._parse_file_value(f'@{str(file_path)}')
+    finally:
+        # Restore permissions
+        file_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_parse_file_value_ignores_email_addresses():
+    """Test _parse_file_value doesn't treat @ in email addresses as file references.
+    
+    When value contains email addresses, the @ symbol should not trigger
+    file loading. Only standalone @filepath patterns should be replaced.
+    This validates handling of @ in non-file contexts.
+    """
+    setup_function()
+    
+    # Email addresses should pass through unchanged
+    result = cli._parse_file_value('user@example.com')
+    assert result == 'user@example.com'
+    
+    result = cli._parse_file_value('Contact: admin@domain.org for help')
+    assert result == 'Contact: admin@domain.org for help'
+
+
+def test_parse_file_value_inside_json_structure(tmp_path):
+    """Test _parse_file_value handles @file references inside JSON structures.
+    
+    Should replace @file tokens even when they appear inside JSON objects,
+    stopping at structural characters like } or ].
+    This validates file references embedded in JSON syntax.
+    """
+    setup_function()
+    
+    file_path = tmp_path / "data.json"
+    file_path.write_text('{"nested": "value"}')
+    
+    # Test inside JSON object
+    result = cli._parse_file_value(f"{{'key': @{str(file_path)}}}")
+    assert result == "{'key': {\"nested\": \"value\"}}"
+    
+    # Test inside JSON array
+    result = cli._parse_file_value(f"[@{str(file_path)}]")
+    assert result == '[{"nested": "value"}]'
+    
+    # Test with comma separator
+    result = cli._parse_file_value(f"[@{str(file_path)}, 'other']")
+    assert result == '[{"nested": "value"}, \'other\']'
+
+
+def test_parse_file_value_with_parentheses(tmp_path):
+    """Test _parse_file_value stops at closing parenthesis.
+    
+    When @file reference appears in contexts with parentheses,
+    the file path should stop at the closing paren.
+    This validates delimiter handling in function-like syntax.
+    """
+    setup_function()
+    
+    file_path = tmp_path / "value.txt"
+    file_path.write_text('42')
+    
+    result = cli._parse_file_value(f"process(@{str(file_path)})")
+    assert result == "process(42)"
+

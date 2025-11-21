@@ -487,7 +487,8 @@ def _split_top_level_json_objects(text):
     
     Detects multiple adjacent JSON objects like {"a":1} {"b":2} by tracking
     brace depth. Only splits at depth 0 (between top-level objects), not
-    within nested structures.
+    within nested structures. Non-object JSON (arrays, primitives) are
+    returned as single blocks for downstream validation.
     
     Args:
         text: String potentially containing multiple JSON objects
@@ -498,9 +499,11 @@ def _split_top_level_json_objects(text):
     blocks = []
     current_block = []
     brace_depth = 0
+    bracket_depth = 0
     in_string = False
     string_delimiter = None
     escape_next = False
+    found_any_structure = False
     
     for char in text:
         # Handle escape sequences in strings
@@ -523,21 +526,30 @@ def _split_top_level_json_objects(text):
                 in_string = False
                 string_delimiter = None
         
-        # Track brace depth only outside strings
+        # Track brace and bracket depth only outside strings
         if not in_string:
             if char == '{':
                 brace_depth += 1
+                found_any_structure = True
             elif char == '}':
                 brace_depth -= 1
+            elif char == '[':
+                bracket_depth += 1
+                found_any_structure = True
+            elif char == ']':
+                bracket_depth -= 1
         
         current_block.append(char)
         
-        # When depth returns to 0, we've completed a top-level object
-        if brace_depth == 0 and len(current_block) > 0:
+        # When depth returns to 0 AND we found JSON structures, we've completed a top-level item
+        # Only split on brace completion (objects), not brackets (arrays should be single block)
+        if brace_depth == 0 and bracket_depth == 0 and len(current_block) > 0 and found_any_structure:
             block_text = ''.join(current_block).strip()
-            if block_text:
+            if block_text and block_text.startswith('{'):
+                # Only treat as separate block if it's an object
                 blocks.append(block_text)
-            current_block = []
+                current_block = []
+                found_any_structure = False
     
     # Handle any remaining content
     if current_block:
