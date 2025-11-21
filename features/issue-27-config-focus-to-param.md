@@ -1550,3 +1550,70 @@ param.add_param({
 - **Correctness:** Proper handling of nested JSON, arrays, file paths
 - **Type safety:** Non-dict JSON (arrays, primitives) properly rejected with clear errors
 - **Maintainability:** Clean separation - CLI handles files, param handles validation
+
+---
+
+## CHANGES for v1.1.0 Release
+
+Issue #27: Pivot from Config Focus to Param Focus
+
+### Issues Closed
+
+- #27: Pivot from Config Focus to Param Focus
+
+### Additions
+
+- `get_param()` retrieves parameter value with automatic type conversion based on PARAM_TYPE field in parameter definition.
+- `set_param()` stores parameter value after validating against parameter definition. Raises error if parameter not found or value invalid.
+- `join_param()` adds to existing parameter value. Appends to lists, concatenates strings, merges dicts. Raises error for number and toggle types.
+- `PARAM_JOIN_SEPARATOR` constant sets delimiter for string concatenation. Default is space character.
+- `PARAM_DICT_MERGE_TYPE` constant controls whether dict merging recurses into nested dicts or only merges top-level keys.
+- `PARAM_DICT_OVERRIDE_STRATEGY` constant determines which value wins when same key appears in multiple dicts being merged.
+- `PARAM_INPUT_FILTER` constant specifies function to transform raw CLI input before type validation runs.
+- Multiple JSON blocks in one parameter occurrence get merged: `--config '{"a":1}' '{"b":2}'` produces `{"a":1, "b":2}`.
+- `@filename` in JSON value loads file content: `--config '{"data": @file.json}'` reads file and embeds content.
+- Multiple `@filename` references for list parameters load all files: `--files @batch1.txt @batch2.txt` reads both files into one list.
+- Parameters can be referenced by name, bind_name, or alias. Each identifier checks its own namespace.
+
+### Removals
+
+These functions removed in v2.0.0 (emit deprecation warnings in v1.1.0):
+
+- `get_config_value()`, `get_config_str()`, `get_config_int()`, `get_config_bool()`, `get_config_float()`, `get_config_list()`, `get_config_dict()`
+- `set_config_value()`
+- `set_config_list_value()`
+
+### Changes
+
+- Parameter getters consolidated from seven type-specific functions to single `get_param()` function.
+- Parameter setters split into two functions: `set_param()` for replacement, `join_param()` for accumulation.
+
+### Migration
+
+- Change `get_config_str('key')` to `get_param('key')`
+- Change `get_config_int('key', 0)` to `get_param('key', 0)`
+- Same pattern for bool, float, list, dict variants
+- Change `set_config_value('key', value)` to `set_param(param_name='key', value=value)` when replacing entire value
+- Change `set_config_value('key', value)` to `join_param(param_name='key', value=value)` when adding to existing value
+- Change manual list append pattern (get, append, set) to single `join_param()` call
+
+### Documentation
+
+- 8 documentation files updated to use new API
+- 11 parameter examples updated
+- 10+ command examples updated
+- 3 cycle examples updated
+- 2 new examples: `params_join.py` demonstrates join operations, `params_input_filter.py` demonstrates input transformation
+
+### Testing
+
+- 509 tests pass
+- 94.46% code coverage
+- Deprecated functions have backward compatibility tests
+- No test failures from existing test suite
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0  
+Issue: https://github.com/minouris/spafw37/issues/27  
+Pull request: https://github.com/minouris/spafw37/pull/31
