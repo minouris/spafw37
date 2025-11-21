@@ -40,7 +40,7 @@ PARAM_INPUT_FILTER = 'input-filter'  # Function to convert CLI string values to 
 # These are resolved in param.py to actual functions
 PARAM_DEFAULT_INPUT_FILTERS = {
     # Keys are PARAM_TYPE_* values, values are function names in param module
-    'text': '_default_filter_text',
+    # Text params don't need filtering (passthrough), so no entry for 'text'
     'number': '_default_filter_number',
     'toggle': '_default_filter_toggle',
     'list': '_default_filter_list',

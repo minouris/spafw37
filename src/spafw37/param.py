@@ -1,6 +1,4 @@
 import re
-import json
-import os
 
 from spafw37 import logging
 
@@ -13,7 +11,6 @@ from spafw37.constants.param import (
     PARAM_PERSISTENCE,
     PARAM_SWITCH_LIST,
     PARAM_DEFAULT,
-    PARAM_HAS_VALUE,
     PARAM_PERSISTENCE_ALWAYS,
     PARAM_PERSISTENCE_NEVER,
     PARAM_TYPE_TEXT,
@@ -32,9 +29,6 @@ from spafw37.constants.param import (
     DICT_OVERRIDE_OLDEST,
     DICT_OVERRIDE_ERROR,
     SEPARATOR_SPACE,
-)
-from spafw37.constants.command import (
-    COMMAND_FRAMEWORK,
 )
 from spafw37 import config
 
@@ -134,23 +128,6 @@ def is_short_alias(arg):
 def _is_param_type(param, param_type):
     return param.get(PARAM_TYPE, PARAM_TYPE_TEXT) == param_type
 
-def _is_number_param(param):
-    return _is_param_type(param, PARAM_TYPE_NUMBER)
-
-def _is_list_param(param):
-    return _is_param_type(param, PARAM_TYPE_LIST)
-
-def _is_dict_param(param):
-    """Return True if the parameter definition indicates a dict type.
-
-    Args:
-        param: Parameter definition dict.
-
-    Returns:
-        True if the param's type is PARAM_TYPE_DICT, False otherwise.
-    """
-    return _is_param_type(param, PARAM_TYPE_DICT)
-
 def _is_toggle_param(param):
     return _is_param_type(param, PARAM_TYPE_TOGGLE)
 
@@ -182,7 +159,7 @@ def is_list_param(param_name=None, bind_name=None, alias=None):
         True if parameter is a list type, False otherwise.
     """
     param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
-    return _is_list_param(param_def) if param_def else False
+    return _is_param_type(param_def, PARAM_TYPE_LIST) if param_def else False
 
 
 def is_dict_param(param_name=None, bind_name=None, alias=None):
@@ -197,7 +174,7 @@ def is_dict_param(param_name=None, bind_name=None, alias=None):
         True if parameter is a dict type, False otherwise.
     """
     param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
-    return _is_dict_param(param_def) if param_def else False
+    return _is_param_type(param_def, PARAM_TYPE_DICT) if param_def else False
 
 
 def is_number_param(param_name=None, bind_name=None, alias=None):
@@ -212,7 +189,7 @@ def is_number_param(param_name=None, bind_name=None, alias=None):
         True if parameter is a number type, False otherwise.
     """
     param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
-    return _is_number_param(param_def) if param_def else False
+    return _is_param_type(param_def, PARAM_TYPE_NUMBER) if param_def else False
 
 
 def is_text_param(param_name=None, bind_name=None, alias=None):
@@ -227,19 +204,7 @@ def is_text_param(param_name=None, bind_name=None, alias=None):
         True if parameter is a text type, False otherwise.
     """
     param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
-    return _is_text_param(param_def) if param_def else False
-
-
-def _is_text_param(param):
-    """Check if parameter definition is text type.
-    
-    Args:
-        param: Parameter definition dict.
-        
-    Returns:
-        True if parameter type is TEXT or unspecified (defaults to TEXT).
-    """
-    return _is_param_type(param, PARAM_TYPE_TEXT)
+    return _is_param_type(param_def, PARAM_TYPE_TEXT) if param_def else False
 
 
 def is_alias(alias):
@@ -391,11 +356,6 @@ def _validate_text(value):
     """
     if not isinstance(value, str):
         return str(value)
-    return value
-
-
-def _default_filter_text(value):
-    """Default input filter for TEXT params - passthrough."""
     return value
 
 
@@ -605,18 +565,18 @@ def _parse_value(param, value):
     # If caller provided multiple tokens (list) for a non-list param,
     # normalize into a single string here. This normalization applies to
     # text/number/toggle/dict params and keeps parsing logic simpler.
-    if isinstance(value, list) and not _is_list_param(param):
+    if isinstance(value, list) and not _is_param_type(param, PARAM_TYPE_LIST):
         value = ' '.join(value)
 
-    if _is_number_param(param):
+    if _is_param_type(param, PARAM_TYPE_NUMBER):
         return _validate_number(value)
     elif _is_toggle_param(param):
         return not bool(param.get(PARAM_DEFAULT, False))
-    elif _is_list_param(param):
+    elif _is_param_type(param, PARAM_TYPE_LIST):
         if not isinstance(value, list):
             return [value]
         return value
-    elif _is_dict_param(param):
+    elif _is_param_type(param, PARAM_TYPE_DICT):
         return _validate_dict(value)
     else:
         return value
@@ -627,10 +587,6 @@ def _add_param_xor(param_name, xor_param_name):
         return
     if xor_param_name not in _xor_list[param_name]:
         _xor_list[param_name].append(xor_param_name)
-
-def has_xor_with(param_name, other_param_name):
-    xor_list = _xor_list.get(param_name, [])
-    return other_param_name in xor_list
 
 def get_xor_params(param_name):
     """Get list of params that are mutually exclusive with given param.
@@ -824,30 +780,6 @@ def add_param(_param):
         _param: Parameter definition dictionary with keys like
                 PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
     """
-    _activate_param(_param)
-
-
-def _register_param_alias(param, alias):
-    """Register an alias for a parameter.
-    
-    Args:
-        param: Parameter dictionary.
-        alias: Alias string to register.
-    """
-    if not is_alias(alias):
-        raise ValueError(f"Invalid alias format: {alias}")
-    _param_aliases[alias] = param[PARAM_NAME]
-
-
-def _activate_param(_param):
-    """Activate a parameter by adding it to the active registry.
-    
-    This is called internally during build_params_for_run_level to process
-    buffered parameters.
-    
-    Args:
-        _param: Parameter definition dictionary.
-    """
     _param_name = _param.get(PARAM_NAME)
     if PARAM_ALIASES in _param:
         for alias in _param.get(PARAM_ALIASES, []):
@@ -875,6 +807,18 @@ def _activate_param(_param):
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
     _params[_param_name] = _param
+
+
+def _register_param_alias(param, alias):
+    """Register an alias for a parameter.
+    
+    Args:
+        param: Parameter dictionary.
+        alias: Alias string to register.
+    """
+    if not is_alias(alias):
+        raise ValueError(f"Invalid alias format: {alias}")
+    _param_aliases[alias] = param[PARAM_NAME]
 
 
 def _get_bind_name(param):
@@ -938,9 +882,12 @@ def get_all_param_definitions():
 
 # Helper functions ---------------------------------------------------------
 
-def get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+def _get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
-    Retrieve raw parameter value from configuration with flexible resolution.
+    Internal helper to retrieve raw parameter value from configuration.
+    
+    This is a private method used internally by the param layer. External code
+    should use get_param() which provides automatic type coercion.
     
     Resolves parameter using param_name, bind_name, or alias with failover logic,
     then retrieves the value from internal configuration. Returns default if not found
@@ -1009,7 +956,7 @@ def _get_param_str(param_name=None, bind_name=None, alias=None, default='', stri
     Raises:
         ValueError: If strict=True and parameter not found
     """
-    value = get_param_value(
+    value = _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,
@@ -1017,6 +964,8 @@ def _get_param_str(param_name=None, bind_name=None, alias=None, default='', stri
         strict=strict
     )
     
+    if value is None:
+        return default
     return str(value)
 
 
@@ -1044,13 +993,16 @@ def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, stric
     Raises:
         ValueError: If strict=True and coercion fails
     """
-    value = get_param_value(
+    value = _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,
         default=default,
         strict=False  # Handle strict mode ourselves after coercion
     )
+    
+    if value is None:
+        return default
     
     try:
         # Use int(float(value)) for truncation behavior
@@ -1086,7 +1038,7 @@ def _get_param_bool(param_name=None, bind_name=None, alias=None, default=False, 
     Raises:
         ValueError: If strict=True and parameter not found
     """
-    value = get_param_value(
+    value = _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,
@@ -1094,6 +1046,8 @@ def _get_param_bool(param_name=None, bind_name=None, alias=None, default=False, 
         strict=strict
     )
     
+    if value is None:
+        return default
     return bool(value)
 
 
@@ -1121,13 +1075,16 @@ def _get_param_float(param_name=None, bind_name=None, alias=None, default=0.0, s
     Raises:
         ValueError: If strict=True and coercion fails
     """
-    value = get_param_value(
+    value = _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,
         default=default,
         strict=False  # Handle strict mode ourselves after coercion
     )
+    
+    if value is None:
+        return default
     
     try:
         return float(value)
@@ -1164,7 +1121,7 @@ def _get_param_list(param_name=None, bind_name=None, alias=None, default=None, s
     if default is None:
         default = []
     
-    return get_param_value(
+    return _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,
@@ -1200,7 +1157,7 @@ def _get_param_dict(param_name=None, bind_name=None, alias=None, default=None, s
     if default is None:
         default = {}
     
-    return get_param_value(
+    return _get_param_value(
         param_name=param_name,
         bind_name=bind_name,
         alias=alias,

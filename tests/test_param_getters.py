@@ -38,7 +38,7 @@ class TestGetParamValue:
         param.add_params([test_param])
         config.set_config_value('db', 'production')  # Store using bind_name (config-name)
         
-        result = param.get_param_value(param_name='database')
+        result = param._get_param_value(param_name='database')
         assert result == 'production'
 
     def test_get_param_value_by_bind_name_returns_stored_value(self):
@@ -53,7 +53,7 @@ class TestGetParamValue:
         param.add_params([test_param])
         config.set_config_value('db', 'staging')  # Store using bind_name (config-name)
         
-        result = param.get_param_value(bind_name='db')
+        result = param._get_param_value(bind_name='db')
         assert result == 'staging'
 
     def test_get_param_value_by_alias_returns_stored_value(self):
@@ -68,7 +68,7 @@ class TestGetParamValue:
         param.add_params([test_param])
         config.set_config_value('verbose', True)
         
-        result = param.get_param_value(alias='--verbose')
+        result = param._get_param_value(alias='--verbose')
         assert result is True
 
     def test_get_param_value_failover_resolution_returns_value(self):
@@ -84,7 +84,7 @@ class TestGetParamValue:
         config.set_config_value('max_conn', 100)  # Store using bind_name (config-name)
         
         # Call with what looks like bind_name but using param_name argument
-        result = param.get_param_value(param_name='max_conn')
+        result = param._get_param_value(param_name='max_conn')
         assert result == 100
 
     def test_get_param_value_missing_returns_default(self):
@@ -95,7 +95,7 @@ class TestGetParamValue:
         be returned without raising an error because this is the expected fallback behavior.
         """
         
-        result = param.get_param_value(param_name='nonexistent', default='fallback')
+        result = param._get_param_value(param_name='nonexistent', default='fallback')
         assert result == 'fallback'
 
     def test_get_param_value_missing_strict_raises_error(self):
@@ -107,7 +107,7 @@ class TestGetParamValue:
         """
         
         with pytest.raises(ValueError, match="Parameter .* not found"):
-            param.get_param_value(param_name='nonexistent', strict=True)
+            param._get_param_value(param_name='nonexistent', strict=True)
 class TestGetParamStr:
     """
     Tests for __get_param_str() function that retrieves string parameter values.

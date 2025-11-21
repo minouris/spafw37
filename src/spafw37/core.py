@@ -29,7 +29,7 @@ def _deprecated(message):
                 if func_name not in _deprecated_warnings_shown:
                     _deprecated_warnings_shown.add(func_name)
                     from spafw37 import logging as spafw37_logging
-                    spafw37_logging.warning(f"{func_name}() is deprecated. {message}")
+                    spafw37_logging.log_warning(_message=f"{func_name}() is deprecated. {message}")
             return func(*args, **kwargs)
         return wrapper
     return decorator
@@ -227,8 +227,8 @@ def get_config_value(config_key):
     """
     Get a configuration value.
     """
-    from spafw37 import config
-    return config.get_config_value(config_key)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, strict=True)
 
 
 def get_config_int(config_key, default=0):
@@ -242,8 +242,8 @@ def get_config_int(config_key, default=0):
     Returns:
         Integer configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_int(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_str(config_key, default=''):
@@ -257,8 +257,8 @@ def get_config_str(config_key, default=''):
     Returns:
         String configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_str(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_bool(config_key, default=False):
@@ -272,8 +272,8 @@ def get_config_bool(config_key, default=False):
     Returns:
         Boolean configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_bool(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_float(config_key, default=0.0):
@@ -287,8 +287,8 @@ def get_config_float(config_key, default=0.0):
     Returns:
         Float configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_float(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_list(config_key, default=None):
@@ -302,8 +302,8 @@ def get_config_list(config_key, default=None):
     Returns:
         List configuration value or default (empty list if default is None).
     """
-    from spafw37 import config
-    return config.get_config_list(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_dict(config_key, default=None):
@@ -317,16 +317,21 @@ def get_config_dict(config_key, default=None):
     Returns:
         Dictionary configuration value or default (empty dict if default is None).
     """
-    from spafw37 import config
-    return config.get_config_dict(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def set_config_value(config_key, value):
     """
     Set a configuration value.
     """
-    from spafw37 import config
-    config.set_config_value(config_key, value)
+    from spafw37 import param
+    try:
+        param.set_param(param_name=config_key, value=value)
+    except ValueError:
+        # If param not registered, set directly in config (backward compatibility)
+        from spafw37 import config
+        config.set_config_value(config_key, value)
 
 
 def is_verbose():

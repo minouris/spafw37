@@ -362,7 +362,7 @@ def test_is_number_param_for_dict_type():
     """
     setup_function()
     dict_param = {'name': 'mydict', 'type': 'dict'}
-    assert param._is_number_param(dict_param) is False
+    assert param._is_param_type(dict_param, 'number') is False
 
 
 def test_is_list_param_for_dict_type():
@@ -373,4 +373,4 @@ def test_is_list_param_for_dict_type():
     """
     setup_function()
     dict_param = {'name': 'mydict', 'type': 'dict'}
-    assert param._is_list_param(dict_param) is False
+    assert param._is_param_type(dict_param, 'list') is False

@@ -361,7 +361,7 @@ def test_read_file_raw_file_not_found():
     """
     setup_function()
     
-    with pytest.raises(FileNotFoundError, match="Parameter file not found"):
+    with pytest.raises(FileNotFoundError, match="File not found:"):
         spafw37_file._read_file_raw('/nonexistent/file.txt')
 
 

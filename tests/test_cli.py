@@ -468,22 +468,30 @@ def test_parse_command_line_unknown_argument_raises():
 def test_load_user_config_file_not_found():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "nonexistent.json"
-    with patch('builtins.open', side_effect=FileNotFoundError("No such file")):
+    # Mock os.path.exists to return False (file doesn't exist)
+    with patch('os.path.exists', return_value=False):
         with pytest.raises(FileNotFoundError, match="Config file 'nonexistent.json' not found"):
              config_func.load_user_config()
 
 def test_load_user_config_permission_denied():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "restricted.json"
-    with patch('builtins.open', side_effect=PermissionError("Permission denied")):
-        with pytest.raises(PermissionError, match="Permission denied for config file 'restricted.json'"):
+    # Mock filesystem to simulate existing file with no read permission
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=False):
+        with pytest.raises(PermissionError, match="Permission denied reading file: restricted.json"):
              config_func.load_user_config()
 
 def test_load_user_config_invalid_json():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "invalid.json"
     invalid_json = "{ invalid json content"
-    with patch('builtins.open', mock_open(read_data=invalid_json)):
+    # Mock filesystem to simulate existing readable file
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=True), \
+         patch('builtins.open', mock_open(read_data=invalid_json)):
         with pytest.raises(ValueError, match="Invalid JSON in config file 'invalid.json'"):
              config_func.load_user_config()
 
@@ -551,7 +559,11 @@ def test_load_config_empty_file():
     """
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "empty.json"
-    with patch('builtins.open', mock_open(read_data="")):
+    # Mock filesystem to simulate existing readable empty file
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=True), \
+         patch('builtins.open', mock_open(read_data="")):
         result = config_func.load_config("empty.json")
         assert result == {}
 
@@ -569,8 +581,11 @@ def test_save_config_json_serialization_error():
 def test_load_config_unicode_decode_error():
     setup_function()
     spafw37.config._config[CONFIG_INFILE_PARAM] = "bad_encoding.json"
-    # Simulate a file with invalid UTF-8 encoding
-    with patch('builtins.open', side_effect=UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')):
+    # Mock filesystem and simulate a file with invalid UTF-8 encoding
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.isfile', return_value=True), \
+         patch('os.access', return_value=True), \
+         patch('builtins.open', side_effect=UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid start byte')):
         with pytest.raises(UnicodeDecodeError, match="Unicode decode error in config file 'bad_encoding.json': invalid start byte"):
              config_func.load_user_config()
 

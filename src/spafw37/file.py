@@ -28,31 +28,32 @@ def _validate_file_for_reading(file_path):
     """
     expanded_path = os.path.expanduser(file_path)
     
-    # Only perform filesystem checks if path actually exists
-    # This allows mocked opens in tests to work naturally
-    if os.path.exists(expanded_path):
-        # Check if it's a file (not a directory)
-        if not os.path.isfile(expanded_path):
-            raise ValueError(f"Path is not a file: {expanded_path}")
-        
-        # Check if file is readable
-        if not os.access(expanded_path, os.R_OK):
-            raise PermissionError(f"Permission denied reading file: {expanded_path}")
-        
-        # Check if file appears to be binary by reading first few bytes
-        try:
-            with open(expanded_path, 'rb') as file_handle:
-                initial_bytes = file_handle.read(8192)  # Read first 8KB
-                # Check for null bytes which indicate binary content
-                # Handle case where mock_open returns string instead of bytes
-                if isinstance(initial_bytes, bytes) and b'\x00' in initial_bytes:
-                    raise ValueError(f"File appears to be binary: {expanded_path}")
-        except PermissionError:
-            raise PermissionError(f"Permission denied reading file: {expanded_path}")
-        except (IOError, OSError, UnicodeDecodeError) as io_error:
-            # Let the actual open() in the calling code handle these
-            # UnicodeDecodeError should propagate naturally from the actual read
-            pass
+    # Check if file exists
+    if not os.path.exists(expanded_path):
+        raise FileNotFoundError(f"File not found: {expanded_path}")
+    
+    # Check if it's a file (not a directory)
+    if not os.path.isfile(expanded_path):
+        raise ValueError(f"Path is not a file: {expanded_path}")
+    
+    # Check if file is readable
+    if not os.access(expanded_path, os.R_OK):
+        raise PermissionError(f"Permission denied reading file: {expanded_path}")
+    
+    # Check if file appears to be binary by reading first few bytes
+    try:
+        with open(expanded_path, 'rb') as file_handle:
+            initial_bytes = file_handle.read(8192)  # Read first 8KB
+            # Check for null bytes which indicate binary content
+            # Handle case where mock_open returns string instead of bytes
+            if isinstance(initial_bytes, bytes) and b'\x00' in initial_bytes:
+                raise ValueError(f"File appears to be binary: {expanded_path}")
+    except PermissionError:
+        raise PermissionError(f"Permission denied reading file: {expanded_path}")
+    except (IOError, OSError, UnicodeDecodeError) as io_error:
+        # Let the actual open() in the calling code handle these
+        # UnicodeDecodeError should propagate naturally from the actual read
+        pass
     
     return expanded_path
 

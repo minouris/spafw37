@@ -175,68 +175,109 @@ def test_set_config_value():
 
 
 def test_get_config_value():
-    """Test getting configuration value through core facade."""
+    """Test that deprecated get_config_value requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['test_key'] = 'test_value'
-    assert core.get_config_value('test_key') == 'test_value'
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_value('test_key')
 
 
 def test_get_config_int():
-    """Test getting configuration value as integer through core facade."""
+    """Test that deprecated get_config_int requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['count'] = 42
-    assert core.get_config_int('count') == 42
-    assert core.get_config_int('missing', default=10) == 10
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_int('count')
 
 
 def test_get_config_str():
-    """Test getting configuration value as string through core facade."""
+    """Test that deprecated get_config_str requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['name'] = 'test'
-    assert core.get_config_str('name') == 'test'
-    assert core.get_config_str('missing', default='default') == 'default'
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_str('name')
 
 
 def test_get_config_bool():
-    """Test getting configuration value as boolean through core facade."""
+    """Test that deprecated get_config_bool requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['flag'] = True
-    assert core.get_config_bool('flag') is True
-    assert core.get_config_bool('missing', default=False) is False
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_bool('flag')
 
 
 def test_get_config_float():
-    """Test getting configuration value as float through core facade."""
+    """Test that deprecated get_config_float requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['value'] = 3.14
-    assert core.get_config_float('value') == 3.14
-    assert core.get_config_float('missing', default=1.0) == 1.0
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_float('value')
 
 
 def test_get_config_list():
-    """Test getting configuration value as list through core facade."""
+    """Test that deprecated get_config_list requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     spafw37.config._config['items'] = ['a', 'b', 'c']
-    assert core.get_config_list('items') == ['a', 'b', 'c']
-    assert core.get_config_list('missing') == []
-    assert core.get_config_list('missing', default=['default']) == ['default']
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_list('items')
 
 
 def test_get_config_dict():
-    """Test getting configuration value as dictionary through core facade."""
+    """Test that deprecated get_config_dict requires registered params.
+    
+    This test verifies that the deprecated method correctly raises ValueError
+    when attempting to access configuration without a registered parameter.
+    Users must register parameters to access values through the param API.
+    """
     setup_function()
     
     test_dict = {'key': 'value', 'nested': {'inner': 'data'}}
     spafw37.config._config['data'] = test_dict
-    assert core.get_config_dict('data') == test_dict
-    assert core.get_config_dict('missing') == {}
-    assert core.get_config_dict('missing', default={'default': 'value'}) == {'default': 'value'}
+    # Should raise ValueError because param is not registered
+    with pytest.raises(ValueError):
+        core.get_config_dict('data')
 
 
 def test_is_verbose():

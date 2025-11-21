@@ -242,33 +242,29 @@ class TestDeprecatedFunctionsWithDefaults:
 
 class TestDeprecationDecorator:
     """
-    Tests for the @_deprecated decorator mechanism.
+    Tests for the deprecated config functions.
     
-    Verifies that the decorator tracks which functions have shown warnings
-    to avoid repeated warnings for the same function.
+    Note: Deprecation tracking is now in core.py since config.py methods
+    are internal infrastructure used by the param layer. User-facing
+    deprecation warnings are shown through core.py's deprecated wrappers.
     """
 
-    def test_deprecation_tracking_set_exists(self):
+    def test_config_methods_still_work_internally(self):
         """
-        Tests that deprecation tracking set exists.
+        Tests that config methods work without deprecation warnings.
         
-        The _deprecated_warnings_shown set should exist and be accessible
-        because it's used to track which functions have already shown warnings.
+        Config module methods are internal infrastructure and should not
+        show deprecation warnings. Only the public API in core.py should
+        show warnings to users.
         """
-        assert hasattr(config, '_deprecated_warnings_shown')
-        assert isinstance(config._deprecated_warnings_shown, set)
+        # These should work without any warnings
+        config.set_config_value('test_key', 'test_value')
+        assert config.get_config_value('test_key') == 'test_value'
+        
+        config.set_config_value('int_key', 42)
+        assert config.get_config_int('int_key') == 42
+        
+        config.set_config_value('bool_key', True)
+        assert config.get_config_bool('bool_key') == True
 
-    def test_can_clear_deprecation_tracking(self):
-        """
-        Tests that deprecation tracking can be cleared.
-        
-        The tracking set should be clearable, which is useful for testing
-        because it allows each test to start with a clean state.
-        """
-        config._deprecated_warnings_shown.add('test_function')
-        assert 'test_function' in config._deprecated_warnings_shown
-        
-        config._deprecated_warnings_shown.clear()
-        
-        assert len(config._deprecated_warnings_shown) == 0
 

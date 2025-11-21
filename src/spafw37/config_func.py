@@ -54,6 +54,10 @@ def load_config(config_file_in):
     if config_file_in:
         try:
             validated_path = spafw37_file._validate_file_for_reading(config_file_in)
+        except FileNotFoundError:
+            # Re-raise with consistent message format
+            logging.log_error(_scope='config', _message=f"Config file '{config_file_in}' not found")
+            raise FileNotFoundError(f"Config file '{config_file_in}' not found")
         except ValueError as value_error:
             # Catch binary file or directory errors from validator
             logging.log_error(_scope='config', _message=str(value_error))
@@ -124,7 +128,7 @@ def load_persistent_config():
         for config_key, value in loaded_config.items():
             # Try to find param with this bind name and set through param API
             try:
-                param.set_param(bind_name=config_key, value=value)
+                param.set_param(param_name=config_key, value=value)
             except ValueError:
                 # If param not registered, set directly in config (backward compatibility)
                 config.set_config_value(config_key, value)
@@ -139,7 +143,11 @@ def load_user_config():
     Loads user config file and updates runtime config. XOR validation is disabled
     during loading since values were already validated when saved.
     """
-    in_file = config.get_config_value(CONFIG_INFILE_PARAM)
+    try:
+        in_file = param.get_param(bind_name=CONFIG_INFILE_PARAM, strict=True)
+    except (ValueError, KeyError):
+        # Fall back to raw config if param not registered
+        in_file = config.get_config_value(CONFIG_INFILE_PARAM)
     if in_file:
         loaded_config = load_config(in_file)
         
@@ -150,7 +158,7 @@ def load_user_config():
             for config_key, value in loaded_config.items():
                 # Try to find param with this bind name and set through param API
                 try:
-                    param.set_param(bind_name=config_key, value=value)
+                    param.set_param(param_name=config_key, value=value)
                 except ValueError:
                     # If param not registered, set directly in config (backward compatibility)
                     config.set_config_value(config_key, value)
@@ -173,7 +181,11 @@ def get_filtered_config_copy():
 
 
 def save_user_config():
-    out_file = config.get_config_value(CONFIG_OUTFILE_PARAM)
+    try:
+        out_file = param.get_param(bind_name=CONFIG_OUTFILE_PARAM, strict=True)
+    except (ValueError, KeyError):
+        # Fall back to raw config if param not registered
+        out_file = config.get_config_value(CONFIG_OUTFILE_PARAM)
     if out_file:
         # Save a filtered copy of the runtime config (exclude non-persisted params)
         save_config(out_file, get_filtered_config_copy())
