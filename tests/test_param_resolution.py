@@ -262,3 +262,21 @@ def test_resolve_param_definition_not_found():
     result = param._resolve_param_definition('nonexistent')
     
     assert result is None
+
+
+def test_param_in_args_with_equals_format():
+    """Test param_in_args detects --param=value format.
+    
+    Should return True when param appears as --alias=value in args.
+    This validates detection of equals-syntax parameters in argument lists.
+    """
+    setup_function()
+    test_param = {
+        'name': 'count',
+        'aliases': ['--count', '-c'],
+        'type': 'number',
+    }
+    param.add_param(test_param)
+    
+    args = ['--count=42', 'other']
+    assert param.param_in_args('count', args) is True

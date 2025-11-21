@@ -82,38 +82,8 @@ def test_validate_number_empty_string_raises():
 
 
 # Tests for _validate_toggle()
-def test_validate_toggle_default_false():
-    """Test _validate_toggle flips False default to True.
-    
-    Should return True when default is False.
-    This validates that toggle flips the default value.
-    """
-    param_def = {PARAM_DEFAULT: False}
-    result = param._validate_toggle(param_def)
-    assert result is True
-
-
-def test_validate_toggle_default_true():
-    """Test _validate_toggle flips True default to False.
-    
-    Should return False when default is True.
-    This validates that toggle flips the default value.
-    """
-    param_def = {PARAM_DEFAULT: True}
-    result = param._validate_toggle(param_def)
-    assert result is False
-
-
-def test_validate_toggle_no_default():
-    """Test _validate_toggle returns True when no default specified.
-    
-    Should return True (flipped from implicit False default).
-    This validates that missing default is treated as False.
-    """
-    param_def = {}
-    result = param._validate_toggle(param_def)
-    assert result is True
-
+# Tests for _validate_toggle removed as function was deleted
+# Toggle validation is now handled inline in set_param_value()
 
 # Tests for _validate_list()
 def test_validate_list_list_value():

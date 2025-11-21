@@ -2,6 +2,8 @@ import re
 import json
 import os
 
+from spafw37 import logging
+
 from spafw37.constants.param import (
     PARAM_NAME,
     PARAM_CONFIG_NAME,
@@ -20,6 +22,8 @@ from spafw37.constants.param import (
     PARAM_TYPE_LIST,
     PARAM_TYPE_DICT,
     PARAM_JOIN_SEPARATOR,
+    PARAM_INPUT_FILTER,
+    PARAM_DEFAULT_INPUT_FILTERS,
     PARAM_DICT_MERGE_TYPE,
     PARAM_DICT_OVERRIDE_STRATEGY,
     DICT_MERGE_SHALLOW,
@@ -32,7 +36,6 @@ from spafw37.constants.param import (
 from spafw37.constants.command import (
     COMMAND_FRAMEWORK,
 )
-from spafw37 import file as spafw37_file
 from spafw37 import config
 
 
@@ -51,8 +54,24 @@ _xor_list = {}
 # Pre-parse arguments (params to parse before main CLI parsing)
 _preparse_args = []
 
+# XOR validation control - used internally to skip validation during defaults/config loading
+_skip_xor_validation = False
+
 
 # Helper functions for inline object definitions
+def _set_xor_validation_enabled(enabled):
+    """Private mutator to control XOR validation.
+    
+    Used internally to temporarily disable XOR validation during
+    defaults initialization and config loading operations.
+    
+    Args:
+        enabled: True to enable XOR validation (default), False to disable
+    """
+    global _skip_xor_validation
+    _skip_xor_validation = not enabled
+
+
 def _get_param_name(param_def):
     """Extract parameter name from parameter definition.
     
@@ -228,28 +247,63 @@ def is_alias(alias):
                 or re.match(PATTERN_SHORT_ALIAS, alias))
 
 def is_persistence_always(param):
+    """Check if parameter has PARAM_PERSISTENCE_ALWAYS set.
+    
+    Args:
+        param: Parameter definition dict.
+        
+    Returns:
+        True if param should always be persisted.
+    """
     return param.get(PARAM_PERSISTENCE, None) == PARAM_PERSISTENCE_ALWAYS
 
 def is_persistence_never(param):
+    """Check if parameter has PARAM_PERSISTENCE_NEVER set.
+    
+    Args:
+        param: Parameter definition dict.
+        
+    Returns:
+        True if param should never be persisted.
+    """
     return param.get(PARAM_PERSISTENCE, None) == PARAM_PERSISTENCE_NEVER
+
+def get_non_persisted_config_names():
+    """Get list of config bind names that should never be persisted.
+    
+    Queries all registered parameters and returns the config bind names
+    for those with PARAM_PERSISTENCE_NEVER.
+    
+    Returns:
+        List of config bind names that should not be persisted.
+    """
+    non_persisted_names = []
+    for param_name, param_def in _params.items():
+        if is_persistence_never(param_def):
+            bind_name = _get_bind_name(param_def)
+            non_persisted_names.append(bind_name)
+    return non_persisted_names
+
+def notify_persistence_change(param_name, value):
+    """Notify config_func about parameter value changes for persistence tracking.
+    
+    This is called when a parameter value is set, to allow config_func to
+    track which values should be saved to persistent config.
+    
+    Args:
+        param_name: Name of the parameter.
+        value: New value for the parameter.
+    """
+    from spafw37 import config_func
+    param_def = _get_param_definition(param_name)
+    if param_def and is_persistence_always(param_def):
+        bind_name = _get_bind_name(param_def)
+        config_func.track_persistent_value(bind_name, value)
 
 def is_runtime_only_param(_param):
     if not _param:
         return False
     return _param.get(PARAM_RUNTIME_ONLY, False)
-
-def _parse_number(value, default=0):
-    if isinstance(value, float) or isinstance(value, int):
-        return value
-    else:
-        try:
-            return int(value)
-        except ValueError:
-            try:
-                return float(value)
-            except ValueError:
-                return default
-
 
 def _validate_number(value):
     """Validate and coerce a value to a number (int or float).
@@ -272,20 +326,6 @@ def _validate_number(value):
             return float(value)
         except ValueError:
             raise ValueError(f"Cannot coerce value to number: {value}")
-
-
-def _validate_toggle(param_def):
-    """Validate and return toggle value (flipped default).
-    
-    Toggles don't take a value parameter - they flip on presence.
-    
-    Args:
-        param_def: Parameter definition dict.
-        
-    Returns:
-        Flipped boolean value (opposite of default).
-    """
-    return not bool(param_def.get(PARAM_DEFAULT, False))
 
 
 def _validate_list(value):
@@ -354,6 +394,183 @@ def _validate_text(value):
     return value
 
 
+def _default_filter_text(value):
+    """Default input filter for TEXT params - passthrough."""
+    return value
+
+
+def _default_filter_number(value):
+    """Default input filter for NUMBER params - parse int or float."""
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Cannot coerce value to number: {value}")
+
+
+def _default_filter_toggle(value):
+    """Default input filter for TOGGLE params - passthrough (no conversion needed).
+    
+    Toggles are handled specially by set_param_value - the filter just passes
+    the value through unchanged. The toggle logic handles None vs provided values.
+    """
+    return value
+
+
+def _default_filter_list(value):
+    """Default input filter for LIST params - split using shlex."""
+    import shlex
+    return shlex.split(value)
+
+
+def _normalize_json_quotes(value):
+    """Normalize single-quoted JSON to double-quoted JSON.
+    
+    Converts single quotes used for JSON structure to double quotes,
+    while preserving apostrophes within string values and escaping
+    any internal double quotes.
+    
+    This allows shell-friendly syntax like {'key':'value'} to work
+    while properly handling strings like {'name':'O'Brien'} or
+    {'msg':'He said "hello"'}.
+    
+    Args:
+        value: JSON string with single or double quotes
+        
+    Returns:
+        JSON string with double quotes for structure
+    """
+    result = []
+    in_string = False
+    escape_next = False
+    string_delimiter = None
+    
+    for index, char in enumerate(value):
+        if escape_next:
+            result.append(char)
+            escape_next = False
+            continue
+            
+        if char == '\\':
+            result.append(char)
+            escape_next = True
+            continue
+        
+        # Track whether we're inside a string
+        if char in ('"', "'"):
+            if not in_string:
+                # Starting a string
+                in_string = True
+                string_delimiter = char
+                result.append('"')  # Always use double quotes
+            elif char == string_delimiter:
+                # Ending the string with matching delimiter
+                in_string = False
+                string_delimiter = None
+                result.append('"')  # Always use double quotes
+            else:
+                # It's the opposite quote inside a string
+                # If we started with single quote and find double quote inside, escape it
+                if string_delimiter == "'" and char == '"':
+                    result.append('\\')
+                result.append(char)
+        else:
+            result.append(char)
+    
+    return ''.join(result)
+
+
+def _split_top_level_json_objects(text):
+    """Split text into separate top-level JSON objects.
+    
+    Detects multiple adjacent JSON objects like {"a":1} {"b":2} by tracking
+    brace depth. Only splits at depth 0 (between top-level objects), not
+    within nested structures.
+    
+    Args:
+        text: String potentially containing multiple JSON objects
+        
+    Returns:
+        List of JSON object strings. Returns single-item list if only one object.
+    """
+    blocks = []
+    current_block = []
+    brace_depth = 0
+    in_string = False
+    string_delimiter = None
+    escape_next = False
+    
+    for char in text:
+        # Handle escape sequences in strings
+        if escape_next:
+            current_block.append(char)
+            escape_next = False
+            continue
+            
+        if char == '\\':
+            current_block.append(char)
+            escape_next = True
+            continue
+        
+        # Track string state
+        if char in ('"', "'"):
+            if not in_string:
+                in_string = True
+                string_delimiter = char
+            elif char == string_delimiter:
+                in_string = False
+                string_delimiter = None
+        
+        # Track brace depth only outside strings
+        if not in_string:
+            if char == '{':
+                brace_depth += 1
+            elif char == '}':
+                brace_depth -= 1
+        
+        current_block.append(char)
+        
+        # When depth returns to 0, we've completed a top-level object
+        if brace_depth == 0 and len(current_block) > 0:
+            block_text = ''.join(current_block).strip()
+            if block_text:
+                blocks.append(block_text)
+            current_block = []
+    
+    # Handle any remaining content
+    if current_block:
+        block_text = ''.join(current_block).strip()
+        if block_text:
+            blocks.append(block_text)
+    
+    return blocks if blocks else [text]
+
+
+def _default_filter_dict(value):
+    """Default input filter for DICT params - parse JSON.
+    
+    Accepts both single and double quoted JSON (common in shell args).
+    Converts single quotes to double quotes before parsing while preserving
+    apostrophes within string values.
+    """
+    import json
+    
+    # Normalize single quotes to double quotes for JSON parsing
+    # This allows shell-friendly syntax like {'a':1} to work
+    normalized = _normalize_json_quotes(value)
+    
+    try:
+        parsed = json.loads(normalized)
+    except json.JSONDecodeError as parse_error:
+        raise ValueError("Invalid JSON for dict parameter: {}".format(str(parse_error)))
+    
+    if not isinstance(parsed, dict):
+        raise ValueError("Dict parameter requires JSON object, got {}".format(type(parsed).__name__))
+    return parsed
+
+
 def _parse_value(param, value):
     """Parse and coerce a raw parameter value according to param type.
 
@@ -379,12 +596,8 @@ def _parse_value(param, value):
     if isinstance(value, list) and not _is_list_param(param):
         value = ' '.join(value)
 
-    # NOTE: file (@path) handling is performed during argument capture in the
-    # CLI layer so that the parser receives the file contents at the appropriate
-    # time. Do not read files here; this function only parses values.
-
     if _is_number_param(param):
-        return _parse_number(value)
+        return _validate_number(value)
     elif _is_toggle_param(param):
         return not bool(param.get(PARAM_DEFAULT, False))
     elif _is_list_param(param):
@@ -392,21 +605,7 @@ def _parse_value(param, value):
             return [value]
         return value
     elif _is_dict_param(param):
-        # Accept dict value directly
-        if isinstance(value, dict):
-            return value
-
-        # Normalize raw input into a single JSON text string
-        json_text = _normalize_dict_input(value)
-        # File reference notation: @/path/to/file.json
-        if json_text.startswith('@'):
-            return _load_json_file(json_text[1:])
-
-        # JSON object string
-        if json_text.startswith('{'):
-            return _parse_json_text(json_text)
-        # Fallback: treat as plain string (not allowed for dict)
-        raise ValueError("Dict parameter expects JSON object or @file reference")
+        return _validate_dict(value)
     else:
         return value
 
@@ -652,6 +851,15 @@ def _activate_param(_param):
         _param[PARAM_SWITCH_LIST] = normalized_switches
         _set_param_xor_list(_param[PARAM_NAME], normalized_switches)
     
+    # Assign default input filter if not specified
+    if PARAM_INPUT_FILTER not in _param:
+        param_type = _param.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+        # Look up the filter function name from the constants dict
+        filter_func_name = PARAM_DEFAULT_INPUT_FILTERS.get(param_type)
+        if filter_func_name:
+            # Resolve the function from this module's globals
+            _param[PARAM_INPUT_FILTER] = globals()[filter_func_name]
+    
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
     _params[_param_name] = _param
@@ -717,75 +925,6 @@ def get_all_param_definitions():
 
 
 # Helper functions ---------------------------------------------------------
-def _load_json_file(path):
-    """Load and parse JSON from a file path.
-
-    Args:
-        path: Path to JSON file (tilde expansion performed).
-
-    Returns:
-        Parsed JSON as dict.
-
-    Raises:
-        FileNotFoundError, PermissionError, ValueError on parse errors.
-    """
-    validated_path = spafw37_file._validate_file_for_reading(path)
-    try:
-        with open(validated_path, 'r') as file_handle:
-            file_content = file_handle.read()
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Dict param file not found: {validated_path}")
-    except PermissionError:
-        raise PermissionError(f"Permission denied reading dict param file: {validated_path}")
-    except UnicodeDecodeError:
-        raise ValueError(f"Dict param file contains invalid text encoding: {validated_path}")
-    try:
-        parsed_json = json.loads(file_content)
-    except json.JSONDecodeError:
-        raise ValueError(f"Invalid JSON in dict param file: {validated_path}")
-    if not isinstance(parsed_json, dict):
-        raise ValueError(f"Dict param file must contain a JSON object: {validated_path}")
-    return parsed_json
-
-
-def _parse_json_text(text):
-    """Parse a JSON string and validate it is an object.
-
-    Args:
-        text: JSON string.
-
-    Returns:
-        Parsed dict.
-
-    Raises:
-        ValueError if JSON invalid or not an object.
-    """
-    try:
-        parsed_json = json.loads(text)
-    except json.JSONDecodeError:
-        raise ValueError("Invalid JSON for dict parameter; quote your JSON or use @file")
-    if not isinstance(parsed_json, dict):
-        raise ValueError("Provided JSON must be an object for dict parameter")
-    return parsed_json
-
-
-def _normalize_dict_input(value):
-    """Normalize raw dict parameter input into a JSON text string.
-
-    Accepts a list of tokens or a single-string token and returns a
-    stripped JSON text string. Raises ValueError for unsupported types.
-
-    Args:
-        value: Raw value provided from the CLI (str or list).
-
-    Returns:
-        A stripped string containing JSON text or an @file reference.
-    """
-    # After higher-level normalization, value should be a string here.
-    if not isinstance(value, str):
-        raise ValueError("Invalid dict parameter value")
-    return value.strip()
-
 
 def get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
@@ -1204,7 +1343,7 @@ def _validate_xor_conflicts(param_definition, value_to_set):
                 )
 
 
-def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True):
+def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True, skip_xor_check=False):
     """
     Set parameter value with flexible resolution and type validation.
     
@@ -1218,6 +1357,7 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
         alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         value: Value to set (required)
         strict: If True, enforces strict type validation (default: True)
+        skip_xor_check: If True, bypasses XOR conflict validation (for defaults/config loading)
     
     Note:
         At least one of param_name, bind_name, or alias must be provided.
@@ -1235,6 +1375,11 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
     if param_definition is None:
         raise ValueError("Unknown parameter: '{}'".format(param_name or bind_name or alias))
     
+    # Apply input filter if value is a non-None string
+    if value is not None and isinstance(value, str) and PARAM_INPUT_FILTER in param_definition:
+        input_filter = param_definition[PARAM_INPUT_FILTER]
+        value = input_filter(value)
+    
     # Handle toggle parameters: use provided value directly for programmatic setting
     # (CLI layer passes True when toggle is present, we use that value as-is)
     if _is_toggle_param(param_definition):
@@ -1248,12 +1393,20 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
         validated_value = _validate_param_value(param_definition, value, strict)
     
     # If param is in a switch list, check for XOR conflicts BEFORE setting value
-    if len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
+    # Skip this check when loading defaults or config to avoid false conflicts
+    if not skip_xor_check and len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
         _validate_xor_conflicts(param_definition, validated_value)
+    
+    # Log the parameter setting at DEBUG level
+    param_name_for_log = param_definition[PARAM_NAME]
+    logging.log_debug(_message="Set param '{}' = {}".format(param_name_for_log, validated_value))
     
     # Store value using bind name as config key
     config_key = _get_bind_name(param_definition)
     config.set_config_value(config_key, validated_value)
+    
+    # Notify persistence layer about the change
+    notify_persistence_change(param_definition[PARAM_NAME], validated_value)
 
 
 def _join_string_value(existing, new, separator):
@@ -1430,6 +1583,21 @@ def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
     
     param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
     
+    # For dict params, check for multiple JSON blocks BEFORE applying filter
+    if param_type == PARAM_TYPE_DICT and isinstance(value, str):
+        json_blocks = _split_top_level_json_objects(value)
+        
+        # If multiple JSON blocks detected, recurse for each
+        if len(json_blocks) > 1:
+            for block in json_blocks:
+                join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=block)
+            return
+    
+    # Apply input filter if value is a non-None string
+    if value is not None and isinstance(value, str) and PARAM_INPUT_FILTER in param_definition:
+        input_filter = param_definition[PARAM_INPUT_FILTER]
+        value = input_filter(value)
+    
     # Validate that type supports joining
     if param_type == PARAM_TYPE_NUMBER:
         raise ValueError("Cannot join values for number parameter")
@@ -1443,21 +1611,15 @@ def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
     # Validate/parse the new value according to type
     if param_type == PARAM_TYPE_DICT:
         value = _validate_dict(value)
+        joined_value = _join_dict_value(existing_value, value, param_definition)
     elif param_type == PARAM_TYPE_LIST:
         value = _validate_list(value)
+        joined_value = _join_list_value(existing_value, value)
     elif param_type == PARAM_TYPE_TEXT:
         value = _validate_text(value)
-    
-    # Dispatch to type-specific joiner
-    if param_type == PARAM_TYPE_TEXT:
         separator = param_definition.get(PARAM_JOIN_SEPARATOR, SEPARATOR_SPACE)
         joined_value = _join_string_value(existing_value, value, separator)
-    elif param_type == PARAM_TYPE_LIST:
-        joined_value = _join_list_value(existing_value, value)
-    elif param_type == PARAM_TYPE_DICT:
-        joined_value = _join_dict_value(existing_value, value, param_definition)
     else:
-        # Fallback for unknown types
         joined_value = value
     
     # Store updated value

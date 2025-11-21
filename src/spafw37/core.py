@@ -79,7 +79,7 @@ def run_cli(args=sys.argv[1:], _embedded=False):
             help.display_all_help()
         if not _embedded:
             sys.exit(1)
-    except ValueError as e:
+    except (ValueError, KeyError) as e:
         print(f"Error: {e}")
         print()
         # display_all_help()

@@ -51,77 +51,11 @@ def _do_pre_parse_actions():
             logging_module.log_error(_scope='cli', _message=f'Pre-parse action failed: {e}')
             pass
 
-def _parse_cli_args(args):
-    """Parse command-line arguments into structured dict.
+def _tokenise_cli_args(args):
+    """Tokenize command-line arguments using regex pattern matching.
     
-    Tokenizes args into commands and parameters with their values.
-    
-    Args:
-        args: List of command-line argument strings.
-        
-    Returns:
-        Dict with structure:
-        {
-            "commands": [command_names],
-            "params": {"--alias": [captured_tokens]}
-        }
-    """
-    parsed = {
-        "commands": [],
-        "params": []
-    }
-    
-    argument_index = 0
-    arguments_count = len(args)
-    current_capture_alias = None
-    
-    while argument_index < arguments_count:
-        token = args[argument_index].strip()
-        if not _is_quoted_token(token) and command.is_command(token):
-            current_capture_alias = None
-            parsed["commands"].append(token)
-            is_accumulating_value = False
-            argument_index += 1
-            continue
-        if not _is_quoted_token(token) and (param.is_alias(token) or param.is_long_alias_with_value(token)):
-            current_capture_alias = None
-            if not param.is_long_alias_with_value(token):
-                # Simple alias without embedded value
-                parsed["params"].append({ "alias": token, "values": []})
-                current_capture_alias = token
-                argument_index += 1
-                continue
-            # If it's a long alias with embedded value (--param=value), split it,
-            #  assign the alias to current_capture_alias, and treat the value as token,
-            #  and fall through to capture the value.
-            alias, raw_value = token.split('=', 1)
-            parsed["params"].append({ "alias": alias, "values": []})
-            current_capture_alias = alias
-            token = raw_value
-        # If we have a current param that we're capturing values for...
-        if current_capture_alias:               
-            if token.startswith('@'):
-                token = spafw37_file._read_file_raw(token)
-                # Check if content looks like JSON object (dict param)
-                prefix = token[:10].lstrip()
-                if not prefix.startswith('{'):
-                    parsed["params"][-1]["values"].extend(shlex.split(token))
-                else:
-                    parsed["params"][-1]["values"].append(token)
-            else:
-                parsed["params"][-1]["values"].append(token)
-            argument_index += 1
-            continue
-        raise ValueError(f"Unknown argument or command: {token}")
-    return parsed
-
-
-def _parse_cli_args_regex(args):
-    """Parse command-line arguments using regex pattern matching.
-    
-    Alternative implementation that uses a comprehensive regex pattern to extract
-    aliases and their values from the joined args string. Produces the same output
-    format as _parse_cli_args().
+    Uses a comprehensive regex pattern to extract aliases and their values
+    from the joined args string.
     
     Pattern matches:
     - Aliases: --long-name, -s (1-2 dashes followed by word chars/hyphens)
@@ -137,7 +71,7 @@ def _parse_cli_args_regex(args):
         Dict with structure:
         {
             "commands": [command_names],
-            "params": [{"alias": "--name", "values": ["val1", "val2"]}]
+            "params": [{"alias": "--name", "value": "val1"}]
         }
     """
     parsed = {
@@ -149,21 +83,24 @@ def _parse_cli_args_regex(args):
     args_string = ' '.join(args)
     remaining_string = args_string
     
-    # Comprehensive pattern to match alias and optional value
+    # Pattern matches alias and captures everything until next alias or end
     # Group 1: alias (--name or -n) - must start after word boundary
-    # Group 2: value (optional - anything: @file, quoted, JSON, or unquoted)
-    pattern = r'''(?:^|[\s])((?:-{1,2})[\w][\w-]*)(?:(?:=|[\s]+)((?:@[\w.\-_/]+|['"][^'"]*['"]|\{[^}]*\}|\[[^\]]*\]|[^\s]+)))?'''
+    # Group 2: value with = separator (e.g., --name=value)
+    # Group 3: value with space separator, capturing all non-dash-prefixed tokens
+    #          (e.g., --files a.txt b.txt captures "a.txt b.txt")
+    pattern = r'''(?:^|\s)((?:-{1,2})[\w][\w-]*)(?:=([^\s]+)|(?:\s+([^-\s][^\s]*(?:\s+[^-\s][^\s]*)*))?)?'''
     
     matches = re.finditer(pattern, args_string)
     
     for match in matches:
         alias = match.group(1)
-        value = match.group(2)
+        # Value can be in group 2 (=value) or group 3 (space-separated)
+        value = match.group(2) if match.group(2) else (match.group(3) if match.group(3) else None)
         
         # Create new param entry for each occurrence
         parsed["params"].append({
             "alias": alias,
-            "values": [value] if value else []
+            "value": value
         })
         
         # Remove this match from the remaining string
@@ -174,58 +111,47 @@ def _parse_cli_args_regex(args):
     
     return parsed
 
-def _parse_command_line(args):
+def _parse_command_line(tokens):
     """Parse command-line arguments and execute commands.
     
-    Iterates through arguments, handling commands and parameters.
+    Iterates through tokenized arguments, handling commands and parameters.
     
     Args:
-        args: List of command-line argument strings.
+        tokens: Pre-tokenized dict from _tokenise_cli_args() with structure:
+                {"commands": [...], "params": [{"alias": "--name", "value": "val1"}]}
     """
-    tokens = _parse_cli_args(args)
     for command_name in tokens["commands"]:
         command.queue_command(command_name)
     for _param in tokens["params"]:
         alias = _param["alias"]
-        values = _param["values"]
-        # First check if the alias is registered
-        if not param.get_param_by_alias(alias):
-            raise ValueError(f"Unknown parameter alias: {alias}")
-        if param.is_toggle_param(alias=alias):
-            # Toggles should not have any values assigned
-            if len(values) > 0:
-                raise ValueError(f"Toggle param does not take values: {alias}")
-            param.set_param_value(alias=alias, value=None)
-        elif param.is_number_param(alias=alias):
-            # These params should have one arg value per assignment
-            if len(values) != 1:
-                raise ValueError(f"Number params can only have a single value: {alias}")
-            param.set_param_value(alias=alias, value=values[-1])
-        elif param.is_text_param(alias=alias):
-            # Strings should be joined with spaces if multiple args given
-            param.set_param_value(alias=alias, value=' '.join(values))
-        elif param.is_dict_param(alias=alias):
-            # Join all tokens and pass as string - param layer will parse and validate
-            param.join_param_value(alias=alias, value=''.join(values))
-        elif param.is_list_param(alias=alias):
-            # Just append the values to the list
-            param.join_param_value(alias=alias, value=values)
+        value = _param["value"]
+        
+        # For list and dict params, accumulate values; for all others, set directly
+        if param.is_list_param(alias=alias) or param.is_dict_param(alias=alias):
+            param.join_param_value(alias=alias, value=value)
         else:
-            raise ValueError(f"Unknown param type for alias: {alias}")
+            param.set_param_value(alias=alias, value=value)
 
 
 def _set_defaults():
     """Set default values for all registered parameters."""
-    for param_definition in param.get_all_param_definitions():  # Updated function name
-        if param._is_toggle_param(param_definition):
-            _def = param._get_param_default(param_definition, False)
-            print(f"Setting default for toggle param '{param_definition.get(PARAM_NAME)}'= {_def}")
-            config.set_config_value(param_definition, param._get_param_default(param_definition, False))
-        else:
-            if param._param_has_default(param_definition):
-                _def = param._get_param_default(param_definition, None)
-                logging.log_trace(_message=f"Setting default for param '{param_definition.get(PARAM_NAME)}'= {_def}")
-                config.set_config_value(param_definition, param._get_param_default(param_definition))
+    # Disable XOR validation while setting defaults to avoid false conflicts
+    param._set_xor_validation_enabled(False)
+    try:
+        for param_definition in param.get_all_param_definitions():
+            param_name = param_definition.get(PARAM_NAME)
+            if param._is_toggle_param(param_definition):
+                _def = param._get_param_default(param_definition, False)
+                print(f"Setting default for toggle param '{param_name}'= {_def}")
+                param.set_param_value(param_name=param_name, value=_def)
+            else:
+                if param._param_has_default(param_definition):
+                    _def = param._get_param_default(param_definition, None)
+                    logging.log_trace(_message=f"Setting default for param '{param_name}'= {_def}")
+                    param.set_param_value(param_name=param_name, value=_def)
+    finally:
+        # Always re-enable XOR validation after setting defaults
+        param._set_xor_validation_enabled(True)
 
 def _pre_parse_params(tokenized_args):
     """Silently parse pre-registered params before main CLI parsing.
@@ -234,8 +160,8 @@ def _pre_parse_params(tokenized_args):
     early so they can control behavior during main parsing.
     
     Args:
-        tokenized_args: Pre-tokenized dict from _parse_cli_args_regex() with structure:
-                        {"commands": [...], "params": [{"alias": "--name", "values": [...]}]}
+        tokenized_args: Pre-tokenized dict from _tokenise_cli_args() with structure:
+                        {"commands": [...], "params": [{"alias": "--name", "value": "val1"}]}
     """
     preparse_definitions = param.get_pre_parse_args()
     if not preparse_definitions:
@@ -247,7 +173,7 @@ def _pre_parse_params(tokenized_args):
     # Process params from tokenized args
     for param_entry in tokenized_args["params"]:
         alias = param_entry["alias"]
-        values = param_entry["values"]
+        value = param_entry["value"]
         
         # Get param definition for this alias
         param_def = param.get_param_by_alias(alias)
@@ -260,16 +186,8 @@ def _pre_parse_params(tokenized_args):
         if param_name not in preparse_names:
             continue
         
-        # Set the value based on param type
-        if param.is_toggle_param(alias=alias):
-            param.set_param_value(param_name=param_name, value=None)
-        else:
-            # For non-toggle params, use the first value
-            if values:
-                param.set_param_value(param_name=param_name, value=values[0])
-            else:
-                # No value provided for non-toggle param
-                param.set_param_value(param_name=param_name, value=None)
+        # Set the value
+        param.set_param_value(param_name=param_name, value=value)
 
 
 def handle_cli_args(args):
@@ -287,7 +205,7 @@ def handle_cli_args(args):
     
     # Tokenize arguments once using regex parser
     # This produces a dict that can be used for both pre-parse and main parse
-    tokenized_args = _parse_cli_args_regex(args)
+    tokenized_args = _tokenise_cli_args(args)
     
     # Store original args for conflict checking
     global _current_args
@@ -303,8 +221,8 @@ def handle_cli_args(args):
     # Set defaults for all parameters
     _set_defaults()
 
-    # Parse command line arguments (using traditional parser for now)
-    _parse_command_line(args)
+    # Parse command line arguments using regex tokenizer
+    _parse_command_line(tokenized_args)
     
     # Execute queued commands
     command.run_command_queue()
@@ -329,46 +247,3 @@ def _is_quoted_token(token):
     return (isinstance(token, str)
             and len(token) >= 2
             and ((token[0] == token[-1]) and token[0] in ('"', "'")))
-
-
-def _accumulate_json_for_dict_param(args, start_index, base_offset, arguments_count, param_module, command_module, is_quoted_fn):
-    """Accumulate tokens starting at start_index to form a valid JSON object.
-
-    Returns (offset, value) where offset is the total args consumed (base_offset + index)
-    and value is the joined JSON string or single-token file reference.
-    """
-    argument = args[start_index]
-    # If it starts with '@' -> file reference single token
-    if isinstance(argument, str) and argument.startswith('@'):
-        return base_offset + start_index, argument
-
-    # If looks like JSON start, try to accumulate tokens until valid JSON is parsed
-    if isinstance(argument, str) and argument.lstrip().startswith('{'):
-        token_parts = [argument]
-        token_index = start_index + 1
-        while token_index < arguments_count:
-            next_argument = args[token_index]
-            # stop if next token is an alias for another param or a command
-            if param_module.is_alias(next_argument) and not is_quoted_fn(next_argument):
-                break
-            if command_module.is_command(next_argument):
-                break
-            token_parts.append(next_argument)
-            candidate_json = ' '.join(token_parts)
-            try:
-                json.loads(candidate_json)
-                # success
-                return base_offset + token_index, candidate_json
-            except (json.JSONDecodeError, ValueError):
-                token_index += 1
-                continue
-        # If we fall out without successful parse, try one final join attempt
-        candidate_json = ' '.join(token_parts)
-        try:
-            json.loads(candidate_json)
-            return base_offset + (start_index + len(token_parts) - 1), candidate_json
-        except (json.JSONDecodeError, ValueError):
-            raise ValueError("Could not parse JSON for dict parameter; quote the JSON or use @file")
-
-    # Not JSON start and not file reference: treat single token and let param parser handle it
-    return base_offset + start_index, argument

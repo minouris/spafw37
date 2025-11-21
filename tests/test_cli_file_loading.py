@@ -4,7 +4,9 @@ These tests verify that the CLI module correctly handles @file syntax for loadin
 parameter values from files. This is a CLI-level feature, not a param module feature.
 """
 import json
-from spafw37 import cli, param
+import pytest
+import stat
+from spafw37 import cli, param, file as spafw37_file
 import spafw37.config
 from spafw37 import config_func as config_func
 
@@ -309,3 +311,76 @@ def test_dict_file_not_dict(tmp_path):
     args = ['--config', f'@{str(file_path)}']
     with pytest.raises(ValueError, match="JSON object"):
         cli.handle_cli_args(args)
+
+
+def test_file_not_found_raises_error(tmp_path):
+    """Ensure that referencing a non-existent file raises a clear error.
+
+    When using @file syntax with a file that doesn't exist, the system
+    should raise an error indicating the file was not found.
+    """
+    setup_function()
+    param.add_param({
+        'name': 'data',
+        'aliases': ['--data'],
+        'type': 'text'
+    })
+    nonexistent = tmp_path / "does_not_exist.txt"
+    args = ['--data', f'@{str(nonexistent)}']
+    try:
+        cli.handle_cli_args(args)
+        assert False, "Expected error for non-existent file"
+    except (FileNotFoundError, IOError, OSError):
+        pass  # Expected
+
+
+def test_quoted_alias_like_value_is_accepted():
+    """Test that quoted values that look like aliases are accepted.
+    
+    When a text param receives a quoted value that looks like a flag,
+    it should be accepted as a literal value string.
+    """
+    setup_function()
+    param.add_param({
+        'name': 'textparam',
+        'aliases': ['--textparam'],
+        'type': 'text'
+    })
+    # Simulate a quoted token that looks like an alias in its raw form
+    args = ['--textparam', '"-not-a-flag"']
+    cli.handle_cli_args(args)
+    # Value should be the quoted string (parser does not strip quotes)
+    assert spafw37.config._config.get('textparam') == '"-not-a-flag"'
+
+
+def test_read_file_raw_file_not_found():
+    """Test _read_file_raw raises FileNotFoundError for missing file.
+    
+    Should provide clear error message with file path.
+    This validates file-not-found error handling.
+    """
+    setup_function()
+    
+    with pytest.raises(FileNotFoundError, match="Parameter file not found"):
+        spafw37_file._read_file_raw('/nonexistent/file.txt')
+
+
+def test_read_file_raw_permission_denied(tmp_path):
+    """Test _read_file_raw raises PermissionError for unreadable file.
+    
+    Should provide clear error message for permission issues.
+    This validates permission error handling.
+    """
+    setup_function()
+    
+    # Create a file with no read permissions
+    file_path = tmp_path / "noperm.txt"
+    file_path.write_text('content')
+    file_path.chmod(stat.S_IWUSR)  # Write only, no read
+    
+    try:
+        with pytest.raises(PermissionError, match="Permission denied"):
+            spafw37_file._read_file_raw(str(file_path))
+    finally:
+        # Restore permissions
+        file_path.chmod(stat.S_IRUSR | stat.S_IWUSR)

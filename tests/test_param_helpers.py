@@ -262,16 +262,20 @@ def test_parse_value_number_int():
 
 
 def test_parse_value_number_float_and_invalid():
-    """Test _parse_value converts strings to floats and handles invalid numbers.
+    """Test _parse_value converts strings to floats and raises ValueError for invalid numbers.
     
     Should parse float strings correctly.
-    Should return 0 for invalid number strings.
+    Should raise ValueError for invalid number strings.
     """
     setup_function()
     _param = {param.PARAM_TYPE: param.PARAM_TYPE_NUMBER}
     assert param._parse_value(_param, "3.14") == 3.14
     assert param._parse_value(_param, 3.14) == 3.14
-    assert param._parse_value(_param, "not-a-number") == 0
+    try:
+        param._parse_value(_param, "not-a-number")
+        assert False, "Should have raised ValueError for invalid number"
+    except ValueError:
+        pass  # Expected
 
 
 def test_parse_value_toggle_behavior():
@@ -315,3 +319,58 @@ def test_parse_value_default_returns_value():
     setup_function()
     _param = {}
     assert param._parse_value(_param, "hello") == "hello"
+
+
+def test_is_runtime_only_param_true():
+    """Test is_runtime_only_param when param has runtime-only=True.
+    
+    Should return True for params marked as runtime-only.
+    This validates the runtime-only parameter detection.
+    """
+    setup_function()
+    runtime_param = {'name': 'test', 'runtime-only': True}
+    assert param.is_runtime_only_param(runtime_param) is True
+
+
+def test_is_runtime_only_param_false_for_none():
+    """Test is_runtime_only_param when param is None.
+    
+    Should return False for None param.
+    This validates null-safety of runtime-only detection.
+    """
+    setup_function()
+    assert param.is_runtime_only_param(None) is False
+
+
+def test_parse_value_list_joined_to_string_for_non_list_param():
+    """Test that list values are joined to string for non-list params.
+    
+    When a list is passed to a text/number/toggle param, join with spaces.
+    This validates multi-token value handling for scalar params.
+    """
+    setup_function()
+    text_param = {'name': 'text', 'type': 'text'}
+    value = param._parse_value(text_param, ['hello', 'world'])
+    assert value == 'hello world'
+
+
+def test_is_number_param_for_dict_type():
+    """Test is_number_param returns False for dict params.
+    
+    Dict params should not be treated as number params.
+    This validates type checking logic for dict parameters.
+    """
+    setup_function()
+    dict_param = {'name': 'mydict', 'type': 'dict'}
+    assert param._is_number_param(dict_param) is False
+
+
+def test_is_list_param_for_dict_type():
+    """Test is_list_param returns False for dict params.
+    
+    Dict params should not be treated as list params.
+    This validates type checking logic for dict parameters.
+    """
+    setup_function()
+    dict_param = {'name': 'mydict', 'type': 'dict'}
+    assert param._is_list_param(dict_param) is False

@@ -33,6 +33,20 @@ PARAM_TYPE_DICT = 'dict'
 # Param Join Configuration
 PARAM_JOIN_SEPARATOR = 'join-separator'  # Separator for joining string values in join_param(). Defaults to SEPARATOR_SPACE.
 
+# Input filter - callable to convert string values to proper type
+PARAM_INPUT_FILTER = 'input-filter'  # Function to convert CLI string values to proper type before validation
+
+# Default input filters by param type - maps PARAM_TYPE values to filter function names
+# These are resolved in param.py to actual functions
+PARAM_DEFAULT_INPUT_FILTERS = {
+    # Keys are PARAM_TYPE_* values, values are function names in param module
+    'text': '_default_filter_text',
+    'number': '_default_filter_number',
+    'toggle': '_default_filter_toggle',
+    'list': '_default_filter_list',
+    'dict': '_default_filter_dict',
+}
+
 # Dict Merge Type Options (for join_param with dicts)
 DICT_MERGE_SHALLOW = 'shallow'  # Only merge top-level keys (default)
 DICT_MERGE_DEEP = 'deep'  # Recursively merge nested dicts

@@ -496,8 +496,7 @@ def test_runtime_only_params_in_verify_required_params():
     command.add_command(runtime_command)
     command.queue_command("runtime-test-command")
     # Simulate config with only regular param set
-    from spafw37 import config_func as config
-    config.set_config_value(regular_param, "regular_value")
+    param.set_param_value(param_name=regular_param_name, value="regular_value")
     # This should NOT raise an error about the runtime-only param missing
     try:
         command._verify_required_params()
@@ -552,7 +551,7 @@ def test_non_runtime_only_params_pass():
     setter_command = {
         COMMAND_NAME: "setter-command",
         COMMAND_REQUIRED_PARAMS: [],
-        COMMAND_ACTION: lambda: config.set_config_value(runtime_param, "some_value")
+        COMMAND_ACTION: lambda: param.set_param_value(param_name=runtime_param_name, value="some_value")
     }
     command.add_command(runtime_command)
     command.add_command(setter_command)

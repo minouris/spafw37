@@ -25,7 +25,6 @@ def setup_function():
     param._param_aliases.clear()
     param._params.clear()
     spafw37.config._config.clear()
-    config._non_persisted_config_names.clear()
     config._persistent_config.clear()
     command._commands.clear()
     command._finished_commands.clear()
