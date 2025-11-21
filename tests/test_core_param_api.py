@@ -27,7 +27,7 @@ class TestCoreSetParam:
     """
     Tests for core.set_param() function.
     
-    The set_param() function should delegate to param.set_param_value() and
+    The set_param() function should delegate to param.set_param() and
     support flexible resolution via param_name, bind_name, or alias.
     """
 
@@ -97,7 +97,7 @@ class TestCoreJoinParam:
     """
     Tests for core.join_param() function.
     
-    The join_param() function should delegate to param.join_param_value() and
+    The join_param() function should delegate to param.join_param() and
     support type-specific accumulation logic.
     """
 
@@ -183,7 +183,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'name', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
-        param.set_param_value(param_name='name', value='Alice')
+        param.set_param(param_name='name', value='Alice')
         
         result = core.get_param(param_name='name')
         
@@ -199,7 +199,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'count', 'type': PARAM_TYPE_NUMBER}
         param.add_params([test_param])
-        param.set_param_value(param_name='count', value=42)
+        param.set_param(param_name='count', value=42)
         
         result = core.get_param(param_name='count')
         
@@ -215,7 +215,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'enabled', 'type': PARAM_TYPE_TOGGLE}
         param.add_params([test_param])
-        param.set_param_value(param_name='enabled', value=True)
+        param.set_param(param_name='enabled', value=True)
         
         result = core.get_param(param_name='enabled')
         
@@ -231,7 +231,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'items', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
-        param.set_param_value(param_name='items', value=['a', 'b', 'c'])
+        param.set_param(param_name='items', value=['a', 'b', 'c'])
         
         result = core.get_param(param_name='items')
         
@@ -247,7 +247,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'config', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
-        param.set_param_value(param_name='config', value={'key': 'value'})
+        param.set_param(param_name='config', value={'key': 'value'})
         
         result = core.get_param(param_name='config')
         
@@ -277,7 +277,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'url', 'type': PARAM_TYPE_TEXT, 'aliases': ['--url', '-u']}
         param.add_params([test_param])
-        param.set_param_value(param_name='url', value='https://example.com')
+        param.set_param(param_name='url', value='https://example.com')
         
         result = core.get_param(alias='--url')
         
@@ -292,7 +292,7 @@ class TestCoreGetParam:
         """
         test_param = {'name': 'port', 'type': PARAM_TYPE_NUMBER, 'config-name': 'server_port'}
         param.add_params([test_param])
-        param.set_param_value(param_name='port', value=8080)
+        param.set_param(param_name='port', value=8080)
         
         result = core.get_param(bind_name='server_port')
         

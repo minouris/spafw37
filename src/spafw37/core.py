@@ -373,7 +373,7 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
         set_param(alias='--verbose', value=True)
     """
     from spafw37 import param
-    param.set_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+    param.set_param(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
 
 
 def join_param(param_name=None, bind_name=None, alias=None, value=None):
@@ -400,7 +400,7 @@ def join_param(param_name=None, bind_name=None, alias=None, value=None):
         join_param(alias='--config', value={'key': 'value'})
     """
     from spafw37 import param
-    param.join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+    param.join_param(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
 
 
 def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False):

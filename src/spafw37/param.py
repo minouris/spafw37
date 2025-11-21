@@ -1355,7 +1355,7 @@ def _validate_xor_conflicts(param_definition, value_to_set):
                 )
 
 
-def set_param_value(param_name=None, bind_name=None, alias=None, value=None, strict=True, skip_xor_check=False):
+def set_param(param_name=None, bind_name=None, alias=None, value=None):
     """
     Set parameter value with flexible resolution and type validation.
     
@@ -1368,12 +1368,13 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
         bind_name: Parameter's PARAM_CONFIG_NAME (advanced use, for internal config key)
         alias: Any of the parameter's PARAM_ALIASES without prefix (advanced use)
         value: Value to set (required)
-        strict: If True, enforces strict type validation (default: True)
-        skip_xor_check: If True, bypasses XOR conflict validation (for defaults/config loading)
     
     Note:
         At least one of param_name, bind_name, or alias must be provided.
         In most cases, use param_name with the parameter's PARAM_NAME.
+        
+        XOR validation can be disabled globally using _set_xor_validation_enabled(False)
+        when loading defaults or configuration files.
     
     Raises:
         ValueError: If parameter not found, validation fails, or XOR conflict detected
@@ -1402,11 +1403,11 @@ def set_param_value(param_name=None, bind_name=None, alias=None, value=None, str
             validated_value = bool(value)
     else:
         # Validate and coerce value according to parameter type
-        validated_value = _validate_param_value(param_definition, value, strict)
+        validated_value = _validate_param_value(param_definition, value, strict=True)
     
     # If param is in a switch list, check for XOR conflicts BEFORE setting value
-    # Skip this check when loading defaults or config to avoid false conflicts
-    if not skip_xor_check and len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
+    # This check respects the global _skip_xor_validation flag set via _set_xor_validation_enabled()
+    if not _skip_xor_validation and len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
         _validate_xor_conflicts(param_definition, validated_value)
     
     # Log the parameter setting at DEBUG level
@@ -1561,7 +1562,7 @@ def _join_dict_value(existing, new, param_definition):
         return result
 
 
-def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
+def join_param(param_name=None, bind_name=None, alias=None, value=None):
     """
     Join/accumulate parameter value with type-specific logic.
     
@@ -1602,7 +1603,7 @@ def join_param_value(param_name=None, bind_name=None, alias=None, value=None):
         # If multiple JSON blocks detected, recurse for each
         if len(json_blocks) > 1:
             for block in json_blocks:
-                join_param_value(param_name=param_name, bind_name=bind_name, alias=alias, value=block)
+                join_param(param_name=param_name, bind_name=bind_name, alias=alias, value=block)
             return
     
     # Apply input filter if value is a non-None string

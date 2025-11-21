@@ -73,57 +73,57 @@ def setup():
     def init_rows():
         """Initialise the outer cycle with number of rows."""
         rows = 3
-        spafw37.set_config_value('rows', rows)
-        spafw37.set_config_value('current-row', 0)
+        spafw37.set_param(param_name='rows', value=rows)
+        spafw37.set_param(param_name='current-row', value=0)
         spafw37.output(f"Processing {rows} rows...")
     
     def has_more_rows():
         """Check if there are more rows to process."""
-        current_row = spafw37.get_config_int('current-row')
-        total_rows = spafw37.get_config_int('rows')
+        current_row = spafw37.get_param('current-row')
+        total_rows = spafw37.get_param('rows')
         return current_row < total_rows
     
     def finalize_rows():
         """Complete the outer cycle."""
-        total_rows = spafw37.get_config_int('rows')
+        total_rows = spafw37.get_param('rows')
         spafw37.output(f"\nCompleted processing {total_rows} rows")
     
     # Inner cycle functions (columns)
     def init_cols():
         """Initialise the inner cycle with number of columns."""
         cols = 4
-        current_row = spafw37.get_config_int('current-row')
-        spafw37.set_config_value('cols', cols)
-        spafw37.set_config_value('current-col', 0)
+        current_row = spafw37.get_param('current-row')
+        spafw37.set_param(param_name='cols', value=cols)
+        spafw37.set_param(param_name='current-col', value=0)
         spafw37.output(f"  Row {current_row}: Processing {cols} columns...")
     
     def has_more_cols():
         """Check if there are more columns to process."""
-        current_col = spafw37.get_config_int('current-col')
-        total_cols = spafw37.get_config_int('cols')
+        current_col = spafw37.get_param('current-col')
+        total_cols = spafw37.get_param('cols')
         return current_col < total_cols
     
     def finalize_cols():
         """Complete the inner cycle and advance to next row."""
-        current_row = spafw37.get_config_int('current-row')
-        total_cols = spafw37.get_config_int('cols')
+        current_row = spafw37.get_param('current-row')
+        total_cols = spafw37.get_param('cols')
         spafw37.output(f"  Row {current_row}: Completed {total_cols} columns")
         
         # Advance to next row
-        spafw37.set_config_value('current-row', current_row + 1)
+        spafw37.set_param(param_name='current-row', value=current_row + 1)
     
     # Command: Process a single cell
     def process_cell():
         """Process a single cell in the grid."""
-        row = spafw37.get_config_int('current-row')
-        col = spafw37.get_config_int('current-col')
+        row = spafw37.get_param('current-row')
+        col = spafw37.get_param('current-col')
         
         # Simulate processing
         value = (row * 10) + col
         spafw37.output(f"    Cell [{row},{col}] = {value}")
         
         # Advance to next column
-        spafw37.set_config_value('current-col', col + 1)
+        spafw37.set_param(param_name='current-col', value=col + 1)
     
     # Command: Process a row (placeholder action for cycle)
     def process_row():

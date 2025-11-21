@@ -60,9 +60,9 @@ def show_config():
     spafw37.output("CONFIGURATION")
     spafw37.output("=" * 60)
     
-    project_path = spafw37.get_config_str('project-path')
-    author = spafw37.get_config_str('author')
-    temp_dir = spafw37.get_config_str('temp-dir')
+    project_path = spafw37.get_param('project-path')
+    author = spafw37.get_param('author')
+    temp_dir = spafw37.get_param('temp-dir')
     
     spafw37.output(f"\nProject Path: {project_path}")
     spafw37.output("  [ALWAYS persisted - auto-saved to config.json]")

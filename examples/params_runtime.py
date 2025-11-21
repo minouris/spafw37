@@ -50,9 +50,9 @@ def init_command():
     
     # Set runtime-only parameter values
     session_id = str(uuid.uuid4())
-    spafw37.set_config_value('session-id', session_id)
-    spafw37.set_config_value('items-processed', 0)
-    spafw37.set_config_value('total-size', 0)
+    spafw37.set_param(param_name='session-id', value=session_id)
+    spafw37.set_param(param_name='items-processed', value=0)
+    spafw37.set_param(param_name='total-size', value=0)
     
     spafw37.output(f"Session initialised: {session_id}")
     spafw37.output("Ready to process items")
@@ -62,9 +62,9 @@ def process_item_command():
     import random
     
     # Read current state
-    session_id = spafw37.get_config_str('session-id')
-    items_processed = spafw37.get_config_int('items-processed')
-    total_size = spafw37.get_config_int('total-size')
+    session_id = spafw37.get_param('session-id')
+    items_processed = spafw37.get_param('items-processed')
+    total_size = spafw37.get_param('total-size')
     
     # Simulate processing
     item_size = random.randint(100, 1000)
@@ -72,16 +72,16 @@ def process_item_command():
     total_size += item_size
     
     # Update state
-    spafw37.set_config_value('items-processed', items_processed)
-    spafw37.set_config_value('total-size', total_size)
+    spafw37.set_param(param_name='items-processed', value=items_processed)
+    spafw37.set_param(param_name='total-size', value=total_size)
     
     spafw37.output(f"[Session: {session_id}] Processed item {items_processed} ({item_size} bytes)")
 
 def summary_command():
     """Display summary using runtime state."""
-    session_id = spafw37.get_config_str('session-id')
-    items_processed = spafw37.get_config_int('items-processed')
-    total_size = spafw37.get_config_int('total-size')
+    session_id = spafw37.get_param('session-id')
+    items_processed = spafw37.get_param('items-processed')
+    total_size = spafw37.get_param('total-size')
     
     spafw37.output()
     spafw37.output("=" * 50)

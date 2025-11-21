@@ -47,7 +47,7 @@ class TestSetParamValueResolution:
         test_param = {'name': 'database', 'type': PARAM_TYPE_TEXT, 'config-name': 'db'}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='database', value='production')
+        param.set_param(param_name='database', value='production')
         
         result = config.get_config_value('db')
         assert result == 'production'
@@ -62,7 +62,7 @@ class TestSetParamValueResolution:
         test_param = {'name': 'database', 'type': PARAM_TYPE_TEXT, 'config-name': 'db'}
         param.add_params([test_param])
         
-        param.set_param_value(bind_name='db', value='staging')
+        param.set_param(bind_name='db', value='staging')
         
         result = config.get_config_value('db')
         assert result == 'staging'
@@ -77,7 +77,7 @@ class TestSetParamValueResolution:
         test_param = {'name': 'verbose', 'type': PARAM_TYPE_TOGGLE, 'aliases': ['--verbose', '-v']}
         param.add_params([test_param])
         
-        param.set_param_value(alias='--verbose', value=True)
+        param.set_param(alias='--verbose', value=True)
         
         result = config.get_config_value('verbose')
         assert result is True
@@ -93,7 +93,7 @@ class TestSetParamValueResolution:
         param.add_params([test_param])
         
         # Call with what looks like bind_name but using param_name argument
-        param.set_param_value(param_name='max_conn', value=100)
+        param.set_param(param_name='max_conn', value=100)
         
         result = config.get_config_value('max_conn')
         assert result == 100
@@ -106,7 +106,7 @@ class TestSetParamValueResolution:
         attempting to set an unknown parameter is a programming error.
         """
         with pytest.raises(ValueError, match="Unknown parameter"):
-            param.set_param_value(param_name='nonexistent', value='test')
+            param.set_param(param_name='nonexistent', value='test')
 
 
 class TestSetParamValueValidation:
@@ -127,7 +127,7 @@ class TestSetParamValueValidation:
         test_param = {'name': 'port', 'type': PARAM_TYPE_NUMBER}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='port', value='8080')
+        param.set_param(param_name='port', value='8080')
         
         result = config.get_config_value('port')
         assert result == 8080
@@ -143,7 +143,7 @@ class TestSetParamValueValidation:
         test_param = {'name': 'debug', 'type': PARAM_TYPE_TOGGLE}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='debug', value=True)
+        param.set_param(param_name='debug', value=True)
         
         result = config.get_config_value('debug')
         assert result is True
@@ -158,7 +158,7 @@ class TestSetParamValueValidation:
         test_param = {'name': 'tags', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='tags', value='single')
+        param.set_param(param_name='tags', value='single')
         
         result = config.get_config_value('tags')
         assert result == ['single']
@@ -173,7 +173,7 @@ class TestSetParamValueValidation:
         test_param = {'name': 'config', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='config', value='{"key": "value"}')
+        param.set_param(param_name='config', value='{"key": "value"}')
         
         result = config.get_config_value('config')
         assert result == {'key': 'value'}
@@ -188,23 +188,23 @@ class TestSetParamValueValidation:
         test_param = {'name': 'settings', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='settings', value={'enabled': True})
+        param.set_param(param_name='settings', value={'enabled': True})
         
         result = config.get_config_value('settings')
         assert result == {'enabled': True}
 
-    def test_set_param_value_invalid_number_strict_raises_error(self):
+    def test_set_param_value_invalid_number_raises_error(self):
         """
-        Tests that set_param_value() raises error for invalid number in strict mode.
+        Tests that set_param() raises error for invalid number values.
         
-        When strict=True and value cannot be coerced to number, ValueError should
-        be raised because strict mode enforces type correctness.
+        When value cannot be coerced to number, ValueError should be raised
+        because set_param() always uses strict type validation.
         """
         test_param = {'name': 'count', 'type': PARAM_TYPE_NUMBER}
         param.add_params([test_param])
         
         with pytest.raises(ValueError, match="Cannot coerce value to number"):
-            param.set_param_value(param_name='count', value='not_a_number', strict=True)
+            param.set_param(param_name='count', value='not_a_number')
 
     def test_set_param_value_invalid_dict_json_raises_error(self):
         """
@@ -217,7 +217,7 @@ class TestSetParamValueValidation:
         param.add_params([test_param])
         
         with pytest.raises(ValueError, match="Invalid JSON"):
-            param.set_param_value(param_name='data', value='{invalid json}')
+            param.set_param(param_name='data', value='{invalid json}')
 
 
 class TestSetParamValueXorConflicts:
@@ -241,7 +241,7 @@ class TestSetParamValueXorConflicts:
         ]
         param.add_params(test_params)
         
-        param.set_param_value(param_name='verbose', value=True)
+        param.set_param(param_name='verbose', value=True)
         
         result = config.get_config_value('verbose')
         assert result is True
@@ -259,10 +259,10 @@ class TestSetParamValueXorConflicts:
         ]
         param.add_params(test_params)
         
-        param.set_param_value(param_name='verbose', value=True)
+        param.set_param(param_name='verbose', value=True)
         
         with pytest.raises(ValueError, match="conflicts with"):
-            param.set_param_value(param_name='silent', value=True)
+            param.set_param(param_name='silent', value=True)
 
     def test_set_param_value_xor_setting_false_no_conflict(self):
         """
@@ -277,8 +277,8 @@ class TestSetParamValueXorConflicts:
         ]
         param.add_params(test_params)
         
-        param.set_param_value(param_name='verbose', value=True)
-        param.set_param_value(param_name='silent', value=False)  # Should not raise
+        param.set_param(param_name='verbose', value=True)
+        param.set_param(param_name='silent', value=False)  # Should not raise
         
         assert config.get_config_value('verbose') is True
         assert config.get_config_value('silent') is False
@@ -302,8 +302,8 @@ class TestSetParamValueReplacement:
         test_param = {'name': 'status', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='status', value='initial')
-        param.set_param_value(param_name='status', value='updated')
+        param.set_param(param_name='status', value='initial')
+        param.set_param(param_name='status', value='updated')
         
         result = config.get_config_value('status')
         assert result == 'updated'
@@ -318,8 +318,8 @@ class TestSetParamValueReplacement:
         test_param = {'name': 'items', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='items', value=['a', 'b'])
-        param.set_param_value(param_name='items', value=['c', 'd'])
+        param.set_param(param_name='items', value=['a', 'b'])
+        param.set_param(param_name='items', value=['c', 'd'])
         
         result = config.get_config_value('items')
         assert result == ['c', 'd']
@@ -334,8 +334,8 @@ class TestSetParamValueReplacement:
         test_param = {'name': 'config', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='config', value={'key1': 'value1'})
-        param.set_param_value(param_name='config', value={'key2': 'value2'})
+        param.set_param(param_name='config', value={'key1': 'value1'})
+        param.set_param(param_name='config', value={'key2': 'value2'})
         
         result = config.get_config_value('config')
         assert result == {'key2': 'value2'}
@@ -352,29 +352,29 @@ class TestSetParamValueStrictMode:
 
     def test_set_param_value_strict_mode_default_true(self):
         """
-        Tests that set_param_value() defaults to strict=True.
+        Tests that set_param() uses strict validation by default.
         
-        When strict parameter is not provided, strict validation should be enabled
-        by default because programmatic setting should enforce correctness.
+        Invalid values should raise ValueError because set_param() always
+        uses strict type validation for programmatic correctness.
         """
         test_param = {'name': 'port', 'type': PARAM_TYPE_NUMBER}
         param.add_params([test_param])
         
         with pytest.raises(ValueError):
-            param.set_param_value(param_name='port', value='invalid')
+            param.set_param(param_name='port', value='invalid')
 
-    def test_set_param_value_strict_false_coerces_value(self):
+    def test_set_param_value_coerces_toggle_value(self):
         """
-        Tests that set_param_value() with strict=False attempts coercion.
+        Tests that set_param() coerces toggle values to boolean.
         
-        When strict=False, the function should attempt to coerce values to the
-        expected type because non-strict mode prioritizes flexibility.
+        Toggle parameters should accept truthy/falsy values and convert them
+        to proper boolean values.
         """
         test_param = {'name': 'enabled', 'type': PARAM_TYPE_TOGGLE}
         param.add_params([test_param])
         
-        param.set_param_value(param_name='enabled', value='yes', strict=False)
+        param.set_param(param_name='enabled', value='yes')
         
         result = config.get_config_value('enabled')
-        # Non-empty string is truthy
+        # Non-empty string is truthy, should be converted to True
         assert result is True

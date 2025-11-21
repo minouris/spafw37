@@ -19,6 +19,7 @@ This directory contains focused examples demonstrating specific features of the 
 - Number parameters
 - Parameter aliases
 - Default values
+- Using `get_param()` for automatic type handling
 
 **Run:**
 ```bash
@@ -45,10 +46,65 @@ python params_toggles.py process --input data.txt --csv
 python params_lists.py process --file a.txt --file b.txt --tag urgent --tag review
 ```
 
+### `params_dict.py` - Dict (JSON) Parameters
+- Dict/object parameters with JSON data
+- Inline JSON, multi-token JSON, file loading
+- **v1.1.0:** Multiple JSON blocks (automatically merged)
+- **v1.1.0:** File references within JSON
+
+**Run:**
+```bash
+python params_dict.py api-call --payload '{"user":"alice","action":"login"}'
+python params_dict.py api-call --payload @examples/sample_payload.json
+# v1.1.0 features:
+python params_dict.py api-call --payload '{"user":"alice"}' '{"action":"login"}'
+python params_dict.py api-call --payload '{"data": @examples/sample_payload.json}'
+```
+
+### `params_file.py` - File Loading with @file Syntax
+- Loading parameter values from files using `@file.txt`
+- Works with all parameter types (text, number, list, dict)
+- Multiple file references for list parameters
+
+**Run:**
+```bash
+python params_file.py read-query --sql @examples/sample_query.sql
+python params_file.py process-count --count @examples/sample_count.txt
+python params_file.py process-files --files @examples/sample_files.txt
+python params_file.py send-payload --payload @examples/sample_payload.json
+```
+
+### `params_join.py` - Accumulating Values (v1.1.0)
+- **NEW:** Using `join_param()` to accumulate values
+- String concatenation with custom separators
+- List accumulation (append/extend)
+- Dict merging (shallow/deep, collision strategies)
+
+**Run:**
+```bash
+python params_join.py demo-string
+python params_join.py demo-list
+python params_join.py demo-dict
+```
+
+### `params_input_filter.py` - Custom Input Filters (v1.1.0)
+- **NEW:** Using `PARAM_INPUT_FILTER` for custom parsing
+- CSV to list conversion
+- Connection string parsing
+- Key=value pair parsing
+
+**Run:**
+```bash
+python params_input_filter.py parse-csv --tags "python, cli, framework"
+python params_input_filter.py connect --db "host=localhost;port=5432;database=myapp"
+python params_input_filter.py parse-kv --settings "debug=true timeout=30 retries=3"
+```
+
 ### `params_runtime.py` - Runtime-Only Parameters
 - Internal state parameters (not exposed to CLI)
 - Shared state between commands
 - Session management
+- Using `set_param()` and `get_param()` for runtime state
 
 **Run:**
 ```bash

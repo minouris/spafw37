@@ -42,7 +42,7 @@ from spafw37.constants.command import (
 
 def read_query():
     """Display SQL query loaded from file."""
-    sql = spafw37.get_config_value('sql')
+    sql = spafw37.get_param('sql')
     
     spafw37.output("SQL Query loaded from file:")
     spafw37.output("-" * 50)
@@ -53,7 +53,7 @@ def read_query():
 
 def process_count():
     """Process using count loaded from file."""
-    count = spafw37.get_config_int('count')
+    count = spafw37.get_param('count')
     
     spafw37.output(f"Count loaded from file: {count}")
     spafw37.output(f"Type: {type(count)}")
@@ -65,7 +65,7 @@ def process_count():
 
 def process_files():
     """Process files loaded from list in file."""
-    files = spafw37.get_config_list('files')
+    files = spafw37.get_param('files')
     
     spafw37.output(f"Files loaded from file: {len(files)} total")
     spafw37.output("\nFile list:")
@@ -78,7 +78,7 @@ def process_files():
 
 def send_payload():
     """Send API payload loaded from JSON file."""
-    payload = spafw37.get_config_dict('payload')
+    payload = spafw37.get_param('payload')
     
     spafw37.output("API Payload loaded from JSON file:")
     

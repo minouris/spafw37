@@ -144,23 +144,23 @@ def init_files():
     spafw37.set_param(param_name='file-index', value=0)
 
 def has_more_files():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='current-file', value=file_list[file_index])
 
 def finalize_files():
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.output(f"Completed {file_index} files")
 
 def process_file():
-    current_file = spafw37.get_param_str('current-file')
+    current_file = spafw37.get_param('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='file-index', value=file_index + 1)
 ```
 
@@ -190,8 +190,8 @@ Checks if iteration should continue:
 
 ```python
 def has_more_files():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     return file_index < len(file_list)
 ```
 
@@ -201,8 +201,8 @@ Prepares data for the next iteration ([see example](../examples/cycles_loop_star
 
 ```python
 def prepare_next_file():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='current-file', value=file_list[file_index])
 ```
 
@@ -212,7 +212,7 @@ Cleans up resources and reports results after the loop completes:
 
 ```python
 def finalize_files():
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.output(f"Completed {file_index} files")
 ```
 
@@ -222,9 +222,9 @@ Define the commands that execute each iteration:
 
 ```python
 def process_file():
-    current_file = spafw37.get_param_str('current-file')
+    current_file = spafw37.get_param('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='file-index', value=file_index + 1)
 
 cycle_commands = [
@@ -279,23 +279,23 @@ def init_files():
     spafw37.set_param(param_name='file-index', value=0)
 
 def has_more_files():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     return file_index < len(file_list)
 
 def prepare_next_file():
-    file_list = spafw37.get_param_list('file-list')
-    file_index = spafw37.get_param_int('file-index')
+    file_list = spafw37.get_param('file-list')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='current-file', value=file_list[file_index])
 
 def finalize_files():
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.output(f"Completed {file_index} files")
 
 def process_file():
-    current_file = spafw37.get_param_str('current-file')
+    current_file = spafw37.get_param('current-file')
     # ... process current_file ...
-    file_index = spafw37.get_param_int('file-index')
+    file_index = spafw37.get_param('file-index')
     spafw37.set_param(param_name='file-index', value=file_index + 1)
 
 # Define parent command with cycle
@@ -375,16 +375,16 @@ def init_cycle():
     spafw37.output("Cycle initialised")
 
 def should_continue():
-    iteration_count = spafw37.get_param_int('iteration-count')
-    max_iterations = spafw37.get_param_int('max-iterations')
+    iteration_count = spafw37.get_param('iteration-count')
+    max_iterations = spafw37.get_param('max-iterations')
     return iteration_count < max_iterations
 
 def finalize_cycle():
-    iteration_count = spafw37.get_param_int('iteration-count')
+    iteration_count = spafw37.get_param('iteration-count')
     spafw37.output(f"Cycle completed after {iteration_count} iterations")
 
 def do_work():
-    iteration_count = spafw37.get_param_int('iteration-count')
+    iteration_count = spafw37.get_param('iteration-count')
     iteration_count += 1
     spafw37.set_param(param_name='iteration-count', value=iteration_count)
     spafw37.output(f"Iteration {iteration_count}: doing work")
@@ -499,13 +499,13 @@ def init_batches():
 
 def has_more_batches():
     # Check if more batches remain
-    batches = spafw37.get_param_list('batches')
-    batch_index = spafw37.get_param_int('batch-index')
+    batches = spafw37.get_param('batches')
+    batch_index = spafw37.get_param('batch-index')
     return batch_index < len(batches)
 
 def prepare_next_batch():
     # Set current batch and increment index
-    batch_index = spafw37.get_param_int('batch-index')
+    batch_index = spafw37.get_param('batch-index')
     spafw37.set_param(param_name='batch-index', value=batch_index + 1)
 
 # Inner cycle functions
@@ -516,18 +516,18 @@ def init_items():
 
 def has_more_items():
     # Check if more items remain
-    items = spafw37.get_param_list('items')
-    item_index = spafw37.get_param_int('item-index')
+    items = spafw37.get_param('items')
+    item_index = spafw37.get_param('item-index')
     return item_index < len(items)
 
 def prepare_next_item():
     # Increment item index
-    item_index = spafw37.get_param_int('item-index')
+    item_index = spafw37.get_param('item-index')
     spafw37.set_param(param_name='item-index', value=item_index + 1)
 
 def process_item():
     # Process current item
-    item_index = spafw37.get_param_int('item-index')
+    item_index = spafw37.get_param('item-index')
     spafw37.output(f"Processing item {item_index}")
 
 # Top-level command with nested cycles
@@ -730,22 +730,22 @@ def init_processing():
 
 def has_more_batches():
     """Check if more batches remain."""
-    batches = spafw37.get_param_list('batches')
-    batch_index = spafw37.get_param_int('batch-index')
+    batches = spafw37.get_param('batches')
+    batch_index = spafw37.get_param('batch-index')
     return batch_index < len(batches)
 
 def prepare_next_batch():
     """Prepare next batch for processing."""
-    batches = spafw37.get_param_list('batches')
-    batch_index = spafw37.get_param_int('batch-index')
+    batches = spafw37.get_param('batches')
+    batch_index = spafw37.get_param('batch-index')
     current_batch = batches[batch_index]
     spafw37.set_param(param_name='current-batch', value=current_batch)
 
 def process_batch():
     """Process the current batch."""
-    current_batch = spafw37.get_param_str('current-batch')
-    results = spafw37.get_param_list('processing-results')
-    batch_index = spafw37.get_param_int('batch-index')
+    current_batch = spafw37.get_param('current-batch')
+    results = spafw37.get_param('processing-results')
+    batch_index = spafw37.get_param('batch-index')
     
     result = perform_processing(current_batch)
     results.append(result)

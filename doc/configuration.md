@@ -188,7 +188,7 @@ def init_cycle():
 
 def process_batch():
     # Update state during execution
-    files_processed = spafw37.get_param_int('files-processed')
+    files_processed = spafw37.get_param('files-processed')
     spafw37.set_param(param_name='files-processed', value=files_processed + 1)
     
     # Accumulate list values with join_param() - much simpler!
@@ -518,10 +518,10 @@ spafw37.add_params(params)
 # 3. Define commands that use configuration
 def process_files():
     # Get persistent preference
-    last_dir = spafw37.get_param_str('last-directory')
+    last_dir = spafw37.get_param('last-directory')
     
     # Get current run parameter
-    input_file = spafw37.get_param_str('input-file')
+    input_file = spafw37.get_param('input-file')
     
     # Set runtime state
     spafw37.set_param(param_name='current-index', value=0)
@@ -557,7 +557,7 @@ spafw37.run_cli()
    - User config loaded (if `--load-config` specified)
 
 2. **Execution**
-   - Commands access params via `get_param_str()`, `get_param_int()`, etc.
+   - Commands access params via `get_param()`
    - Commands update params via `set_param()` or `join_param()`
    - Runtime-only params used for temporary state
 
@@ -584,7 +584,7 @@ def init_cycle():
     spafw37.set_param(param_name='batch-index', value=0)
 
 def has_more_batches():
-    index = spafw37.get_param_int('batch-index')
+    index = spafw37.get_param('batch-index')
     return index < total_batches
 ```
 
@@ -644,11 +644,11 @@ myapp --load-config low-volume.json
 ```python
 def process():
     # Provide defaults for optional config
-    output_dir = spafw37.get_param_str('output-dir', './output')
-    timeout = spafw37.get_param_int('timeout', 30)
+    output_dir = spafw37.get_param('output-dir', './output')
+    timeout = spafw37.get_param('timeout', 30)
     
     # Check required config
-    input_file = spafw37.get_param_str('input-file')
+    input_file = spafw37.get_param('input-file')
     if not input_file:
         raise ValueError("input-file is required")
 ```
@@ -685,7 +685,7 @@ if __name__ == '__main__':
 
 Complete working examples demonstrating configuration features:
 
-- **[config_basic.py](../examples/config_basic.py)** - Runtime configuration access with typed param getters
+- **[config_basic.py](../examples/config_basic.py)** - Runtime configuration access with `get_param()` and automatic type handling
 - **[config_persistence.py](../examples/config_persistence.py)** - Configuration persistence with PARAM_PERSISTENCE_ALWAYS vs PARAM_PERSISTENCE_NEVER
 
 See [examples/README.md](../examples/README.md) for a complete guide to all available examples.

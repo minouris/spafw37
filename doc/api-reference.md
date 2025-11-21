@@ -47,6 +47,11 @@ This design keeps the API surface clean and shields applications from internal i
 - Added `PARAM_DICT_MERGE_TYPE` for shallow/deep dictionary merging
 - Added `PARAM_DICT_OVERRIDE_STRATEGY` for conflict resolution
 
+**Advanced Parameter Features:**
+- Added `PARAM_INPUT_FILTER` for custom input transformation functions
+- Dict parameters support multiple JSON blocks (automatically merged)
+- Dict parameters support file references within JSON (e.g., `{'data': @file.json}`)
+
 ## Import Pattern
 
 **Recommended import pattern for all applications:**
@@ -355,7 +360,7 @@ The parameter API provides simple access to parameter values with automatic type
 
 ##### `get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False)`
 
-Get a parameter value with automatic type conversion based on the parameter's `PARAM_TYPE`. This intelligent method examines the parameter definition and returns the correctly-typed value without requiring separate getter functions for each type.
+Get a parameter value with automatic type conversion based on the parameter's `PARAM_TYPE`. This intelligent method examines the parameter definition and returns the correctly-typed value without requiring separate getter functions for each type ([see example](../examples/params_basic.py)).
 
 ```python
 # Automatically returns the correct type based on parameter definition
@@ -404,7 +409,7 @@ The method automatically routes to the appropriate typed getter based on `PARAM_
 
 ##### `set_param(param_name=None, bind_name=None, alias=None, value=None)`
 
-Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE.
+Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE ([see example](../examples/params_runtime.py)).
 
 ```python
 # Set by parameter name
@@ -437,7 +442,7 @@ spafw37.set_param(alias='files', value=['file1.txt', 'file2.txt'])
 
 ##### `join_param(param_name=None, bind_name=None, alias=None, value=None)`
 
-Accumulate a parameter value using type-specific logic instead of replacing it. Behavior depends on parameter type:
+Accumulate a parameter value using type-specific logic instead of replacing it ([see example](../examples/params_join.py)). Behavior depends on parameter type:
 
 - **String (PARAM_TYPE_TEXT):** Concatenate with separator (configurable via `PARAM_JOIN_SEPARATOR`)
 - **List (PARAM_TYPE_LIST):** Append single values or extend with lists
@@ -994,6 +999,12 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_SWITCH_LIST` | list[str] | Mutually exclusive params |
 | `PARAM_GROUP` | str | Group name for help display |
 
+#### Advanced Configuration
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `PARAM_INPUT_FILTER` | callable | Custom function to transform CLI string input before validation. See [Parameters Guide - Custom Input Filters](parameters.md#custom-input-filters) and [example](../examples/params_input_filter.py) |
+
 #### Parameter Types
 
 | Constant | Value | Description |
@@ -1006,7 +1017,7 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 
 #### Join and Merge Configuration (v1.1.0)
 
-**v1.1.0** These constants configure type-specific behavior when accumulating parameter values with `join_param()`.
+**v1.1.0** These constants configure type-specific behavior when accumulating parameter values with `join_param()` ([see example](../examples/params_join.py)).
 
 | Constant | Type | Description |
 |----------|------|-------------|
@@ -1147,12 +1158,13 @@ See the [Configuration Guide](configuration.md) for details on configuration fil
 
 For complete working examples demonstrating these API functions and constants, see the **[examples directory](https://github.com/minouris/spafw37/tree/main/examples)**:
 
-- **Parameters** (6 files): Basic usage, toggles, lists, required validation, runtime modification, grouping
+- **Parameters** (11 files): Basic usage, toggles, lists, dicts, file loading, required validation, runtime modification, grouping, **v1.1.0:** join accumulation, custom input filters
 - **Commands** (7 files): Basic definition, sequencing, dependencies, chaining, required validation, triggering, visibility
 - **Cycles** (3 files): Basic usage, custom loop initialisation, nested patterns
 - **Phases** (4 files): Basic usage, custom ordering, extended lifecycle, custom definitions
 - **Output** (2 files): Basic output with verbose/silent modes, custom handlers (file, dual, timestamped)
 - **Configuration** (2 files): Basic usage, persistence patterns
+- **Inline Definitions** (2 files): Basic inline parameter definitions, advanced patterns (nested, mixed)
 
 Each example demonstrates specific API functions and constants in working code that you can run and modify.
 

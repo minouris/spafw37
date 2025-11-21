@@ -124,7 +124,7 @@ def load_persistent_config():
         for config_key, value in loaded_config.items():
             # Try to find param with this bind name and set through param API
             try:
-                param.set_param_value(bind_name=config_key, value=value)
+                param.set_param(bind_name=config_key, value=value)
             except ValueError:
                 # If param not registered, set directly in config (backward compatibility)
                 config.set_config_value(config_key, value)
@@ -150,7 +150,7 @@ def load_user_config():
             for config_key, value in loaded_config.items():
                 # Try to find param with this bind name and set through param API
                 try:
-                    param.set_param_value(bind_name=config_key, value=value)
+                    param.set_param(bind_name=config_key, value=value)
                 except ValueError:
                     # If param not registered, set directly in config (backward compatibility)
                     config.set_config_value(config_key, value)

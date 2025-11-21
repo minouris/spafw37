@@ -51,9 +51,9 @@ params = [
 
 def process_command():
     """Process with list parameters."""
-    output_dir = spafw37.get_config_str('output-dir')
-    files = spafw37.get_config_list('files')
-    tags = spafw37.get_config_list('tags')
+    output_dir = spafw37.get_param('output-dir')
+    files = spafw37.get_param('files')
+    tags = spafw37.get_param('tags')
     
     spafw37.output(f"Output directory: {output_dir}")
     spafw37.output()

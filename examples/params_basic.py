@@ -53,9 +53,9 @@ params = [
 def process_command():
     """Process with basic parameters."""
     # Get parameter values
-    input_file = spafw37.get_config_str('input-file')
-    output_file = spafw37.get_config_str('output-file')
-    count = spafw37.get_config_int('count')
+    input_file = spafw37.get_param('input-file')
+    output_file = spafw37.get_param('output-file')
+    count = spafw37.get_param('count')
     
     spafw37.output(f"Processing: {input_file}")
     spafw37.output(f"Output to: {output_file}")

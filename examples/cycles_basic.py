@@ -46,20 +46,20 @@ params = [
 
 def init_counter():
     """Initialise the counter."""
-    spafw37.set_config_value('counter', 0)
-    spafw37.set_config_value('max-iterations', 5)
+    spafw37.set_param(param_name='counter', value=0)
+    spafw37.set_param(param_name='max-iterations', value=5)
     spafw37.output("Initialized counter cycle (5 iterations)")
     spafw37.output("=" * 40)
 
 def has_more_iterations():
     """Check if more iterations remain."""
-    counter = spafw37.get_config_int('counter')
-    max_iterations = spafw37.get_config_int('max-iterations')
+    counter = spafw37.get_param('counter')
+    max_iterations = spafw37.get_param('max-iterations')
     return counter < max_iterations
 
 def finalize_counter():
     """Finalise the counter."""
-    counter = spafw37.get_config_int('counter')
+    counter = spafw37.get_param('counter')
     spafw37.output("=" * 40)
     spafw37.output(f"Completed {counter} iterations")
 
@@ -67,11 +67,11 @@ def finalize_counter():
 
 def process_iteration():
     """Process one iteration."""
-    counter = spafw37.get_config_int('counter')
+    counter = spafw37.get_param('counter')
     counter += 1
-    spafw37.set_config_value('counter', counter)
+    spafw37.set_param(param_name='counter', value=counter)
     
-    max_iterations = spafw37.get_config_int('max-iterations')
+    max_iterations = spafw37.get_param('max-iterations')
     spafw37.output(f"[Iteration {counter}/{max_iterations}] Processing...")
 
 # Define cycle commands

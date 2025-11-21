@@ -176,9 +176,9 @@ def _parse_command_line(tokens):
         
         # For list and dict params, accumulate values; for all others, set directly
         if param.is_list_param(alias=alias) or param.is_dict_param(alias=alias):
-            param.join_param_value(alias=alias, value=value)
+            param.join_param(alias=alias, value=value)
         else:
-            param.set_param_value(alias=alias, value=value)
+            param.set_param(alias=alias, value=value)
 
 
 def _set_defaults():
@@ -191,12 +191,12 @@ def _set_defaults():
             if param._is_toggle_param(param_definition):
                 _def = param._get_param_default(param_definition, False)
                 print(f"Setting default for toggle param '{param_name}'= {_def}")
-                param.set_param_value(param_name=param_name, value=_def)
+                param.set_param(param_name=param_name, value=_def)
             else:
                 if param._param_has_default(param_definition):
                     _def = param._get_param_default(param_definition, None)
                     logging.log_trace(_message=f"Setting default for param '{param_name}'= {_def}")
-                    param.set_param_value(param_name=param_name, value=_def)
+                    param.set_param(param_name=param_name, value=_def)
     finally:
         # Always re-enable XOR validation after setting defaults
         param._set_xor_validation_enabled(True)
@@ -235,7 +235,7 @@ def _pre_parse_params(tokenized_args):
             continue
         
         # Set the value
-        param.set_param_value(param_name=param_name, value=value)
+        param.set_param(param_name=param_name, value=value)
 
 
 def handle_cli_args(args):

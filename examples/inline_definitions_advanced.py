@@ -77,8 +77,8 @@ commands = [
         COMMAND_NAME: "process-data",
         COMMAND_DESCRIPTION: "Process data with validation and cleanup",
         COMMAND_ACTION: lambda: spafw37.output(
-            f"Processing data from {spafw37.get_config_value('input-file')} "
-            f"with {spafw37.get_config_int('workers')} workers..."
+            f"Processing data from {spafw37.get_param('input-file')} "
+            f"with {spafw37.get_param('workers')} workers..."
         ),
         # Mix named and inline required params
         COMMAND_REQUIRED_PARAMS: [

@@ -58,7 +58,7 @@ class TestJoinParamValueString:
         test_param = {'name': 'message', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='message', value='Hello')
+        param.join_param(param_name='message', value='Hello')
         
         result = config.get_config_value('message')
         assert result == 'Hello'
@@ -73,8 +73,8 @@ class TestJoinParamValueString:
         test_param = {'name': 'keywords', 'type': PARAM_TYPE_TEXT}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='keywords', value='tag1')
-        param.join_param_value(param_name='keywords', value='tag2')
+        param.join_param(param_name='keywords', value='tag1')
+        param.join_param(param_name='keywords', value='tag2')
         
         result = config.get_config_value('keywords')
         assert result == 'tag1 tag2'
@@ -89,9 +89,9 @@ class TestJoinParamValueString:
         test_param = {'name': 'fruits', 'type': PARAM_TYPE_TEXT, PARAM_JOIN_SEPARATOR: SEPARATOR_COMMA}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='fruits', value='apple')
-        param.join_param_value(param_name='fruits', value='banana')
-        param.join_param_value(param_name='fruits', value='cherry')
+        param.join_param(param_name='fruits', value='apple')
+        param.join_param(param_name='fruits', value='banana')
+        param.join_param(param_name='fruits', value='cherry')
         
         result = config.get_config_value('fruits')
         assert result == 'apple,banana,cherry'
@@ -106,8 +106,8 @@ class TestJoinParamValueString:
         test_param = {'name': 'filters', 'type': PARAM_TYPE_TEXT, PARAM_JOIN_SEPARATOR: SEPARATOR_PIPE}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='filters', value='status=active')
-        param.join_param_value(param_name='filters', value='type=user')
+        param.join_param(param_name='filters', value='status=active')
+        param.join_param(param_name='filters', value='type=user')
         
         result = config.get_config_value('filters')
         assert result == 'status=active|type=user'
@@ -131,7 +131,7 @@ class TestJoinParamValueList:
         test_param = {'name': 'files', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='files', value='file1.txt')
+        param.join_param(param_name='files', value='file1.txt')
         
         result = config.get_config_value('files')
         assert result == ['file1.txt']
@@ -146,9 +146,9 @@ class TestJoinParamValueList:
         test_param = {'name': 'letters', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='letters', value='a')
-        param.join_param_value(param_name='letters', value='b')
-        param.join_param_value(param_name='letters', value='c')
+        param.join_param(param_name='letters', value='a')
+        param.join_param(param_name='letters', value='b')
+        param.join_param(param_name='letters', value='c')
         
         result = config.get_config_value('letters')
         assert result == ['a', 'b', 'c']
@@ -163,8 +163,8 @@ class TestJoinParamValueList:
         test_param = {'name': 'numbers', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='numbers', value=[1, 2])
-        param.join_param_value(param_name='numbers', value=[3, 4])
+        param.join_param(param_name='numbers', value=[1, 2])
+        param.join_param(param_name='numbers', value=[3, 4])
         
         result = config.get_config_value('numbers')
         assert result == [1, 2, 3, 4]
@@ -179,9 +179,9 @@ class TestJoinParamValueList:
         test_param = {'name': 'mixed', 'type': PARAM_TYPE_LIST}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='mixed', value='single')
-        param.join_param_value(param_name='mixed', value=['multi1', 'multi2'])
-        param.join_param_value(param_name='mixed', value='another')
+        param.join_param(param_name='mixed', value='single')
+        param.join_param(param_name='mixed', value=['multi1', 'multi2'])
+        param.join_param(param_name='mixed', value='another')
         
         result = config.get_config_value('mixed')
         assert result == ['single', 'multi1', 'multi2', 'another']
@@ -205,7 +205,7 @@ class TestJoinParamValueDict:
         test_param = {'name': 'options', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='options', value={'key': 'value'})
+        param.join_param(param_name='options', value={'key': 'value'})
         
         result = config.get_config_value('options')
         assert result == {'key': 'value'}
@@ -220,8 +220,8 @@ class TestJoinParamValueDict:
         test_param = {'name': 'metadata', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='metadata', value={'a': 1})
-        param.join_param_value(param_name='metadata', value={'b': 2})
+        param.join_param(param_name='metadata', value={'a': 1})
+        param.join_param(param_name='metadata', value={'b': 2})
         
         result = config.get_config_value('metadata')
         assert result == {'a': 1, 'b': 2}
@@ -236,8 +236,8 @@ class TestJoinParamValueDict:
         test_param = {'name': 'data', 'type': PARAM_TYPE_DICT}
         param.add_params([test_param])
         
-        param.join_param_value(param_name='data', value={'key': 'first'})
-        param.join_param_value(param_name='data', value={'key': 'second'})
+        param.join_param(param_name='data', value={'key': 'first'})
+        param.join_param(param_name='data', value={'key': 'second'})
         
         result = config.get_config_value('data')
         assert result == {'key': 'second'}
@@ -256,8 +256,8 @@ class TestJoinParamValueDict:
         }
         param.add_params([test_param])
         
-        param.join_param_value(param_name='persistent', value={'key': 'original', 'a': 1})
-        param.join_param_value(param_name='persistent', value={'key': 'new', 'b': 2})
+        param.join_param(param_name='persistent', value={'key': 'original', 'a': 1})
+        param.join_param(param_name='persistent', value={'key': 'new', 'b': 2})
         
         result = config.get_config_value('persistent')
         assert result == {'key': 'original', 'a': 1, 'b': 2}
@@ -276,10 +276,10 @@ class TestJoinParamValueDict:
         }
         param.add_params([test_param])
         
-        param.join_param_value(param_name='strict', value={'key': 'value1'})
+        param.join_param(param_name='strict', value={'key': 'value1'})
         
         with pytest.raises(ValueError, match="key collision"):
-            param.join_param_value(param_name='strict', value={'key': 'value2'})
+            param.join_param(param_name='strict', value={'key': 'value2'})
 
     def test_join_param_value_dict_deep_merge(self):
         """
@@ -295,8 +295,8 @@ class TestJoinParamValueDict:
         }
         param.add_params([test_param])
         
-        param.join_param_value(param_name='nested', value={'a': {'x': 1, 'y': 2}})
-        param.join_param_value(param_name='nested', value={'a': {'y': 3, 'z': 4}})
+        param.join_param(param_name='nested', value={'a': {'x': 1, 'y': 2}})
+        param.join_param(param_name='nested', value={'a': {'y': 3, 'z': 4}})
         
         result = config.get_config_value('nested')
         assert result == {'a': {'x': 1, 'y': 3, 'z': 4}}
@@ -315,8 +315,8 @@ class TestJoinParamValueDict:
         }
         param.add_params([test_param])
         
-        param.join_param_value(param_name='deep', value={'level1': {'level2': {'a': 1}}})
-        param.join_param_value(param_name='deep', value={'level1': {'level2': {'b': 2}}})
+        param.join_param(param_name='deep', value={'level1': {'level2': {'a': 1}}})
+        param.join_param(param_name='deep', value={'level1': {'level2': {'b': 2}}})
         
         result = config.get_config_value('deep')
         assert result == {'level1': {'level2': {'a': 1, 'b': 2}}}
@@ -336,8 +336,8 @@ class TestJoinParamValueDict:
         }
         param.add_params([test_param])
         
-        param.join_param_value(param_name='preserve', value={'a': 1, 'nested': {'x': 'first'}})
-        param.join_param_value(param_name='preserve', value={'b': 2, 'nested': {'x': 'second', 'y': 'new'}})
+        param.join_param(param_name='preserve', value={'a': 1, 'nested': {'x': 'first'}})
+        param.join_param(param_name='preserve', value={'b': 2, 'nested': {'x': 'second', 'y': 'new'}})
         
         result = config.get_config_value('preserve')
         assert result == {'a': 1, 'b': 2, 'nested': {'x': 'first', 'y': 'new'}}
@@ -359,7 +359,7 @@ class TestJoinParamValueErrors:
         join operation requires a valid parameter definition.
         """
         with pytest.raises(ValueError, match="Unknown parameter"):
-            param.join_param_value(param_name='nonexistent', value='test')
+            param.join_param(param_name='nonexistent', value='test')
 
     def test_join_param_value_number_param_raises_error(self):
         """
@@ -372,7 +372,7 @@ class TestJoinParamValueErrors:
         param.add_params([test_param])
         
         with pytest.raises(ValueError, match="Cannot join.*number"):
-            param.join_param_value(param_name='count', value=42)
+            param.join_param(param_name='count', value=42)
 
     def test_join_param_value_toggle_param_raises_error(self):
         """
@@ -385,7 +385,7 @@ class TestJoinParamValueErrors:
         param.add_params([test_param])
         
         with pytest.raises(ValueError, match="Cannot join.*toggle"):
-            param.join_param_value(param_name='verbose', value=True)
+            param.join_param(param_name='verbose', value=True)
 
 
 class TestJoinParamValueResolution:
@@ -406,8 +406,8 @@ class TestJoinParamValueResolution:
         test_param = {'name': 'items', 'type': PARAM_TYPE_LIST, 'config-name': 'item_list'}
         param.add_params([test_param])
         
-        param.join_param_value(bind_name='item_list', value='first')
-        param.join_param_value(bind_name='item_list', value='second')
+        param.join_param(bind_name='item_list', value='first')
+        param.join_param(bind_name='item_list', value='second')
         
         result = config.get_config_value('item_list')
         assert result == ['first', 'second']
@@ -422,8 +422,8 @@ class TestJoinParamValueResolution:
         test_param = {'name': 'labels', 'type': PARAM_TYPE_LIST, 'aliases': ['--label', '-l']}
         param.add_params([test_param])
         
-        param.join_param_value(alias='--label', value='tag1')
-        param.join_param_value(alias='--label', value='tag2')
+        param.join_param(alias='--label', value='tag1')
+        param.join_param(alias='--label', value='tag2')
         
         result = config.get_config_value('labels')
         assert result == ['tag1', 'tag2']

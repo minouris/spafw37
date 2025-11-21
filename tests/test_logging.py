@@ -188,7 +188,7 @@ def test_apply_logging_config_verbose():
     
     # Set verbose flag
     verbose_param = param.get_param_by_name(LOG_VERBOSE_PARAM)
-    param.set_param_value(param_name=verbose_param[PARAM_NAME], value=True)
+    param.set_param(param_name=verbose_param[PARAM_NAME], value=True)
     
     # Apply config
     apply_logging_config()
@@ -204,7 +204,7 @@ def test_apply_logging_config_trace():
     
     # Set trace flag
     trace_param = param.get_param_by_name(LOG_TRACE_PARAM)
-    param.set_param_value(param_name=trace_param[PARAM_NAME], value=True)
+    param.set_param(param_name=trace_param[PARAM_NAME], value=True)
     
     # Apply config
     apply_logging_config()
@@ -219,7 +219,7 @@ def test_apply_logging_config_log_dir():
         # Set log dir
         test_log_dir = os.path.join(temp_dir, "config_logs")
         log_dir_param = param.get_param_by_name(LOG_DIR_PARAM)
-        param.set_param_value(param_name=log_dir_param[PARAM_NAME], value=test_log_dir)
+        param.set_param(param_name=log_dir_param[PARAM_NAME], value=test_log_dir)
         
         # Apply config
         apply_logging_config()
@@ -238,7 +238,7 @@ def test_apply_logging_config_scope_log_level():
     
     # Set scope log level (using phase-log-level param for backward compatibility)
     phase_param = param.get_param_by_name(LOG_PHASE_LOG_LEVEL_PARAM)
-    param.set_param_value(param_name=phase_param[PARAM_NAME], value=["setup", "WARNING", "execution", "DEBUG"])
+    param.set_param(param_name=phase_param[PARAM_NAME], value=["setup", "WARNING", "execution", "DEBUG"])
     
     # Apply config
     apply_logging_config()
@@ -353,7 +353,7 @@ def test_param_setting_logging():
         param.add_param(test_param)
 
         # Set param value
-        param.set_param_value(param_name=test_param[PARAM_NAME], value='test-value')        # Verify log file contains param setting logs
+        param.set_param(param_name=test_param[PARAM_NAME], value='test-value')        # Verify log file contains param setting logs
         log_files = list(Path(temp_dir).glob("log-*.log"))
         assert len(log_files) > 0
         
@@ -373,7 +373,7 @@ def test_should_log_to_console_with_no_logging():
     
     # Get and set no-logging param
     no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
-    param.set_param_value(param_name=no_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
     
     # Verify console logging is disabled
     assert logging._should_log_to_console() is False
@@ -390,7 +390,7 @@ def test_should_log_to_console_in_silent_mode():
     
     # Get and set silent param
     silent_param = param.get_param_by_name(LOG_SILENT_PARAM)
-    param.set_param_value(param_name=silent_param[PARAM_NAME], value=True)
+    param.set_param(param_name=silent_param[PARAM_NAME], value=True)
     
     # Verify console logging is disabled
     assert logging._should_log_to_console() is False
@@ -407,7 +407,7 @@ def test_should_log_to_file_with_no_logging():
     
     # Get and set no-logging param
     no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
-    param.set_param_value(param_name=no_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
     
     # Verify file logging is disabled
     assert logging._should_log_to_file() is False
@@ -425,7 +425,7 @@ def test_should_log_to_file_with_no_file_logging():
     
     # Get and set no-file-logging param
     no_file_logging_param = param.get_param_by_name(LOG_NO_FILE_LOGGING_PARAM)
-    param.set_param_value(param_name=no_file_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_file_logging_param[PARAM_NAME], value=True)
     
     # Verify file logging is disabled
     assert logging._should_log_to_file() is False
@@ -443,7 +443,7 @@ def test_log_with_both_logging_disabled():
     
     # Get and set no-logging param
     no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
-    param.set_param_value(param_name=no_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
     
     # This should return early without error
     logging.log(logging.INFO, _message='Should not be logged')
@@ -461,7 +461,7 @@ def test_apply_logging_config_with_log_level_param():
     
     # Get and set log-level param
     log_level_param = param.get_param_by_name(LOG_LEVEL_PARAM)
-    param.set_param_value(param_name=log_level_param[PARAM_NAME], value='WARNING')
+    param.set_param(param_name=log_level_param[PARAM_NAME], value='WARNING')
     
     logging.apply_logging_config()
     
@@ -482,7 +482,7 @@ def test_apply_logging_config_with_trace_console():
     
     # Get and set trace-console param
     trace_console_param = param.get_param_by_name(LOG_TRACE_CONSOLE_PARAM)
-    param.set_param_value(param_name=trace_console_param[PARAM_NAME], value=True)
+    param.set_param(param_name=trace_console_param[PARAM_NAME], value=True)
     
     logging.apply_logging_config()
     
@@ -503,7 +503,7 @@ def test_apply_logging_config_with_silent():
     
     # Get and set silent param
     silent_param = param.get_param_by_name(LOG_SILENT_PARAM)
-    param.set_param_value(param_name=silent_param[PARAM_NAME], value=True)
+    param.set_param(param_name=silent_param[PARAM_NAME], value=True)
     
     logging.apply_logging_config()
     
@@ -522,7 +522,7 @@ def test_apply_logging_config_with_no_logging():
     
     # Get and set no-logging param
     no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
-    param.set_param_value(param_name=no_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
     
     logging.apply_logging_config()
     
@@ -543,7 +543,7 @@ def test_apply_logging_config_with_no_file_logging():
     
     # Get and set no-file-logging param
     no_file_logging_param = param.get_param_by_name(LOG_NO_FILE_LOGGING_PARAM)
-    param.set_param_value(param_name=no_file_logging_param[PARAM_NAME], value=True)
+    param.set_param(param_name=no_file_logging_param[PARAM_NAME], value=True)
     
     logging.apply_logging_config()
     
@@ -562,7 +562,7 @@ def test_apply_logging_config_with_suppress_errors():
     
     # Get and set suppress-errors param
     suppress_errors_param = param.get_param_by_name(LOG_SUPPRESS_ERRORS_PARAM)
-    param.set_param_value(param_name=suppress_errors_param[PARAM_NAME], value=True)
+    param.set_param(param_name=suppress_errors_param[PARAM_NAME], value=True)
     
     logging.apply_logging_config()
     

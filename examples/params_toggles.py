@@ -59,12 +59,12 @@ params = [
 
 def process_command():
     """Process with toggle parameters."""
-    input_file = spafw37.get_config_str('input-file')
+    input_file = spafw37.get_param('input-file')
     
     # Check which output format is selected
-    json_output = spafw37.get_config_bool('json-output')
-    csv_output = spafw37.get_config_bool('csv-output')
-    xml_output = spafw37.get_config_bool('xml-output')
+    json_output = spafw37.get_param('json-output')
+    csv_output = spafw37.get_param('csv-output')
+    xml_output = spafw37.get_param('xml-output')
     
     # Determine format
     if json_output:
