@@ -7,6 +7,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
 - [Quick Start](#quick-start)
   - [Creating Your First Application](#creating-your-first-application)
   - [Running Your Application](#running-your-application)
@@ -35,6 +36,31 @@ SPAFW37 provides a declarative approach to building CLI applications by defining
 - **Cycle Support** - Repeating command sequences with init/loop/end functions
 - **Integrated Help System** - Automatic help generation for commands and parameters
 - **Logging Framework** - Built-in logging with levels, scopes, and file/console output
+
+## Version Changes
+
+### v1.1.0
+
+**Parameter API Simplification:**
+- Introduced unified `get_param()` function for type-safe parameter access
+- Added `set_param()` for replacing parameter values with automatic validation
+- Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
+- Deprecated legacy configuration API functions in favor of the new Parameter API
+- All examples and documentation updated to demonstrate the simplified API
+
+**Enhanced Parameter Features:**
+- Added `PARAM_JOIN_SEPARATOR` for configurable string concatenation
+- Added `PARAM_DICT_MERGE_TYPE` for shallow/deep dictionary merging
+- Added `PARAM_DICT_OVERRIDE_STRATEGY` for handling dictionary key conflicts
+- Added `PARAM_INPUT_FILTER` for custom input transformation functions
+- Dict parameters support multiple JSON blocks (automatically merged)
+- Dict parameters support file references within JSON structures
+- Multiple `@file` references now supported for list parameters
+
+**Backward Compatibility:**
+- All deprecated functions continue to work with one-time deprecation warnings
+- Existing applications continue to function without modification
+- Migration path clearly documented in configuration guide
 
 ## Quick Start
 
@@ -91,12 +117,12 @@ params = [
 ```
 
 Each parameter definition includes:
-- **`PARAM_NAME`** - Internal name used with `get_config()`
+- **`PARAM_NAME`** - Internal name used with `get_param()`, `set_param()`, etc.
 - **`PARAM_DESCRIPTION`** - Shown in help text
 - **`PARAM_ALIASES`** - CLI flags (e.g., `--name` or `-n`)
 - **`PARAM_TYPE`** - Type of value (e.g., `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`)
 
-When parameter values are set from the command line, they are stored in the configuration store and can be retrieved by commands using `get_config()`.
+When parameter values are set from the command line, they are stored in the configuration store and can be retrieved by commands using the typed getters.
 
 #### Step 4: Define Your Command Action
 
@@ -105,11 +131,11 @@ Write the function that will execute when your command runs.
 ```python
 def greet_action():
     """Greet the user by name."""
-    name = spafw37.get_config('user-name')
+    name = spafw37.get_param('user-name')
     spafw37.output(f"Hello, {name}!")
 ```
 
-Command actions are regular Python functions. Use `spafw37.get_config()` to retrieve parameter values that were set from the command line.
+Command actions are regular Python functions. Use `get_param()` to retrieve parameter values that were set from the command line. The method automatically returns the correct type based on the parameter's `PARAM_TYPE` definition.
 
 #### Step 5: Define Commands
 
@@ -161,6 +187,8 @@ python my_app.py greet --name Alice
 # Get help for a specific command
 python my_app.py help greet
 ```
+
+**Note:** Commands must appear at the start of the command line, before any parameters. For example, use `python my_app.py greet --name Alice`, not `python my_app.py --name Alice greet`.
 
 ## Key Features
 
@@ -235,8 +263,8 @@ Access configuration values set by parameters or loaded from files:
 ```python
 # In your command action
 def process_action():
-    input_file = spafw37.get_config('input-file')
-    verbose = spafw37.get_config('verbose', default=False)
+    input_file = spafw37.get_param('input-file')
+    debug_mode = spafw37.get_param('debug-mode')
     # ... process ...
 ```
 
@@ -281,6 +309,10 @@ Complete working examples demonstrating each feature are available in the [`exam
 - Configuration: basic, persistence
 
 See individual example files for focused demonstrations of specific features.
+
+## What's New in v1.1.0
+
+- **New Parameter API** - Access parameters with the intelligent `get_param()` function that automatically returns the correct type. Set values with `set_param()` or accumulate them with `join_param()`
 
 ## Requirements
 

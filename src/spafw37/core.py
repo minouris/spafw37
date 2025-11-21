@@ -5,24 +5,70 @@ This module provides a high-level interface for interacting with the
 spafw37 application framework, including configuration management,
 command registration, and parameter handling.
 """
+import sys
+
+# Deprecation tracking
+_deprecated_warnings_shown = set()
+_suppress_deprecation_warnings = False
 
 
-def run_cli():
+def _deprecated(message):
+    """
+    Decorator to mark functions as deprecated with one-time warning.
+    
+    Args:
+        message: Deprecation message explaining the alternative.
+    
+    Returns:
+        Decorator function that wraps the deprecated function.
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not _suppress_deprecation_warnings:
+                func_name = func.__name__
+                if func_name not in _deprecated_warnings_shown:
+                    _deprecated_warnings_shown.add(func_name)
+                    from spafw37 import logging as spafw37_logging
+                    spafw37_logging.log_warning(_message=f"{func_name}() is deprecated. {message}")
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def suppress_deprecation(suppress=True):
+    """
+    Control deprecation warning display.
+    
+    Allows developers to suppress deprecation warnings during migration.
+    Useful for large codebases migrating to new API gradually.
+    
+    Args:
+        suppress: If True, suppress deprecation warnings. If False, enable them.
+    
+    Example:
+        import spafw37
+        spafw37.suppress_deprecation(True)  # Silence warnings during migration
+        # ... migration code ...
+        spafw37.suppress_deprecation(False)  # Re-enable warnings
+    """
+    global _suppress_deprecation_warnings
+    _suppress_deprecation_warnings = suppress
+
+
+def run_cli(args=sys.argv[1:], _embedded=False):
     """
     Run the command-line interface for the application.
 
     Import this function and call it in your main application 
     file to handle CLI arguments to set params and run commands.
     """
-    import sys
     import spafw37.configure  # Ensure configuration is set up
     import spafw37.cli as cli
     from spafw37.command import CommandParameterError
     from spafw37 import help
-    
     # Pass user-provided command-line arguments (excluding program name)
     try:
-        cli.handle_cli_args(sys.argv[1:])
+        cli.handle_cli_args(args)
     except CommandParameterError as e:
         # On command parameter error, display help for that specific command
         print(f"Error: {e}")
@@ -31,12 +77,14 @@ def run_cli():
             help.display_command_help(e.command_name)
         else:
             help.display_all_help()
-        sys.exit(1)
-    except ValueError as e:
+        if not _embedded:
+            sys.exit(1)
+    except (ValueError, KeyError) as e:
         print(f"Error: {e}")
         print()
         # display_all_help()
-        sys.exit(1)
+        if not _embedded:
+            sys.exit(1)
 
 def _default_output_handler(message):
     print(message)
@@ -179,8 +227,8 @@ def get_config_value(config_key):
     """
     Get a configuration value.
     """
-    from spafw37 import config
-    return config.get_config_value(config_key)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, strict=True)
 
 
 def get_config_int(config_key, default=0):
@@ -194,8 +242,8 @@ def get_config_int(config_key, default=0):
     Returns:
         Integer configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_int(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_str(config_key, default=''):
@@ -209,8 +257,8 @@ def get_config_str(config_key, default=''):
     Returns:
         String configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_str(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_bool(config_key, default=False):
@@ -224,8 +272,8 @@ def get_config_bool(config_key, default=False):
     Returns:
         Boolean configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_bool(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_float(config_key, default=0.0):
@@ -239,8 +287,8 @@ def get_config_float(config_key, default=0.0):
     Returns:
         Float configuration value or default.
     """
-    from spafw37 import config
-    return config.get_config_float(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_list(config_key, default=None):
@@ -254,8 +302,8 @@ def get_config_list(config_key, default=None):
     Returns:
         List configuration value or default (empty list if default is None).
     """
-    from spafw37 import config
-    return config.get_config_list(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def get_config_dict(config_key, default=None):
@@ -269,16 +317,21 @@ def get_config_dict(config_key, default=None):
     Returns:
         Dictionary configuration value or default (empty dict if default is None).
     """
-    from spafw37 import config
-    return config.get_config_dict(config_key, default)
+    from spafw37 import param
+    return param.get_param(param_name=config_key, default=default, strict=True)
 
 
 def set_config_value(config_key, value):
     """
     Set a configuration value.
     """
-    from spafw37 import config
-    config.set_config_value(config_key, value)
+    from spafw37 import param
+    try:
+        param.set_param(param_name=config_key, value=value)
+    except ValueError:
+        # If param not registered, set directly in config (backward compatibility)
+        from spafw37 import config
+        config.set_config_value(config_key, value)
 
 
 def is_verbose():
@@ -299,6 +352,91 @@ def is_silent():
     """
     from spafw37 import config
     return config.is_silent()
+
+
+# Parameter API - Modern param-focused interface
+
+def set_param(param_name=None, bind_name=None, alias=None, value=None):
+    """
+    Set a parameter value (replaces existing value).
+    
+    Sets the value of a parameter identified by param_name, bind_name, or alias.
+    This replaces any existing value. Use join_param() to accumulate values instead.
+    
+    Args:
+        param_name: Parameter name to set (flexible resolution).
+        bind_name: Config bind name to set (flexible resolution).
+        alias: Parameter alias to set (flexible resolution).
+        value: The value to set for the parameter.
+    
+    Raises:
+        ValueError: If parameter not found or value validation fails.
+    
+    Example:
+        set_param(param_name='host', value='localhost')
+        set_param(bind_name='server_port', value=8080)
+        set_param(alias='--verbose', value=True)
+    """
+    from spafw37 import param
+    param.set_param(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+
+
+def join_param(param_name=None, bind_name=None, alias=None, value=None):
+    """
+    Join/accumulate a parameter value (does not replace existing value).
+    
+    Joins a value to a parameter using type-specific logic:
+    - Strings: Concatenates with separator (default: space)
+    - Lists: Appends single values, extends with lists
+    - Dicts: Merges (shallow or deep based on PARAM_DICT_MERGE_TYPE)
+    
+    Args:
+        param_name: Parameter name to join (flexible resolution).
+        bind_name: Config bind name to join (flexible resolution).
+        alias: Parameter alias to join (flexible resolution).
+        value: The value to join to the parameter.
+    
+    Raises:
+        ValueError: If parameter not found, unsupported type, or validation fails.
+    
+    Example:
+        join_param(param_name='tags', value='tag1')
+        join_param(bind_name='file_list', value=['item1', 'item2'])
+        join_param(alias='--config', value={'key': 'value'})
+    """
+    from spafw37 import param
+    param.join_param(param_name=param_name, bind_name=bind_name, alias=alias, value=value)
+
+
+def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False):
+    """
+    Get a parameter value with automatic type coercion.
+    
+    This is the primary method for retrieving parameter values. It automatically
+    determines the parameter type from the definition and returns a properly
+    coerced value (string, int, bool, float, list, or dict).
+    
+    Args:
+        param_name: Parameter name to get (use this in application code).
+        bind_name: Config bind name to get (advanced use, for internal config key).
+        alias: Parameter alias to get (advanced use).
+        default: Default value if not found (default: None).
+        strict: If True, raises ValueError when parameter not found (default: False).
+    
+    Returns:
+        Parameter value coerced to the appropriate type based on PARAM_TYPE,
+        or default if not found.
+    
+    Raises:
+        ValueError: If strict=True and parameter not found.
+    
+    Example:
+        host = get_param('database-host')  # Returns string
+        port = get_param('server-port')  # Returns int (based on PARAM_TYPE)
+                verbose = get_param('verbose')  # Returns bool
+    """
+    from spafw37 import param
+    return param.get_param(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
 # Logging delegates

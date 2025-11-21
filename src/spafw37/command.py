@@ -469,7 +469,7 @@ def _sort_command_queue(_command_queue=_command_queue):
     del _command_queue[:]
     _command_queue.extend(new_queue)
 
-def _verify_required_params(_exclude_runtime_only: bool = True) -> None:
+def _verify_required_params(_exclude_runtime_only=True):
     """
     Verify that all required parameters are set before execution.
     

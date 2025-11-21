@@ -118,21 +118,21 @@ def setup():
     
     # Define command
     def process():
-        """Process files with configured parameters."""
+        \"\"\"Process files with configured parameters.\"\"\"
         # Get Input/Output parameters
-        input_file = spafw37.get_config_str('input-file', default='input.txt')
-        output_file = spafw37.get_config_str('output-file', default='output.txt')
-        format_type = spafw37.get_config_str('format')
+        input_file = spafw37.get_param('input-file', 'input.txt')
+        output_file = spafw37.get_param('output-file', 'output.txt')
+        format_type = spafw37.get_param('format')
         
         # Get Processing parameters
-        threads = spafw37.get_config_int('threads')
-        batch_size = spafw37.get_config_int('batch-size')
-        parallel = spafw37.get_config_bool('parallel', default=False)
+        threads = spafw37.get_param('threads')
+        batch_size = spafw37.get_param('batch-size')
+        parallel = spafw37.get_param('parallel', False)
         
         # Get Validation parameters
-        strict = spafw37.get_config_bool('strict', default=False)
-        max_errors = spafw37.get_config_int('max-errors')
-        skip_warnings = spafw37.get_config_bool('skip-warnings', default=False)
+        strict = spafw37.get_param('strict', False)
+        max_errors = spafw37.get_param('max-errors')
+        skip_warnings = spafw37.get_param('skip-warnings', False)
         
         # Display configuration
         spafw37.output("Processing Configuration:")

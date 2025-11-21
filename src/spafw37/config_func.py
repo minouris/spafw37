@@ -2,6 +2,7 @@
 from spafw37 import param
 from spafw37 import logging
 from spafw37 import config
+from spafw37 import file as spafw37_file
 from spafw37.constants.config import (
     CONFIG_INFILE_PARAM,
     CONFIG_OUTFILE_PARAM,
@@ -12,9 +13,6 @@ _persistent_config = {}
 
 # File to store persisting params
 _config_file = 'config.json'
-
-# Config dict to hold parameter names that are never saved to disk
-_non_persisted_config_names = []
 
 # Application name for logging and other purposes
 _app_name = 'spafw37'
@@ -36,68 +34,42 @@ def get_app_name():
     """
     return _app_name
 
+def track_persistent_value(bind_name, value):
+    """Track a parameter value for persistent config storage.
+    
+    Called by param.py when a parameter with PARAM_PERSISTENCE_ALWAYS is set.
+    
+    Args:
+        bind_name: Config bind name for the parameter.
+        value: Value to store in persistent config.
+    """
+    _persistent_config[bind_name] = value
+
 def set_config_file(config_file):
     global _config_file
     _config_file = config_file
-
-def set_config_value(param_def, value):
-    bind_name = param.get_bind_name(param_def)
-    if param.is_list_param(param_def):
-        config.set_config_list_value(value, bind_name)
-    elif param.is_toggle_param(param_def):
-        config.set_config_value(bind_name, bool(value))
-    else:
-        config.set_config_value(bind_name, param._parse_value(param_def, value))
-    logging.log_debug(_message=f"Set param '{bind_name}' = {value}")
-    _manage_config_persistence(param_def, value)
-
-def set_config_value_from_cmdline(param_def, value):
-    """Set config value from command line, handling toggle switching.
-    
-    When setting a toggle param from command line, unset conflicting toggles.
-    
-    Args:
-        param_def: Parameter definition dict.
-        value: Value to set.
-    """
-    bind_name = param.get_bind_name(param_def)
-    
-    # If it's a toggle, unset conflicting toggles
-    if param.is_toggle_param(param_def):
-        xor_params = param.get_xor_params(bind_name)
-        for xor_param in xor_params:
-            if xor_param in config.list_config_params():
-                config.set_config_value(xor_param, False)
-                logging.log_debug(_message=f"Unsetting conflicting toggle '{xor_param}'")
-    
-    # Set the value
-    set_config_value(param_def, value)
-
-def _manage_config_persistence(param_def, value):
-    bind_name = param.get_bind_name(param_def)
-    if param.is_persistence_never(param_def):
-        _non_persisted_config_names.append(bind_name)
-        return
-    if param.is_persistence_always(param_def):
-        _persistent_config[bind_name] = value
 
 
 def load_config(config_file_in):
     if config_file_in:
         try:
-            validated_path = param._validate_file_for_reading(config_file_in)
+            validated_path = spafw37_file._validate_file_for_reading(config_file_in)
+        except FileNotFoundError:
+            # Re-raise with consistent message format
+            logging.log_error(_scope='config', _message=f"Config file '{config_file_in}' not found")
+            raise FileNotFoundError(f"Config file '{config_file_in}' not found")
         except ValueError as value_error:
             # Catch binary file or directory errors from validator
             logging.log_error(_scope='config', _message=str(value_error))
             raise value_error
         
         try:
-            with open(validated_path, 'r') as f:
-                content = f.read()
+            with open(validated_path, 'r') as file_handle:
+                content = file_handle.read()
                 if not content.strip():
                     # Treat empty files as empty configuration
                     return {}
-                f.seek(0)
+                file_handle.seek(0)
                 return json.loads(content)
         except FileNotFoundError:
             logging.log_error(_scope='config', _message=f"Config file '{config_file_in}' not found")
@@ -116,7 +88,18 @@ def load_config(config_file_in):
 
 # Removes temporary params from config
 def filter_temporary_config(config_dict):
-    return {config_key: config_value for config_key, config_value in config_dict.items() if config_key not in _non_persisted_config_names}
+    """Filter out non-persisted parameters from config dict.
+    
+    Queries param.py for the list of config bind names that should not be persisted.
+    
+    Args:
+        config_dict: Dictionary to filter.
+        
+    Returns:
+        Filtered dictionary without non-persisted parameters.
+    """
+    non_persisted_names = param.get_non_persisted_config_names()
+    return {config_key: config_value for config_key, config_value in config_dict.items() if config_key not in non_persisted_names}
 
 
 def save_config(config_file_out, config_dict):
@@ -130,25 +113,79 @@ def save_config(config_file_out, config_dict):
 
 
 def load_persistent_config():
-    _persistent_config.update(load_config(_config_file))
-    config.update_config(_persistent_config)
+    """Load persistent configuration from file.
+    
+    Loads config.json and updates the runtime config. XOR validation is disabled
+    during loading since values were already validated when saved.
+    """
+    loaded_config = load_config(_config_file)
+    _persistent_config.update(loaded_config)
+    
+    # Disable XOR validation while loading to avoid false conflicts
+    param._set_xor_validation_enabled(False)
+    try:
+        # Load config values through param API to trigger proper initialization
+        for config_key, value in loaded_config.items():
+            # Try to find param with this bind name and set through param API
+            try:
+                param.set_param(param_name=config_key, value=value)
+            except ValueError:
+                # If param not registered, set directly in config (backward compatibility)
+                config.set_config_value(config_key, value)
+    finally:
+        # Always re-enable XOR validation after loading
+        param._set_xor_validation_enabled(True)
 
 
 def load_user_config():
-    in_file = config.get_config_value(CONFIG_INFILE_PARAM)
+    """Load user configuration from file specified by CONFIG_INFILE_PARAM.
+    
+    Loads user config file and updates runtime config. XOR validation is disabled
+    during loading since values were already validated when saved.
+    """
+    try:
+        in_file = param.get_param(bind_name=CONFIG_INFILE_PARAM, strict=True)
+    except (ValueError, KeyError):
+        # Fall back to raw config if param not registered
+        in_file = config.get_config_value(CONFIG_INFILE_PARAM)
     if in_file:
-        _new_config = load_config(in_file)
-        config.update_config(_new_config)
+        loaded_config = load_config(in_file)
+        
+        # Disable XOR validation while loading to avoid false conflicts
+        param._set_xor_validation_enabled(False)
+        try:
+            # Load config values through param API to trigger proper initialization
+            for config_key, value in loaded_config.items():
+                # Try to find param with this bind name and set through param API
+                try:
+                    param.set_param(param_name=config_key, value=value)
+                except ValueError:
+                    # If param not registered, set directly in config (backward compatibility)
+                    config.set_config_value(config_key, value)
+        finally:
+            # Always re-enable XOR validation after loading
+            param._set_xor_validation_enabled(True)
 
 
 # Create a copy of _config excluding non-persisted names
 def get_filtered_config_copy():
-    # Return a shallow copy of _config without keys in _non_persisted_config_names
-    return {config_key: config_value for config_key, config_value in config.list_config_items() if config_key not in _non_persisted_config_names}
+    """Get a copy of runtime config excluding non-persisted parameters.
+    
+    Queries param.py for the list of config bind names that should not be persisted.
+    
+    Returns:
+        Shallow copy of runtime config without non-persisted parameters.
+    """
+    non_persisted_names = param.get_non_persisted_config_names()
+    return {config_key: config_value for config_key, config_value in config.list_config_items() if config_key not in non_persisted_names}
 
 
 def save_user_config():
-    out_file = config.get_config_value(CONFIG_OUTFILE_PARAM)
+    try:
+        out_file = param.get_param(bind_name=CONFIG_OUTFILE_PARAM, strict=True)
+    except (ValueError, KeyError):
+        # Fall back to raw config if param not registered
+        out_file = config.get_config_value(CONFIG_OUTFILE_PARAM)
     if out_file:
         # Save a filtered copy of the runtime config (exclude non-persisted params)
         save_config(out_file, get_filtered_config_copy())

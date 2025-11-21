@@ -75,7 +75,7 @@ def setup():
     # Command automatically triggered when plugin-dir is set
     def load_plugins():
         """Load plugins from the specified directory."""
-        plugin_dir = spafw37.get_config_str('plugin-dir')
+        plugin_dir = spafw37.get_param('plugin-dir')
         spafw37.output(f"[TRIGGERED] Loading plugins from: {plugin_dir}")
         spafw37.output("  - data_transformer.py")
         spafw37.output("  - output_formatter.py")
@@ -86,7 +86,7 @@ def setup():
     # Command automatically triggered when config-file is set
     def load_config():
         """Load configuration from the specified file."""
-        config_file = spafw37.get_config_str('config-file')
+        config_file = spafw37.get_param('config-file')
         spafw37.output(f"[TRIGGERED] Loading configuration from: {config_file}")
         spafw37.output("  Setting: timeout = 30s")
         spafw37.output("  Setting: max_retries = 3")
@@ -97,7 +97,7 @@ def setup():
     # Command automatically triggered when data-source is set
     def connect_data_source():
         """Connect to the specified data source."""
-        data_source = spafw37.get_config_str('data-source')
+        data_source = spafw37.get_param('data-source')
         spafw37.output(f"[TRIGGERED] Connecting to data source: {data_source}")
         spafw37.output("  Connection established")
         spafw37.output("  Authentication verified")
@@ -110,11 +110,11 @@ def setup():
         spafw37.output("[PROCESS] Starting data processing...")
         
         # Check if optional features were triggered
-        if spafw37.get_config_str('plugin-dir'):
+        if spafw37.get_param('plugin-dir'):
             spafw37.output("  Processing with loaded plugins")
-        if spafw37.get_config_str('config-file'):
+        if spafw37.get_param('config-file'):
             spafw37.output("  Using loaded configuration")
-        if spafw37.get_config_str('data-source'):
+        if spafw37.get_param('data-source'):
             spafw37.output("  Reading from connected data source")
         
         spafw37.output("  Processing complete!")

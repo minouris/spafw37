@@ -206,3 +206,8 @@ These rules are enforced by code review and should guide refactorings and new co
     - Do not prefix local variable or helper names with the local module or type name unless the prefix disambiguates across nearby scopes or meaningfully improves readability. For example, prefer `stack_frame` or `thread_id` over `tracer_stack_frame` or `tracer_thread_id` inside `tracer.py` because the tracer module context is already clear.
     - Use an owner prefix only when it avoids genuine ambiguity (for example, when two different collaborators exposed to the same scope naturally have the same noun and a prefix prevents confusion).
     - When applying renames, update only comments that are in the same lexical scope as the renamed token (the comment-aware renaming rule). Do not perform global free-text comment rewrites; change comments in the same function/class/module scope where the token is referenced.
+
+### Bash scripting style
+
+- Don't use exclamation points when echoing in bash scripts. You don't need to shout anyway.
+- Keep output messages professional and subdued.

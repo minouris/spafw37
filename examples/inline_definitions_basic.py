@@ -35,7 +35,7 @@ commands = [
         COMMAND_NAME: "greet",
         COMMAND_DESCRIPTION: "Greet a user by name",
         COMMAND_ACTION: lambda: spafw37.output(
-            f"Hello, {spafw37.get_config_value('user-name')}!"
+            f"Hello, {spafw37.get_param('user-name')}!"
         ),
         # Define the required parameter inline - no separate add_param() needed!
         COMMAND_REQUIRED_PARAMS: [

@@ -1,6 +1,4 @@
-from spafw37 import command as command, param
-from spafw37 import config_func as config
-from spafw37.config_func import set_config_value
+from spafw37 import command, param, config, config_func
 from spafw37.constants.command import (
     COMMAND_GOES_BEFORE,
     COMMAND_NAME,
@@ -151,7 +149,7 @@ def test_triggered_command_added_to_correct_phase():
     }
     command.add_commands([triggered_command])
     # Set the trigger param to cause the command to be queued
-    set_config_value(_trigger_param, True)
+    config.set_config_value(_trigger_param_name, True)
     command._recalculate_queue()
     assert command._commands[triggered_command_name] in command._phases[PHASE_TEARDOWN]
 
@@ -283,7 +281,6 @@ def test_set_default_phase_with_custom_phases():
     command.set_phases_order(custom_phases)
     
     # Set custom default phase to PHASE_BUILD
-    from spafw37 import config
     config.set_default_phase(PHASE_BUILD)
     
     # Create command without COMMAND_PHASE - should use PHASE_BUILD

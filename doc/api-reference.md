@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
 - [Import Pattern](#import-pattern)
 - [Core Module (spafw37.core)](#core-module-spafw37core)
   - [Application Control](#application-control)
@@ -30,6 +31,26 @@ The spafw37 framework uses a **facade pattern** where `spafw37.core` provides th
 2. **`spafw37.constants.*`** - Constant definitions for dictionaries
 
 This design keeps the API surface clean and shields applications from internal implementation details.
+
+## Version Changes
+
+### v1.1.0
+
+**Parameter API Simplification:**
+- Added unified `get_param()` function with automatic type routing based on `PARAM_TYPE`
+- Added `set_param()` for setting parameter values with type validation
+- Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
+- Deprecated legacy configuration API (`get_config_value()`, `get_config_str()`, etc.)
+
+**Join and Merge Configuration:**
+- Added `PARAM_JOIN_SEPARATOR` for configurable string concatenation
+- Added `PARAM_DICT_MERGE_TYPE` for shallow/deep dictionary merging
+- Added `PARAM_DICT_OVERRIDE_STRATEGY` for conflict resolution
+
+**Advanced Parameter Features:**
+- Added `PARAM_INPUT_FILTER` for custom input transformation functions
+- Dict parameters support multiple JSON blocks (automatically merged)
+- Dict parameters support file references within JSON (e.g., `{'data': @file.json}`)
 
 ## Import Pattern
 
@@ -328,13 +349,161 @@ spafw37.set_phases_order([
 
 ### Runtime Configuration
 
-#### `get_config_value(config_key)`
+The framework provides two APIs for accessing configuration values:
+
+1. **Parameter API (v1.1.0, Recommended)** - Parameter-focused with typed getters, flexible resolution, and type-specific operations
+2. **Configuration API (Deprecated)** - Legacy config-focused API, still supported for backward compatibility
+
+#### Parameter API (v1.1.0)
+
+The parameter API provides simple access to parameter values with automatic type handling. Use `get_param()` to retrieve values, `set_param()` to replace them, and `join_param()` to accumulate them.
+
+##### `get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False)`
+
+Get a parameter value with automatic type conversion based on the parameter's `PARAM_TYPE`. This intelligent method examines the parameter definition and returns the correctly-typed value without requiring separate getter functions for each type ([see example](../examples/params_basic.py)).
+
+```python
+# Automatically returns the correct type based on parameter definition
+input_file = spafw37.get_param('input-file')  # Returns string for PARAM_TYPE_TEXT
+max_workers = spafw37.get_param('max-workers', 4)  # Returns int for PARAM_TYPE_NUMBER
+debug_mode = spafw37.get_param('debug-mode')  # Returns bool for PARAM_TYPE_TOGGLE
+tags = spafw37.get_param('tags')  # Returns list for PARAM_TYPE_LIST
+settings = spafw37.get_param('settings')  # Returns dict for PARAM_TYPE_DICT
+
+# With default values
+project_dir = spafw37.get_param('project-dir', './project')
+thread_count = spafw37.get_param('threads', 1)
+
+# Advanced: Reference by config binding name
+alt_input = spafw37.get_param(bind_name='input-path')
+
+# Advanced: Reference by alias (without -- prefix)
+author = spafw37.get_param(alias='author')  # From '--author' alias
+
+# Strict mode raises error if parameter not found
+required_value = spafw37.get_param('required-param', strict=True)
+```
+
+**Type Routing:**
+The method automatically routes to the appropriate typed getter based on `PARAM_TYPE`:
+- `PARAM_TYPE_TEXT` → Returns string (default: '')
+- `PARAM_TYPE_NUMBER` → Returns int (default: 0)
+- `PARAM_TYPE_TOGGLE` → Returns bool (default: False)
+- `PARAM_TYPE_LIST` → Returns list (default: [])
+- `PARAM_TYPE_DICT` → Returns dict (default: {})
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+- `default` - Default value if not found (type should match parameter's PARAM_TYPE)
+- `strict` (bool) - If True, raises ValueError when parameter not found (default: False)
+
+**Returns:**
+- Value with correct type based on PARAM_TYPE, or default if not found
+
+**Raises:**
+- `ValueError` - If strict=True and parameter definition or value not found
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+##### `set_param(param_name=None, bind_name=None, alias=None, value=None)`
+
+Set a parameter value, replacing any existing value. Validates that the value type matches the parameter's PARAM_TYPE ([see example](../examples/params_runtime.py)).
+
+```python
+# Set by parameter name
+spafw37.set_param(param_name='mode', value='default')
+spafw37.set_param(param_name='file-index', value=0)
+
+# Set by config binding name
+spafw37.set_param(bind_name='output-dir', value='./output')
+spafw37.set_param(bind_name='processing-complete', value=True)
+
+# Set by alias
+spafw37.set_param(alias='files', value=['file1.txt', 'file2.txt'])
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+- `value` - Value to set (must match parameter's PARAM_TYPE)
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+**Raises:**
+- `ValueError` - If value type doesn't match parameter's PARAM_TYPE
+
+**Common usage:**
+- Initializing cycle state
+- Replacing parameter values during execution
+- Resetting parameters to specific values
+
+##### `join_param(param_name=None, bind_name=None, alias=None, value=None)`
+
+Accumulate a parameter value using type-specific logic instead of replacing it ([see example](../examples/params_join.py)). Behavior depends on parameter type:
+
+- **String (PARAM_TYPE_TEXT):** Concatenate with separator (configurable via `PARAM_JOIN_SEPARATOR`)
+- **List (PARAM_TYPE_LIST):** Append single values or extend with lists
+- **Dict (PARAM_TYPE_DICT):** Merge dictionaries (shallow or deep, configurable via `PARAM_DICT_MERGE_TYPE`)
+
+```python
+# String concatenation with default space separator
+spafw37.join_param(param_name='message', value='First')
+spafw37.join_param(param_name='message', value='Second')
+# Result: 'First Second'
+
+# List accumulation
+spafw37.join_param(param_name='files', value='file1.txt')
+spafw37.join_param(param_name='files', value='file2.txt')
+spafw37.join_param(param_name='files', value=['file3.txt', 'file4.txt'])
+# Result: ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
+
+# Dictionary merging
+spafw37.join_param(param_name='config', value={'db': 'postgres', 'port': 5432})
+spafw37.join_param(param_name='config', value={'db': 'mysql'})
+# Result: {'db': 'mysql', 'port': 5432}
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+- `value` - Value to accumulate (must match parameter's PARAM_TYPE)
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+**Raises:**
+- `ValueError` - If value type doesn't match parameter's PARAM_TYPE
+- `ValueError` - If PARAM_DICT_OVERRIDE_STRATEGY is 'error' and key conflict occurs
+
+**Common usage:**
+- Building up lists incrementally
+- Accumulating error messages or log entries
+- Merging configuration dictionaries
+- Concatenating multi-part strings
+
+**See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for detailed type-specific behavior and configuration options.
+
+#### Configuration API (Deprecated)
+
+**⚠️ Deprecated as of v1.1.0** - The following functions are maintained for backward compatibility but will show a one-time deprecation warning. Use the Parameter API functions instead.
+
+##### `get_config_value(config_key)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key)` instead.
 
 Get a configuration value.
 
 ```python
+# Deprecated
 input_file = spafw37.get_config_value('input-file')
-verbose = spafw37.get_config_value('verbose')
+debug_mode = spafw37.get_config_value('debug-mode')
+
+# Recommended replacement
+input_file = spafw37.get_param('input-file')
+debug_mode = spafw37.get_param('debug-mode')
 ```
 
 **Args:**
@@ -348,17 +517,26 @@ verbose = spafw37.get_config_value('verbose')
 - Reading cycle state in CYCLE_LOOP functions
 - Getting user preferences
 
-#### Typed Configuration Getters
+##### Typed Configuration Getters (Deprecated)
+
+**⚠️ Deprecated:** Use the new parameter API `get_param()` function instead.
 
 For better type safety and linter support, use typed getters that cast values to specific types:
 
-#### `get_config_int(config_key, default=0)`
+##### `get_config_int(config_key, default=0)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as integer.
 
 ```python
+# Deprecated
 max_workers = spafw37.get_config_int('max-workers', 4)
 file_index = spafw37.get_config_int('file-index')
+
+# Recommended replacement
+max_workers = spafw37.get_param(bind_name='max-workers', default=4)
+file_index = spafw37.get_param(bind_name='file-index')
 ```
 
 **Args:**
@@ -368,13 +546,20 @@ file_index = spafw37.get_config_int('file-index')
 **Returns:**
 - Integer value or default
 
-#### `get_config_str(config_key, default='')`
+##### `get_config_str(config_key, default='')` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as string.
 
 ```python
+# Deprecated
 project_dir = spafw37.get_config_str('project-dir', './project')
 author = spafw37.get_config_str('author')
+
+# Recommended replacement
+project_dir = spafw37.get_param(bind_name='project-dir', default='./project')
+author = spafw37.get_param(bind_name='author')
 ```
 
 **Args:**
@@ -384,13 +569,20 @@ author = spafw37.get_config_str('author')
 **Returns:**
 - String value or default
 
-#### `get_config_bool(config_key, default=False)`
+##### `get_config_bool(config_key, default=False)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as boolean.
 
 ```python
-verbose = spafw37.get_config_bool('verbose')
+# Deprecated
+debug_mode = spafw37.get_config_bool('debug-mode')
 is_enabled = spafw37.get_config_bool('feature-enabled', True)
+
+# Recommended replacement
+debug_mode = spafw37.get_param('debug-mode')
+is_enabled = spafw37.get_param('feature-enabled', True)
 ```
 
 **Args:**
@@ -400,13 +592,20 @@ is_enabled = spafw37.get_config_bool('feature-enabled', True)
 **Returns:**
 - Boolean value or default
 
-#### `get_config_float(config_key, default=0.0)`
+##### `get_config_float(config_key, default=0.0)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as float.
 
 ```python
+# Deprecated
 timeout = spafw37.get_config_float('timeout', 30.0)
 threshold = spafw37.get_config_float('threshold')
+
+# Recommended replacement
+timeout = spafw37.get_param(bind_name='timeout', default=30.0)
+threshold = spafw37.get_param(bind_name='threshold')
 ```
 
 **Args:**
@@ -416,13 +615,20 @@ threshold = spafw37.get_config_float('threshold')
 **Returns:**
 - Float value or default
 
-#### `get_config_list(config_key, default=None)`
+##### `get_config_list(config_key, default=None)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
 
 Get a configuration value as list.
 
 ```python
+# Deprecated
 tags = spafw37.get_config_list('tags')
 files = spafw37.get_config_list('files', [])
+
+# Recommended replacement
+tags = spafw37.get_param(bind_name='tags')
+files = spafw37.get_param(bind_name='files', default=[])
 ```
 
 **Args:**
@@ -432,13 +638,43 @@ files = spafw37.get_config_list('files', [])
 **Returns:**
 - List value or default. Single values are automatically wrapped in a list.
 
-#### `set_config_value(config_key, value)`
+##### `get_config_dict(config_key, default=None)` (Deprecated)
+
+**⚠️ Deprecated:** Use `get_param(bind_name=config_key, default=default)` instead.
+
+Get a configuration value as dictionary.
+
+```python
+# Deprecated
+settings = spafw37.get_config_dict('settings')
+metadata = spafw37.get_config_dict('metadata', {})
+
+# Recommended replacement
+settings = spafw37.get_param(bind_name='settings')
+metadata = spafw37.get_param(bind_name='metadata', default={})
+```
+
+**Args:**
+- `config_key` (str) - Configuration key
+- `default` (dict) - Default value if not found (default: empty dict)
+
+**Returns:**
+- Dictionary value or default
+
+##### `set_config_value(config_key, value)` (Deprecated)
+
+**⚠️ Deprecated:** Use `set_param(bind_name=config_key, value=value)` to replace values, or `join_param(bind_name=config_key, value=value)` to accumulate them.
 
 Set a configuration value.
 
 ```python
+# Deprecated
 spafw37.set_config_value('file-index', 0)
 spafw37.set_config_value('processing-complete', True)
+
+# Recommended replacement
+spafw37.set_param(bind_name='file-index', value=0)
+spafw37.set_param(bind_name='processing-complete', value=True)
 ```
 
 **Args:**
@@ -763,6 +999,12 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_SWITCH_LIST` | list[str] | Mutually exclusive params |
 | `PARAM_GROUP` | str | Group name for help display |
 
+#### Advanced Configuration
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `PARAM_INPUT_FILTER` | callable | Custom function to transform CLI string input before validation. See [Parameters Guide - Custom Input Filters](parameters.md#custom-input-filters) and [example](../examples/params_input_filter.py) |
+
 #### Parameter Types
 
 | Constant | Value | Description |
@@ -771,6 +1013,50 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_TYPE_NUMBER` | `'number'` | Numeric value |
 | `PARAM_TYPE_TOGGLE` | `'toggle'` | Boolean flag |
 | `PARAM_TYPE_LIST` | `'list'` | List of values |
+| `PARAM_TYPE_DICT` | `'dict'` | Dictionary/object value |
+
+#### Join and Merge Configuration (v1.1.0)
+
+**v1.1.0** These constants configure type-specific behavior when accumulating parameter values with `join_param()` ([see example](../examples/params_join.py)).
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `PARAM_JOIN_SEPARATOR` | str | Separator for joining string values (default: `SEPARATOR_SPACE`). Common options: `SEPARATOR_SPACE`, `SEPARATOR_COMMA`, `SEPARATOR_COMMA_SPACE`, `SEPARATOR_PIPE`, or custom string |
+| `PARAM_DICT_MERGE_TYPE` | str | Dictionary merge strategy (default: `DICT_MERGE_SHALLOW`). Options: `DICT_MERGE_SHALLOW` (top-level) or `DICT_MERGE_DEEP` (recursive) |
+| `PARAM_DICT_OVERRIDE_STRATEGY` | str | Conflict resolution for dict keys (default: `DICT_OVERRIDE_RECENT`). Options: `DICT_OVERRIDE_RECENT`, `DICT_OVERRIDE_OLDEST`, or `DICT_OVERRIDE_ERROR` |
+
+**Example:**
+
+```python
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_DICT,
+    PARAM_JOIN_SEPARATOR,
+    PARAM_DICT_MERGE_TYPE,
+    PARAM_DICT_OVERRIDE_STRATEGY,
+    SEPARATOR_COMMA_SPACE,
+    DICT_MERGE_DEEP,
+    DICT_OVERRIDE_RECENT,
+)
+
+params = [
+    {
+        PARAM_NAME: 'tags-string',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_JOIN_SEPARATOR: SEPARATOR_COMMA_SPACE,  # Comma-space separator
+    },
+    {
+        PARAM_NAME: 'settings',
+        PARAM_TYPE: PARAM_TYPE_DICT,
+        PARAM_DICT_MERGE_TYPE: DICT_MERGE_DEEP,  # Recursive merge
+        PARAM_DICT_OVERRIDE_STRATEGY: DICT_OVERRIDE_RECENT,  # New values overwrite
+    },
+]
+```
+
+**See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for detailed usage patterns.
 
 #### Internal Use
 
@@ -872,12 +1158,13 @@ See the [Configuration Guide](configuration.md) for details on configuration fil
 
 For complete working examples demonstrating these API functions and constants, see the **[examples directory](https://github.com/minouris/spafw37/tree/main/examples)**:
 
-- **Parameters** (6 files): Basic usage, toggles, lists, required validation, runtime modification, grouping
+- **Parameters** (11 files): Basic usage, toggles, lists, dicts, file loading, required validation, runtime modification, grouping, **v1.1.0:** join accumulation, custom input filters
 - **Commands** (7 files): Basic definition, sequencing, dependencies, chaining, required validation, triggering, visibility
 - **Cycles** (3 files): Basic usage, custom loop initialisation, nested patterns
 - **Phases** (4 files): Basic usage, custom ordering, extended lifecycle, custom definitions
 - **Output** (2 files): Basic output with verbose/silent modes, custom handlers (file, dual, timestamped)
 - **Configuration** (2 files): Basic usage, persistence patterns
+- **Inline Definitions** (2 files): Basic inline parameter definitions, advanced patterns (nested, mixed)
 
 Each example demonstrates specific API functions and constants in working code that you can run and modify.
 

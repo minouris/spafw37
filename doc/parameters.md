@@ -5,6 +5,13 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
+- [Key Capabilities](#key-capabilities)
+- [Accessing Parameter Values](#accessing-parameter-values)
+  - [Getting Parameter Values](#getting-parameter-values)
+  - [Setting Parameter Values](#setting-parameter-values)
+  - [Accumulating Parameter Values](#accumulating-parameter-values)
+  - [Legacy Configuration API (Deprecated)](#legacy-configuration-api-deprecated)
 - [Parameter Definition Constants](#parameter-definition-constants)
 - [Basic Parameter Definition](#basic-parameter-definition)
 - [Inline Parameter Definitions](#inline-parameter-definitions)
@@ -16,13 +23,44 @@
 - [Mutual Exclusion (Switch Lists)](#mutual-exclusion-switch-lists)
 - [Parameter Groups](#parameter-groups)
 - [Runtime-Only Parameters](#runtime-only-parameters)
-- [Accessing Parameter Values](#accessing-parameter-values)
+- [Best Practices and Anti-Patterns](#best-practices-and-anti-patterns)
+- [Custom Input Filters](#custom-input-filters)
+- [Advanced: Parameter Resolution Modes](#advanced-parameter-resolution-modes)
 
 ## Overview
 
-Parameters define the command-line arguments your application accepts. They provide a flexible system for capturing user input with multiple aliases, type validation, default values, and automatic persistence. Parameters are stored in the configuration system and can be accessed by commands during execution.
+Parameters are the foundation of spafw37 applications. They define command-line arguments, store runtime configuration, and provide type-safe access to user input. This guide covers parameter definition, types, validation, resolution, and runtime manipulation.
 
-Key capabilities:
+## Version Changes
+
+### v1.1.0
+
+**Simplified Parameter Access:**
+- Introduced unified `get_param()` function that automatically returns the correct type based on `PARAM_TYPE`
+- No need to use different functions for different types - one function handles all parameter types
+
+**Enhanced Parameter Manipulation:**
+- Added `set_param()` for replacing parameter values with automatic type validation
+- Added `join_param()` for accumulating values with type-specific behavior:
+  - Strings: Concatenate with configurable separator (`PARAM_JOIN_SEPARATOR`)
+  - Lists: Append or extend with automatic list wrapping
+  - Dicts: Merge with configurable strategy (`PARAM_DICT_MERGE_TYPE`, `PARAM_DICT_OVERRIDE_STRATEGY`)
+
+**New Configuration Constants:**
+- `PARAM_JOIN_SEPARATOR` - Control string concatenation separators
+- `PARAM_DICT_MERGE_TYPE` - Choose shallow or deep dictionary merging
+- `PARAM_DICT_OVERRIDE_STRATEGY` - Handle dictionary key conflicts
+- `PARAM_INPUT_FILTER` - Custom input transformation functions
+
+**Dict Parameter Enhancements:**
+- Multiple JSON blocks now supported: `--config '{"a":1}' '{"b":2}'` automatically merges
+- File references within JSON: `--config '{"data": @file.json}'` loads file content inline
+
+**File Loading Improvements:**
+- Multiple `@file` references now supported for list parameters (e.g., `--files @batch1.txt @batch2.txt @batch3.txt`)
+- All files are loaded and their contents combined into a single list
+
+## Key Capabilities
 - Multiple CLI aliases for the same parameter (e.g., `--verbose`, `-v`)
 - Type validation (text, number, toggle, list)
 - Default values
@@ -30,6 +68,224 @@ Key capabilities:
 - Mutual exclusion (switch lists)
 - Parameter grouping for organised help display
 - Runtime-only parameters for shared internal state that commands can read and write during execution
+
+
+## Accessing Parameter Values
+
+**v1.1.0** The framework now provides a dedicated parameter-focused API for accessing and modifying parameter values. This API offers better type safety, flexible resolution, and supports both replacing and accumulating parameter values.
+
+### Getting Parameter Values
+
+Use the typed getters to retrieve parameter values with automatic type conversion and sensible defaults:
+
+```python
+from spafw37 import core as spafw37
+
+def process_command():
+    # Get string values (automatically typed based on PARAM_TYPE)
+    input_file = spafw37.get_param('input-file')
+    project_dir = spafw37.get_param('project-dir', './project')
+    
+    # Get integer values (automatically typed based on PARAM_TYPE)
+    thread_count = spafw37.get_param('thread-count', 1)
+    max_retries = spafw37.get_param('max-retries', 3)
+    
+    # Get boolean values (automatically typed based on PARAM_TYPE)
+    verbose = spafw37.get_param('verbose')
+    enable_cache = spafw37.get_param('enable-cache', True)
+    
+    # Get float values (automatically typed based on PARAM_TYPE)
+    timeout = spafw37.get_param('timeout', 30.0)
+    threshold = spafw37.get_param('threshold', 0.5)
+    
+    # Get list values (automatically typed based on PARAM_TYPE)
+    input_files = spafw37.get_param('input-files')
+    tags = spafw37.get_param('tags', [])
+    
+    # Get dict values (automatically typed based on PARAM_TYPE)
+    settings = spafw37.get_param('settings')
+    metadata = spafw37.get_param('metadata', {})
+    
+    if verbose:
+        spafw37.output(f"Processing {input_file} with {thread_count} threads")
+```
+
+**Getting parameter values:**
+
+**v1.1.0** Use `get_param()` to retrieve parameter values with automatic type conversion based on the parameter's `PARAM_TYPE`:
+
+```python
+# get_param() automatically returns the correct type
+value = spafw37.get_param('input-file')  # Returns string, int, bool, list, or dict based on PARAM_TYPE
+value = spafw37.get_param('input-file', 'default.txt')  # With default value
+```
+
+**Note:** You must provide at least one of `param_name`, `bind_name`, or `alias` for the function to work. In most cases, use positional arguments with `param_name` (e.g., `get_param('input-file')`). The `bind_name` and `alias` parameters are for advanced use cases. See [Advanced: Parameter Resolution Modes](#advanced-parameter-resolution-modes) for details.
+
+### Setting Parameter Values
+
+**v1.1.0** Use `set_param()` to replace parameter values with type validation:
+
+```python
+from spafw37 import core as spafw37
+
+def init_command():
+    # Set string values
+    spafw37.set_param(param_name='mode', value='default')
+    spafw37.set_param(param_name='output-dir', value='./output')
+    
+    # Set numeric values
+    spafw37.set_param(param_name='file-index', value=0)
+    spafw37.set_param(param_name='threshold', value=3.14)
+    
+    # Set boolean values
+    spafw37.set_param(param_name='processing-complete', value=True)
+    
+    # Set list values
+    spafw37.set_param(param_name='files', value=['file1.txt', 'file2.txt'])
+    
+    # Set dict values
+    spafw37.set_param(param_name='settings', value={'key': 'value'})
+```
+
+The `set_param()` function **replaces** the existing value and validates that the type matches the parameter's PARAM_TYPE definition.
+
+### Accumulating Parameter Values
+
+**v1.1.0** Use `join_param()` to accumulate values instead of replacing them. The behavior depends on the parameter type ([see example](../examples/params_join.py)):
+
+**String parameters:** Concatenate with a separator (configurable via `PARAM_JOIN_SEPARATOR`):
+
+```python
+from spafw37.constants.param import (
+    PARAM_JOIN_SEPARATOR,
+    SEPARATOR_COMMA_SPACE,
+)
+
+# Default separator is space
+spafw37.join_param(param_name='message', value='First')
+spafw37.join_param(param_name='message', value='Second')
+value = spafw37.get_param('message')  # 'First Second'
+
+# Custom separator in parameter definition
+{
+    PARAM_NAME: 'tags-string',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_JOIN_SEPARATOR: SEPARATOR_COMMA_SPACE,  # Comma-space separator
+}
+spafw37.join_param(param_name='tags-string', value='python')
+spafw37.join_param(param_name='tags-string', value='cli')
+value = spafw37.get_param('tags-string')  # 'python, cli'
+```
+
+**Available separator constants:** `SEPARATOR_SPACE` (default), `SEPARATOR_COMMA`, `SEPARATOR_COMMA_SPACE`, `SEPARATOR_PIPE`, `SEPARATOR_PIPE_PADDED`, `SEPARATOR_NEWLINE`, `SEPARATOR_TAB`, or any custom string.
+
+**List parameters:** Append single values or extend with lists:
+
+```python
+# Append single values
+spafw37.join_param(param_name='files', value='file1.txt')
+spafw37.join_param(param_name='files', value='file2.txt')
+files = spafw37.get_param('files')  # ['file1.txt', 'file2.txt']
+
+# Extend with a list
+spafw37.join_param(param_name='files', value=['file3.txt', 'file4.txt'])
+files = spafw37.get_param('files')  # ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt']
+```
+
+**Dict parameters:** Merge dictionaries with configurable merge strategy:
+
+```python
+from spafw37.constants.param import (
+    PARAM_DICT_MERGE_TYPE,
+    PARAM_DICT_OVERRIDE_STRATEGY,
+    DICT_MERGE_SHALLOW,
+    DICT_MERGE_DEEP,
+    DICT_OVERRIDE_RECENT,
+)
+
+# Shallow merge (default) - top-level keys only
+{
+    PARAM_NAME: 'config',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_MERGE_TYPE: DICT_MERGE_SHALLOW,  # Default
+}
+spafw37.join_param(param_name='config', value={'db': 'postgres', 'port': 5432})
+spafw37.join_param(param_name='config', value={'db': 'mysql'})
+config = spafw37.get_param('config')  # {'db': 'mysql', 'port': 5432}
+
+# Deep merge - recursively merge nested dicts
+{
+    PARAM_NAME: 'settings',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_MERGE_TYPE: DICT_MERGE_DEEP,
+}
+spafw37.join_param(param_name='settings', value={'api': {'timeout': 30, 'retries': 3}})
+spafw37.join_param(param_name='settings', value={'api': {'timeout': 60}})
+settings = spafw37.get_param('settings')  # {'api': {'timeout': 60, 'retries': 3}}
+
+# Override strategies for conflicting keys
+{
+    PARAM_NAME: 'metadata',
+    PARAM_TYPE: PARAM_TYPE_DICT,
+    PARAM_DICT_OVERRIDE_STRATEGY: DICT_OVERRIDE_RECENT,  # Options: DICT_OVERRIDE_RECENT, DICT_OVERRIDE_OLDEST, DICT_OVERRIDE_ERROR
+}
+```
+
+**Override strategies:**
+- `DICT_OVERRIDE_RECENT` (default) - New value overwrites existing value
+- `DICT_OVERRIDE_OLDEST` - Keep existing value, ignore new value
+- `DICT_OVERRIDE_ERROR` - Raise error if key already exists
+
+### Legacy Configuration API (Deprecated)
+
+The older configuration-focused API (`get_config_value()`, `set_config_value()`, etc.) is **deprecated as of v1.1.0**. These functions still work for backward compatibility but will show a one-time deprecation warning.
+
+**Migration guide:**
+
+| Deprecated Function | New Function | Notes |
+|---------------------|--------------|-------|
+| `get_config_value(key)` | `get_param(key)` | Use new getter for automatic type handling |
+| `get_config_str(key, default)` | `get_param(key, default)` | Direct replacement |
+| `get_config_int(key, default)` | `get_param(key, default)` | Direct replacement |
+| `get_config_bool(key, default)` | `get_param(key, default)` | Direct replacement |
+| `get_config_float(key, default)` | `get_param(key, default)` | Direct replacement |
+| `get_config_list(key, default)` | `get_param(key, default)` | Direct replacement |
+| `get_config_dict(key, default)` | `get_param(key, default)` | Direct replacement |
+| `set_config_value(key, value)` | `set_param(param_name=key, value=value)` | Use for replacing values |
+| `set_config_list_value(key, value)` | `join_param(param_name=key, value=value)` | Use for accumulating list values |
+
+**Example migration:**
+
+```python
+# Old (deprecated):
+def old_process():
+    input_file = spafw37.get_config_str('input-file')
+    max_workers = spafw37.get_config_int('max-workers', 4)
+    spafw37.set_config_value('file-index', 0)
+    
+    files = spafw37.get_config_list('files', [])
+    files.append('newfile.txt')
+    spafw37.set_config_value('files', files)
+
+# New (recommended):
+def new_process():
+    input_file = spafw37.get_param('input-file')
+    max_workers = spafw37.get_param('max-workers', 4)
+    spafw37.set_param(param_name='file-index', value=0)
+    
+    # join_param() handles list accumulation automatically
+    spafw37.join_param(param_name='files', value='newfile.txt')
+```
+
+**Why migrate?**
+- **Better type safety:** Typed getters eliminate None-type issues
+- **Clearer intent:** `join_param()` vs `set_param()` makes accumulation vs replacement explicit
+- **Flexible resolution:** Reference parameters by name, binding, or alias
+- **Type-specific behavior:** Automatic string concatenation, list appending, dict merging
+- **Future-proof:** New features will use the param API
+
+---
 
 ## Parameter Definition Constants
 
@@ -65,6 +321,15 @@ Parameters are defined as dictionaries using these constants as keys:
 |----------|-------------|
 | `PARAM_SWITCH_LIST` | Identifies a list of params that are mutually exclusive with this one - only one param in this list can be set at a time. |
 | `PARAM_GROUP` | Group name for organizing parameters in help display |
+
+### Advanced Configuration
+
+| Constant | Description |
+|----------|-------------|
+| `PARAM_INPUT_FILTER` | Custom function to transform CLI string input before validation. See [Custom Input Filters](#custom-input-filters) for details. |
+| `PARAM_JOIN_SEPARATOR` | Separator string for joining multiple string values with `join_param()`. Defaults to space `' '`. |
+| `PARAM_DICT_MERGE_TYPE` | Controls dict merge behavior: `DICT_MERGE_SHALLOW` (default) or `DICT_MERGE_DEEP` |
+| `PARAM_DICT_OVERRIDE_STRATEGY` | Controls collision handling: `DICT_OVERRIDE_RECENT` (default), `DICT_OVERRIDE_OLDEST`, or `DICT_OVERRIDE_ERROR` |
 
 ### Persistence Options
 
@@ -133,7 +398,7 @@ commands = [
     {
         COMMAND_NAME: "greet",
         COMMAND_ACTION: lambda: spafw37.output(
-            f"Hello, {spafw37.get_config_value('user-name')}!"
+            f"Hello, {spafw37.get_param('user-name')}!"
         ),
         # Define parameter inline - no separate add_param() needed!
         COMMAND_REQUIRED_PARAMS: [
@@ -344,7 +609,7 @@ python my_app.py command --file data1.txt --file data2.txt -f data3.txt
 
 ### Dict Parameters
 
-Accept dictionary/object values in JSON format. Useful for API payloads, database query filters, or structured test data:
+Accept dictionary/object values in JSON format. Useful for API payloads, database query filters, or structured test data ([see example](../examples/params_dict.py)):
 
 ```python
 {
@@ -366,16 +631,30 @@ python my_app.py api-call --payload={"key":"value"}
 python my_app.py api-call --payload { "user":"alice" "action":"login" }
 ```
 
+**Multiple JSON blocks** (automatically merged):
+```bash
+python my_app.py api-call --payload '{"user":"alice"}' '{"action":"login"}'
+# Result: {"user":"alice", "action":"login"}
+```
+
 **From file** (see [@file Syntax](#file-syntax) below):
 ```bash
 python my_app.py api-call --payload @request.json
 ```
 
+**File references within JSON:**
+```bash
+python my_app.py api-call --payload '{"data": @payload.json, "config": @settings.json}'
+# Loads file contents and embeds them in the JSON structure
+```
+
 The value must be a valid JSON object (dictionary). Arrays, primitives, and invalid JSON will cause an error.
+
+**Key collision handling:** When multiple JSON blocks contain the same key, the last value wins by default. This behavior can be configured with `PARAM_DICT_OVERRIDE_STRATEGY`.
 
 ## @file Syntax
 
-All parameter types (except toggles) support loading values from files using the `@file` syntax. This is useful for:
+All parameter types (except toggles) support loading values from files using the `@file` syntax ([see example](../examples/params_file.py)). This is useful for:
 - Large or complex values that are unwieldy on the command line
 - Reusing the same values across multiple runs
 - Version controlling parameter values
@@ -428,6 +707,27 @@ file1.txt "my document.pdf" file2.txt "another file.doc"
 python my_app.py process --files @files.txt
 # Result: ['file1.txt', 'my document.pdf', 'file2.txt', 'another file.doc']
 ```
+
+**Multiple file references (v1.1.0):**
+
+You can specify multiple `@file` references in a single parameter occurrence. All files will be loaded and their contents combined:
+
+```bash
+# File: batch1.txt
+file1.txt file2.txt
+
+# File: batch2.txt
+file3.txt file4.txt
+
+# File: batch3.txt
+file5.txt
+
+# Usage - all three files loaded and combined
+python my_app.py process --files @batch1.txt @batch2.txt @batch3.txt
+# Result: ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt', 'file5.txt']
+```
+
+This is particularly useful for organizing file lists into logical groups or combining multiple sources.
 
 ### Dict Parameters with @file
 
@@ -545,7 +845,7 @@ By default, parameters are stored in configuration using `PARAM_NAME`. Use `PARA
 Access in commands:
 ```python
 def my_command():
-    path = spafw37.get_config('input-file-path')  # Use config name
+    path = spafw37.get_param('input')  # Use parameter name
 ```
 
 ## Persistence Control
@@ -710,12 +1010,12 @@ def init_session_command():
     """Initialise a new session."""
     import uuid
     session_id = str(uuid.uuid4())
-    spafw37.set_config('session-id', session_id)
+    spafw37.set_param(param_name='session-id', value=session_id)
     spafw37.output(f"Session started: {session_id}")
 
 def use_session_command():
     """Use the current session."""
-    session_id = spafw37.get_config('session-id')
+    session_id = spafw37.get_param('session-id')
     spafw37.output(f"Using session: {session_id}")
     # ... work with session ...
 ```
@@ -761,8 +1061,8 @@ params = [
 ]
 
 def my_command():
-    verbose = spafw37.get_config_bool('verbose-mode')
-    quiet = spafw37.get_config_bool('quiet-mode')
+    verbose = spafw37.get_param('verbose-mode')
+    quiet = spafw37.get_param('quiet-mode')
     
     if verbose:
         spafw37.output("[VERBOSE] Processing...")  # Don't do this!
@@ -804,23 +1104,160 @@ def my_command():
    - Don't create parameters for cross-cutting concerns the framework already handles
    - Focus on what makes your application unique
 
-## Accessing Parameter Values
+## Custom Input Filters
 
-In command actions, retrieve parameter values from configuration:
+**v1.1.0** This is an advanced feature for specialized input processing needs ([see example](../examples/params_input_filter.py)).
+
+Parameters can define custom input filter functions that transform raw CLI string values before validation and type coercion. This is useful for:
+
+- Custom delimiters or format parsing
+- Input sanitization or normalization
+- Domain-specific syntax handling
+- Template expansion or variable substitution
+
+### Defining a Custom Filter
+
+Use `PARAM_INPUT_FILTER` in the parameter definition:
 
 ```python
-def process_command():
-    input_file = spafw37.get_config('input-file')
-    verbose = spafw37.get_config('verbose', default=False)
-    thread_count = spafw37.get_config('thread-count', default=1)
-    
-    if verbose:
-        spafw37.output(f"Processing {input_file} with {thread_count} threads")
-    
-    # ... process ...
+from spafw37.constants.param import PARAM_INPUT_FILTER
+
+def parse_csv_to_list(value):
+    """Convert comma-separated values to list."""
+    if isinstance(value, list):
+        return value
+    return [item.strip() for item in value.split(',')]
+
+params = [
+    {
+        PARAM_NAME: 'tags',
+        PARAM_DESCRIPTION: 'Comma-separated list of tags',
+        PARAM_ALIASES: ['--tags'],
+        PARAM_TYPE: PARAM_TYPE_LIST,
+        PARAM_INPUT_FILTER: parse_csv_to_list,
+    }
+]
 ```
 
----
+Usage:
+```bash
+python my_app.py command --tags "python, cli, framework"
+# Result: ['python', 'cli', 'framework']
+```
+
+### Filter Function Requirements
+
+- **Input:** Receives the raw string value from CLI (or already-processed value from previous calls)
+- **Output:** Returns the transformed value ready for type validation
+- **Signature:** `def filter_func(value): return processed_value`
+- **Timing:** Called before type validation and coercion
+- **Multiple calls:** May be called multiple times for accumulated values (e.g., with `join_param()`)
+
+### Example: Connection String Parser
+
+```python
+def parse_connection_string(value):
+    """Parse database connection string into dict."""
+    if isinstance(value, dict):
+        return value
+    
+    # Parse: "host=localhost;port=5432;db=myapp"
+    parts = value.split(';')
+    result = {}
+    for part in parts:
+        if '=' in part:
+            key, val = part.split('=', 1)
+            result[key.strip()] = val.strip()
+    return result
+
+params = [
+    {
+        PARAM_NAME: 'database',
+        PARAM_ALIASES: ['--db'],
+        PARAM_TYPE: PARAM_TYPE_DICT,
+        PARAM_INPUT_FILTER: parse_connection_string,
+    }
+]
+```
+
+Usage:
+```bash
+python my_app.py connect --db "host=localhost;port=5432;db=myapp"
+# Result: {"host": "localhost", "port": "5432", "db": "myapp"}
+```
+
+### When to Use Custom Filters
+
+**Good use cases:**
+- Converting domain-specific syntax to standard types
+- Parsing structured text formats (CSV, key=value pairs, etc.)
+- Normalizing input before validation
+- Supporting legacy or alternative input formats
+
+**Avoid using for:**
+- Business logic (use command implementations instead)
+- Validation (use type validation and command parameter checks instead)
+- Side effects (filters should be pure functions)
+
+## Advanced: Parameter Resolution Modes
+
+**v1.1.0** This section covers advanced internal functionality. Most users should simply use `param_name` (the parameter's `PARAM_NAME`) when calling parameter API functions.
+
+### The Three Resolution Modes
+
+All parameter API functions (`get_param()`, `set_param()`, `join_param()`) accept three optional keyword arguments for identifying parameters:
+
+- **`param_name`** - The parameter's `PARAM_NAME` (e.g., `'input-file'`)
+- **`bind_name`** - The parameter's `PARAM_CONFIG_NAME` if set, otherwise falls back to `PARAM_NAME`
+- **`alias`** - Any of the parameter's `PARAM_ALIASES` without the `--` or `-` prefix
+
+**Important:** While all three resolution parameters are technically optional, you must provide at least one of `param_name`, `bind_name`, or `alias` for the function to work.
+
+### When Each Mode is Used
+
+**`param_name` (Recommended for all user code):**
+- Use this in your application code
+- Most straightforward and matches the parameter definition
+- Example: `spafw37.get_param('input-file')` or `spafw37.set_param(param_name='mode', value='default')`
+
+**`bind_name` (Advanced use):**
+- Allows accessing parameters via their internal config storage key
+- Useful when `PARAM_CONFIG_NAME` differs from `PARAM_NAME`
+- Example: `spafw37.get_param(bind_name='input_path')` (when `PARAM_CONFIG_NAME` is set to `'input_path'`)
+
+**`alias` (Advanced use):**
+- Resolves parameters using any of their command-line aliases
+- Example: `spafw37.get_param(alias='input')` (resolves from `'--input'` alias)
+
+### Positional Argument Behavior
+
+When using a positional argument (e.g., `get_param('input-file')`), the value is mapped to the `param_name` parameter:
+
+```python
+# These are equivalent:
+value = spafw37.get_param('input-file')
+value = spafw37.get_param(param_name='input-file')
+```
+
+**Best practice:** Always use the positional form or explicit `param_name=` for clarity in application code.
+
+### Example Parameter with All Three Identifiers
+
+```python
+# Parameter definition
+{
+    PARAM_NAME: 'input-file',           # Use this in your code
+    PARAM_CONFIG_NAME: 'input_path',    # Internal storage key
+    PARAM_ALIASES: ['--input', '-i'],   # CLI aliases
+    PARAM_TYPE: PARAM_TYPE_TEXT
+}
+
+# All three resolve to the same parameter (but use positional/param_name in your code):
+value = spafw37.get_param('input-file')              # ✓ Recommended (positional)
+value = spafw37.get_param(param_name='input-file')   # ✓ Also fine (explicit)
+value = spafw37.get_param(bind_name='input_path')    # Framework internal
+value = spafw37.get_param(alias='input')             # Framework internal
+```
 
 ## Examples
 
@@ -831,6 +1268,10 @@ Complete working examples demonstrating parameter features:
 - **[params_lists.py](../examples/params_lists.py)** - List parameters for handling multiple values (files and tags)
 - **[params_groups.py](../examples/params_groups.py)** - Parameter groups for organizing parameters in help display
 - **[params_runtime.py](../examples/params_runtime.py)** - Runtime-only parameters for session state and internal values
+- **[params_dict.py](../examples/params_dict.py)** - Dict/JSON parameters with multiple JSON blocks and file references **v1.1.0**
+- **[params_file.py](../examples/params_file.py)** - @file syntax for loading parameter values from files
+- **[params_join.py](../examples/params_join.py)** - **NEW v1.1.0** - Accumulating values with `join_param()` (strings, lists, dicts)
+- **[params_input_filter.py](../examples/params_input_filter.py)** - **NEW v1.1.0** - Custom input filters for parsing specialized formats
 - **[inline_definitions_basic.py](../examples/inline_definitions_basic.py)** - Inline parameter definitions in commands
 - **[inline_definitions_advanced.py](../examples/inline_definitions_advanced.py)** - Advanced inline patterns (nested, mixed)
 

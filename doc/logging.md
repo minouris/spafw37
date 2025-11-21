@@ -5,6 +5,8 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Version Changes](#version-changes)
+- [Key Capabilities](#key-capabilities)
 - [Log Levels](#log-levels)
 - [Log Format](#log-format)
 - [Log Outputs](#log-outputs)
@@ -22,7 +24,15 @@
 
 ## Overview
 
-The spafw37 framework provides comprehensive logging functionality with:
+The spafw37 logging system provides automatic file and console logging with configurable levels, scopes, and CLI control. Logging is built into the framework and requires minimal configuration.
+
+## Version Changes
+
+### v1.1.0
+
+No changes to the logging system in this release. The logging API remains stable and unchanged from previous versions.
+
+## Key Capabilities
 
 - **Custom TRACE level** - Below DEBUG for ultra-detailed logging
 - **Scope-based logging** - Organise logs by module, phase, or feature
@@ -30,14 +40,6 @@ The spafw37 framework provides comprehensive logging functionality with:
 - **Flexible control** - CLI parameters for runtime log level adjustment
 - **Automatic formatting** - Consistent timestamped log entries
 - **Persistent preferences** - Save log directory between runs
-
-Key capabilities:
-- Five standard log levels plus custom TRACE level
-- Automatic log file creation with timestamp naming
-- Scope-specific log level control
-- Silent and no-logging modes
-- Error suppression for testing
-- Integration with command execution and phases
 
 ## Log Levels
 

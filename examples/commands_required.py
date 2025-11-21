@@ -88,8 +88,8 @@ def setup():
     # Define commands with varying parameter requirements
     def status():
         """Show deployment status - no special requirements."""
-        env = spafw37.get_config_str('environment')
-        region = spafw37.get_config_str('region')
+        env = spafw37.get_param('environment')
+        region = spafw37.get_param('region')
         
         spafw37.output(f"Status for {env} ({region}):")
         spafw37.output("  Services: Running")
@@ -97,10 +97,10 @@ def setup():
     
     def deploy():
         """Deploy application - requires api-key and instance-count."""
-        env = spafw37.get_config_str('environment')
-        api_key = spafw37.get_config_str('api-key')
-        instances = spafw37.get_config_int('instance-count')
-        region = spafw37.get_config_str('region')
+        env = spafw37.get_param('environment')
+        api_key = spafw37.get_param('api-key')
+        instances = spafw37.get_param('instance-count')
+        region = spafw37.get_param('region')
         
         spafw37.output(f"Deploying to {env} ({region})...")
         spafw37.output(f"API Key: {api_key[:8]}...")
@@ -109,9 +109,9 @@ def setup():
     
     def backup():
         """Backup current deployment - requires backup-path."""
-        env = spafw37.get_config_str('environment')
-        backup_path = spafw37.get_config_str('backup-path')
-        region = spafw37.get_config_str('region')
+        env = spafw37.get_param('environment')
+        backup_path = spafw37.get_param('backup-path')
+        region = spafw37.get_param('region')
         
         spafw37.output(f"Backing up {env} ({region})...")
         spafw37.output(f"Backup location: {backup_path}")

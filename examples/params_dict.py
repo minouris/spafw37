@@ -8,16 +8,22 @@ JSON-formatted data. Dict parameters are useful for:
 - JSON schema validation
 - Structured test data
 
-Dict parameters can receive JSON in three ways:
+Dict parameters can receive JSON in multiple ways:
 1. Inline JSON string on the command line
 2. Multi-token JSON (when shell splits it)
 3. Loading from a file using @file syntax
+4. Multiple JSON blocks (v1.1.0) - automatically merged
+5. File references within JSON (v1.1.0) - e.g., {"data": @file.json}
 
 Run this example:
     python examples/params_dict.py api-call --payload '{"user":"alice","action":"login"}'
     python examples/params_dict.py api-call --payload @examples/sample_payload.json
     python examples/params_dict.py query-db --filter '{"status":"active","age":{"$gt":18}}'
     python examples/params_dict.py validate --schema '{"type":"object","required":["id"]}'
+    
+    # v1.1.0 features:
+    python examples/params_dict.py api-call --payload '{"user":"alice"}' '{"action":"login"}'
+    python examples/params_dict.py api-call --payload '{"data": @examples/sample_payload.json}'
 """
 
 from spafw37 import core as spafw37
@@ -38,7 +44,7 @@ from spafw37.constants.command import (
 
 def api_call():
     """Make an API call with JSON payload from dict parameter."""
-    payload = spafw37.get_config_dict('payload')
+    payload = spafw37.get_param('payload')
     
     spafw37.output("API Call Details:")
     spafw37.output(f"  Payload type: {type(payload)}")
@@ -59,7 +65,7 @@ def api_call():
 
 def query_database():
     """Query database with filter criteria from dict parameter."""
-    filter_criteria = spafw37.get_config_dict('filter')
+    filter_criteria = spafw37.get_param('filter')
     
     spafw37.output("Database Query:")
     
@@ -80,7 +86,7 @@ def query_database():
 
 def validate_data():
     """Validate data against a JSON schema from dict parameter."""
-    schema = spafw37.get_config_dict('schema')
+    schema = spafw37.get_param('schema')
     
     import json
     formatted = json.dumps(schema, indent=2)

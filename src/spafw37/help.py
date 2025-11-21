@@ -134,7 +134,8 @@ def display_all_help():
     
     script_name = os.path.basename(sys.argv[0]) if sys.argv else '<app>'
     print()
-    print(f"Usage: python {script_name} [command] [options]")
+    print(f"Usage: python {script_name} <command> [<command> ...] [params]")
+    print("Note: Commands must come before params.")
     print()
     
     # Display commands

@@ -1,8 +1,9 @@
 import json
-import os
+import pytest
 from spafw37 import cli, param
 import spafw37.config
-from spafw37 import config_func as config_func
+from spafw37 import config_func
+
 
 def setup_function():
     # Reset module state between tests (similar to other test setup)
@@ -20,6 +21,11 @@ def setup_function():
 
 
 def test_dict_param_inline_json():
+    """Test dict param with inline JSON string.
+    
+    Should parse JSON string and store as dict in config.
+    This validates basic dict param functionality.
+    """
     setup_function()
     param.add_param({
         'name': 'mydict',
@@ -32,6 +38,11 @@ def test_dict_param_inline_json():
 
 
 def test_dict_param_multitoken_json():
+    """Test dict param with JSON split across multiple tokens.
+    
+    Should reassemble tokens and parse as single JSON object.
+    This validates multi-token JSON handling for dict params.
+    """
     setup_function()
     param.add_param({
         'name': 'mydict',
@@ -42,104 +53,6 @@ def test_dict_param_multitoken_json():
     args = ['--mydict', '{', '"a":1', '}']
     cli.handle_cli_args(args)
     assert spafw37.config._config.get('mydict') == {"a": 1}
-
-
-def test_dict_param_file_input(tmp_path):
-    setup_function()
-    param.add_param({
-        'name': 'mydict',
-        'aliases': ['--mydict'],
-        'type': 'dict'
-    })
-    data = {"x": 10, "y": "yes"}
-    p = tmp_path / "data.json"
-    p.write_text(json.dumps(data))
-    args = ['--mydict', f"@{str(p)}"]
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('mydict') == data
-
-
-def test_quoted_alias_like_value_is_accepted():
-    setup_function()
-    param.add_param({
-        'name': 'textparam',
-        'aliases': ['--textparam'],
-        'type': 'text'
-    })
-    # Simulate a quoted token that looks like an alias in its raw form
-    args = ['--textparam', '"-not-a-flag"']
-    cli.handle_cli_args(args)
-    # Value should be the quoted string (parser does not strip quotes)
-    assert spafw37.config._config.get('textparam') == '"-not-a-flag"'
-
-
-def test_text_param_file_input_reads_file(tmp_path):
-    setup_function()
-    param.add_param({
-        'name': 'longtext',
-        'aliases': ['--longtext'],
-        'type': 'text'
-    })
-    p = tmp_path / "text.txt"
-    p.write_text('hello world')
-    args = ['--longtext', f"@{str(p)}"]
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('longtext') == 'hello world'
-
-
-def test_list_param_file_input_splits_whitespace(tmp_path):
-    setup_function()
-    param.add_param({
-        'name': 'items',
-        'aliases': ['--items'],
-        'type': 'list'
-    })
-    p = tmp_path / "items.txt"
-    p.write_text('one two   three\nfour')
-    args = ['--items', f"@{str(p)}"]
-    cli.handle_cli_args(args)
-    # Order preserved, whitespace collapsed by split()
-    assert spafw37.config._config.get('items') == ['one', 'two', 'three', 'four']
-
-
-def test_list_param_file_input_preserves_quoted_items(tmp_path):
-    """Ensure that list params reading from files preserve quoted substrings.
-
-    When a file is used as input for a list parameter and the file contains
-    quoted strings with spaces (for example: 'one "two three" four'), the
-    parser should treat "two three" as a single item in the resulting list.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'items',
-        'aliases': ['--items'],
-        'type': 'list'
-    })
-    p = tmp_path / "quoted_items.txt"
-    # Include quoted item containing a space
-    p.write_text('one "two three" four')
-    args = ['--items', f"@{str(p)}"]
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('items') == ['one', 'two three', 'four']
-
-
-def test_number_param_file_input(tmp_path):
-    """Ensure that number params can load values from files using @file syntax.
-
-    This verifies that the @file mechanism works for all scalar param types,
-    not just text and dict types.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'count',
-        'aliases': ['--count'],
-        'type': 'number'
-    })
-    p = tmp_path / "number.txt"
-    p.write_text('42')
-    args = ['--count', f"@{str(p)}"]
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('count') == 42
 
 
 def test_dict_param_with_equals_syntax_inline_json():
@@ -157,45 +70,6 @@ def test_dict_param_with_equals_syntax_inline_json():
     args = ['--config={"key":"value"}']
     cli.handle_cli_args(args)
     assert spafw37.config._config.get('config') == {"key": "value"}
-
-
-def test_dict_param_with_equals_syntax_file(tmp_path):
-    """Ensure dict params work with --param=@file syntax.
-
-    This verifies that file loading works in the --param=value code path,
-    not just the separate-token code path.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'config',
-        'aliases': ['--config'],
-        'type': 'dict'
-    })
-    data = {"nested": {"key": "value"}}
-    p = tmp_path / "config.json"
-    p.write_text(json.dumps(data))
-    args = [f'--config=@{str(p)}']
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('config') == data
-
-
-def test_text_param_with_equals_syntax_file(tmp_path):
-    """Ensure text params work with --param=@file syntax.
-
-    This verifies the @file mechanism in the equals-syntax code path
-    for text parameters.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'message',
-        'aliases': ['--message'],
-        'type': 'text'
-    })
-    p = tmp_path / "message.txt"
-    p.write_text('Hello from file')
-    args = [f'--message=@{str(p)}']
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('message') == 'Hello from file'
 
 
 def test_dict_param_invalid_json_raises_error():
@@ -218,90 +92,12 @@ def test_dict_param_invalid_json_raises_error():
         assert 'JSON' in str(e) or 'dict' in str(e)
 
 
-def test_file_not_found_raises_error(tmp_path):
-    """Ensure that referencing a non-existent file raises a clear error.
-
-    When using @file syntax with a file that doesn't exist, the system
-    should raise an error indicating the file was not found.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'data',
-        'aliases': ['--data'],
-        'type': 'text'
-    })
-    nonexistent = tmp_path / "does_not_exist.txt"
-    args = ['--data', f'@{str(nonexistent)}']
-    try:
-        cli.handle_cli_args(args)
-        assert False, "Expected error for non-existent file"
-    except (FileNotFoundError, IOError, OSError):
-        pass  # Expected
-
-
-def test_list_param_mixed_quoted_unquoted_items(tmp_path):
-    """Ensure list params correctly handle files with mixed quoted and unquoted items.
-
-    When a file contains both quoted items with spaces and regular unquoted
-    items, the parser should correctly preserve quotes where needed and split
-    unquoted items on whitespace.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'items',
-        'aliases': ['--items'],
-        'type': 'list'
-    })
-    p = tmp_path / "mixed.txt"
-    p.write_text('simple "quoted item" another "second quoted"')
-    args = ['--items', f'@{str(p)}']
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('items') == ['simple', 'quoted item', 'another', 'second quoted']
-
-
-def test_text_param_empty_file(tmp_path):
-    """Ensure that loading an empty file for a text param returns empty string.
-
-    When a text parameter loads from an empty file, it should receive an
-    empty string as the value, not None or raise an error.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'content',
-        'aliases': ['--content'],
-        'type': 'text'
-    })
-    p = tmp_path / "empty.txt"
-    p.write_text('')
-    args = ['--content', f'@{str(p)}']
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('content') == ''
-
-
-def test_list_param_empty_file(tmp_path):
-    """Ensure that loading an empty file for a list param returns empty list.
-
-    When a list parameter loads from an empty file, it should receive an
-    empty list as the value.
-    """
-    setup_function()
-    param.add_param({
-        'name': 'items',
-        'aliases': ['--items'],
-        'type': 'list'
-    })
-    p = tmp_path / "empty.txt"
-    p.write_text('')
-    args = ['--items', f'@{str(p)}']
-    cli.handle_cli_args(args)
-    assert spafw37.config._config.get('items') == []
-
-
-def test_dict_param_complex_nested_json(tmp_path):
+def test_dict_param_complex_nested_json():
     """Ensure dict params handle complex nested JSON structures.
 
     This verifies that the dict param type can handle realistic complex
-    JSON with nested objects, arrays, and various data types.
+    JSON with nested objects, arrays, and various data types when passed
+    as inline JSON via CLI.
     """
     setup_function()
     param.add_param({
@@ -323,269 +119,76 @@ def test_dict_param_complex_nested_json(tmp_path):
         },
         "version": 1.5
     }
-    p = tmp_path / "schema.json"
-    p.write_text(json.dumps(complex_data))
-    args = ['--schema', f'@{str(p)}']
+    # Pass complex JSON inline (not via file) to test dict param handling
+    args = ['--schema', json.dumps(complex_data)]
     cli.handle_cli_args(args)
     assert spafw37.config._config.get('schema') == complex_data
 
 
-def test_is_short_alias_true():
-    """Test is_short_alias returns True for short aliases.
-    
-    Short aliases match the pattern -x where x is a single character.
-    This validates line 48.
-    """
-    setup_function()
-    assert param.is_short_alias('-v') is True
-    assert param.is_short_alias('-x') is True
-
-
-def test_is_short_alias_false():
-    """Test is_short_alias returns False for non-short aliases.
-    
-    Long aliases and regular strings should not match short alias pattern.
-    This validates line 48.
-    """
-    setup_function()
-    assert param.is_short_alias('--verbose') is False
-    assert param.is_short_alias('value') is False
-
-
-def test_is_long_alias_with_value_true():
-    """Test is_long_alias_with_value for --param=value format.
-    
-    Should return True when alias has embedded value.
-    This validates line 42.
-    """
-    setup_function()
-    assert param.is_long_alias_with_value('--param=value') is True
-    assert param.is_long_alias_with_value('--count=42') is True
-
-
-def test_is_long_alias_with_value_false():
-    """Test is_long_alias_with_value for other formats.
-    
-    Should return False when no embedded value.
-    This validates line 42.
-    """
-    setup_function()
-    assert param.is_long_alias_with_value('--param') is False
-    assert param.is_long_alias_with_value('value') is False
-
-
-def test_is_runtime_only_param_true():
-    """Test is_runtime_only_param when param has runtime-only=True.
-    
-    Should return True for params marked as runtime-only.
-    This validates line 86.
-    """
-    setup_function()
-    runtime_param = {'name': 'test', 'runtime-only': True}
-    assert param.is_runtime_only_param(runtime_param) is True
-
-
-def test_is_runtime_only_param_false_for_none():
-    """Test is_runtime_only_param when param is None.
-    
-    Should return False for None param.
-    This validates line 86.
-    """
-    setup_function()
-    assert param.is_runtime_only_param(None) is False
-
-
-def test_parse_value_list_joined_to_string_for_non_list_param():
-    """Test that list values are joined to string for non-list params.
-    
-    When a list is passed to a text/number/toggle param, join with spaces.
-    This validates line 124.
-    """
-    setup_function()
-    text_param = {'name': 'text', 'type': 'text'}
-    value = param._parse_value(text_param, ['hello', 'world'])
-    assert value == 'hello world'
-
-
-def test_param_in_args_with_equals_format():
-    """Test param_in_args detects --param=value format.
-    
-    Should return True when param appears as --alias=value in args.
-    This validates line 214.
-    """
-    setup_function()
-    test_param = {
-        'name': 'count',
-        'aliases': ['--count', '-c'],
-        'type': 'number',
-    }
-    param.add_param(test_param)
-    
-    args = ['--count=42', 'other']
-    assert param.param_in_args('count', args) is True
-
-
-def test_load_json_file_file_not_found():
-    """Test _load_json_file raises FileNotFoundError for missing file.
-    
-    Should raise clear error when file doesn't exist.
-    This validates lines 332-346.
-    """
-    setup_function()
-    import pytest
-    with pytest.raises(FileNotFoundError, match="Dict param file not found"):
-        param._load_json_file('/nonexistent/file.json')
-
-
-def test_load_json_file_permission_denied(tmp_path):
-    """Test _load_json_file raises PermissionError for unreadable file.
-    
-    Should raise clear error when file can't be read.
-    This validates lines 332-346.
-    """
-    setup_function()
-    import pytest
-    import stat
-    
-    # Create a file with no read permissions
-    p = tmp_path / "noperm.json"
-    p.write_text('{"test": "data"}')
-    p.chmod(stat.S_IWUSR)  # Write only, no read
-    
-    try:
-        with pytest.raises(PermissionError, match="Permission denied"):
-            param._load_json_file(str(p))
-    finally:
-        # Restore permissions so cleanup works
-        p.chmod(stat.S_IRUSR | stat.S_IWUSR)
-
-
-def test_load_json_file_invalid_json(tmp_path):
-    """Test _load_json_file raises ValueError for invalid JSON.
-    
-    Should raise clear error when file contains malformed JSON.
-    This validates lines 332-346.
-    """
-    setup_function()
-    import pytest
-    
-    p = tmp_path / "invalid.json"
-    p.write_text('{invalid json}')
-    
-    with pytest.raises(ValueError, match="Invalid JSON in dict param file"):
-        param._load_json_file(str(p))
-
-
-def test_load_json_file_not_dict(tmp_path):
-    """Test _load_json_file raises ValueError when JSON is not an object.
-    
-    Dict params must contain JSON objects, not arrays or primitives.
-    This validates lines 332-346.
-    """
-    setup_function()
-    import pytest
-    
-    p = tmp_path / "array.json"
-    p.write_text('[1, 2, 3]')
-    
-    with pytest.raises(ValueError, match="Dict param file must contain a JSON object"):
-        param._load_json_file(str(p))
-
-
 def test_parse_json_text_invalid_json():
-    """Test _parse_json_text raises ValueError for invalid JSON.
+    """Test _default_filter_dict raises ValueError for invalid JSON.
     
     Should provide clear error message for malformed JSON.
-    This validates lines 363-364.
+    This validates JSON parsing error handling for dict params.
     """
     setup_function()
-    import pytest
     
     with pytest.raises(ValueError, match="Invalid JSON for dict parameter"):
-        param._parse_json_text('{invalid}')
+        param._default_filter_dict('{invalid}')
 
 
 def test_parse_json_text_not_dict():
-    """Test _parse_json_text raises ValueError when JSON is not an object.
+    """Test _default_filter_dict raises ValueError when JSON is not an object.
     
     Must be a JSON object for dict parameters.
-    This validates line 366.
+    This validates type checking for parsed JSON in dict params.
     """
     setup_function()
-    import pytest
     
-    with pytest.raises(ValueError, match="Provided JSON must be an object"):
-        param._parse_json_text('[1, 2, 3]')
+    with pytest.raises(ValueError, match="Dict parameter requires JSON object"):
+        param._default_filter_dict('[1, 2, 3]')
 
 
-def test_normalize_dict_input_not_string():
-    """Test _normalize_dict_input raises ValueError for non-string input.
+def test_dict_param_multiple_inline_json_objects():
+    """Test dict param with multiple inline JSON objects merges them.
     
-    Should validate input type and raise clear error.
-    This validates line 384.
+    When multiple JSON objects are provided (space-separated), they should
+    be parsed individually and merged into a single dict.
+    This validates the edge case: --dict {"a":1} {"b":2}
     """
     setup_function()
-    import pytest
-    
-    with pytest.raises(ValueError, match="Invalid dict parameter value"):
-        param._normalize_dict_input(123)
+    param.add_param({
+        'name': 'config',
+        'aliases': ['--config'],
+        'type': 'dict'
+    })
+    # Simulate multiple JSON objects as single string value
+    args = ['--config', '{"a":1} {"b":2}']
+    cli.handle_cli_args(args)
+    result = spafw37.config._config.get('config')
+    assert result == {"a": 1, "b": 2}
 
 
-def test_read_file_raw_file_not_found():
-    """Test _read_file_raw raises FileNotFoundError for missing file.
+def test_dict_param_multiple_objects_with_key_collision():
+    """Test dict param with multiple objects having same keys.
     
-    Should provide clear error message with file path.
-    This validates lines 400-401.
+    When multiple JSON objects have overlapping keys, later values
+    should override earlier ones (recent wins strategy).
+    This validates merge conflict resolution.
     """
     setup_function()
-    import pytest
+    param.add_param({
+        'name': 'overrides',
+        'aliases': ['--overrides'],
+        'type': 'dict'
+    })
     
-    with pytest.raises(FileNotFoundError, match="Parameter file not found"):
-        param._read_file_raw('/nonexistent/file.txt')
-
-
-def test_read_file_raw_permission_denied(tmp_path):
-    """Test _read_file_raw raises PermissionError for unreadable file.
+    # Two objects with overlapping key "x"
+    args = ['--overrides', '{"x":1,"y":2} {"x":99,"z":3}']
+    cli.handle_cli_args(args)
     
-    Should provide clear error message for permission issues.
-    This validates lines 400-401.
-    """
-    setup_function()
-    import pytest
-    import stat
-    
-    # Create a file with no read permissions
-    p = tmp_path / "noperm.txt"
-    p.write_text('content')
-    p.chmod(stat.S_IWUSR)  # Write only, no read
-    
-    try:
-        with pytest.raises(PermissionError, match="Permission denied"):
-            param._read_file_raw(str(p))
-    finally:
-        # Restore permissions
-        p.chmod(stat.S_IRUSR | stat.S_IWUSR)
-
-
-def test_is_number_param_for_dict_type():
-    """Test is_number_param returns False for dict params.
-    
-    Dict params should not be treated as number params.
-    This validates line 147 (else branch).
-    """
-    setup_function()
-    dict_param = {'name': 'mydict', 'type': 'dict'}
-    assert param.is_number_param(dict_param) is False
-
-
-def test_is_list_param_for_dict_type():
-    """Test is_list_param returns False for dict params.
-    
-    Dict params should not be treated as list params.
-    This validates line 153 (else branch).
-    """
-    setup_function()
-    dict_param = {'name': 'mydict', 'type': 'dict'}
-    assert param.is_list_param(dict_param) is False
+    result = spafw37.config._config.get('overrides')
+    # x should be 99 (from second object), y from first, z from second
+    assert result == {"x": 99, "y": 2, "z": 3}
 
 

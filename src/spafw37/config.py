@@ -55,11 +55,23 @@ def set_max_cycle_nesting_depth(depth):
     cycle_module.set_max_cycle_nesting_depth(depth)
 
 def get_config_value(name):
+    """Get configuration value.
+    
+    Internal storage accessor used by param layer.
+    
+    Args:
+        name: Configuration key name.
+    
+    Returns:
+        Configuration value or None if not found.
+    """
     return _config.get(name)
 
 
 def get_config_int(name, default=0):
     """Get configuration value as integer.
+    
+    Internal storage accessor used by param layer.
     
     Args:
         name: Configuration key name.
@@ -77,6 +89,8 @@ def get_config_int(name, default=0):
 def get_config_str(name, default=''):
     """Get configuration value as string.
     
+    Internal storage accessor used by param layer.
+    
     Args:
         name: Configuration key name.
         default: Default value if not found.
@@ -92,6 +106,8 @@ def get_config_str(name, default=''):
 
 def get_config_bool(name, default=False):
     """Get configuration value as boolean.
+    
+    Internal storage accessor used by param layer.
     
     Args:
         name: Configuration key name.
@@ -109,6 +125,8 @@ def get_config_bool(name, default=False):
 def get_config_float(name, default=0.0):
     """Get configuration value as float.
     
+    Internal storage accessor used by param layer.
+    
     Args:
         name: Configuration key name.
         default: Default value if not found.
@@ -124,6 +142,8 @@ def get_config_float(name, default=0.0):
 
 def get_config_list(name, default=None):
     """Get configuration value as list.
+    
+    Internal storage accessor used by param layer.
     
     Args:
         name: Configuration key name.
@@ -143,6 +163,8 @@ def get_config_list(name, default=None):
 def get_config_dict(name, default=None):
     """Get configuration value as dictionary.
     
+    Internal storage accessor used by param layer.
+    
     Args:
         name: Configuration key name.
         default: Default value if not found.
@@ -159,10 +181,26 @@ def get_config_dict(name, default=None):
 
 
 def set_config_value(name, value):
+    """Set configuration value.
+    
+    Internal storage accessor used by param layer.
+    
+    Args:
+        name: Configuration key name.
+        value: Value to set.
+    """
     _config[name] = value
 
 
 def set_config_list_value(value, bind_name):
+    """Append value to configuration list.
+    
+    Internal storage accessor used by param layer.
+    
+    Args:
+        value: Value to append to the list.
+        bind_name: Configuration key name.
+    """
     if bind_name not in _config:
         _config[bind_name] = []
     if isinstance(value, list):

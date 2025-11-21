@@ -82,7 +82,7 @@ params = [
 
 # Define command action
 def greet():
-    name = spafw37.get_config_str('name')
+    name = spafw37.get_param_str('name')
     print(f"Hello, {name}!")
 
 # Define commands
@@ -241,14 +241,14 @@ Access configuration values in your command actions:
 
 ```python
 def my_command():
-    # Get typed configuration values
-    name = spafw37.get_config_str('name')
-    count = spafw37.get_config_int('count')
-    enabled = spafw37.get_config_bool('enabled')
-    items = spafw37.get_config_list('items')
+    # Get typed parameter values
+    name = spafw37.get_param_str('name')
+    count = spafw37.get_param_int('count')
+    enabled = spafw37.get_param_bool('enabled')
+    items = spafw37.get_param_list('items')
     
-    # Set configuration values
-    spafw37.set_config_value('status', 'processing')
+    # Set parameter values
+    spafw37.set_param('processing', 'status')
 ```
 
 Configuration can be:
@@ -328,6 +328,10 @@ This framework is specifically designed for Python 3.7 compatibility:
 - No walrus operator (`:=`)
 - No positional-only parameters
 - Compatible with Python 3.7.0+
+
+## What's New in v1.1.0
+
+- **New Parameter API** - Access parameters with type-safe functions like `get_param_str()`, `get_param_int()`, etc. Set values with `set_param()` or accumulate them with `join_param()`
 
 ## Known Issues
 

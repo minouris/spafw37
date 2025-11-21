@@ -207,7 +207,8 @@ def get_scope_log_level(scope):
 
 def _should_log_to_console():
     """Check if console logging should be enabled based on config flags."""
-    if config.get_config_bool(LOG_NO_LOGGING_PARAM):
+    from spafw37 import param
+    if param._get_param_bool(bind_name=LOG_NO_LOGGING_PARAM, default=False):
         return False
     if config.is_silent():
         return False
@@ -216,9 +217,10 @@ def _should_log_to_console():
 
 def _should_log_to_file():
     """Check if file logging should be enabled based on config flags."""
-    if config.get_config_bool(LOG_NO_LOGGING_PARAM):
+    from spafw37 import param
+    if param._get_param_bool(bind_name=LOG_NO_LOGGING_PARAM, default=False):
         return False
-    if config.get_config_bool(LOG_NO_FILE_LOGGING_PARAM):
+    if param._get_param_bool(bind_name=LOG_NO_FILE_LOGGING_PARAM, default=False):
         return False
     return True
 
@@ -321,32 +323,34 @@ def apply_logging_config():
     # Apply log level flags (mutually exclusive, only one should be set)
     # Priority: explicit log-level > trace > verbose > silent/no-logging
     
+    from spafw37 import param
+    
     # Check for explicit log level first (overrides everything)
-    log_level = config.get_config_value(LOG_LEVEL_PARAM)
+    log_level = param.get_param(bind_name=LOG_LEVEL_PARAM)
     if log_level:
         level = _get_level_from_name(log_level)
         file_level = level
         console_level = level
     
     # Check for trace (both console and file to TRACE)
-    elif config.get_config_value(LOG_TRACE_PARAM):
+    elif param.get_param(bind_name=LOG_TRACE_PARAM):
         file_level = TRACE
         console_level = TRACE
     
     # Check for trace-console (only console to TRACE)
-    elif config.get_config_value(LOG_TRACE_CONSOLE_PARAM):
+    elif param.get_param(bind_name=LOG_TRACE_CONSOLE_PARAM):
         console_level = TRACE
     
     # Check for verbose (console to DEBUG)
-    elif config.get_config_value(LOG_VERBOSE_PARAM):
+    elif param.get_param(bind_name=LOG_VERBOSE_PARAM):
         console_level = DEBUG
     
     # Check for silent mode (console effectively disabled)
-    elif config.get_config_value(LOG_SILENT_PARAM):
+    elif param.get_param(bind_name=LOG_SILENT_PARAM):
         console_level = stdlib_logging.CRITICAL + 1  # Above all levels
     
     # Check for no-logging mode (both handlers disabled)
-    elif config.get_config_value(LOG_NO_LOGGING_PARAM):
+    elif param.get_param(bind_name=LOG_NO_LOGGING_PARAM):
         console_level = stdlib_logging.CRITICAL + 1
         file_level = stdlib_logging.CRITICAL + 1
     
@@ -355,20 +359,20 @@ def apply_logging_config():
     set_console_level(console_level)
     
     # Check for no-file-logging mode (takes precedence over log-dir)
-    if config.get_config_value(LOG_NO_FILE_LOGGING_PARAM):
+    if param.get_param(bind_name=LOG_NO_FILE_LOGGING_PARAM):
         set_file_level(stdlib_logging.CRITICAL + 1)  # Disable file logging
     else:
         # Apply log directory only if file logging is not disabled
-        log_dir = config.get_config_value(LOG_DIR_PARAM)
+        log_dir = param.get_param(bind_name=LOG_DIR_PARAM)
         if log_dir:
             set_log_dir(log_dir)
     
     # Apply suppress errors
-    if config.get_config_value(LOG_SUPPRESS_ERRORS_PARAM):
+    if param.get_param(bind_name=LOG_SUPPRESS_ERRORS_PARAM):
         set_suppress_errors(True)
     
     # Apply scope-specific log levels (phase-log-level param for backward compatibility)
-    scope_log_levels = config.get_config_value(LOG_PHASE_LOG_LEVEL_PARAM)
+    scope_log_levels = param.get_param(bind_name=LOG_PHASE_LOG_LEVEL_PARAM)
     if scope_log_levels:
         # Format: [scope1, level1, scope2, level2, ...]
         for i in range(0, len(scope_log_levels), 2):
