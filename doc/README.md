@@ -185,6 +185,8 @@ python my_app.py greet --name Alice
 python my_app.py help greet
 ```
 
+**Note:** Commands must appear at the start of the command line, before any parameters. For example, use `python my_app.py greet --name Alice`, not `python my_app.py --name Alice greet`.
+
 ## Key Features
 
 ### Flexible Parameter System

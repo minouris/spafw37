@@ -1,6 +1,7 @@
 import sys
 import json
 import shlex
+import re
 
 from spafw37 import command, logging
 from spafw37 import config_func as config
@@ -9,6 +10,7 @@ from spafw37 import param
 from spafw37 import file as spafw37_file
 import spafw37.config
 from spafw37.constants.param import (
+    PARAM_ALIASES,
     PARAM_HAS_VALUE,
     PARAM_NAME,
 )
@@ -113,6 +115,65 @@ def _parse_cli_args(args):
         raise ValueError(f"Unknown argument or command: {token}")
     return parsed
 
+
+def _parse_cli_args_regex(args):
+    """Parse command-line arguments using regex pattern matching.
+    
+    Alternative implementation that uses a comprehensive regex pattern to extract
+    aliases and their values from the joined args string. Produces the same output
+    format as _parse_cli_args().
+    
+    Pattern matches:
+    - Aliases: --long-name, -s (1-2 dashes followed by word chars/hyphens)
+    - Values: Any of @file, quoted strings, JSON objects/arrays, or unquoted values
+    
+    Commands are identified by removing all matched param patterns from the
+    args string - what remains are command tokens.
+    
+    Args:
+        args: List of command-line argument strings.
+        
+    Returns:
+        Dict with structure:
+        {
+            "commands": [command_names],
+            "params": [{"alias": "--name", "values": ["val1", "val2"]}]
+        }
+    """
+    parsed = {
+        "commands": [],
+        "params": []
+    }
+    
+    # Join args into single string for regex processing
+    args_string = ' '.join(args)
+    remaining_string = args_string
+    
+    # Comprehensive pattern to match alias and optional value
+    # Group 1: alias (--name or -n) - must start after word boundary
+    # Group 2: value (optional - anything: @file, quoted, JSON, or unquoted)
+    pattern = r'''(?:^|[\s])((?:-{1,2})[\w][\w-]*)(?:(?:=|[\s]+)((?:@[\w.\-_/]+|['"][^'"]*['"]|\{[^}]*\}|\[[^\]]*\]|[^\s]+)))?'''
+    
+    matches = re.finditer(pattern, args_string)
+    
+    for match in matches:
+        alias = match.group(1)
+        value = match.group(2)
+        
+        # Create new param entry for each occurrence
+        parsed["params"].append({
+            "alias": alias,
+            "values": [value] if value else []
+        })
+        
+        # Remove this match from the remaining string
+        remaining_string = remaining_string[:match.start()] + ' ' * (match.end() - match.start()) + remaining_string[match.end():]
+    
+    # Extract command tokens from remaining string
+    parsed["commands"] = remaining_string.split()
+    
+    return parsed
+
 def _parse_command_line(args):
     """Parse command-line arguments and execute commands.
     
@@ -166,167 +227,49 @@ def _set_defaults():
                 logging.log_trace(_message=f"Setting default for param '{param_definition.get(PARAM_NAME)}'= {_def}")
                 config.set_config_value(param_definition, param._get_param_default(param_definition))
 
-def _build_preparse_map(preparse_definitions):
-    """Build map of param names to their pre-parse definitions.
-    
-    Args:
-        preparse_definitions: List of pre-parse param definition dicts.
-    
-    Returns:
-        Dict mapping param names to their definitions.
-    """
-    return {definition[PARAM_NAME]: definition for definition in preparse_definitions}
-
-def _extract_alias_from_argument(argument):
-    """Extract the alias portion from a command-line argument.
-    
-    Handles both --param and --param=value formats.
-    
-    Args:
-        argument: Command-line argument string.
-    
-    Returns:
-        The alias portion (before '=' if present, otherwise the full argument).
-    """
-    return argument.split('=')[0] if '=' in argument else argument
-
-def _parse_long_alias_with_embedded_value(argument, preparse_map):
-    """Parse a long-alias argument with embedded value (--param=value).
-    
-    Args:
-        argument: Argument string in --param=value format.
-        preparse_map: Map of param names to pre-parse definitions.
-    
-    Returns:
-        Tuple of (param_definition, parsed_value) or (None, None) if not a pre-parse param.
-    """
-    alias, raw_value = argument.split('=', 1)
-    param_def = param.get_param_by_alias(alias)
-    if not param_def:
-        return None, None
-    
-    param_name = param_def.get(PARAM_NAME)
-    if param_name not in preparse_map:
-        return None, None
-    
-    param_definition = preparse_map[param_name]
-    parsed_value = param._parse_value(param_def, raw_value)
-    return param_definition, parsed_value
-
-def _extract_param_value_from_next_argument(param_def, arguments, current_index, arguments_count):
-    """Extract param value from the next command-line argument.
-    
-    Args:
-        param_def: Parameter definition dict.
-        arguments: Full list of command-line arguments.
-        current_index: Current position in arguments list.
-        arguments_count: Total count of arguments.
-    
-    Returns:
-        Tuple of (parsed_value, index_increment) where index_increment is 1 if value was consumed, 0 otherwise.
-    """
-    next_index = current_index + 1
-    if next_index < arguments_count:
-        next_argument = arguments[next_index]
-        if not param.is_alias(next_argument) and not command.is_command(next_argument):
-            parsed_value = param._parse_value(param_def, next_argument)
-            return parsed_value, 1
-    
-    # No value provided, use default
-    default_value = param._get_param_default(param_def, None)
-    return default_value, 0
-
-def _parse_short_alias_argument(argument, arguments, current_index, arguments_count, preparse_map):
-    """Parse a short-alias argument (--param or -p).
-    
-    Args:
-        argument: Argument string (alias without value).
-        arguments: Full list of command-line arguments.
-        current_index: Current position in arguments list.
-        arguments_count: Total count of arguments.
-        preparse_map: Map of param names to pre-parse definitions.
-    
-    Returns:
-        Tuple of (param_definition, parsed_value, index_increment).
-        Returns (None, None, 0) if not a pre-parse param.
-    """
-    param_def = param.get_param_by_alias(argument)
-    if not param_def:
-        return None, None, 0
-    
-    param_name = param_def.get(PARAM_NAME)
-    if param_name not in preparse_map:
-        return None, None, 0
-    
-    param_definition = preparse_map[param_name]
-    
-    if param_definition.get(PARAM_HAS_VALUE, True):
-        parsed_value, index_increment = _extract_param_value_from_next_argument(
-            param_def, arguments, current_index, arguments_count
-        )
-        return param_definition, parsed_value, index_increment
-    else:
-        # Toggle param, no value needed
-        parsed_value = param._parse_value(param_def, None)
-        return param_definition, parsed_value, 0
-
-def _apply_preparse_value_to_config(argument, param_definition, parsed_value):
-    """Apply a pre-parsed parameter value to configuration.
-    
-    Args:
-        argument: Original command-line argument.
-        param_definition: Pre-parse parameter definition dict.
-        parsed_value: Value to apply.
-    """
-    alias = _extract_alias_from_argument(argument)
-    param_def = param.get_param_by_alias(alias)
-    if param_def:
-        config.set_config_value_from_cmdline(param_def, parsed_value)
-
-def _pre_parse_params(arguments):
+def _pre_parse_params(tokenized_args):
     """Silently parse pre-registered params before main CLI parsing.
     
     This allows certain params (e.g., logging/verbosity) to be parsed
     early so they can control behavior during main parsing.
     
     Args:
-        arguments: Command-line arguments list.
+        tokenized_args: Pre-tokenized dict from _parse_cli_args_regex() with structure:
+                        {"commands": [...], "params": [{"alias": "--name", "values": [...]}]}
     """
-    global _current_args
-    _current_args = arguments  # Store for conflict checking
-    
     preparse_definitions = param.get_pre_parse_args()
     if not preparse_definitions:
         return
     
-    preparse_map = _build_preparse_map(preparse_definitions)
+    # Build a map of preparse param names for quick lookup
+    preparse_names = {param_def.get(PARAM_NAME) for param_def in preparse_definitions}
     
-    argument_index = 0
-    arguments_count = len(arguments)
-    while argument_index < arguments_count:
-        argument = arguments[argument_index]
+    # Process params from tokenized args
+    for param_entry in tokenized_args["params"]:
+        alias = param_entry["alias"]
+        values = param_entry["values"]
         
-        if command.is_command(argument):
-            argument_index += 1
+        # Get param definition for this alias
+        param_def = param.get_param_by_alias(alias)
+        if not param_def:
             continue
         
-        param_definition = None
-        parsed_value = None
-        index_increment = 0
+        param_name = param_def.get(PARAM_NAME)
         
-        if param.is_long_alias_with_value(argument):
-            param_definition, parsed_value = _parse_long_alias_with_embedded_value(
-                argument, preparse_map
-            )
-        elif param.is_alias(argument):
-            param_definition, parsed_value, index_increment = _parse_short_alias_argument(
-                argument, arguments, argument_index, arguments_count, preparse_map
-            )
+        # Only process if this is a preparse param
+        if param_name not in preparse_names:
+            continue
         
-        if param_definition and parsed_value is not None:
-            _apply_preparse_value_to_config(argument, param_definition, parsed_value)
-        
-        argument_index += 1 + index_increment
+        # Set the value based on param type
+        if param.is_toggle_param(alias=alias):
+            param.set_param_value(param_name=param_name, value=None)
+        else:
+            # For non-toggle params, use the first value
+            if values:
+                param.set_param_value(param_name=param_name, value=values[0])
+            else:
+                # No value provided for non-toggle param
+                param.set_param_value(param_name=param_name, value=None)
 
 
 def handle_cli_args(args):
@@ -342,9 +285,17 @@ def handle_cli_args(args):
     # Execute pre-parse actions (e.g., load persistent config)
     _do_pre_parse_actions()
     
+    # Tokenize arguments once using regex parser
+    # This produces a dict that can be used for both pre-parse and main parse
+    tokenized_args = _parse_cli_args_regex(args)
+    
+    # Store original args for conflict checking
+    global _current_args
+    _current_args = args
+    
     # Pre-parse specific params (e.g., logging/verbosity controls)
     # before main parsing to configure behavior
-    _pre_parse_params(args)
+    _pre_parse_params(tokenized_args)
     
     # Apply logging configuration based on pre-parsed params
     logging_module.apply_logging_config()
@@ -352,7 +303,7 @@ def handle_cli_args(args):
     # Set defaults for all parameters
     _set_defaults()
 
-    # Parse command line arguments
+    # Parse command line arguments (using traditional parser for now)
     _parse_command_line(args)
     
     # Execute queued commands

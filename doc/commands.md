@@ -22,6 +22,8 @@
 
 Commands are the executable units of a spafw37 application. They define actions, dependencies, sequencing, and execution phases. Commands can trigger other commands, require parameters, and participate in multi-phase execution workflows.
 
+**Important:** Commands must be specified at the start of the command line, before any parameters. For example: `python app.py build test --verbose`, not `python app.py --verbose build test`.
+
 ## Version Changes
 
 ### v1.1.0

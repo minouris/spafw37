@@ -866,10 +866,11 @@ def test_pre_parse_params_with_long_alias_embedded_value():
     param.add_param(verbose_param)
     param.add_pre_parse_args(['verbose'])
     
-    # Pre-parse with long alias format
-    cli._pre_parse_params(['--verbose=true'])
+    # Tokenize and pre-parse with long alias format
+    tokenized = cli._parse_cli_args_regex(['--verbose=true'])
+    cli._pre_parse_params(tokenized)
     
-    # Verify the value was set in config
+    # Verbose should still be set despite command being present
     assert spafw37.config.get_config_value('verbose') is True
 
 
@@ -901,8 +902,9 @@ def test_pre_parse_params_skips_commands():
     param.add_param(verbose_param)
     param.add_pre_parse_args(['verbose'])
     
-    # Pre-parse with command in the middle
-    cli._pre_parse_params(['test-cmd', '--verbose'])
+    # Tokenize and pre-parse with command in the middle
+    tokenized = cli._parse_cli_args_regex(['test-cmd', '--verbose'])
+    cli._pre_parse_params(tokenized)
     
     # Verbose should still be set despite command being present
     assert spafw37.config.get_config_value('verbose') is True
@@ -926,8 +928,9 @@ def test_pre_parse_params_short_alias():
     param.add_param(verbose_param)
     param.add_pre_parse_args(['verbose'])
     
-    # Pre-parse with short alias
-    cli._pre_parse_params(['-v'])
+    # Tokenize and pre-parse with short alias
+    tokenized = cli._parse_cli_args_regex(['-v'])
+    cli._pre_parse_params(tokenized)
     
     assert spafw37.config.get_config_value('verbose') is True
 
@@ -957,180 +960,6 @@ def test_handle_cli_args_no_app_commands_shows_help(capsys):
 
 
 
-
-
-def test_parse_long_alias_with_embedded_value_unknown_alias():
-    """Test parsing long alias with value when alias is unknown.
-    
-    When the alias in --alias=value is not registered, should return None.
-    This validates lines 290, 294.
-    """
-    setup_function()
-    
-    preparse_map = {}
-    result = cli._parse_long_alias_with_embedded_value('--unknown=value', preparse_map)
-    
-    assert result == (None, None)
-
-
-def test_parse_long_alias_with_embedded_value_not_preparse():
-    """Test parsing long alias with value when param is not a pre-parse param.
-    
-    When the alias is valid but not in the preparse_map, should return None.
-    This validates lines 290, 294.
-    """
-    setup_function()
-    
-    regular_param = {
-        PARAM_NAME: 'regular',
-        PARAM_ALIASES: ['--regular'],
-        PARAM_TYPE: 'text',
-    }
-    param.add_param(regular_param)
-    
-    preparse_map = {}  # Empty, so regular is not pre-parse
-    result = cli._parse_long_alias_with_embedded_value('--regular=value', preparse_map)
-    
-    assert result == (None, None)
-
-
-def test_extract_param_value_from_next_argument_no_next_arg():
-    """Test extracting param value when there's no next argument.
-    
-    When at the end of args list, should return default value with 0 increment.
-    This validates lines 312-321.
-    """
-    setup_function()
-    
-    param_def = {
-        PARAM_NAME: 'test',
-        PARAM_DEFAULT: 'default-value',
-    }
-    
-    args = []
-    value, increment = cli._extract_param_value_from_next_argument(param_def, args, 0, 0)
-    
-    assert value == 'default-value'
-    assert increment == 0
-
-
-def test_extract_param_value_next_is_alias():
-    """Test extracting param value when next arg is an alias.
-    
-    When the next argument is an alias, should return default value.
-    This validates lines 312-321.
-    """
-    setup_function()
-    
-    param_def = {
-        PARAM_NAME: 'count',
-        PARAM_DEFAULT: '10',
-    }
-    
-    other_param = {
-        PARAM_NAME: 'other',
-        PARAM_ALIASES: ['--other'],
-        PARAM_TYPE: 'text',
-    }
-    param.add_param(other_param)
-    
-    # Next arg is an alias, so should return default
-    args = ['--count', '--other', 'value']
-    value, increment = cli._extract_param_value_from_next_argument(param_def, args, 0, 3)
-    
-    # Should get default since next arg is an alias
-    assert value == '10'
-    assert increment == 0
-
-
-def test_extract_param_value_next_is_command():
-    """Test extracting param value when next arg is a command.
-    
-    When the next argument is a command, should return default value.
-    This validates lines 312-321.
-    """
-    setup_function()
-    
-    param_def = {
-        PARAM_NAME: 'count',
-        PARAM_DEFAULT: '10',
-    }
-    
-    def cmd_action():
-        pass
-    
-    command.add_command({
-        COMMAND_NAME: "run",
-        COMMAND_DESCRIPTION: "Run command",
-        COMMAND_ACTION: cmd_action,
-        COMMAND_REQUIRED_PARAMS: []
-    })
-    
-    args = ['run']
-    value, increment = cli._extract_param_value_from_next_argument(param_def, args, 0, 1)
-    
-    assert value == '10'
-    assert increment == 0
-
-
-def test_parse_short_alias_argument_unknown_alias():
-    """Test parsing short alias when alias is unknown.
-    
-    Should return (None, None, 0) when alias is not registered.
-    This validates lines 339, 343.
-    """
-    setup_function()
-    
-    preparse_map = {}
-    result = cli._parse_short_alias_argument('--unknown', [], 0, 0, preparse_map)
-    
-    assert result == (None, None, 0)
-
-
-def test_parse_short_alias_argument_not_preparse():
-    """Test parsing short alias when param is not a pre-parse param.
-    
-    Should return (None, None, 0) when param is not in preparse_map.
-    This validates lines 339, 343.
-    """
-    setup_function()
-    
-    regular_param = {
-        PARAM_NAME: 'regular',
-        PARAM_ALIASES: ['--regular'],
-        PARAM_TYPE: 'text',
-    }
-    param.add_param(regular_param)
-    
-    preparse_map = {}
-    result = cli._parse_short_alias_argument('--regular', ['value'], 0, 1, preparse_map)
-    
-    assert result == (None, None, 0)
-
-
-def test_parse_short_alias_argument_with_value():
-    """Test parsing short alias for param that has a value.
-    
-    Should extract value from next argument.
-    This validates lines 348-351.
-    """
-    setup_function()
-    
-    param_def = {
-        PARAM_NAME: 'count',
-        PARAM_ALIASES: ['--count'],
-        PARAM_TYPE: 'number',
-        PARAM_HAS_VALUE: True,
-    }
-    param.add_param(param_def)
-    
-    preparse_map = {'count': param_def}
-    args = ['--count', '42']
-    result_def, result_value, increment = cli._parse_short_alias_argument('--count', args, 0, 2, preparse_map)
-    
-    assert result_def == param_def
-    assert result_value == 42
-    assert increment == 1
 
 
 @pytest.mark.skip(reason="Line 424 requires 'help' command, not --help flag")

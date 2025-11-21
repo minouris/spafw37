@@ -14,7 +14,7 @@ PARAM_REQUIRED = 'required'  # Whether this param always needs to be set, either
 PARAM_PERSISTENCE = 'persistence'  # Identifies how/if the param is persisted between runs. PARAM_PERSISTENCE_ALWAYS means always saved to the main config file, PARAM_PERSISTENCE_NEVER means never saved to any config file. Blank or unset means that this param is only saved to User Config files.
 PARAM_SWITCH_LIST = 'switch-list'  # Identifies a list of params that are mutually exclusive with this one - only one param in this list can be set at a time.
 PARAM_DEFAULT = 'default-value'  # Default value for the param if not set. A param with a default value will always be considered "set" (will be present in config)
-PARAM_HAS_VALUE = 'has-value'  # For pre-parse params: True if param takes a value, False if toggle
+PARAM_HAS_VALUE = 'has-value'  # DEPRECATED: Use PARAM_TYPE to determine if param is toggle. For pre-parse params: True if param takes a value, False if toggle
 PARAM_RUNTIME_ONLY = 'runtime-only'  # Not persisted, only for runtime use, not checked at start of queue, but checked when a command that uses them is run
 PARAM_GROUP = 'param-group'  # Group name for organising parameters in help display
 
