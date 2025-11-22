@@ -585,3 +585,89 @@ def test_set_current_scope():
         core.set_current_scope('test-scope')
         mock_set_scope.assert_called_once_with('test-scope')
 
+
+def test_unset_param_through_core():
+    """Test that unset_param facade delegates to param.unset_param().
+    
+    The public API should delegate to the internal param module function
+    with all parameters passed through correctly.
+    """
+    test_param = {PARAM_NAME: 'test-value', PARAM_TYPE: PARAM_TYPE_TEXT}
+    param.add_param(test_param)
+    param.set_param(param_name='test-value', value='some-value')
+    
+    core.unset_param(param_name='test-value')
+    
+    assert spafw37.config.get_config_value('test-value') is None
+
+
+def test_unset_param_immutable_through_core():
+    """Test that immutable protection works through core.unset_param facade.
+    
+    The facade should properly propagate immutability errors from the
+    internal param module to the caller.
+    """
+    test_param = {PARAM_NAME: 'locked', PARAM_TYPE: PARAM_TYPE_TEXT, 'immutable': True}
+    param.add_param(test_param)
+    param.set_param(param_name='locked', value='value')
+    
+    with pytest.raises(ValueError, match="Cannot modify immutable parameter"):
+        core.unset_param(param_name='locked')
+
+
+def test_set_param_immutable_through_core():
+    """Test that immutable modification protection works through core.set_param facade.
+    
+    The facade should properly propagate immutability errors when attempting
+    to modify an existing immutable parameter value.
+    """
+    test_param = {PARAM_NAME: 'version', PARAM_TYPE: PARAM_TYPE_TEXT, 'immutable': True}
+    param.add_param(test_param)
+    core.set_param(param_name='version', value='1.0.0')
+    
+    with pytest.raises(ValueError, match="Cannot modify immutable parameter"):
+        core.set_param(param_name='version', value='2.0.0')
+
+
+def test_reset_param_through_core():
+    """Test that reset_param facade delegates to param.reset_param().
+    
+    The public API should delegate to the internal param module function
+    and properly reset parameter to default value.
+    """
+    test_param = {PARAM_NAME: 'counter', PARAM_TYPE: PARAM_TYPE_NUMBER, PARAM_DEFAULT: 0}
+    param.add_param(test_param)
+    param.set_param(param_name='counter', value=42)
+    
+    core.reset_param(param_name='counter')
+    
+    assert spafw37.config.get_config_value('counter') == 0
+
+
+def test_reset_param_with_default_through_core():
+    """Test that reset with default value works through core.reset_param facade.
+    
+    When parameter has PARAM_DEFAULT, reset should set value to that default,
+    properly delegating through the facade to internal implementation.
+    """
+    test_param = {PARAM_NAME: 'setting', PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_DEFAULT: 'default'}
+    param.add_param(test_param)
+    param.set_param(param_name='setting', value='modified')
+    
+    core.reset_param(param_name='setting')
+    
+    assert spafw37.config.get_config_value('setting') == 'default'
+
+
+def test_reset_param_immutable_through_core():
+    """Test that immutable protection works through core.reset_param facade.
+    
+    The facade should properly propagate immutability errors when attempting
+    to reset an immutable parameter that already has a value.
+    """
+    test_param = {PARAM_NAME: 'app-id', PARAM_TYPE: PARAM_TYPE_TEXT, 'immutable': True, PARAM_DEFAULT: 'abc'}
+    param.add_param(test_param)
+    param.set_param(param_name='app-id', value='abc')
+    
+    with pytest.raises(ValueError, match="Cannot modify immutable parameter"):
+        core.reset_param(param_name='app-id')

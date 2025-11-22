@@ -313,6 +313,7 @@ For Python files (`**/*.py`), the detailed guidelines in `.github/instructions/p
 - Don't rename existing functions, classes, or variables without explicit instruction
 - Don't add external dependencies without considering standard library alternatives
 - Don't remove or modify working code unnecessarily
+- Don't use internal development jargon in user-facing examples or documentation (e.g., "flexible resolution" - users don't know what this means)
 
 ## Build and CI
 

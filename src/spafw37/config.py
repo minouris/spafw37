@@ -192,6 +192,32 @@ def set_config_value(name, value):
     _config[name] = value
 
 
+def remove_config_value(config_key):
+    """Remove a configuration value from the config dict.
+    
+    Internal storage accessor used by param layer.
+    
+    Args:
+        config_key: Configuration key to remove.
+    """
+    if config_key in _config:
+        del _config[config_key]
+
+
+def has_config_value(config_key):
+    """Check if a configuration value exists.
+    
+    Internal storage accessor used by param layer.
+    
+    Args:
+        config_key: Configuration key to check.
+    
+    Returns:
+        True if key exists in config dict, False otherwise.
+    """
+    return config_key in _config
+
+
 def set_config_list_value(value, bind_name):
     """Append value to configuration list.
     
