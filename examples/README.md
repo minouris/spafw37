@@ -276,6 +276,17 @@ python cycles_basic.py run-cycle
 python cycles_loop_start.py process-items
 ```
 
+### `cycles_loop_end.py` - Cycle Loop End
+- `CYCLE_LOOP_END` - cleanup at end of each iteration
+- Counter increment patterns
+- Accumulating results across iterations
+- Symmetry with `CYCLE_LOOP_START`
+
+**Run:**
+```bash
+python cycles_loop_end.py run-cycle
+```
+
 ### `cycles_nested.py` - Nested Cycles
 - Nested cycle patterns
 - Outer and inner cycle coordination

@@ -21,7 +21,9 @@ Cycles enable you to execute a sequence of commands repeatedly in a loop ([see e
 
 - **Initialisation function**: Set up resources before the loop starts
 - **Loop condition function**: Called before each iteration; returns `True` to continue, `False` to stop
+- **Loop start function** (optional): Prepare data at the start of each iteration
 - **Cycle commands**: List of commands to execute each iteration (respecting dependencies)
+- **Loop end function** (optional): Cleanup or state updates at the end of each iteration
 - **Finalisation function**: Clean up resources after the loop completes
 
 Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_nesting_depth()`), automatic parameter validation across all cycle commands, and full integration with the command dependency system.
@@ -29,6 +31,12 @@ Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_
 ## Version Changes
 
 ### v1.1.0
+
+**Cycle Loop End:**
+- Added `CYCLE_LOOP_END` for per-iteration cleanup and state updates
+- Runs after all cycle commands execute but before next loop condition check
+- Optional, same as `CYCLE_LOOP_START`
+- See [`cycles_loop_end.py`](../examples/cycles_loop_end.py) example
 
 **Parameter Access in Cycles:**
 - Cycle functions (`CYCLE_INIT`, `CYCLE_LOOP`, `CYCLE_LOOP_START`, `CYCLE_END`) now use `get_param()` for parameter access
@@ -45,6 +53,7 @@ Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_
 | `CYCLE_INIT` | Function to initialise resources before loop starts |
 | `CYCLE_LOOP` | Function that returns `True` to continue loop, `False` to exit |
 | `CYCLE_LOOP_START` | Function to prepare data for the iteration (runs after `CYCLE_LOOP` returns `True`) |
+| `CYCLE_LOOP_END` | Function to run at end of each iteration (runs after all cycle commands complete) |
 | `CYCLE_END` | Function to finalise resources and perform cleanup after loop |
 | `CYCLE_COMMANDS` | List of command definitions or names to execute each iteration |
 
@@ -206,6 +215,26 @@ def prepare_next_file():
     spafw37.set_param(param_name='current-file', value=file_list[file_index])
 ```
 
+### Loop End Function
+
+**Added in v1.1.0**
+
+Runs at the end of each iteration after all cycle commands complete ([see example](../examples/cycles_loop_end.py)):
+
+```python
+def cleanup_iteration():
+    file_index = spafw37.get_param('file-index')
+    file_index += 1
+    spafw37.set_param(param_name='file-index', value=file_index)
+    spafw37.output(f"Iteration {file_index} complete")
+```
+
+Common use cases for `CYCLE_LOOP_END`:
+- Incrementing iteration counters
+- Accumulating results from the iteration
+- Cleaning up per-iteration resources
+- Logging iteration completion
+
 ### Finalisation Function
 
 Cleans up resources and reports results after the loop completes:
@@ -329,14 +358,16 @@ When a cycle command executes:
 2. **Initialisation function runs** (`CYCLE_INIT`)
 3. **Loop begins**:
    - Call loop condition function (`CYCLE_LOOP`) - returns `True` to continue or `False` to stop
-   - If `True`: Run loop start function (`CYCLE_LOOP_START`) to prepare data for iteration
-   - Execute all cycle commands (respecting dependencies)
-   - Repeat from step 1
+   - If `True`:
+     - Run loop start function (`CYCLE_LOOP_START`) to prepare data for iteration (optional)
+     - Execute all cycle commands (respecting dependencies)
+     - Run loop end function (`CYCLE_LOOP_END`) for cleanup and state updates (optional)
+     - Repeat from step 1
    - If `False`: Exit loop
 4. **Finalisation function runs** (`CYCLE_END`)
 5. **Execution continues** to next command in queue
 
-The `CYCLE_LOOP` function checks whether to continue iterating, while `CYCLE_LOOP_START` prepares the data for that iteration (e.g., sets current file path, fetches next database record, advances to next batch).
+The `CYCLE_LOOP` function checks whether to continue iterating, while `CYCLE_LOOP_START` prepares the data for that iteration (e.g., sets current file path, fetches next database record, advances to next batch), and `CYCLE_LOOP_END` handles per-iteration cleanup (e.g., increments counters, accumulates results, logs progress).
 
 ### Execution Flow Example
 
@@ -637,6 +668,11 @@ def has_more_files():
     """Check if more files remain."""
     return current_index < len(file_list)
 
+def cleanup_iteration():
+    """Increment counter and accumulate results."""
+    increment_counter()
+    save_iteration_result()
+
 def finalize_processing():
     """Report results and cleanup."""
     print_summary()
@@ -741,18 +777,42 @@ def prepare_next_batch():
     current_batch = batches[batch_index]
     spafw37.set_param(param_name='current-batch', value=current_batch)
 
+def cleanup_batch():
+    """Cleanup after batch processing."""
+    batch_index = spafw37.get_param('batch-index')
+    batch_index += 1
+    spafw37.set_param(param_name='batch-index', value=batch_index)
+
 def process_batch():
     """Process the current batch."""
     current_batch = spafw37.get_param('current-batch')
     results = spafw37.get_param('processing-results')
-    batch_index = spafw37.get_param('batch-index')
     
     result = perform_processing(current_batch)
     results.append(result)
     
     spafw37.set_param(param_name='processing-results', value=results)
-    spafw37.set_param(param_name='batch-index', value=batch_index + 1)
 ```
+
+### Use CYCLE_LOOP_END for Counter Increments
+
+Place counter increments in `CYCLE_LOOP_END` rather than `CYCLE_LOOP_START` because they reflect completed iterations:
+
+```python
+# Preferred - counter reflects completed work
+def cleanup_iteration():
+    """Increment counter at end of iteration."""
+    count = spafw37.get_param('iteration-count')
+    spafw37.set_param(param_name='iteration-count', value=count + 1)
+
+# Avoid - counter in loop start reflects started work, not completed
+def prepare_iteration():
+    """Prepare iteration (don't increment here)."""
+    count = spafw37.get_param('iteration-count')
+    spafw37.set_param(param_name='iteration-count', value=count + 1)  # Too early
+```
+
+This prevents off-by-one errors if an iteration fails partway through, and makes the counter semantics clearer (iterations completed vs. iterations started).
 
 **Only use module-level variables for truly local state** that shouldn't be saved or shared outside the module. Never use `global` keyword at function scope - declare variables at module level instead:
 

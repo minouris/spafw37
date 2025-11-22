@@ -1230,6 +1230,7 @@ params = [
 | `CYCLE_INIT` | `'cycle-init-function'` | Initialisation function (runs once before loop) |
 | `CYCLE_LOOP` | `'cycle-loop-function'` | Loop condition function (returns True/False) |
 | `CYCLE_LOOP_START` | `'cycle-loop-start-function'` | Iteration prep function (runs after loop returns True) |
+| `CYCLE_LOOP_END` | `'cycle-loop-end-function'` | Iteration cleanup function (runs after commands complete) |
 | `CYCLE_END` | `'cycle-end-function'` | Finalisation function (runs once after loop) |
 | `CYCLE_COMMANDS` | `'cycle-commands'` | List of command definitions for each iteration |
 
@@ -1237,8 +1238,9 @@ params = [
 ```
 CYCLE_INIT
 while CYCLE_LOOP returns True:
-    CYCLE_LOOP_START
+    CYCLE_LOOP_START (optional)
     execute CYCLE_COMMANDS
+    CYCLE_LOOP_END (optional)
 CYCLE_END
 ```
 

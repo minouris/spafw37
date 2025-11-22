@@ -329,6 +329,8 @@ Add entry for `cycles_loop_end.py` in the Cycles section.
 
 Update documentation to include `CYCLE_LOOP_END` in cycle lifecycle descriptions.
 
+**Important:** Add version note ("**Added in vX.X.X**") at the start of any new documentation sections.
+
 **`doc/cycles.md` updates:**
 
 - Update Overview section to mention `CYCLE_LOOP_END` in lifecycle description
@@ -557,7 +559,7 @@ No migration required. New functionality only. Existing cycles continue to work 
 
 ---
 
-Full changelog: https://github.com/minouris/spafw37/compare/v1.1.0...v1.2.0  
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0  
 Issue: https://github.com/minouris/spafw37/issues/35
 
 [↑ Back to top](#table-of-contents)

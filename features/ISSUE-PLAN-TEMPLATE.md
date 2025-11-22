@@ -130,6 +130,8 @@ def example_function():
 
 [Add as many steps as needed to complete the implementation]
 
+**Note:** When updating documentation with new features, add a version note ("**Added in vX.X.X**") at the start of new sections to help users identify when functionality was introduced.
+
 [↑ Back to top](#table-of-contents)
 
 ## Further Considerations
@@ -260,6 +262,11 @@ def example_function():
 - Include test coverage requirements
 - Include documentation requirements
 - Always end with test pass rate and coverage percentage
+
+**Documentation:**
+- Add version notes (\"**Added in vX.X.X**\") at the start of any new sections
+- This helps users identify when functionality was introduced
+- Place version note immediately after section heading, before descriptive text
 
 ### Common Patterns to Follow
 

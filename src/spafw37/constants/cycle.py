@@ -28,6 +28,7 @@ CYCLE_NAME = "cycle-name"               # Provide a name for the cycle for refer
 CYCLE_INIT = "cycle-init-function"      # Function to initialise resources for this cycle - runs after the command action, if one is defined
 CYCLE_LOOP = "cycle-loop-function"      # function to call each loop iteration - return true to continue, false to exit
 CYCLE_LOOP_START = "cycle-loop-start-function"  # Function to prepare data for the iteration - runs after CYCLE_LOOP returns True
+CYCLE_LOOP_END = "cycle-loop-end-function"  # Function to run at end of each iteration - runs after all cycle commands complete
 CYCLE_END = "cycle-finalize-function"   # Runs after the last iteration of the cycle, for cleanup of resources and reporting
 CYCLE_COMMANDS = "cycle-commands"       # List of commands to run in this cycle. Must all be in the same phase, should follow all 
                                         # the usual sequence / requirement rules
