@@ -26,6 +26,7 @@ from spafw37.constants.cycle import (
     CYCLE_INIT,
     CYCLE_LOOP,
     CYCLE_LOOP_START,
+    CYCLE_LOOP_END,
     CYCLE_END,
     CYCLE_COMMANDS,
 )
@@ -369,6 +370,37 @@ def _execute_cycle_iteration(command_names, commands_dict, run_command_func,
             run_command_func(cmd_def)
 
 
+def _call_cycle_loop_end(cycle_def):
+    """Call the cycle loop end function if defined.
+    
+    Runs at the end of each iteration after all cycle commands complete.
+    
+    Args:
+        cycle_def: Cycle definition dict
+        
+    Raises:
+        CycleExecutionError: If loop end function raises an exception
+    """
+    loop_end_func = cycle_def.get(CYCLE_LOOP_END)
+    if not loop_end_func:
+        return
+    
+    cycle_name = cycle_def.get(CYCLE_NAME, 'unknown')
+    logging.log_trace(
+        _scope='cycle',
+        _message='Calling cycle loop end function for cycle: {}'.format(cycle_name)
+    )
+    
+    try:
+        loop_end_func()
+    except Exception as error:
+        raise CycleExecutionError(
+            "Error in cycle loop end function for cycle '{}': {}".format(
+                cycle_name, error
+            )
+        )
+
+
 def execute_cycle(command_def, commands_dict, run_command_func, 
                   queue_add_func, sort_queue_func):
     """Execute a command cycle with init, loop, and finalisation.
@@ -448,6 +480,9 @@ def execute_cycle(command_def, commands_dict, run_command_func,
                 command_queue, commands_dict, run_command_func,
                 queue_add_func, sort_queue_func
             )
+            
+            # Run loop end function if present
+            _call_cycle_loop_end(cycle_def)
         
         # Run finalisation function if present
         end_func = cycle_def.get(CYCLE_END)

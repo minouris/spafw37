@@ -22,6 +22,7 @@ from spafw37.constants.cycle import (
     CYCLE_INIT,
     CYCLE_LOOP,
     CYCLE_LOOP_START,
+    CYCLE_LOOP_END,
     CYCLE_END,
     CYCLE_COMMANDS,
 )
@@ -1117,3 +1118,412 @@ class TestCycleCommandRetrieval:
         except cycle.CycleExecutionError as error:
             assert 'Command not found' in str(error)
             assert 'nonexistent-command' in str(error)
+
+
+class TestCycleLoopEnd:
+    """Tests for CYCLE_LOOP_END functionality."""
+    
+    def test_cycle_loop_end_called(self):
+        """
+        Test that CYCLE_LOOP_END function is called at end of each iteration.
+        The function should run after all cycle commands execute.
+        This validates the basic functionality of the new lifecycle hook.
+        """
+        call_log = []
+        iteration_count = [0]
+        
+        def loop_func():
+            iteration_count[0] += 1
+            return iteration_count[0] <= 2
+        
+        def loop_end_func():
+            call_log.append('loop_end')
+        
+        def command_action():
+            call_log.append('command')
+        
+        commands = {
+            'cmd1': {
+                COMMAND_NAME: 'cmd1',
+                COMMAND_ACTION: command_action
+            }
+        }
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: ['cmd1']
+            }
+        }
+        
+        def mock_run(cmd_def):
+            action = cmd_def.get(COMMAND_ACTION)
+            if action:
+                action()
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            queue.append(cmd_def.get(COMMAND_NAME))
+        
+        def mock_sort(queue, cmd_dict):
+            return queue
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        # Should have: command, loop_end, command, loop_end
+        assert call_log == ['command', 'loop_end', 'command', 'loop_end']
+    
+    def test_cycle_loop_end_multiple_iterations(self):
+        """
+        Test that CYCLE_LOOP_END is called once per iteration across multiple iterations.
+        Each iteration should call loop end function exactly once after commands.
+        This validates the function is consistently called in every iteration.
+        """
+        loop_end_count = [0]
+        iteration_count = [0]
+        
+        def loop_func():
+            iteration_count[0] += 1
+            return iteration_count[0] <= 5
+        
+        def loop_end_func():
+            loop_end_count[0] += 1
+        
+        commands = {}
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: []
+            }
+        }
+        
+        def mock_run(cmd_def):
+            pass
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            pass
+        
+        def mock_sort(queue, cmd_dict):
+            return []
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        assert loop_end_count[0] == 5
+    
+    def test_cycle_loop_end_optional(self):
+        """
+        Test that cycles work without CYCLE_LOOP_END defined.
+        Cycles should execute normally when CYCLE_LOOP_END is not provided.
+        This validates backward compatibility with existing cycles.
+        """
+        iteration_count = [0]
+        
+        def loop_func():
+            result = iteration_count[0] < 2
+            if result:
+                iteration_count[0] += 1
+            return result
+        
+        commands = {}
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_COMMANDS: []
+            }
+        }
+        
+        def mock_run(cmd_def):
+            pass
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            pass
+        
+        def mock_sort(queue, cmd_dict):
+            return []
+        
+        # Should not raise an error
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        assert iteration_count[0] == 2
+    
+    def test_cycle_loop_end_execution_order(self):
+        """
+        Test that execution order is: commands, CYCLE_LOOP_END, then CYCLE_LOOP check.
+        Commands should complete before loop end, and loop end before next iteration.
+        This validates the correct placement of loop end in the cycle lifecycle.
+        """
+        execution_log = []
+        iteration_count = [0]
+        
+        def loop_func():
+            execution_log.append(f'loop_check_{iteration_count[0]}')
+            iteration_count[0] += 1
+            return iteration_count[0] <= 2
+        
+        def loop_start_func():
+            execution_log.append(f'loop_start_{iteration_count[0]}')
+        
+        def loop_end_func():
+            execution_log.append(f'loop_end_{iteration_count[0]}')
+        
+        def command_action():
+            execution_log.append(f'command_{iteration_count[0]}')
+        
+        commands = {
+            'cmd1': {
+                COMMAND_NAME: 'cmd1',
+                COMMAND_ACTION: command_action
+            }
+        }
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_START: loop_start_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: ['cmd1']
+            }
+        }
+        
+        def mock_run(cmd_def):
+            action = cmd_def.get(COMMAND_ACTION)
+            if action:
+                action()
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            queue.append(cmd_def.get(COMMAND_NAME))
+        
+        def mock_sort(queue, cmd_dict):
+            return queue
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        # Expected: loop_check_0, loop_start_1, command_1, loop_end_1, loop_check_1, loop_start_2, command_2, loop_end_2, loop_check_2
+        expected = [
+            'loop_check_0', 'loop_start_1', 'command_1', 'loop_end_1',
+            'loop_check_1', 'loop_start_2', 'command_2', 'loop_end_2',
+            'loop_check_2'
+        ]
+        assert execution_log == expected
+    
+    def test_cycle_loop_end_access_to_state(self):
+        """
+        Test that CYCLE_LOOP_END can read state set by cycle commands.
+        Loop end should have access to state modified during iteration.
+        This validates that state changes are visible to loop end function.
+        """
+        state = {'value': 0}
+        
+        def loop_func():
+            return state['value'] < 2
+        
+        def command_action():
+            state['value'] += 1
+        
+        def loop_end_func():
+            state['checked'] = state['value']
+        
+        commands = {
+            'cmd1': {
+                COMMAND_NAME: 'cmd1',
+                COMMAND_ACTION: command_action
+            }
+        }
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: ['cmd1']
+            }
+        }
+        
+        def mock_run(cmd_def):
+            action = cmd_def.get(COMMAND_ACTION)
+            if action:
+                action()
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            queue.append(cmd_def.get(COMMAND_NAME))
+        
+        def mock_sort(queue, cmd_dict):
+            return queue
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        # Loop end should have seen the final value
+        assert state['checked'] == 2
+    
+    def test_cycle_loop_end_modify_state(self):
+        """
+        Test that CYCLE_LOOP_END can modify state for next iteration.
+        State modifications in loop end should persist to next iteration.
+        This validates that loop end can be used for counter increments and cleanup.
+        """
+        state = {'counter': 0, 'iterations': 0}
+        
+        def loop_func():
+            return state['iterations'] < 3
+        
+        def loop_end_func():
+            state['iterations'] += 1
+        
+        commands = {}
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: []
+            }
+        }
+        
+        def mock_run(cmd_def):
+            pass
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            pass
+        
+        def mock_sort(queue, cmd_dict):
+            return []
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        assert state['iterations'] == 3
+    
+    def test_cycle_loop_end_error_handling(self):
+        """
+        Test that error in CYCLE_LOOP_END raises CycleExecutionError with context.
+        Exceptions in loop end should be wrapped with cycle name and error details.
+        This validates proper error handling and debugging information.
+        """
+        iteration_count = [0]
+        
+        def loop_func():
+            iteration_count[0] += 1
+            return iteration_count[0] <= 2
+        
+        def loop_end_func():
+            raise ValueError("Test error in loop end")
+        
+        commands = {}
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'test-cycle',
+                CYCLE_LOOP: loop_func,
+                CYCLE_LOOP_END: loop_end_func,
+                CYCLE_COMMANDS: []
+            }
+        }
+        
+        def mock_run(cmd_def):
+            pass
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            pass
+        
+        def mock_sort(queue, cmd_dict):
+            return []
+        
+        with pytest.raises(cycle.CycleExecutionError) as exc_info:
+            cycle.execute_cycle(
+                parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+            )
+        
+        error_message = str(exc_info.value)
+        assert 'test-cycle' in error_message
+        assert 'Test error in loop end' in error_message
+    
+    def test_cycle_loop_end_with_nested_cycles(self):
+        """
+        Test that nested cycles each call their own CYCLE_LOOP_END correctly.
+        Each cycle should maintain its own loop end calls independently.
+        This validates proper nesting and isolation of lifecycle functions.
+        """
+        parent_calls = []
+        nested_calls = []
+        parent_iteration = [0]
+        nested_iteration = [0]
+        
+        def parent_loop():
+            parent_iteration[0] += 1
+            return parent_iteration[0] <= 2
+        
+        def parent_loop_end():
+            parent_calls.append(parent_iteration[0])
+        
+        def nested_loop():
+            nested_iteration[0] += 1
+            result = nested_iteration[0] <= 2
+            if not result:
+                nested_iteration[0] = 0  # Reset for next parent iteration
+            return result
+        
+        def nested_loop_end():
+            nested_calls.append(nested_iteration[0])
+        
+        commands = {
+            'nested-parent': {
+                COMMAND_NAME: 'nested-parent',
+                COMMAND_CYCLE: {
+                    CYCLE_NAME: 'nested-cycle',
+                    CYCLE_LOOP: nested_loop,
+                    CYCLE_LOOP_END: nested_loop_end,
+                    CYCLE_COMMANDS: []
+                }
+            }
+        }
+        parent_cmd = {
+            COMMAND_NAME: 'parent',
+            COMMAND_CYCLE: {
+                CYCLE_NAME: 'parent-cycle',
+                CYCLE_LOOP: parent_loop,
+                CYCLE_LOOP_END: parent_loop_end,
+                CYCLE_COMMANDS: ['nested-parent']
+            }
+        }
+        
+        def mock_run(cmd_def):
+            if cycle._is_cycle_command(cmd_def):
+                cycle.execute_cycle(
+                    cmd_def, commands, mock_run, mock_queue_add, mock_sort
+                )
+        
+        def mock_queue_add(cmd_def, queue, cmd_dict):
+            queue.append(cmd_def.get(COMMAND_NAME))
+        
+        def mock_sort(queue, cmd_dict):
+            return queue
+        
+        cycle.execute_cycle(
+            parent_cmd, commands, mock_run, mock_queue_add, mock_sort
+        )
+        
+        # Parent should call loop_end 2 times
+        assert len(parent_calls) == 2
+        # Nested should call loop_end 2 times per parent iteration = 4 times
+        assert len(nested_calls) == 4
+
+

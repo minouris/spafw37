@@ -15,7 +15,7 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 - **Declarative Command Definition** - Define commands with actions, dependencies, and orchestration
 - **Command Orchestration** - Automatic dependency resolution, sequencing, and triggers
 - **Multi-Phase Execution** - Organize commands into setup, cleanup, execution, teardown, and end phases
-- **Cycle Support** - Repeating command sequences with init/loop/finalization hooks
+- **Cycle Support** - Repeating command sequences with init/loop/loop-end/finalization hooks
 - **Configuration Management** - Persistent and runtime configuration with file I/O
 - **Integrated Logging** - Built-in logging with levels, scopes, and file/console output
 - **Automatic Help System** - Generated help for commands, parameters, and groups
@@ -223,6 +223,7 @@ from spafw37.constants.cycle import *
         CYCLE_INIT: init_processing,
         CYCLE_LOOP: has_more_items,
         CYCLE_LOOP_START: prepare_next_item,
+        CYCLE_LOOP_END: cleanup_item,
         CYCLE_END: finalize_processing,
         CYCLE_COMMANDS: ['validate', 'transform', 'save'],
     }
@@ -233,6 +234,7 @@ from spafw37.constants.cycle import *
 
 - [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_basic.py) - Simple iteration patterns
 - [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_start.py) - Per-iteration preparation
+- [`cycles_loop_end.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_end.py) - Per-iteration cleanup
 - [`cycles_nested.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_nested.py) - Multi-level nested cycles
 
 ### Configuration
@@ -345,6 +347,7 @@ This framework is specifically designed for Python 3.7 compatibility:
 - **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
 - **Parameter Lifecycle Management** - Complete lifecycle control with `unset_param()` to remove values and `reset_param()` to restore defaults, plus `PARAM_IMMUTABLE` for write-once protection.
 - **Param-Focused Architecture** - Parameters are now the primary abstraction, with direct access to config being deprecated.
+- **Cycle Loop End Hook** - New `CYCLE_LOOP_END` constant for per-iteration cleanup, counter increments, and result accumulation after cycle commands complete.
 
 ## Known Issues
 
