@@ -530,3 +530,58 @@ def reset_param(param_name=None, bind_name=None, alias=None):
 - [ ] Issue #26 closed with reference to implementation
 
 [↑ Back to top](#table-of-contents)
+
+## CHANGES for v1.1.0 Release
+
+Issue #26: Add Parameter Unset Capability
+
+### Issues Closed
+
+- #26: Add Parameter Unset Capability
+
+### Additions
+
+- `unset_param()` removes parameter value completely from configuration. Raises error if parameter not found or is immutable.
+- `reset_param()` restores parameter to default value. If no default exists, removes parameter value. Raises error if parameter not found or is immutable.
+- `PARAM_IMMUTABLE` constant marks parameter as write-once. Initial assignment succeeds. Subsequent modifications, unsets, or resets raise error.
+- `config.remove_config_value()` internal helper removes key from configuration dict.
+- `config.has_config_value()` internal helper checks if key exists in configuration dict.
+- `_check_immutable()` internal helper validates immutability before modifications.
+
+### Removals
+
+None.
+
+### Changes
+
+- `set_param()` now checks immutability before allowing modifications.
+
+### Migration
+
+No migration required. New functionality only.
+
+### Documentation
+
+- `doc/parameters.md` added section on unsetting and resetting parameters
+- `doc/parameters.md` added section on immutable parameters
+- `doc/api-reference.md` added `unset_param()` documentation
+- `doc/api-reference.md` added `reset_param()` documentation
+- `doc/api-reference.md` added `PARAM_IMMUTABLE` constant
+- `doc/api-reference.md` added quick reference tables for internal modules
+- `examples/params_immutable.py` demonstrates write-once protection
+- `examples/params_unset.py` demonstrates parameter lifecycle management
+
+### Testing
+
+- 554 tests pass
+- 96.03% code coverage
+- 19 new tests in `test_param_unset.py`
+- 3 new tests in `test_param_setters.py`
+- 6 new tests in `test_core.py`
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0  
+Issue: https://github.com/minouris/spafw37/issues/26
+
+[↑ Back to top](#table-of-contents)
