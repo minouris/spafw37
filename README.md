@@ -82,7 +82,7 @@ params = [
 
 # Define command action
 def greet():
-    name = spafw37.get_param_str('name')
+    name = spafw37.get_param('name')
     print(f"Hello, {name}!")
 
 # Define commands
@@ -147,7 +147,7 @@ from spafw37.constants.param import *
 }
 ```
 
-**Types:** `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`, `PARAM_TYPE_LIST`
+**Types:** `PARAM_TYPE_TEXT`, `PARAM_TYPE_NUMBER`, `PARAM_TYPE_TOGGLE`, `PARAM_TYPE_LIST`, `PARAM_TYPE_DICT`
 
 **Examples:**
 
@@ -237,21 +237,25 @@ from spafw37.constants.cycle import *
 
 ### Configuration
 
-Access configuration values in your command actions:
+Access parameter values in your command actions:
 
 ```python
 def my_command():
-    # Get typed parameter values
-    name = spafw37.get_param_str('name')
-    count = spafw37.get_param_int('count')
-    enabled = spafw37.get_param_bool('enabled')
-    items = spafw37.get_param_list('items')
+    # Get parameter values with automatic type coercion
+    name = spafw37.get_param('name')        # Returns value based on PARAM_TYPE
+    count = spafw37.get_param('count')      # Int if PARAM_TYPE_NUMBER
+    enabled = spafw37.get_param('enabled')  # Bool if PARAM_TYPE_TOGGLE
+    items = spafw37.get_param('items')      # List if PARAM_TYPE_LIST
+    config = spafw37.get_param('config')    # Dict if PARAM_TYPE_DICT
     
     # Set parameter values
-    spafw37.set_param('processing', 'status')
+    spafw37.set_param('status', 'processing')
+    
+    # Accumulate values (for lists, dicts, strings)
+    spafw37.join_param('tags', 'new-tag')
 ```
 
-Configuration can be:
+Parameters can be:
 
 - Set via command-line parameters
 - Loaded from persistent config files (`config.json`)
@@ -331,7 +335,8 @@ This framework is specifically designed for Python 3.7 compatibility:
 
 ## What's New in v1.1.0
 
-- **New Parameter API** - Access parameters with type-safe functions like `get_param_str()`, `get_param_int()`, etc. Set values with `set_param()` or accumulate them with `join_param()`
+- **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
+- **Param-Focused Architecture** - Parameters are now the primary abstraction, with direct access to config being deprecated.
 
 ## Known Issues
 
