@@ -11,7 +11,7 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 
 ## Features
 
-- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, and persistence
+- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, persistence, and complete lifecycle management (get/set/unset/reset)
 - **Declarative Command Definition** - Define commands with actions, dependencies, and orchestration
 - **Command Orchestration** - Automatic dependency resolution, sequencing, and triggers
 - **Multi-Phase Execution** - Organize commands into setup, cleanup, execution, teardown, and end phases
@@ -253,6 +253,12 @@ def my_command():
     
     # Accumulate values (for lists, dicts, strings)
     spafw37.join_param('tags', 'new-tag')
+    
+    # Unset parameter (return to default or None)
+    spafw37.unset_param('status')           # Removes current value
+    
+    # Reset parameter (clear and return to default)
+    spafw37.reset_param('count')            # Restores PARAM_DEFAULT value
 ```
 
 Parameters can be:
@@ -261,6 +267,7 @@ Parameters can be:
 - Loaded from persistent config files (`config.json`)
 - Saved to user config files (`--save-config`, `--load-config`)
 - Managed at runtime within commands
+- Protected with `PARAM_IMMUTABLE: True` for write-once behavior (prevents modification after first set)
 
 **Examples:**
 
@@ -336,6 +343,7 @@ This framework is specifically designed for Python 3.7 compatibility:
 ## What's New in v1.1.0
 
 - **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
+- **Parameter Lifecycle Management** - Complete lifecycle control with `unset_param()` to remove values and `reset_param()` to restore defaults, plus `PARAM_IMMUTABLE` for write-once protection.
 - **Param-Focused Architecture** - Parameters are now the primary abstraction, with direct access to config being deprecated.
 
 ## Known Issues
