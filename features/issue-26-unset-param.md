@@ -400,17 +400,18 @@ Add sections covering the complete parameter lifecycle management API:
 
 **Question:** What happens when unsetting a toggle that has XOR relationships?
 
-**Answer:** XOR handling is a special case that may be covered in a separate issue.
+**Answer:** Simple unset behavior for now - XOR special case handling tracked in issue #32.
 
 **Rationale:**
-- XOR validation logic is complex and may require careful consideration
+- XOR validation logic is complex and requires careful consideration
 - This issue focuses on basic unset/reset functionality
-- XOR interactions with unset/reset can be addressed separately if needed
+- XOR interactions with unset/reset will be addressed in issue #32
 
 **Implementation:**
 - No special XOR handling in this issue
-- Standard unset/reset behavior applies
+- Standard unset/reset behavior applies (simple removal)
 - XOR validation remains in `set_param()` only
+- Issue #32 created to handle XOR interactions with unset/reset
 
 [↑ Back to top](#table-of-contents)
 

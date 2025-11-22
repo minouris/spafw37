@@ -13,6 +13,7 @@ from spafw37.constants.param import (
     PARAM_TYPE_TOGGLE,
     PARAM_TYPE_LIST,
     PARAM_TYPE_DICT,
+    PARAM_IMMUTABLE,
 )
 
 
@@ -378,3 +379,64 @@ class TestSetParamValueStrictMode:
         result = config.get_config_value('enabled')
         # Non-empty string is truthy, should be converted to True
         assert result is True
+
+
+class TestSetParamImmutability:
+    """
+    Tests for set_param() with PARAM_IMMUTABLE flag.
+    
+    Immutable parameters should allow initial assignment but prevent modification.
+    """
+
+    def setup_method(self):
+        """Reset state before each test method."""
+        param._params.clear()
+        param._param_aliases.clear()
+        param._xor_list.clear()
+        config._config.clear()
+
+    def test_set_param_immutable_initial(self):
+        """
+        Tests that initial set succeeds when PARAM_IMMUTABLE=True.
+        
+        The first assignment to an immutable parameter should be allowed
+        because the value doesn't exist yet.
+        """
+        test_param = {'name': 'app-version', 'type': PARAM_TYPE_TEXT, 'immutable': True}
+        param.add_params([test_param])
+        
+        # Initial set should succeed
+        param.set_param(param_name='app-version', value='1.0.0')
+        
+        assert config.get_config_value('app-version') == '1.0.0'
+
+    def test_set_param_immutable_modification(self):
+        """
+        Tests that ValueError is raised when modifying existing immutable param.
+        
+        Once an immutable parameter has a value, any attempt to change it
+        should raise ValueError to protect the immutability contract.
+        """
+        test_param = {'name': 'app-version', 'type': PARAM_TYPE_TEXT, 'immutable': True}
+        param.add_params([test_param])
+        param.set_param(param_name='app-version', value='1.0.0')
+        
+        # Attempting to modify should raise ValueError
+        with pytest.raises(ValueError, match="Cannot modify immutable parameter 'app-version'"):
+            param.set_param(param_name='app-version', value='2.0.0')
+
+    def test_set_param_immutable_default_false(self):
+        """
+        Tests that modification succeeds when PARAM_IMMUTABLE not specified.
+        
+        Parameters without the immutable flag should allow modification
+        as this is the default behavior.
+        """
+        test_param = {'name': 'normal-param', 'type': PARAM_TYPE_TEXT}
+        param.add_params([test_param])
+        param.set_param(param_name='normal-param', value='first')
+        
+        # Modification should succeed for non-immutable params
+        param.set_param(param_name='normal-param', value='second')
+        
+        assert config.get_config_value('normal-param') == 'second'

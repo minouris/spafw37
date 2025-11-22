@@ -11,6 +11,7 @@ from spafw37.constants.param import (
     PARAM_PERSISTENCE,
     PARAM_SWITCH_LIST,
     PARAM_DEFAULT,
+    PARAM_IMMUTABLE,
     PARAM_PERSISTENCE_ALWAYS,
     PARAM_PERSISTENCE_NEVER,
     PARAM_TYPE_TEXT,
@@ -1345,6 +1346,9 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
     if param_definition is None:
         raise ValueError("Unknown parameter: '{}'".format(param_name or bind_name or alias))
     
+    # Check immutability - allow initial set, block modification
+    _check_immutable(param_definition)
+    
     # Apply input filter if value is a non-None string
     if value is not None and isinstance(value, str) and PARAM_INPUT_FILTER in param_definition:
         input_filter = param_definition[PARAM_INPUT_FILTER]
@@ -1594,3 +1598,104 @@ def join_param(param_name=None, bind_name=None, alias=None, value=None):
     
     # Store updated value
     config.set_config_value(config_key, joined_value)
+
+
+def _check_immutable(param_def):
+    """Check if parameter is immutable and has a value, raise error if so.
+    
+    Private helper for set_param() and unset_param() to enforce immutability.
+    Blocks modification/removal only if parameter is immutable AND value exists.
+    
+    Args:
+        param_def: Parameter definition dict.
+    
+    Raises:
+        ValueError: If parameter is immutable and value already exists.
+    """
+    if not param_def.get(PARAM_IMMUTABLE, False):
+        return  # Not immutable, allow operation
+    
+    # Check if value exists
+    config_bind_name = _get_bind_name(param_def)
+    if not config.has_config_value(config_bind_name):
+        return  # No value yet, allow initial assignment
+    
+    # Immutable and has value - block operation
+    param_display_name = param_def.get(PARAM_NAME)
+    raise ValueError(f"Cannot modify immutable parameter '{param_display_name}'")
+
+
+def unset_param(param_name=None, bind_name=None, alias=None):
+    """Unset (remove) a parameter value from config.
+    
+    Completely removes the parameter value from the config dictionary.
+    Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
+    
+    Args:
+        param_name: Parameter name to unset (flexible resolution).
+        bind_name: Config bind name to unset (flexible resolution).
+        alias: Parameter alias to unset (flexible resolution).
+    
+    Raises:
+        ValueError: If parameter not found or parameter is immutable.
+    
+    Example:
+        unset_param(param_name='temp-value')
+        unset_param(bind_name='runtime_state')
+        unset_param(alias='--debug')
+    """
+    # Resolve param definition using existing helper
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    
+    if not param_def:
+        # Build error message with what was provided
+        identifier = param_name or bind_name or alias
+        raise ValueError(f"Parameter '{identifier}' not found")
+    
+    # Check immutability immediately after resolution
+    _check_immutable(param_def)
+    
+    # Get config bind name
+    config_bind_name = _get_bind_name(param_def)
+    
+    # Remove from config dict
+    config.remove_config_value(config_bind_name)
+
+
+def reset_param(param_name=None, bind_name=None, alias=None):
+    """Reset a parameter to its default value, or unset it if no default exists.
+    
+    If the parameter has a PARAM_DEFAULT defined, sets the value to that default.
+    If no default exists, removes the parameter value from config (same as unset).
+    Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
+    
+    Args:
+        param_name: Parameter name to reset (flexible resolution).
+        bind_name: Config bind name to reset (flexible resolution).
+        alias: Parameter alias to reset (flexible resolution).
+    
+    Raises:
+        ValueError: If parameter not found or parameter is immutable.
+    
+    Example:
+        reset_param(param_name='counter')  # Resets to PARAM_DEFAULT or unsets
+        reset_param(bind_name='log_level')  # Resets to default log level
+        reset_param(alias='--verbose')  # Resets verbose flag to default
+    """
+    # Resolve param definition using existing helper
+    param_def = _resolve_param_definition(param_name=param_name, bind_name=bind_name, alias=alias)
+    
+    if not param_def:
+        # Build error message with what was provided
+        identifier = param_name or bind_name or alias
+        raise ValueError(f"Parameter '{identifier}' not found")
+    
+    # Reset the parameter - set to default or unset if no default
+    # Note: Immutability check done by _check_immutable() via set_param/unset_param
+    if PARAM_DEFAULT in param_def:
+        # Has default - use set_param to set default value
+        default_value = param_def[PARAM_DEFAULT]
+        set_param(param_name=param_name, bind_name=bind_name, alias=alias, value=default_value)
+    else:
+        # No default - use unset_param to remove
+        unset_param(param_name=param_name, bind_name=bind_name, alias=alias)

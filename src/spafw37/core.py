@@ -439,6 +439,63 @@ def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=
     return param.get_param(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
+def unset_param(param_name=None, bind_name=None, alias=None):
+    """Unset (remove) a parameter value.
+    
+    Completely removes the parameter value from configuration.
+    Useful for clearing temporary state or runtime values.
+    
+    Args:
+        param_name: Parameter name to unset.
+        bind_name: Config bind name to unset.
+        alias: Parameter alias to unset.
+    
+    Raises:
+        ValueError: If parameter not found or parameter is immutable.
+    
+    Example:
+        # Clear temporary processing state
+        spafw37.unset_param('temp-counter')
+        
+        # Remove runtime flag
+        spafw37.unset_param(bind_name='processing_active')
+        
+        # Clear debug mode
+        spafw37.unset_param(alias='--debug')
+    """
+    from spafw37 import param
+    param.unset_param(param_name=param_name, bind_name=bind_name, alias=alias)
+
+
+def reset_param(param_name=None, bind_name=None, alias=None):
+    """Reset a parameter to its default value, or unset it if no default exists.
+    
+    If the parameter has a default value defined, sets it to that default.
+    If no default exists, removes the parameter value entirely.
+    Useful for restoring initial state or clearing temporary values.
+    
+    Args:
+        param_name: Parameter name to reset.
+        bind_name: Config bind name to reset.
+        alias: Parameter alias to reset.
+    
+    Raises:
+        ValueError: If parameter not found or parameter is immutable.
+    
+    Example:
+        # Reset counter to default value (or unset if no default)
+        spafw37.reset_param('counter')
+        
+        # Reset log level to default
+        spafw37.reset_param(bind_name='log_level')
+        
+        # Reset debug mode to default (likely False)
+        spafw37.reset_param(alias='--debug')
+    """
+    from spafw37 import param
+    param.reset_param(param_name=param_name, bind_name=bind_name, alias=alias)
+
+
 # Logging delegates
 
 def set_log_dir(log_dir):
