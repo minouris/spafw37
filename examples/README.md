@@ -111,6 +111,28 @@ python params_input_filter.py parse-kv --settings "debug=true timeout=30 retries
 python params_runtime.py init process-item process-item summary
 ```
 
+### `params_immutable.py` - Immutable Parameters
+- Using `PARAM_IMMUTABLE` for write-once protection
+- Protecting critical configuration from accidental modification
+- Use cases: configuration lock, runtime constants
+- Comparison of mutable vs immutable behavior
+
+**Run:**
+```bash
+python params_immutable.py
+```
+
+### `params_unset.py` - Parameter Unset and Reset
+- `unset_param()` - Remove parameter values completely
+- `reset_param()` - Reset to default or unset if no default
+- Runtime state cleanup patterns
+- How immutable parameters block unset and reset operations
+
+**Run:**
+```bash
+python params_unset.py
+```
+
 ### `params_groups.py` - Parameter Groups
 - Using PARAM_GROUP to organise parameters
 - Grouping parameters by functional area

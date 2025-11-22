@@ -22,6 +22,10 @@
   - [Phase Constants](#phase-constants-spafw37constantsphase)
   - [Logging Constants](#logging-constants-spafw37constantslogging)
   - [Configuration Constants](#configuration-constants-spafw37constantsconfig)
+- [Advanced: Internal Module Functions](#advanced-internal-module-functions)
+  - [Parameter Module (spafw37.param)](#parameter-module-spafw37param)
+  - [Command Module (spafw37.command)](#command-module-spafw37command)
+  - [CLI Module (spafw37.cli)](#cli-module-spafw37cli)
 
 ## Overview
 
@@ -39,8 +43,14 @@ This design keeps the API surface clean and shields applications from internal i
 **Parameter API Simplification:**
 - Added unified `get_param()` function with automatic type routing based on `PARAM_TYPE`
 - Added `set_param()` for setting parameter values with type validation
+- Added `unset_param()` for removing parameter values completely
+- Added `reset_param()` for restoring default values or unsetting if no default
 - Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
 - Deprecated legacy configuration API (`get_config_value()`, `get_config_str()`, etc.)
+
+**Parameter Protection:**
+- Added `PARAM_IMMUTABLE` for write-once, read-many semantics
+- Immutable parameters cannot be modified, unset, or reset once they have a value
 
 **Join and Merge Configuration:**
 - Added `PARAM_JOIN_SEPARATOR` for configurable string concatenation
@@ -126,6 +136,56 @@ from spafw37 import param, command, config, logging
 ## Core Module (spafw37.core)
 
 The `core` module is the primary facade for all framework functionality.
+
+### Quick Reference
+
+| Function | Added | Description |
+|----------|-------|-------------|
+| **Application Control** | | |
+| [`run_cli()`](#run_cli) | v1.0.0 | Run the command-line interface (call this last) |
+| **Application Configuration** | | |
+| [`set_app_name(name)`](#set_app_namename) | v1.0.0 | Set the application name |
+| [`get_app_name()`](#get_app_name) | v1.0.0 | Get the application name |
+| [`set_config_file(file_path)`](#set_config_filefile_path) | v1.0.0 | Set the path to the persistent configuration file |
+| **Parameter Management** | | |
+| [`add_params(params)`](#add_paramsparams) | v1.0.0 | Add multiple parameter definitions |
+| [`add_param(param)`](#add_paramparam) | v1.0.0 | Add a single parameter definition |
+| **Command Management** | | |
+| [`add_commands(commands)`](#add_commandscommands) | v1.0.0 | Add multiple command definitions |
+| [`add_command(command)`](#add_commandcommand) | v1.0.0 | Add a single command definition |
+| [`set_phases_order(phase_order)`](#set_phases_orderphase_order) | v1.0.0 | Set the execution order for phases |
+| **Runtime Configuration** | | |
+| [`get_param(...)`](#get_paramparam_namenone-bind_namenone-aliasnone-defaultnone-strictfalse) | v1.1.0 | Get parameter value with automatic type conversion |
+| [`set_param(...)`](#set_paramparam_namенone-bind_namenone-aliasnone-valuenone) | v1.1.0 | Set parameter value with type validation |
+| [`join_param(...)`](#join_paramparam_namenone-bind_namenone-aliasnone-valuenone) | v1.1.0 | Accumulate parameter value using type-specific logic |
+| [`unset_param(...)`](#unset_paramparam_namenone-bind_namenone-aliasnone) | v1.1.0 | Remove parameter value completely |
+| [`reset_param(...)`](#reset_paramparam_namenone-bind_namenone-aliasnone) | v1.1.0 | Reset parameter to default value or unset if no default |
+| [`is_verbose()`](#is_verbose) | v1.0.0 | Check if verbose mode is enabled |
+| [`is_silent()`](#is_silent) | v1.0.0 | Check if silent mode is enabled |
+| [`get_max_cycle_nesting_depth()`](#get_max_cycle_nesting_depth) | v1.0.0 | Get maximum allowed cycle nesting depth |
+| [`set_max_cycle_nesting_depth(depth)`](#set_max_cycle_nesting_depthdepth) | v1.0.0 | Set maximum allowed cycle nesting depth |
+| **Output Functions** | | |
+| [`output(message, verbose, output_handler)`](#outputmessage-verbosefalse-output_handlernone) | v1.0.0 | Output message respecting silent/verbose modes |
+| [`set_output_handler(handler)`](#set_output_handlerhandler) | v1.0.0 | Set custom output handler function |
+| **Logging Functions** | | |
+| [`set_log_dir(log_dir)`](#set_log_dirlog_dir) | v1.0.0 | Set the directory for log files |
+| [`set_current_scope(scope)`](#set_current_scopescope) | v1.0.0 | Set the current logging scope |
+| [`log_trace(_scope, _message)`](#log_trace_scopenone-_message) | v1.0.0 | Log message at TRACE level (5) |
+| [`log_debug(_scope, _message)`](#log_debug_scopenone-_message) | v1.0.0 | Log message at DEBUG level (10) |
+| [`log_info(_scope, _message)`](#log_info_scopenone-_message) | v1.0.0 | Log message at INFO level (20) |
+| [`log_warning(_scope, _message)`](#log_warning_scopenone-_message) | v1.0.0 | Log message at WARNING level (30) |
+| [`log_error(_scope, _message)`](#log_error_scopenone-_message) | v1.0.0 | Log message at ERROR level (40) |
+| **Deprecated Functions** | | |
+| [`get_config_value(config_key)`](#get_config_valueconfig_key-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_int(config_key, default)`](#get_config_intconfig_key-default0-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_str(config_key, default)`](#get_config_strconfig_key-default-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_bool(config_key, default)`](#get_config_boolconfig_key-defaultfalse-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_float(config_key, default)`](#get_config_floatconfig_key-default00-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_list(config_key, default)`](#get_config_listconfig_key-defaultnone-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`get_config_dict(config_key, default)`](#get_config_dictconfig_key-defaultnone-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `get_param()` instead |
+| [`set_config_value(config_key, value)`](#set_config_valueconfig_key-value-deprecated) | v1.0.0 | ⚠️ **Deprecated** - Use `set_param()` or `join_param()` instead |
+
+---
 
 ### Application Control
 
@@ -356,7 +416,7 @@ The framework provides two APIs for accessing configuration values:
 
 #### Parameter API (v1.1.0)
 
-The parameter API provides simple access to parameter values with automatic type handling. Use `get_param()` to retrieve values, `set_param()` to replace them, and `join_param()` to accumulate them.
+The parameter API provides simple access to parameter values with automatic type handling. Use `get_param()` to retrieve values, `set_param()` to replace them, `unset_param()` to remove them, `reset_param()` to restore defaults, and `join_param()` to accumulate them.
 
 ##### `get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False)`
 
@@ -485,6 +545,70 @@ spafw37.join_param(param_name='config', value={'db': 'mysql'})
 - Concatenating multi-part strings
 
 **See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for detailed type-specific behavior and configuration options.
+
+##### `unset_param(param_name=None, bind_name=None, alias=None)`
+
+Remove a parameter value completely from the configuration ([see example](../examples/params_unset.py)). After unsetting, the parameter behaves as if it was never set.
+
+```python
+# Remove temporary processing state
+spafw37.unset_param(param_name='temp-data')
+spafw37.unset_param(param_name='current-file')
+spafw37.unset_param(param_name='progress')
+
+# After unset, parameter has no value
+value = spafw37.get_param('temp-data', default='<not set>')  # Returns '<not set>'
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+**Raises:**
+- `ValueError` - If parameter is immutable (`PARAM_IMMUTABLE: True`) and has a value
+
+**Common usage:**
+- Cleaning up temporary runtime state
+- Removing processing artifacts
+- Clearing session-specific data
+- Resetting state between processing cycles
+
+##### `reset_param(param_name=None, bind_name=None, alias=None)`
+
+Reset a parameter to its default value, or unset it if no default exists ([see example](../examples/params_unset.py)).
+
+```python
+# Reset parameter with default value - restores the default
+spafw37.reset_param(param_name='counter')  # If PARAM_DEFAULT is 0, sets to 0
+
+# Reset parameter without default value - unsets the parameter
+spafw37.reset_param(param_name='runtime-state')  # If no PARAM_DEFAULT, removes value
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES (without `--` prefix)
+
+**Behavior:**
+- **With PARAM_DEFAULT:** Sets parameter to its default value (calls `set_param()`)
+- **Without PARAM_DEFAULT:** Removes parameter value (calls `unset_param()`)
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+**Raises:**
+- `ValueError` - If parameter is immutable (`PARAM_IMMUTABLE: True`) and has a value
+
+**Common usage:**
+- Restoring parameters to initial state
+- Implementing reset/clear functionality
+- Reverting user changes to defaults
+- Cleaning up between test runs
+
+**See:** [Parameters Guide - Unsetting and Resetting Parameter Values](parameters.md#unsetting-and-resetting-parameter-values) for when to use unset vs reset.
 
 #### Configuration API (Deprecated)
 
@@ -974,6 +1098,7 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_TYPE` | str | Data type (required, see types below) |
 | `PARAM_ALIASES` | list[str] | CLI aliases (e.g., `['--input', '-i']`) |
 | `PARAM_DEFAULT` | any | Default value |
+| `PARAM_IMMUTABLE` | bool | Prevents modification or removal once set. See [Parameters Guide - Immutable Parameters](parameters.md#immutable-parameters) and [example](../examples/params_immutable.py) |
 
 #### Configuration Binding
 
@@ -987,10 +1112,14 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 
 | Constant | Type | Description |
 |----------|------|-------------|
-| `PARAM_PERSISTENCE` | str | Persistence behavior (see options below) |
-| `PARAM_PERSISTENCE_ALWAYS` | str | Value: `'always'` - save to main config |
-| `PARAM_PERSISTENCE_NEVER` | str | Value: `'never'` - never save |
-| `PARAM_PERSISTENCE_USER_ONLY` | None | Value: `None` - user configs only (default) |
+| `PARAM_PERSISTENCE` | str | Persistence behavior (see values below) |
+
+**Persistence Values:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PARAM_PERSISTENCE_ALWAYS` | `'always'` | Save to main config |
+| `PARAM_PERSISTENCE_NEVER` | `'never'` | Never save |
 
 #### Organisation
 
@@ -1057,12 +1186,6 @@ params = [
 ```
 
 **See:** [Parameters Guide - Accumulating Parameter Values](parameters.md#accumulating-parameter-values) for detailed usage patterns.
-
-#### Internal Use
-
-| Constant | Type | Description |
-|----------|------|-------------|
-| `PARAM_HAS_VALUE` | bool | For pre-parse params: True if takes value |
 
 ### Command Constants (spafw37.constants.command)
 
@@ -1151,6 +1274,863 @@ User configuration files can be loaded and saved via CLI parameters:
 - Save: `--save-config <file>`, `-s <file>`
 
 See the [Configuration Guide](configuration.md) for details on configuration file management.
+
+---
+
+## Advanced: Internal Module Functions
+
+**⚠️ WARNING: These functions are for advanced use only.**
+
+The functions documented below are from internal framework modules (`spafw37.param`, `spafw37.command`, `spafw37.cli`, etc.). Unlike the `spafw37.core` facade API:
+
+- **No backward compatibility guarantees** - Function signatures, behavior, and availability may change between minor or patch versions
+- **Direct usage discouraged** - Most applications should use the `spafw37.core` facade instead
+- **Advanced scenarios only** - Use these when extending the framework or implementing complex custom behaviors
+
+**When to use these:**
+- Building framework extensions
+- Implementing custom CLI parsing logic
+- Advanced command queue manipulation
+- Low-level parameter inspection
+- Framework debugging and diagnostics
+
+**Recommendation:** Stick to `spafw37.core` API unless you have a specific advanced requirement.
+
+### Parameter Module (spafw37.param)
+
+Advanced parameter inspection and management functions.
+
+#### Quick Reference
+
+| Function | Description |
+|----------|-------------|
+| **Type Checking** | |
+| [`is_toggle_param(...)`](#is_toggle_paramparam_namenone-bind_namenone-aliasnone) | Check if parameter is a toggle type |
+| [`is_list_param(...)`](#is_list_paramparam_namenone-bind_namenone-aliasnone) | Check if parameter is a list type |
+| [`is_dict_param(...)`](#is_dict_paramparam_namenone-bind_namenone-aliasnone) | Check if parameter is a dict type |
+| [`is_number_param(...)`](#is_number_paramparam_namenone-bind_namenone-aliasnone) | Check if parameter is a number type |
+| [`is_text_param(...)`](#is_text_paramparam_namenone-bind_namenone-aliasnone) | Check if parameter is a text type |
+| **Parameter Definition Access** | |
+| [`get_param_by_name(param_name)`](#get_param_by_nameparam_name) | Get parameter definition by PARAM_NAME |
+| [`get_param_by_alias(alias)`](#get_param_by_aliasalias) | Get parameter definition by alias |
+| [`get_all_param_definitions()`](#get_all_param_definitions) | Get list of all parameter definitions |
+| [`is_param_alias(_param, alias)`](#is_param_alias_param-alias) | Check if alias belongs to parameter |
+| [`param_in_args(param_name, args)`](#param_in_argsparam_name-args) | Check if parameter appears in argument list |
+| **Alias Format Checking** | |
+| [`is_long_alias(arg)`](#is_long_aliasarg) | Check if arg is a long alias (e.g., `--verbose`) |
+| [`is_short_alias(arg)`](#is_short_aliasarg) | Check if arg is a short alias (e.g., `-v`) |
+| [`is_long_alias_with_value(arg)`](#is_long_alias_with_valuearg) | Check if arg is long alias with `=` value (e.g., `--key=value`) |
+| [`is_alias(alias)`](#is_aliasalias) | Check if string is a valid alias format |
+| **Persistence Functions** | |
+| [`is_persistence_always(param)`](#is_persistence_alwaysparam) | Check if parameter has PARAM_PERSISTENCE_ALWAYS |
+| [`is_persistence_never(param)`](#is_persistence_neverparam) | Check if parameter has PARAM_PERSISTENCE_NEVER |
+| [`is_runtime_only_param(_param)`](#is_runtime_only_param_param) | Check if parameter is runtime-only |
+| [`get_non_persisted_config_names()`](#get_non_persisted_config_names) | Get list of non-persisted config names |
+| [`notify_persistence_change(param_name, value)`](#notify_persistence_changeparam_name-value) | Notify that persistent parameter changed |
+| **Mutually Exclusive Parameters** | |
+| [`get_xor_params(param_name)`](#get_xor_paramsparam_name) | Get mutually exclusive params for given param |
+| [`has_xor_with(param_name, other_param_name)`](#has_xor_withparam_name-other_param_name) | Check if two params are mutually exclusive |
+| **Pre-Parse Arguments** | |
+| [`add_pre_parse_args(preparse_args)`](#add_pre_parse_argspreparse_args) | Register arguments for pre-parsing (used by framework) |
+| [`get_pre_parse_args()`](#get_pre_parse_args) | Get list of pre-parse argument definitions |
+
+---
+
+#### Type Checking Functions
+
+##### `is_toggle_param(param_name=None, bind_name=None, alias=None)`
+
+Check if a parameter is a toggle type.
+
+```python
+from spafw37 import param
+
+if param.is_toggle_param(param_name='debug'):
+    print("debug is a toggle parameter")
+    
+# Check by alias
+if param.is_toggle_param(alias='verbose'):
+    print("verbose is a toggle parameter")
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES
+
+**Returns:**
+- `bool` - `True` if parameter is PARAM_TYPE_TOGGLE, `False` otherwise
+
+**Note:** Provide exactly one of `param_name`, `bind_name`, or `alias`.
+
+##### `is_list_param(param_name=None, bind_name=None, alias=None)`
+
+Check if a parameter is a list type.
+
+```python
+from spafw37 import param
+
+if param.is_list_param(param_name='tags'):
+    print("tags is a list parameter")
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES
+
+**Returns:**
+- `bool` - `True` if parameter is PARAM_TYPE_LIST, `False` otherwise
+
+##### `is_dict_param(param_name=None, bind_name=None, alias=None)`
+
+Check if a parameter is a dict type.
+
+```python
+from spafw37 import param
+
+if param.is_dict_param(param_name='config'):
+    print("config is a dict parameter")
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES
+
+**Returns:**
+- `bool` - `True` if parameter is PARAM_TYPE_DICT, `False` otherwise
+
+##### `is_number_param(param_name=None, bind_name=None, alias=None)`
+
+Check if a parameter is a number type.
+
+```python
+from spafw37 import param
+
+if param.is_number_param(param_name='max-workers'):
+    print("max-workers is a number parameter")
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES
+
+**Returns:**
+- `bool` - `True` if parameter is PARAM_TYPE_NUMBER, `False` otherwise
+
+##### `is_text_param(param_name=None, bind_name=None, alias=None)`
+
+Check if a parameter is a text type.
+
+```python
+from spafw37 import param
+
+if param.is_text_param(param_name='input-file'):
+    print("input-file is a text parameter")
+```
+
+**Args:**
+- `param_name` (str, optional) - Parameter's PARAM_NAME
+- `bind_name` (str, optional) - Parameter's PARAM_CONFIG_NAME
+- `alias` (str, optional) - Any of the parameter's PARAM_ALIASES
+
+**Returns:**
+- `bool` - `True` if parameter is PARAM_TYPE_TEXT, `False` otherwise
+
+#### Parameter Definition Access
+
+##### `get_param_by_name(param_name)`
+
+Get a parameter definition dictionary by its PARAM_NAME.
+
+```python
+from spafw37 import param
+
+param_def = param.get_param_by_name('input-file')
+if param_def:
+    print(f"Type: {param_def[PARAM_TYPE]}")
+    print(f"Aliases: {param_def.get(PARAM_ALIASES, [])}")
+```
+
+**Args:**
+- `param_name` (str) - Parameter's PARAM_NAME
+
+**Returns:**
+- `dict` - Parameter definition dictionary, or `None` if not found
+
+**Common usage:**
+- Inspecting parameter configuration
+- Validating parameter properties
+- Building custom help or diagnostic tools
+
+##### `get_param_by_alias(alias)`
+
+Get a parameter definition dictionary by any of its aliases.
+
+```python
+from spafw37 import param
+
+param_def = param.get_param_by_alias('--input')
+if param_def:
+    print(f"Parameter name: {param_def[PARAM_NAME]}")
+```
+
+**Args:**
+- `alias` (str) - Any alias from parameter's PARAM_ALIASES (with or without `--` prefix)
+
+**Returns:**
+- `dict` - Parameter definition dictionary, or `None` if not found
+
+##### `get_all_param_definitions()`
+
+Get all registered parameter definitions.
+
+```python
+from spafw37 import param
+
+all_params = param.get_all_param_definitions()
+print(f"Total parameters: {len(all_params)}")
+
+for param_def in all_params:
+    print(f"- {param_def[PARAM_NAME]}: {param_def[PARAM_TYPE]}")
+```
+
+**Returns:**
+- `list[dict]` - List of all parameter definition dictionaries
+
+**Common usage:**
+- Building custom help displays
+- Validating application configuration
+- Generating documentation
+- Parameter introspection tools
+
+##### `is_param_alias(_param, alias)`
+
+Check if an alias belongs to a specific parameter.
+
+```python
+from spafw37 import param
+
+param_def = param.get_param_by_name('input-file')
+if param.is_param_alias(param_def, '--input'):
+    print("--input is an alias for input-file")
+```
+
+**Args:**
+- `_param` (dict) - Parameter definition dictionary
+- `alias` (str) - Alias to check (with or without `--` prefix)
+
+**Returns:**
+- `bool` - `True` if alias belongs to parameter, `False` otherwise
+
+##### `param_in_args(param_name, args)`
+
+Check if a parameter appears in an argument list.
+
+```python
+from spafw37 import param
+import sys
+
+if param.param_in_args('verbose', sys.argv):
+    print("Verbose mode requested")
+```
+
+**Args:**
+- `param_name` (str) - Parameter's PARAM_NAME
+- `args` (list[str]) - List of command-line arguments
+
+**Returns:**
+- `bool` - `True` if any parameter alias appears in args, `False` otherwise
+
+**Common usage:**
+- Pre-processing command-line arguments
+- Conditional logic before main CLI parsing
+- Custom argument validation
+
+#### Alias Format Checking
+
+##### `is_long_alias(arg)`
+
+Check if an argument string is a long alias format (e.g., `--verbose`).
+
+```python
+from spafw37 import param
+
+if param.is_long_alias('--verbose'):
+    print("This is a long alias")
+    
+if not param.is_long_alias('-v'):
+    print("This is not a long alias")
+```
+
+**Args:**
+- `arg` (str) - Argument string to check
+
+**Returns:**
+- `bool` - `True` if arg matches `--name` pattern, `False` otherwise
+
+##### `is_short_alias(arg)`
+
+Check if an argument string is a short alias format (e.g., `-v`).
+
+```python
+from spafw37 import param
+
+if param.is_short_alias('-v'):
+    print("This is a short alias")
+    
+if not param.is_short_alias('--verbose'):
+    print("This is not a short alias")
+```
+
+**Args:**
+- `arg` (str) - Argument string to check
+
+**Returns:**
+- `bool` - `True` if arg matches `-x` pattern, `False` otherwise
+
+##### `is_long_alias_with_value(arg)`
+
+Check if an argument string is a long alias with `=` value (e.g., `--key=value`).
+
+```python
+from spafw37 import param
+
+if param.is_long_alias_with_value('--output=file.txt'):
+    print("This is a long alias with value")
+```
+
+**Args:**
+- `arg` (str) - Argument string to check
+
+**Returns:**
+- `bool` - `True` if arg matches `--key=value` pattern, `False` otherwise
+
+**Common usage:**
+- Custom CLI parsing
+- Argument preprocessing
+- Validation of command-line format
+
+##### `is_alias(alias)`
+
+Check if a string is a valid alias format (long or short).
+
+```python
+from spafw37 import param
+
+if param.is_alias('--verbose'):
+    print("Valid alias format")
+    
+if param.is_alias('-v'):
+    print("Valid alias format")
+```
+
+**Args:**
+- `alias` (str) - String to check
+
+**Returns:**
+- `bool` - `True` if alias matches `--name` or `-x` pattern, `False` otherwise
+
+#### Persistence Functions
+
+##### `is_persistence_always(param)`
+
+Check if a parameter has PARAM_PERSISTENCE_ALWAYS set.
+
+```python
+from spafw37 import param
+from spafw37.constants.param import PARAM_PERSISTENCE_ALWAYS
+
+param_def = param.get_param_by_name('api-key')
+if param.is_persistence_always(param_def):
+    print("This parameter will always be saved to config")
+```
+
+**Args:**
+- `param` (dict) - Parameter definition dictionary
+
+**Returns:**
+- `bool` - `True` if parameter should always be persisted, `False` otherwise
+
+##### `is_persistence_never(param)`
+
+Check if a parameter has PARAM_PERSISTENCE_NEVER set.
+
+```python
+from spafw37 import param
+
+param_def = param.get_param_by_name('password')
+if param.is_persistence_never(param_def):
+    print("This parameter will never be saved to config")
+```
+
+**Args:**
+- `param` (dict) - Parameter definition dictionary
+
+**Returns:**
+- `bool` - `True` if parameter should never be persisted, `False` otherwise
+
+##### `is_runtime_only_param(_param)`
+
+Check if a parameter is runtime-only (PARAM_RUNTIME_ONLY: True).
+
+```python
+from spafw37 import param
+
+param_def = param.get_param_by_name('temp-state')
+if param.is_runtime_only_param(param_def):
+    print("This parameter is for runtime use only")
+```
+
+**Args:**
+- `_param` (dict) - Parameter definition dictionary
+
+**Returns:**
+- `bool` - `True` if parameter is runtime-only, `False` otherwise
+
+##### `get_non_persisted_config_names()`
+
+Get list of config bind names that should never be persisted.
+
+```python
+from spafw37 import param
+
+non_persisted = param.get_non_persisted_config_names()
+print(f"Non-persisted parameters: {non_persisted}")
+```
+
+**Returns:**
+- `list[str]` - List of config bind names with PARAM_PERSISTENCE_NEVER
+
+**Common usage:**
+- Building persistence logic
+- Config file management
+- Filtering parameters for saving
+
+##### `notify_persistence_change(param_name, value)`
+
+Notify config_func module about parameter value changes for persistence tracking.
+
+```python
+from spafw37 import param
+
+# Framework calls this internally when setting parameter values
+param.notify_persistence_change('api-key', 'new-key-value')
+```
+
+**Args:**
+- `param_name` (str) - Parameter's PARAM_NAME
+- `value` - New value for the parameter
+
+**Note:** This is called automatically by the framework when parameter values are set. Only use this directly if implementing custom parameter setting logic.
+
+#### Mutually Exclusive Parameters
+
+##### `get_xor_params(param_name)`
+
+Get list of parameters that are mutually exclusive with the given parameter.
+
+```python
+from spafw37 import param
+
+xor_params = param.get_xor_params('format-json')
+if xor_params:
+    print(f"Cannot use with: {', '.join(xor_params)}")
+```
+
+**Args:**
+- `param_name` (str) - Parameter's PARAM_NAME
+
+**Returns:**
+- `list[str]` - List of mutually exclusive parameter names (from PARAM_SWITCH_LIST)
+
+**Common usage:**
+- Validating parameter combinations
+- Building custom help displays
+- Implementing parameter conflict detection
+
+##### `has_xor_with(param_name, other_param_name)`
+
+Check if two parameters are mutually exclusive.
+
+```python
+from spafw37 import param
+
+if param.has_xor_with('format-json', 'format-xml'):
+    print("These parameters cannot be used together")
+```
+
+**Args:**
+- `param_name` (str) - First parameter's PARAM_NAME
+- `other_param_name` (str) - Second parameter's PARAM_NAME
+
+**Returns:**
+- `bool` - `True` if parameters are mutually exclusive, `False` otherwise
+
+#### Pre-Parse Arguments
+
+##### `add_pre_parse_args(preparse_args)`
+
+Register arguments for pre-parsing (used internally by framework).
+
+```python
+from spafw37 import param
+
+# Framework uses this to register logging params for pre-parsing
+preparse_args = [
+    {'alias': '--verbose', 'has_value': False},
+    {'alias': '--log-level', 'has_value': True}
+]
+param.add_pre_parse_args(preparse_args)
+```
+
+**Args:**
+- `preparse_args` (list[dict]) - List of pre-parse argument definitions
+
+**Note:** This is used internally by the framework to handle parameters that need early processing (like logging configuration). Most applications should not need to call this directly.
+
+##### `get_pre_parse_args()`
+
+Get list of registered pre-parse argument definitions.
+
+```python
+from spafw37 import param
+
+preparse_args = param.get_pre_parse_args()
+for arg in preparse_args:
+    print(f"Pre-parse: {arg['alias']}")
+```
+
+**Returns:**
+- `list[dict]` - List of pre-parse argument definitions
+
+### Command Module (spafw37.command)
+
+Advanced command queue and execution management.
+
+#### Quick Reference
+
+| Function | Description |
+|----------|-------------|
+| **Command Definition Access** | |
+| [`get_command(name)`](#get_commandname) | Get command definition by name |
+| [`get_all_commands()`](#get_all_commands) | Get dictionary of all command definitions |
+| [`is_command(arg)`](#is_commandarg) | Check if argument is a registered command name |
+| **Command Queue Management** | |
+| [`queue_command(name)`](#queue_commandname) | Manually add command to execution queue |
+| [`queue_commands(names)`](#queue_commandsnames) | Manually add multiple commands to queue |
+| [`has_app_commands_queued()`](#has_app_commands_queued) | Check if non-framework commands are queued |
+| [`get_first_queued_command_name()`](#get_first_queued_command_name) | Get name of first queued command |
+| [`run_command_queue()`](#run_command_queue) | Execute all queued commands (called by framework) |
+
+---
+
+#### Command Definition Access
+
+##### `get_command(name)`
+
+Get a command definition dictionary by name.
+
+```python
+from spafw37 import command
+
+cmd_def = command.get_command('process')
+if cmd_def:
+    print(f"Description: {cmd_def.get(COMMAND_DESCRIPTION, 'N/A')}")
+    print(f"Required params: {cmd_def.get(COMMAND_REQUIRED_PARAMS, [])}")
+```
+
+**Args:**
+- `name` (str) - Command name (COMMAND_NAME)
+
+**Returns:**
+- `dict` - Command definition dictionary, or `None` if not found
+
+**Common usage:**
+- Inspecting command configuration
+- Validating command properties
+- Building custom command logic
+
+##### `get_all_commands()`
+
+Get all registered command definitions.
+
+```python
+from spafw37 import command
+
+all_commands = command.get_all_commands()
+for cmd_name, cmd_def in all_commands.items():
+    print(f"Command: {cmd_name}")
+    if COMMAND_PHASE in cmd_def:
+        print(f"  Phase: {cmd_def[COMMAND_PHASE]}")
+```
+
+**Returns:**
+- `dict` - Dictionary mapping command names to their definitions
+
+**Common usage:**
+- Building custom help displays
+- Command introspection
+- Generating documentation
+
+##### `is_command(arg)`
+
+Check if an argument string is a registered command name.
+
+```python
+from spafw37 import command
+import sys
+
+first_arg = sys.argv[1] if len(sys.argv) > 1 else None
+if first_arg and command.is_command(first_arg):
+    print(f"{first_arg} is a valid command")
+```
+
+**Args:**
+- `arg` (str) - Argument string to check
+
+**Returns:**
+- `bool` - `True` if arg is a registered command name, `False` otherwise
+
+**Common usage:**
+- Pre-processing arguments
+- Custom CLI parsing
+- Command validation
+
+#### Command Queue Management
+
+##### `queue_command(name)`
+
+Manually add a command to the execution queue.
+
+```python
+from spafw37 import command
+
+# Queue a command programmatically
+command.queue_command('setup')
+command.queue_command('process')
+command.queue_command('cleanup')
+```
+
+**Args:**
+- `name` (str) - Command name to queue
+
+**Note:** The framework automatically queues commands from CLI arguments. Use this for programmatic command execution or custom command sequences.
+
+##### `queue_commands(names)`
+
+Manually add multiple commands to the execution queue.
+
+```python
+from spafw37 import command
+
+# Queue multiple commands at once
+command.queue_commands(['setup', 'process', 'validate', 'cleanup'])
+```
+
+**Args:**
+- `names` (list[str]) - List of command names to queue
+
+##### `has_app_commands_queued()`
+
+Check if any non-framework commands are queued.
+
+```python
+from spafw37 import command
+
+if command.has_app_commands_queued():
+    print("Application commands are queued for execution")
+else:
+    print("No application commands queued")
+```
+
+**Returns:**
+- `bool` - `True` if non-framework commands are in queue, `False` otherwise
+
+**Note:** Framework commands (like help, save-config) are excluded from this check.
+
+##### `get_first_queued_command_name()`
+
+Get the name of the first command in the execution queue.
+
+```python
+from spafw37 import command
+
+first_cmd = command.get_first_queued_command_name()
+if first_cmd:
+    print(f"Next command to execute: {first_cmd}")
+```
+
+**Returns:**
+- `str` - Name of first queued command, or `None` if queue is empty
+
+**Common usage:**
+- Inspecting command queue
+- Custom execution logic
+- Debugging command sequencing
+
+##### `run_command_queue()`
+
+Execute all queued commands in order.
+
+```python
+from spafw37 import command
+
+# Queue commands
+command.queue_commands(['setup', 'process', 'cleanup'])
+
+# Execute the queue
+command.run_command_queue()
+```
+
+**Note:** This is called automatically by `spafw37.run_cli()`. Only call this directly if implementing custom CLI processing.
+
+**Behavior:**
+- Resolves command dependencies
+- Orders commands by phase
+- Handles COMMAND_REQUIRE_BEFORE and COMMAND_NEXT_COMMANDS
+- Executes each command's COMMAND_ACTION
+- Manages cycle commands
+
+### CLI Module (spafw37.cli)
+
+Advanced CLI parsing and pre/post-parse action management.
+
+#### Quick Reference
+
+| Function | Description |
+|----------|-------------|
+| **Parse Actions** | |
+| [`add_pre_parse_action(action)`](#add_pre_parse_actionaction) | Register function to run before CLI parsing |
+| [`add_pre_parse_actions(actions)`](#add_pre_parse_actionsactions) | Register multiple pre-parse actions |
+| [`add_post_parse_action(action)`](#add_post_parse_actionaction) | Register function to run after CLI parsing |
+| [`add_post_parse_actions(actions)`](#add_post_parse_actionsactions) | Register multiple post-parse actions |
+| **CLI Parsing** | |
+| [`handle_cli_args(args)`](#handle_cli_argsargs) | Parse and process CLI arguments (called by `run_cli()`) |
+
+---
+
+#### Parse Actions
+
+##### `add_pre_parse_action(action)`
+
+Register a function to run before CLI parsing.
+
+```python
+from spafw37 import cli
+
+def load_external_config():
+    # Load configuration from external source
+    print("Loading external configuration...")
+
+cli.add_pre_parse_action(load_external_config)
+```
+
+**Args:**
+- `action` (callable) - Function to call before parsing (no arguments)
+
+**Common usage:**
+- Loading configuration files
+- Setting up logging early
+- Initializing resources before parsing
+
+**Note:** The framework uses this to load persistent config and pre-parse logging parameters. Pre-parse actions run before main argument parsing.
+
+##### `add_pre_parse_actions(actions)`
+
+Register multiple functions to run before CLI parsing.
+
+```python
+from spafw37 import cli
+
+def load_config():
+    print("Loading config...")
+
+def setup_logging():
+    print("Setting up logging...")
+
+cli.add_pre_parse_actions([load_config, setup_logging])
+```
+
+**Args:**
+- `actions` (list[callable]) - List of functions to call before parsing
+
+##### `add_post_parse_action(action)`
+
+Register a function to run after CLI parsing.
+
+```python
+from spafw37 import cli
+
+def save_runtime_state():
+    # Save state after parsing completes
+    print("Saving runtime state...")
+
+cli.add_post_parse_action(save_runtime_state)
+```
+
+**Args:**
+- `action` (callable) - Function to call after parsing (no arguments)
+
+**Common usage:**
+- Saving configuration
+- Validating parsed values
+- Setting up resources based on parameters
+
+**Note:** The framework uses this to save persistent config. Post-parse actions run after all argument parsing is complete but before command execution.
+
+##### `add_post_parse_actions(actions)`
+
+Register multiple functions to run after CLI parsing.
+
+```python
+from spafw37 import cli
+
+def validate_config():
+    print("Validating configuration...")
+
+def save_config():
+    print("Saving configuration...")
+
+cli.add_post_parse_actions([validate_config, save_config])
+```
+
+**Args:**
+- `actions` (list[callable]) - List of functions to call after parsing
+
+#### CLI Parsing
+
+##### `handle_cli_args(args)`
+
+Parse and process command-line arguments.
+
+```python
+from spafw37 import cli
+import sys
+
+# Process command-line arguments
+cli.handle_cli_args(sys.argv[1:])
+```
+
+**Args:**
+- `args` (list[str]) - List of command-line argument strings
+
+**Behavior:**
+- Runs pre-parse actions
+- Sets parameter defaults
+- Tokenizes and parses arguments
+- Sets parameter values
+- Runs post-parse actions
+- Queues commands for execution
+
+**Note:** This is called automatically by `spafw37.run_cli()`. Only call this directly if implementing custom CLI entry points.
+
+**Common usage:**
+- Custom CLI entry points
+- Testing CLI parsing
+- Non-standard argument sources
 
 ---
 

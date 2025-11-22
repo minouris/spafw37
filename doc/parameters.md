@@ -10,6 +10,7 @@
 - [Accessing Parameter Values](#accessing-parameter-values)
   - [Getting Parameter Values](#getting-parameter-values)
   - [Setting Parameter Values](#setting-parameter-values)
+  - [Unsetting and Resetting Parameter Values](#unsetting-and-resetting-parameter-values)
   - [Accumulating Parameter Values](#accumulating-parameter-values)
   - [Legacy Configuration API (Deprecated)](#legacy-configuration-api-deprecated)
 - [Parameter Definition Constants](#parameter-definition-constants)
@@ -19,13 +20,14 @@
 - [Default Values](#default-values)
 - [Required Parameters](#required-parameters)
 - [Configuration Binding](#configuration-binding)
+- [Immutable Parameters](#immutable-parameters)
 - [Persistence Control](#persistence-control)
 - [Mutual Exclusion (Switch Lists)](#mutual-exclusion-switch-lists)
 - [Parameter Groups](#parameter-groups)
 - [Runtime-Only Parameters](#runtime-only-parameters)
-- [Best Practices and Anti-Patterns](#best-practices-and-anti-patterns)
 - [Custom Input Filters](#custom-input-filters)
 - [Advanced: Parameter Resolution Modes](#advanced-parameter-resolution-modes)
+- [Best Practices and Anti-Patterns](#best-practices-and-anti-patterns)
 
 ## Overview
 
@@ -41,12 +43,20 @@ Parameters are the foundation of spafw37 applications. They define command-line 
 
 **Enhanced Parameter Manipulation:**
 - Added `set_param()` for replacing parameter values with automatic type validation
+- Added `unset_param()` for removing parameter values completely
+- Added `reset_param()` for restoring default values or unsetting if no default
 - Added `join_param()` for accumulating values with type-specific behavior:
   - Strings: Concatenate with configurable separator (`PARAM_JOIN_SEPARATOR`)
   - Lists: Append or extend with automatic list wrapping
   - Dicts: Merge with configurable strategy (`PARAM_DICT_MERGE_TYPE`, `PARAM_DICT_OVERRIDE_STRATEGY`)
 
+**Parameter Protection:**
+- Added `PARAM_IMMUTABLE` for write-once, read-many semantics
+- Immutable parameters cannot be modified, unset, or reset once they have a value
+- Useful for protecting critical configuration like version numbers, session IDs, and connection strings
+
 **New Configuration Constants:**
+- `PARAM_IMMUTABLE` - Prevent modification or removal after initial assignment
 - `PARAM_JOIN_SEPARATOR` - Control string concatenation separators
 - `PARAM_DICT_MERGE_TYPE` - Choose shallow or deep dictionary merging
 - `PARAM_DICT_OVERRIDE_STRATEGY` - Handle dictionary key conflicts
@@ -149,6 +159,58 @@ def init_command():
 ```
 
 The `set_param()` function **replaces** the existing value and validates that the type matches the parameter's PARAM_TYPE definition.
+
+### Unsetting and Resetting Parameter Values
+
+**v1.1.0** Use `unset_param()` to completely remove a parameter value, or `reset_param()` to restore the default value (or unset if no default exists) ([see example](../examples/params_unset.py)):
+
+**Unsetting parameters:**
+
+```python
+from spafw37 import core as spafw37
+
+def cleanup_command():
+    # Remove temporary processing state
+    spafw37.unset_param(param_name='temp-data')
+    spafw37.unset_param(param_name='current-file')
+    spafw37.unset_param(param_name='progress')
+    
+    # After unset, parameter has no value
+    value = spafw37.get_param('temp-data', default='<not set>')  # Returns '<not set>'
+```
+
+The `unset_param()` function removes the parameter value completely from the configuration. After unsetting, the parameter behaves as if it was never set.
+
+**Resetting parameters:**
+
+```python
+from spafw37 import core as spafw37
+
+def reset_command():
+    # Reset parameter with default value - restores the default
+    spafw37.reset_param(param_name='counter')  # If PARAM_DEFAULT is 0, sets to 0
+    
+    # Reset parameter without default value - unsets the parameter
+    spafw37.reset_param(param_name='runtime-state')  # If no PARAM_DEFAULT, removes value
+```
+
+The `reset_param()` function behavior depends on whether a `PARAM_DEFAULT` is defined:
+- **With default:** Restores the parameter to its `PARAM_DEFAULT` value
+- **Without default:** Removes the parameter value (behaves like `unset_param()`)
+
+**When to use unset vs reset:**
+
+Use `unset_param()` when:
+- Removing temporary runtime state
+- Cleaning up after processing
+- You want to remove the value regardless of default
+
+Use `reset_param()` when:
+- Restoring a parameter to its initial state
+- You want default-aware behavior (restore default if it exists)
+- Implementing reset/clear functionality
+
+**Immutable parameters:** Parameters marked with `PARAM_IMMUTABLE: True` cannot be unset or reset once they have a value. See [Immutable Parameters](#immutable-parameters) for details.
 
 ### Accumulating Parameter Values
 
@@ -307,6 +369,7 @@ Parameters are defined as dictionaries using these constants as keys:
 |----------|-------------|
 | `PARAM_CONFIG_NAME` | The internal name this param is bound to in the config dict. Defaults to PARAM_NAME if not specified. |
 | `PARAM_REQUIRED` | Whether this param always needs to be set, either by the user or in the config file. See [examples/params_required.py](../examples/params_required.py) for usage. |
+| `PARAM_IMMUTABLE` | Prevents modification or removal once set. See [Immutable Parameters](#immutable-parameters) and [examples/params_immutable.py](../examples/params_immutable.py) for usage. |
 
 ### Persistence Control
 
@@ -848,6 +911,80 @@ def my_command():
     path = spafw37.get_param('input')  # Use parameter name
 ```
 
+## Immutable Parameters
+
+**v1.1.0** Immutable parameters provide write-once, read-many semantics to protect critical configuration values from accidental modification during runtime ([see example](../examples/params_immutable.py)).
+
+### Basic Usage
+
+Mark a parameter as immutable using `PARAM_IMMUTABLE: True`:
+
+```python
+from spafw37.constants.param import PARAM_IMMUTABLE
+
+{
+    PARAM_NAME: 'app-version',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_IMMUTABLE: True,
+    PARAM_DEFAULT: '1.0.0',
+    PARAM_DESCRIPTION: 'Application version (immutable)',
+}
+```
+
+### Behavior
+
+**Initial assignment:** The first `set_param()` call succeeds when the parameter has no value:
+
+```python
+spafw37.set_param(param_name='app-version', value='1.0.0')  # ✓ Succeeds
+```
+
+**Modification blocked:** Once set, any attempt to change the value raises a `ValueError`:
+
+```python
+spafw37.set_param(param_name='app-version', value='2.0.0')  # ✗ ValueError
+```
+
+**Unset/reset blocked:** Immutable parameters cannot be unset or reset once they have a value:
+
+```python
+spafw37.unset_param(param_name='app-version')  # ✗ ValueError
+spafw37.reset_param(param_name='app-version')  # ✗ ValueError
+```
+
+**Default behavior:** `PARAM_IMMUTABLE` defaults to `False`, making parameters mutable unless explicitly marked otherwise.
+
+### Use Cases
+
+**Configuration lock:** Protect critical settings from accidental changes:
+
+```python
+{
+    PARAM_NAME: 'database-url',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_IMMUTABLE: True,
+    PARAM_DESCRIPTION: 'Database connection URL (locked at startup)',
+}
+```
+
+**Runtime constants:** Establish values that should never change during execution:
+
+```python
+{
+    PARAM_NAME: 'session-id',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_IMMUTABLE: True,
+    PARAM_DESCRIPTION: 'Unique session identifier',
+}
+```
+
+### Best Practices
+
+- Use immutable parameters for values that should be set once at startup and never changed
+- Common candidates: version numbers, session IDs, connection strings, API keys
+- Combine with `PARAM_PERSISTENCE_ALWAYS` to persist locked configuration
+- Document immutability in `PARAM_DESCRIPTION` so users understand the restriction
+
 ## Persistence Control
 
 ### Always Persist
@@ -1026,84 +1163,6 @@ Runtime-only parameters are useful for:
 - Data set by one command and read by another
 - Internal counters or tracking values
 
-## Best Practices and Anti-Patterns
-
-### DO: Use Framework Features
-
-The framework provides built-in parameters for common needs. **Always use these instead of creating your own:**
-
-| Framework Parameter | Purpose | Details |
-|---------------------|---------|---------|
-| `--verbose`, `-v` | Enable verbose mode | Shows DEBUG-level framework logging (console + file); enables `spafw37.output(verbose=True)` messages |
-| `--silent` | Suppress all output | Hides framework logging (console + file); suppresses all `spafw37.output()` calls |
-| `--no-logging` | Disable all framework logging | Turns off file and console logging completely |
-| `--log-level LEVEL` | Set framework log level | Controls which framework messages appear (TRACE/DEBUG/INFO/WARNING/ERROR) |
-| `--help`, `-h` | Display help | Automatically generated help for commands and parameters |
-| `--save-config FILE` | Save user config | Persists parameters with `PARAM_PERSISTENCE_USER` to specified file |
-| `--load-config FILE` | Load user config | Loads previously saved configuration from file |
-
-### DON'T: Duplicate Framework Functionality
-
-**Anti-Pattern Example:**
-```python
-# ❌ WRONG: Duplicating framework logging control
-params = [
-    {
-        PARAM_NAME: 'verbose-mode',
-        PARAM_ALIASES: ['--verbose', '-v'],  # Conflicts with framework!
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-    },
-    {
-        PARAM_NAME: 'quiet-mode',
-        PARAM_ALIASES: ['--quiet', '-q'],
-        PARAM_TYPE: PARAM_TYPE_TOGGLE,
-    }
-]
-
-def my_command():
-    verbose = spafw37.get_param('verbose-mode')
-    quiet = spafw37.get_param('quiet-mode')
-    
-    if verbose:
-        spafw37.output("[VERBOSE] Processing...")  # Don't do this!
-    if not quiet:
-        spafw37.output("Processing...")  # Overly complex!
-```
-
-**Correct Pattern:**
-```python
-# ✅ CORRECT: Simple application output, let framework handle logging
-# No custom verbose/quiet parameters needed!
-
-def my_command():
-    # Just print application output normally
-    spafw37.output("Processing...")
-    spafw37.output("  Item 1 complete")
-    spafw37.output("Done!")
-    
-    # Users control framework logging independently:
-    # --verbose shows framework DEBUG messages
-    # --silent suppresses framework console output
-    # Application output (print) is unaffected
-```
-
-### Key Principles
-
-1. **Application Output vs. Framework Logging**
-   - Use `spafw37.output()` for application output (results, progress, user-facing messages)
-   - Framework logging (`--verbose`, `--silent`) controls diagnostic framework messages
-   - These are independent - users can suppress framework logging while seeing application output
-
-2. **Don't Reinvent Built-In Parameters**
-   - Check existing framework parameters before creating new ones
-   - Reuse established patterns (e.g., `--input`, `--output` common aliases)
-   - Avoid conflicts with framework parameter aliases
-
-3. **Keep Parameters Application-Specific**
-   - Define parameters for domain-specific needs (e.g., `--max-retries`, `--timeout`)
-   - Don't create parameters for cross-cutting concerns the framework already handles
-   - Focus on what makes your application unique
-
 ## Custom Input Filters
 
 **v1.1.0** This is an advanced feature for specialized input processing needs ([see example](../examples/params_input_filter.py)).
@@ -1259,6 +1318,84 @@ value = spafw37.get_param(bind_name='input_path')    # Framework internal
 value = spafw37.get_param(alias='input')             # Framework internal
 ```
 
+## Best Practices and Anti-Patterns
+
+### DO: Use Framework Features
+
+The framework provides built-in parameters for common needs. **Always use these instead of creating your own:**
+
+| Framework Parameter | Purpose | Details |
+|---------------------|---------|---------|
+| `--verbose`, `-v` | Enable verbose mode | Shows DEBUG-level framework logging (console + file); enables `spafw37.output(verbose=True)` messages |
+| `--silent` | Suppress all output | Hides framework logging (console + file); suppresses all `spafw37.output()` calls |
+| `--no-logging` | Disable all framework logging | Turns off file and console logging completely |
+| `--log-level LEVEL` | Set framework log level | Controls which framework messages appear (TRACE/DEBUG/INFO/WARNING/ERROR) |
+| `--help`, `-h` | Display help | Automatically generated help for commands and parameters |
+| `--save-config FILE` | Save user config | Persists parameters with `PARAM_PERSISTENCE_USER` to specified file |
+| `--load-config FILE` | Load user config | Loads previously saved configuration from file |
+
+### DON'T: Duplicate Framework Functionality
+
+**Anti-Pattern Example:**
+```python
+# ❌ WRONG: Duplicating framework logging control
+params = [
+    {
+        PARAM_NAME: 'verbose-mode',
+        PARAM_ALIASES: ['--verbose', '-v'],  # Conflicts with framework!
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+    },
+    {
+        PARAM_NAME: 'quiet-mode',
+        PARAM_ALIASES: ['--quiet', '-q'],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+    }
+]
+
+def my_command():
+    verbose = spafw37.get_param('verbose-mode')
+    quiet = spafw37.get_param('quiet-mode')
+    
+    if verbose:
+        spafw37.output("[VERBOSE] Processing...")  # Don't do this!
+    if not quiet:
+        spafw37.output("Processing...")  # Overly complex!
+```
+
+**Correct Pattern:**
+```python
+# ✅ CORRECT: Simple application output, let framework handle logging
+# No custom verbose/quiet parameters needed!
+
+def my_command():
+    # Just print application output normally
+    spafw37.output("Processing...")
+    spafw37.output("  Item 1 complete")
+    spafw37.output("Done!")
+    
+    # Users control framework logging independently:
+    # --verbose shows framework DEBUG messages
+    # --silent suppresses framework console output
+    # Application output (print) is unaffected
+```
+
+### Key Principles
+
+1. **Application Output vs. Framework Logging**
+   - Use `spafw37.output()` for application output (results, progress, user-facing messages)
+   - Framework logging (`--verbose`, `--silent`) controls diagnostic framework messages
+   - These are independent - users can suppress framework logging while seeing application output
+
+2. **Don't Reinvent Built-In Parameters**
+   - Check existing framework parameters before creating new ones
+   - Reuse established patterns (e.g., `--input`, `--output` common aliases)
+   - Avoid conflicts with framework parameter aliases
+
+3. **Keep Parameters Application-Specific**
+   - Define parameters for domain-specific needs (e.g., `--max-retries`, `--timeout`)
+   - Don't create parameters for cross-cutting concerns the framework already handles
+   - Focus on what makes your application unique
+
 ## Examples
 
 Complete working examples demonstrating parameter features:
@@ -1268,6 +1405,8 @@ Complete working examples demonstrating parameter features:
 - **[params_lists.py](../examples/params_lists.py)** - List parameters for handling multiple values (files and tags)
 - **[params_groups.py](../examples/params_groups.py)** - Parameter groups for organizing parameters in help display
 - **[params_runtime.py](../examples/params_runtime.py)** - Runtime-only parameters for session state and internal values
+- **[params_immutable.py](../examples/params_immutable.py)** - **NEW v1.1.0** - Immutable parameters with write-once protection for critical configuration
+- **[params_unset.py](../examples/params_unset.py)** - **NEW v1.1.0** - Unsetting and resetting parameters with lifecycle management
 - **[params_dict.py](../examples/params_dict.py)** - Dict/JSON parameters with multiple JSON blocks and file references **v1.1.0**
 - **[params_file.py](../examples/params_file.py)** - @file syntax for loading parameter values from files
 - **[params_join.py](../examples/params_join.py)** - **NEW v1.1.0** - Accumulating values with `join_param()` (strings, lists, dicts)
