@@ -568,3 +568,134 @@ def test_apply_logging_config_with_suppress_errors():
     
     # Verify suppress errors is enabled
     assert logging._suppress_errors is True
+
+
+def test_no_logging_allows_errors_to_stderr(capfd):
+    """Test that errors reach stderr when --no-logging is set.
+    
+    When no-logging mode is enabled, ERROR and CRITICAL messages should
+    still be output to stderr via the error handler. This validates the
+    documented behavior of --no-logging flag.
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Set no-logging mode
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
+    
+    # Apply logging config
+    apply_logging_config()
+    
+    # Log an error
+    log_error(_message="Test error message")
+    
+    # Capture output
+    captured = capfd.readouterr()
+    
+    # Verify error appears on stderr
+    assert "Test error message" in captured.err
+    assert "ERROR" in captured.err
+    
+    # Verify nothing on stdout
+    assert "Test error message" not in captured.out
+
+
+def test_silent_allows_errors_to_stderr(capfd):
+    """Test that errors reach stderr when --silent is set.
+    
+    When silent mode is enabled, ERROR and CRITICAL messages should
+    still be output to stderr via the error handler. This validates the
+    documented behavior of --silent flag.
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Set silent mode
+    silent_param = param.get_param_by_name(LOG_SILENT_PARAM)
+    param.set_param(param_name=silent_param[PARAM_NAME], value=True)
+    
+    # Apply logging config
+    apply_logging_config()
+    
+    # Log an error
+    log_error(_message="Test silent error message")
+    
+    # Capture output
+    captured = capfd.readouterr()
+    
+    # Verify error appears on stderr
+    assert "Test silent error message" in captured.err
+    assert "ERROR" in captured.err
+    
+    # Verify nothing on stdout
+    assert "Test silent error message" not in captured.out
+
+
+def test_suppress_errors_blocks_stderr(capfd):
+    """Test that --suppress-errors blocks all output including stderr.
+    
+    When suppress-errors mode is enabled, no messages should be output
+    to stderr or stdout, including ERROR messages. This validates the
+    documented behavior of --suppress-errors flag.
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Set suppress-errors mode
+    suppress_errors_param = param.get_param_by_name(LOG_SUPPRESS_ERRORS_PARAM)
+    param.set_param(param_name=suppress_errors_param[PARAM_NAME], value=True)
+    
+    # Apply logging config
+    apply_logging_config()
+    
+    # Log an error
+    log_error(_message="Test suppressed error message")
+    
+    # Capture output
+    captured = capfd.readouterr()
+    
+    # Verify no output to stderr
+    assert "Test suppressed error message" not in captured.err
+    
+    # Verify no output to stdout
+    assert "Test suppressed error message" not in captured.out
+
+
+def test_no_logging_suppresses_non_errors(capfd):
+    """Test that --no-logging suppresses non-error messages.
+    
+    When no-logging mode is enabled, INFO, WARNING, DEBUG, and TRACE
+    messages should be suppressed entirely. Only ERROR and CRITICAL
+    should reach stderr. This ensures the fix doesn't break suppression.
+    """
+    # Add logging params
+    param.add_params(LOGGING_PARAMS)
+    
+    # Set no-logging mode
+    no_logging_param = param.get_param_by_name(LOG_NO_LOGGING_PARAM)
+    param.set_param(param_name=no_logging_param[PARAM_NAME], value=True)
+    
+    # Apply logging config
+    apply_logging_config()
+    
+    # Log non-error messages
+    log_trace(_message="Test trace message")
+    log_debug(_message="Test debug message")
+    log_info(_message="Test info message")
+    log_warning(_message="Test warning message")
+    
+    # Capture output
+    captured = capfd.readouterr()
+    
+    # Verify no output to stdout
+    assert "Test trace message" not in captured.out
+    assert "Test debug message" not in captured.out
+    assert "Test info message" not in captured.out
+    assert "Test warning message" not in captured.out
+    
+    # Verify no output to stderr
+    assert "Test trace message" not in captured.err
+    assert "Test debug message" not in captured.err
+    assert "Test info message" not in captured.err
+    assert "Test warning message" not in captured.err

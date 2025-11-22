@@ -241,9 +241,11 @@ def log(_level=INFO, _scope=None, _message=''):
     should_log_console = _should_log_to_console()
     should_log_file = _should_log_to_file()
     
-    # If both are disabled, don't log at all
+    # If both are disabled and this is not an error, don't log at all
+    # Errors should always go to stderr via error handler unless suppress_errors is set
     if not should_log_console and not should_log_file:
-        return
+        if _level < ERROR or _suppress_errors:
+            return
     
     # Temporarily remove handlers based on config
     console_removed = False
@@ -370,6 +372,9 @@ def apply_logging_config():
     # Apply suppress errors
     if param.get_param(bind_name=LOG_SUPPRESS_ERRORS_PARAM):
         set_suppress_errors(True)
+        # Also disable console and file handlers when suppressing errors
+        set_console_level(stdlib_logging.CRITICAL + 1)
+        set_file_level(stdlib_logging.CRITICAL + 1)
     
     # Apply scope-specific log levels (phase-log-level param for backward compatibility)
     scope_log_levels = param.get_param(bind_name=LOG_PHASE_LOG_LEVEL_PARAM)
