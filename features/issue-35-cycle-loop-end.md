@@ -325,11 +325,13 @@ Add entry for `cycles_loop_end.py` in the Cycles section.
 
 ### 6. Update documentation
 
-**Files:** `doc/cycles.md`, `doc/api-reference.md`
+**Files:** `doc/cycles.md`, `doc/api-reference.md`, `README.md`
 
 Update documentation to include `CYCLE_LOOP_END` in cycle lifecycle descriptions.
 
-**Important:** Add version note ("**Added in vX.X.X**") at the start of any new documentation sections.
+**Important:** 
+- Add version note ("**Added in vX.X.X**") at the start of any new documentation sections.
+- Update main `README.md` to reflect new features (features list, code examples, examples list).
 
 **`doc/cycles.md` updates:**
 
@@ -386,6 +388,13 @@ Common use cases:
 
 - Add `CYCLE_LOOP_END` to Cycle Constants section
 - Update cycle lifecycle description
+
+**`README.md` updates:**
+
+- Update Cycle Support feature description to mention `loop-end` function
+- Add `CYCLE_LOOP_END` to cycles code example
+- Add `cycles_loop_end.py` to examples list with description
+- Add feature to "What's New in vX.X.X" section
 
 **Tests:** Manual review - verify documentation is accurate and consistent.
 

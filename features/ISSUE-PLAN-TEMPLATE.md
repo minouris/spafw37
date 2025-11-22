@@ -130,7 +130,10 @@ def example_function():
 
 [Add as many steps as needed to complete the implementation]
 
-**Note:** When updating documentation with new features, add a version note ("**Added in vX.X.X**") at the start of new sections to help users identify when functionality was introduced.
+**Note:** When adding new features:
+- Update main `README.md` to reflect new functionality in relevant sections (features list, code examples, examples list, "What's New in vX.X.X")
+- Add version notes ("**Added in vX.X.X**") at the start of new documentation sections
+- This helps users discover new features and understand when they were introduced
 
 [↑ Back to top](#table-of-contents)
 
