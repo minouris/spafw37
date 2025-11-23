@@ -742,8 +742,53 @@ Add `params_allowed_values.py` to examples list in the Parameters section:
 
 ## CHANGES for v1.1.0 Release
 
-### New Features
+Issue #33: Param Allowed Values
 
-- **Parameter Allowed Values:** Added `PARAM_ALLOWED_VALUES` constant to restrict TEXT and NUMBER parameter values to predefined sets. Values not in the allowed list are rejected with clear error messages. Default values are validated at parameter registration time.
+### Issues Closed
+
+- #33: Param Allowed Values
+
+### Additions
+
+- `PARAM_ALLOWED_VALUES` constant restricts TEXT and NUMBER parameter values to predefined sets. Values not in the allowed list are rejected with clear error messages. Default values are validated at parameter registration time.
+- `_validate_allowed_values()` helper function checks if parameter value is in allowed values list. Only applies to TEXT and NUMBER types.
+- `_TYPE_VALIDATORS` module-level dict maps parameter types to validation functions.
+
+### Removals
+
+None.
+
+### Changes
+
+- `_validate_param_value()` refactored to use `_TYPE_VALIDATORS` dict lookup instead of if-elif chain. Calls `_validate_allowed_values()` after type validation.
+- `add_param()` validates that `PARAM_DEFAULT` is in `PARAM_ALLOWED_VALUES` when both are specified.
+
+### Migration
+
+No migration required. New functionality only.
+
+### Documentation
+
+- `doc/parameters.md` added "Allowed Values" section with usage examples and validation rules.
+- `doc/parameters.md` added `PARAM_ALLOWED_VALUES` to Parameter Definition Constants table.
+- `doc/api-reference.md` added `PARAM_ALLOWED_VALUES` to Parameter Constants table.
+- `README.md` added "Allowed Values Validation" to "What's New in v1.1.0" section.
+- `README.md` added `params_allowed_values.py` to examples list.
+- `examples/README.md` added `params_allowed_values.py` entry.
+- `examples/params_allowed_values.py` demonstrates usage with environment, region, port, and size parameters.
+
+### Testing
+
+- 12+ new tests in `tests/test_param_validation.py`
+- Tests cover valid/invalid values for TEXT and NUMBER types
+- Tests verify TOGGLE/LIST/DICT types skip validation
+- Tests verify integration with `set_param()` and `add_param()`
+- Tests verify type coercion occurs before allowed values check
+- Tests verify default value validation at registration time
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0  
+Issues: https://github.com/minouris/spafw37/issues/33
 
 [↑ Back to top](#table-of-contents)
