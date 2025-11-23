@@ -78,8 +78,6 @@ def _validate_allowed_values(param_definition, value):
     Raises:
         ValueError: If value is not in allowed values list
     """
-    from spafw37.constants.param import PARAM_ALLOWED_VALUES, PARAM_TYPE, PARAM_NAME
-    
     allowed_values = param_definition.get(PARAM_ALLOWED_VALUES)
     if allowed_values is None:
         return
@@ -193,21 +191,9 @@ Add validation in `add_param()` to check that `PARAM_DEFAULT` is in `PARAM_ALLOW
 
 ```python
 # Validate default value is in allowed values
-from spafw37.constants.param import PARAM_DEFAULT, PARAM_ALLOWED_VALUES, PARAM_TYPE, PARAM_NAME
-allowed_values = param.get(PARAM_ALLOWED_VALUES)
 default_value = param.get(PARAM_DEFAULT)
-param_type = param.get(PARAM_TYPE, PARAM_TYPE_TEXT)
-param_name = param.get(PARAM_NAME, 'unknown')
-
-if allowed_values is not None and default_value is not None:
-    # Only check for TEXT and NUMBER types
-    if param_type in (PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER):
-        if default_value not in allowed_values:
-            allowed_str = ', '.join(str(allowed_value) for allowed_value in allowed_values)
-            raise ValueError(
-                f"Default value '{default_value}' for parameter '{param_name}' "
-                f"is not in allowed values: {allowed_str}"
-            )
+if default_value is not None:
+    _validate_allowed_values(param, default_value)
 ```
 
 **Tests:**
@@ -231,7 +217,12 @@ class TestParamAllowedValues:
     """Tests for PARAM_ALLOWED_VALUES validation."""
     
     def test_validate_allowed_values_text_valid(self):
-        """Test allowed values validation accepts valid TEXT value."""
+        """Test that the _validate_allowed_values helper accepts valid TEXT parameter values.
+        
+        This test verifies that when a TEXT parameter has PARAM_ALLOWED_VALUES defined,
+        values that are members of the allowed list pass validation without raising errors.
+        This behaviour is expected because valid values should not be rejected by the whitelist.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'environment',
@@ -244,7 +235,12 @@ class TestParamAllowedValues:
         param._validate_allowed_values(param_def, 'production')
     
     def test_validate_allowed_values_text_invalid(self):
-        """Test allowed values validation rejects invalid TEXT value."""
+        """Test that the _validate_allowed_values helper rejects invalid TEXT parameter values.
+        
+        This test verifies that when a TEXT parameter has PARAM_ALLOWED_VALUES defined,
+        values that are not in the allowed list are rejected with a clear ValueError.
+        This behaviour is expected because invalid values must be rejected to enforce the whitelist constraint.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'environment',
@@ -255,7 +251,12 @@ class TestParamAllowedValues:
             param._validate_allowed_values(param_def, 'test')
     
     def test_validate_allowed_values_number_valid(self):
-        """Test allowed values validation accepts valid NUMBER value."""
+        """Test that the _validate_allowed_values helper accepts valid NUMBER parameter values.
+        
+        This test verifies that when a NUMBER parameter has PARAM_ALLOWED_VALUES defined,
+        values that are members of the allowed list pass validation without raising errors.
+        This behaviour is expected because valid numeric values should not be rejected by the whitelist.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'port',
@@ -267,7 +268,12 @@ class TestParamAllowedValues:
         param._validate_allowed_values(param_def, 443)
     
     def test_validate_allowed_values_number_invalid(self):
-        """Test allowed values validation rejects invalid NUMBER value."""
+        """Test that the _validate_allowed_values helper rejects invalid NUMBER parameter values.
+        
+        This test verifies that when a NUMBER parameter has PARAM_ALLOWED_VALUES defined,
+        values that are not in the allowed list are rejected with a clear ValueError.
+        This behaviour is expected because invalid numeric values must be rejected to enforce the whitelist constraint.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'port',
@@ -278,7 +284,12 @@ class TestParamAllowedValues:
             param._validate_allowed_values(param_def, 3000)
     
     def test_validate_allowed_values_not_specified(self):
-        """Test no validation when PARAM_ALLOWED_VALUES not specified."""
+        """Test that the _validate_allowed_values helper skips validation when PARAM_ALLOWED_VALUES is not specified.
+        
+        This test verifies that when a parameter does not have PARAM_ALLOWED_VALUES defined,
+        any value is accepted without validation or errors being raised.
+        This behaviour is expected because the allowed values constraint is optional and should not affect parameters that don't use it.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'value',
@@ -288,7 +299,12 @@ class TestParamAllowedValues:
         param._validate_allowed_values(param_def, 'anything')
     
     def test_validate_allowed_values_toggle_ignored(self):
-        """Test TOGGLE params skip allowed values validation."""
+        """Test that the _validate_allowed_values helper skips validation for TOGGLE parameters.
+        
+        This test verifies that TOGGLE parameters do not have allowed values validation applied,
+        even when PARAM_ALLOWED_VALUES is specified in the parameter definition.
+        This behaviour is expected because TOGGLE parameters have implicit allowed values (True/False) and do not require explicit validation.
+        """
         setup_function()
         param_def = {
             PARAM_NAME: 'flag',
@@ -299,7 +315,12 @@ class TestParamAllowedValues:
         param._validate_allowed_values(param_def, False)
     
     def test_set_param_with_allowed_values_valid(self):
-        """Test set_param succeeds with valid allowed value."""
+        """Test that set_param successfully sets a parameter when the value is in the allowed values list.
+        
+        This test verifies that the set_param function accepts and stores valid values when
+        a parameter has PARAM_ALLOWED_VALUES defined and the provided value is in that list.
+        This behaviour is expected because valid values should pass through the validation pipeline and be stored correctly.
+        """
         setup_function()
         param.add_param({
             PARAM_NAME: 'mode',
@@ -312,7 +333,12 @@ class TestParamAllowedValues:
         assert param.get_param(param_name='mode') == 'fast'
     
     def test_set_param_with_allowed_values_invalid(self):
-        """Test set_param raises error with invalid allowed value."""
+        """Test that set_param raises a ValueError when the value is not in the allowed values list.
+        
+        This test verifies that the set_param function rejects invalid values with a clear error message
+        when a parameter has PARAM_ALLOWED_VALUES defined and the provided value is not in that list.
+        This behaviour is expected because invalid values must be rejected to enforce the whitelist constraint in the full parameter pipeline.
+        """
         setup_function()
         param.add_param({
             PARAM_NAME: 'mode',
@@ -323,7 +349,12 @@ class TestParamAllowedValues:
             param.set_param(param_name='mode', value='turbo')
     
     def test_add_param_default_in_allowed_values(self):
-        """Test add_param accepts default that is in allowed values."""
+        """Test that add_param successfully registers a parameter when PARAM_DEFAULT is in the allowed values list.
+        
+        This test verifies that parameter registration succeeds when both PARAM_DEFAULT and PARAM_ALLOWED_VALUES
+        are specified and the default value is a member of the allowed values list.
+        This behaviour is expected because valid default values should not prevent parameter registration.
+        """
         setup_function()
         # Should not raise
         param.add_param({
@@ -334,9 +365,14 @@ class TestParamAllowedValues:
         })
     
     def test_add_param_default_not_in_allowed_values(self):
-        """Test add_param raises error when default not in allowed values."""
+        """Test that add_param raises a ValueError when PARAM_DEFAULT is not in the allowed values list.
+        
+        This test verifies that parameter registration fails with a clear error message when both PARAM_DEFAULT
+        and PARAM_ALLOWED_VALUES are specified but the default value is not in the allowed list.
+        This behaviour is expected because misconfigured defaults should be detected early at registration time to prevent runtime errors.
+        """
         setup_function()
-        with pytest.raises(ValueError, match="Default value '10' for parameter 'level'"):
+        with pytest.raises(ValueError, match="Invalid value '10' for parameter 'level'"):
             param.add_param({
                 PARAM_NAME: 'level',
                 PARAM_TYPE: PARAM_TYPE_NUMBER,
@@ -345,7 +381,12 @@ class TestParamAllowedValues:
             })
     
     def test_set_param_allowed_values_with_number_coercion(self):
-        """Test allowed values check happens after type coercion."""
+        """Test that allowed values validation occurs after type coercion for NUMBER parameters.
+        
+        This test verifies that when setting a NUMBER parameter with a string value, the value is first
+        coerced to an integer and then validated against the allowed values list.
+        This behaviour is expected because type coercion must occur before validation to ensure string inputs from CLI are properly converted.
+        """
         setup_function()
         param.add_param({
             PARAM_NAME: 'count',
