@@ -971,6 +971,54 @@ params = [
 - LIST parameters: Each element validated case-insensitively with normalisation
 - NUMBER parameters: Exact match required
 
+**What is canonical case normalisation?**
+
+When you specify allowed values, the framework stores them in a canonical case (the exact case you define). When users provide input, the framework:
+
+1. Performs case-insensitive matching to find a match in the allowed values list
+2. Returns the value in the canonical case from the allowed values list
+
+**Example:**
+
+```python
+params = [
+    {
+        PARAM_NAME: 'username',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALLOWED_VALUES: ['Alice', 'Bob', 'Charlie'],  # Canonical mixed case
+    }
+]
+
+# User provides lowercase input
+spafw37.set_param(param_name='username', value='alice')
+
+# Framework normalises to canonical case
+user = spafw37.get_param('username')  # Returns 'Alice' (mixed case from allowed values)
+```
+
+This ensures:
+- Users can type values in any case (alice, ALICE, Alice, aLiCe)
+- Your code always receives consistent, predictable values ('Alice')
+- Comparisons and logic work reliably without case-sensitivity issues
+
+For LIST parameters, each element is normalised individually:
+
+```python
+params = [
+    {
+        PARAM_NAME: 'users',
+        PARAM_TYPE: PARAM_TYPE_LIST,
+        PARAM_ALLOWED_VALUES: ['Alice', 'Bob', 'Charlie'],
+    }
+]
+
+# User provides mixed case
+spafw37.set_param(param_name='users', value=['alice', 'BOB', 'Charlie'])
+
+# Framework normalises each element to canonical case
+users = spafw37.get_param('users')  # Returns ['Alice', 'Bob', 'Charlie']
+```
+
 **Restrictions:**
 - Only TEXT, NUMBER, and LIST params support allowed values
 - TOGGLE params have implicit allowed values (True/False)
