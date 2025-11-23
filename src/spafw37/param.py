@@ -1632,9 +1632,9 @@ def unset_param(param_name=None, bind_name=None, alias=None):
     Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
     
     Args:
-        param_name: Parameter name to unset (flexible resolution).
-        bind_name: Config bind name to unset (flexible resolution).
-        alias: Parameter alias to unset (flexible resolution).
+        param_name: Parameter name to unset.
+        bind_name: Config bind name to unset.
+        alias: Parameter alias to unset.
     
     Raises:
         ValueError: If parameter not found or parameter is immutable.
@@ -1670,9 +1670,9 @@ def reset_param(param_name=None, bind_name=None, alias=None):
     Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
     
     Args:
-        param_name: Parameter name to reset (flexible resolution).
-        bind_name: Config bind name to reset (flexible resolution).
-        alias: Parameter alias to reset (flexible resolution).
+        param_name: Parameter name to reset.
+        bind_name: Config bind name to reset.
+        alias: Parameter alias to reset.
     
     Raises:
         ValueError: If parameter not found or parameter is immutable.

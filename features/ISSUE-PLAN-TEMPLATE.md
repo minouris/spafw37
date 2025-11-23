@@ -204,6 +204,51 @@ def example_function():
 [↑ Back to top](#table-of-contents)
 ---
 
+## CHANGES for vX.X.X Release
+
+**Note:** This section must follow the format specified in `features/CHANGES-TEMPLATE.md`. The content will be posted as the closing comment and consumed by the release workflow.
+
+Issue #[NUMBER]: [Issue Title]
+
+### Issues Closed
+
+- #[NUMBER]: [Issue Title]
+
+### Additions
+
+- `function_name()` [brief description of what it does].
+- `CONSTANT_NAME` [brief description].
+
+### Removals
+
+None.
+
+### Changes
+
+None.
+
+### Migration
+
+No migration required. New functionality only.
+
+### Documentation
+
+- `doc/file.md` [what was added/changed]
+- `examples/example.py` [brief description]
+
+### Testing
+
+- [X] new tests in `tests/test_file.py`
+- Tests cover [what they cover]
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/vX.Y.Z-1...vX.Y.Z  
+Issues: https://github.com/minouris/spafw37/issues/[NUMBER]
+
+[↑ Back to top](#table-of-contents)
+---
+
 ## Template Usage Instructions
 
 ### Writing Style Guidelines
