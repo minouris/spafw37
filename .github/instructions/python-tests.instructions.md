@@ -1,5 +1,5 @@
 ---
-applyTo: 'tests/**/*.py'
+applyTo: "tests/**/*.py"
 ---
 
 # Python Test Structure and Standards

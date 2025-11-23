@@ -1,5 +1,5 @@
 ---
-applyTo: '**/*.py'
+applyTo: "**/*.py"
 ---
 
 # Python 3.7.0 Compatibility Requirements

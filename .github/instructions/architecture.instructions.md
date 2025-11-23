@@ -1,6 +1,12 @@
+---
+applyTo: "doc/architecture/**/*"
+---
+
 # Architecture Design Instructions
 
 ## CRITICAL: NO GUESSING POLICY
+
+> Fully documented in [NO GUESSING POLICY in general.instructions.md](general.instructions.md#critical-no-guessing-policy) - those instructions should take priority.
 
 **NEVER guess or make assumptions about:**
 - External API specifications, endpoints, or data structures
@@ -21,13 +27,13 @@
 
 ## Context
 
-This instructions file applies to work in the `doc/architecture/**` folder. We are designing a **fresh implementation** of the embedded Python debugger from the ground up, without assumptions from the previous implementation.
+This instructions file applies to work in the `doc/architecture/**` folder. 
 
 ## Core Principles
 
 ### Clean Slate Design
-- **No legacy assumptions**: Do not assume the new design must match the current implementation
-- **Protocol-agnostic**: Do not assume DAP, debugpy, or any specific front-side protocol
+- **No legacy assumptions**: Do not assume the new design must match any current implementation
+- **Technology-agnostic**: Do not assume specific protocols, frameworks, or libraries without explicit requirements
 - **Fresh thinking**: Question all previous design decisions and evaluate alternatives
 - **Ground-up rebuild**: Start from requirements and design the optimal solution
 
@@ -74,9 +80,9 @@ This instructions file applies to work in the `doc/architecture/**` folder. We a
 
 ### Colour Palette (from reference.md)
 - **Client/External Layer**: Dark red/pink tones
-- **FrontSide Adapter Layer**: Dark blue tones
+- **Adapter Layer**: Dark blue tones
 - **Central Control Layer**: Dark purple tones
-- **Backend/Tracer Layer**: Dark green tones
+- **Backend/Data Layer**: Dark green tones
 - **Supporting Components**: Dark magenta/purple tones
 - **Synchronization**: Locks (red), Conditions (blue), Queues (magenta), Events (amber)
 
@@ -127,24 +133,24 @@ Architecture documents are for **design**, not implementation. Code examples are
 
 **Example of ACCEPTABLE minimal code** (only when explicitly requested):
 ```python
-def create_listener_tracer(base_class, listener_config=None):
-    class ListenerTracer(base_class):
+def create_handler(base_class, config=None):
+    class Handler(base_class):
         # Implementation details omitted
 
-    return ListenerTracer
+    return Handler
 ```
 
 **Example of FORBIDDEN code** (NEVER include):
 ```python
-def create_listener_tracer(base_class, listener_config=None):
-    class ListenerTracer(base_class):
+def create_handler(base_class, config=None):
+    class Handler(base_class):
         def __init__(self):
             super().__init__()
-            self._call_listener = Listener(**config)
+            self._processor = Processor(**config)
             # ... more implementation
         
-        def user_call(self, frame, arg):
-            self._call_listener.dispatch(frame, arg)
+        def handle_event(self, data):
+            self._processor.dispatch(data)
             # ... more implementation
 ```
 
@@ -159,24 +165,24 @@ def create_listener_tracer(base_class, listener_config=None):
 
 ## Design Considerations
 
-### Protocol Independence
-- **No protocol assumptions**: Design should support multiple front-side protocols (DAP, CDP, custom)
-- **Adapter pattern**: Use adapters to isolate protocol specifics
-- **Canonical models**: Define protocol-independent internal models (Command, Event, etc.)
-- **Extensibility**: Design for easy addition of new protocols
+### Interface Independence
+- **No interface assumptions**: Design should support multiple interface types and communication protocols
+- **Adapter pattern**: Use adapters to isolate interface and protocol specifics
+- **Canonical models**: Define interface-independent internal models and data structures
+- **Extensibility**: Design for easy addition of new interfaces and protocols
 
-### Embedded Environment Constraints
-- **Python 3.7.9 compatibility**: All designs must work with Python 3.7 stdlib only
-- **No external dependencies**: Cannot rely on pip packages or external libraries
-- **Minimal footprint**: Must run efficiently in embedded/constrained environments
-- **Fault isolation**: Debugger failures must not crash the host application
-- **Standard library only**: All functionality using Python 3.7 standard library
+### Deployment Environment Constraints
+- **Version compatibility**: Designs must work within specified language/platform version constraints
+- **Dependency management**: Consider restrictions on external dependencies and libraries
+- **Resource efficiency**: Must run efficiently within target environment resource limits
+- **Fault isolation**: Application failures must not crash or corrupt the host environment
+- **Standard libraries**: Prefer standard libraries where possible to minimise dependencies
 
 ### Deployment Flexibility
-- **Compressed packages**: May run from zip/compressed archives
-- **Custom loaders**: Host may use non-standard import mechanisms
-- **No subprocesses**: Cannot spawn external processes
-- **Thread-safe**: Must coexist with host's threading model
+- **Package formats**: Consider various packaging and distribution formats
+- **Loading mechanisms**: Account for standard and non-standard loading patterns
+- **Process constraints**: Consider subprocess limitations in target environments
+- **Concurrency**: Design for thread-safety and concurrent operation where required
 
 ## Design Patterns to Consider
 
@@ -187,7 +193,7 @@ def create_listener_tracer(base_class, listener_config=None):
 - **Command**: Encapsulate operations as objects
 - **Factory**: Enable dependency injection and testing
 - **State**: Model component lifecycle
-- **Strategy**: Pluggable algorithms (e.g., stepping strategies)
+- **Strategy**: Pluggable algorithms and behaviour variations
 
 ### Anti-Patterns to Avoid
 - **God Object**: Distribute responsibilities appropriately
@@ -202,11 +208,11 @@ Before finalising any design:
 
 - [ ] All terms defined in glossary
 - [ ] Mermaid diagrams follow style guide
-- [ ] Protocol independence maintained
-- [ ] Python 3.7 constraints respected
-- [ ] Standard library only (no external deps)
-- [ ] Embedded environment constraints addressed
-- [ ] Thread safety considered
+- [ ] Interface independence maintained
+- [ ] Language/platform version constraints respected
+- [ ] Dependency constraints addressed
+- [ ] Deployment environment constraints addressed
+- [ ] Concurrency requirements considered
 - [ ] Fault isolation ensured
 - [ ] Design alternatives documented
 - [ ] Trade-offs explained
@@ -232,8 +238,8 @@ Before finalising any design:
 - Provide code implementations (this is design work only)
 - **Include ANY code examples unless explicitly requested and approved**
 - **Show implementation details, method bodies, or logic in code**
-- Assume DAP or any specific protocol
-- Make assumptions based on the old implementation
+- Assume specific protocols, frameworks, or libraries without requirements
+- Make assumptions based on any previous implementation
 - Add features or details without being asked
 - Create monolithic diagrams trying to show everything
 - Use light backgrounds or light text (breaks dark mode)
@@ -249,10 +255,10 @@ A good architecture design:
 3. **Flexible**: Can accommodate change and new requirements
 4. **Testable**: Components can be tested in isolation
 5. **Documented**: Decisions and trade-offs are recorded
-6. **Protocol-agnostic**: Not tied to any specific front-side protocol
-7. **Constraint-aware**: Respects Python 3.7 and embedded environment limits
+6. **Interface-agnostic**: Not tied to specific interfaces or protocols without justification
+7. **Constraint-aware**: Respects language, platform, and deployment environment constraints
 8. **Maintainable**: Future developers can understand and modify
 
 ---
 
-**Remember**: We are designing a new debugger from scratch. Question everything. Document thoroughly. Wait for user direction.
+**Remember**: We are designing software from scratch. Question everything. Document thoroughly. Wait for user direction.

@@ -1,3 +1,7 @@
+---
+applyTo: "**/*"
+---
+
 # General Instructions (All Projects)
 
 These instructions apply to all files across all projects.
@@ -29,6 +33,35 @@ If you are not certain about something, you must explicitly state that you don't
 
 **This applies to ALL work - code, configuration, documentation, and any other task.**
 
+### Mandatory Source Citation for External Knowledge
+
+When answering questions about external systems, tools, APIs, documentation, or any information not directly visible in workspace files:
+
+1. **Use `fetch_webpage` to retrieve official documentation** before answering
+2. **Cite the specific URL** you fetched
+3. **Quote the relevant section** from the documentation
+4. **If you cannot find or access documentation**, state: "I cannot find documentation to verify this" instead of guessing
+
+**Examples of external knowledge requiring citation:**
+- How external tools, libraries, or frameworks work
+- API specifications or behaviour
+- Configuration file formats for third-party tools
+- Standard protocols or file formats
+- Platform-specific behaviour (GitHub, VS Code, etc.)
+- Installation procedures or system requirements
+
+**Example of correct behaviour with citation:**
+"According to the official Python documentation at https://docs.python.org/3/library/venv.html: 'The venv module supports creating lightweight virtual environments, each with their own independent set of Python packages installed.' This means virtual environments isolate dependencies per project."
+
+**If documentation cannot be accessed:**
+"I cannot access the GitHub Copilot documentation to verify where it looks for instruction files. You should check the official GitHub documentation or test both locations (root and .github/) to confirm the behaviour."
+
+**This requirement does not apply to:**
+- Information directly visible in workspace files
+- Code analysis of files you've already read
+- Test results you've just executed
+- Standard programming language syntax that is definitively known
+
 ## CRITICAL: LOCALIZATION AND INTERNATIONALIZATION
 
 **Use UK English spelling and conventions:**
@@ -52,6 +85,27 @@ If you are not certain about something, you must explicitly state that you don't
 - Do not use US-centric measurements, dates, or formats
 
 **This applies to ALL work - code, documentation, examples, and any other content.**
+
+## CRITICAL: Git Operations Policy
+
+**YOU MAY NOT COMMIT CODE. YOU MAY NOT PUSH CODE.**
+
+You do not have permission to run `git commit` or `git push` under any circumstances. These operations must be performed by the human user only.
+
+**Rationale:** You have repeatedly claimed work was complete when it was not, making it unsafe to allow you to commit or push changes.
+
+## Pull Request Review Requirements
+
+When reviewing pull requests following a code review:
+
+1. **Retrieve ALL unresolved comments** - Use the GitHub Pull Request extension (`github-pull-request_openPullRequest`) to retrieve the ACTUAL pull request data, not just a subset
+2. **Check resolution status** - Only consider comments explicitly marked as RESOLVED by an actual human being. Do not assume comments are resolved just because you made changes
+3. **Read response threads** - Review ALL comments made in RESPONSE to reviewer comments, as these often contain important decisions and clarifications
+4. **Address all file types** - PR comments may reference:
+   - Source code files (tests, implementation)
+   - Documentation files (markdown, examples)
+   - Planning documents (features/*.md) - these often contain code examples that must follow the same standards as production code
+5. **No assumptions** - Do not assume you've addressed a comment without explicit confirmation
 
 ## Communication Style
 

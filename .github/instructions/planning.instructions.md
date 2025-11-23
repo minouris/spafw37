@@ -1,8 +1,8 @@
 ---
-applyTo: 'features/**/*.md'
+applyTo: "features/**/*.md"
 ---
 
-# Planning and Changes Documentation
+# Issue Planning and Changes Documentation
 
 These instructions apply to issue planning documents and changelog documentation.
 
