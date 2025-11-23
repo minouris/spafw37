@@ -384,13 +384,81 @@ def _normalise_text_to_allowed_case(value, allowed_values):
     return None
 
 
+def _validate_text_allowed_values(param_name, value, allowed_values):
+    """Validate TEXT parameter value against allowed values with case-insensitive matching.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: String value to validate
+        allowed_values: List of allowed string values
+        
+    Raises:
+        ValueError: If value not in allowed values list
+    """
+    if _normalise_text_to_allowed_case(value, allowed_values) is None:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Value '{value}' not allowed for parameter '{param_name}'. "
+            f"Allowed values: {allowed_str}"
+        )
+
+
+def _validate_list_allowed_values(param_name, value, allowed_values):
+    """Validate LIST parameter elements against allowed values.
+    
+    Validates each element individually with case-insensitive matching.
+    Rejects empty lists when allowed values are specified.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: List of values to validate
+        allowed_values: List of allowed values
+        
+    Raises:
+        ValueError: If list is empty or any element not in allowed values
+    """
+    if not value:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Empty list not allowed for parameter '{param_name}'. "
+            f"Must provide at least one value from: {allowed_str}"
+        )
+    
+    if isinstance(value, (list, tuple)):
+        for element in value:
+            if _normalise_text_to_allowed_case(element, allowed_values) is None:
+                allowed_str = ', '.join(str(av) for av in allowed_values)
+                raise ValueError(
+                    f"List element '{element}' not allowed for parameter '{param_name}'. "
+                    f"Allowed values: {allowed_str}"
+                )
+
+
+def _validate_number_allowed_values(param_name, value, allowed_values):
+    """Validate NUMBER parameter value against allowed values with exact match.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: Numeric value to validate
+        allowed_values: List of allowed numeric values
+        
+    Raises:
+        ValueError: If value not in allowed values list
+    """
+    if value not in allowed_values:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Value {value} not allowed for parameter '{param_name}'. "
+            f"Allowed values: {allowed_str}"
+        )
+
+
 def _validate_allowed_values(param_definition, value):
     """Validate value against allowed values list if specified.
     
     Checks if the parameter has PARAM_ALLOWED_VALUES defined and validates
-    that the provided value is in the allowed list. For TEXT parameters,
-    performs case-insensitive matching. For NUMBER parameters, performs 
-    exact match. For LIST parameters, validates each element individually.
+    that the provided value is in the allowed list. Delegates to type-specific
+    handlers for TEXT, NUMBER, and LIST parameters.
     
     Does not modify the value - raises ValueError if validation fails.
     
@@ -412,42 +480,13 @@ def _validate_allowed_values(param_definition, value):
     if param_type not in (PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_LIST):
         return
     
-    # Handle LIST parameters - validate each element
+    # Delegate to type-specific validator
     if param_type == PARAM_TYPE_LIST:
-        # Empty lists are invalid when allowed values specified
-        if not value:
-            allowed_str = ', '.join(str(av) for av in allowed_values)
-            raise ValueError(
-                f"Empty list not allowed for parameter '{param_name}'. "
-                f"Must provide at least one value from: {allowed_str}"
-            )
-        
-        for element in value:
-            if _normalise_text_to_allowed_case(element, allowed_values) is None:
-                allowed_str = ', '.join(str(av) for av in allowed_values)
-                raise ValueError(
-                    f"List element '{element}' not allowed for parameter '{param_name}'. "
-                    f"Allowed values: {allowed_str}"
-                )
-        return
-    
-    # Handle TEXT parameters - case-insensitive matching
-    if param_type == PARAM_TYPE_TEXT:
-        if _normalise_text_to_allowed_case(value, allowed_values) is None:
-            allowed_str = ', '.join(str(av) for av in allowed_values)
-            raise ValueError(
-                f"Value '{value}' not allowed for parameter '{param_name}'. "
-                f"Allowed values: {allowed_str}"
-            )
-        return
-    
-    # Handle NUMBER parameters - exact match
-    if value not in allowed_values:
-        allowed_str = ', '.join(str(av) for av in allowed_values)
-        raise ValueError(
-            f"Value {value} not allowed for parameter '{param_name}'. "
-            f"Allowed values: {allowed_str}"
-        )
+        _validate_list_allowed_values(param_name, value, allowed_values)
+    elif param_type == PARAM_TYPE_TEXT:
+        _validate_text_allowed_values(param_name, value, allowed_values)
+    elif param_type == PARAM_TYPE_NUMBER:
+        _validate_number_allowed_values(param_name, value, allowed_values)
 
 
 def _normalise_allowed_value(param_definition, value):
@@ -475,9 +514,10 @@ def _normalise_allowed_value(param_definition, value):
     # Normalise LIST elements to canonical case
     if param_type == PARAM_TYPE_LIST:
         normalised_list = []
-        for element in value:
-            canonical = _normalise_text_to_allowed_case(element, allowed_values)
-            normalised_list.append(canonical)
+        if isinstance(value, (list, tuple)):
+            for element in value:
+                canonical = _normalise_text_to_allowed_case(element, allowed_values)
+                normalised_list.append(canonical)
         return normalised_list
     
     # Normalise TEXT to canonical case
@@ -1111,7 +1151,7 @@ def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, stric
     Retrieve integer parameter value with type coercion and truncation.
     
     Gets raw value via get_param_value() and coerces to int via int(float(value))
-    for truncation behavior. In strict mode, raises ValueError on coercion failure.
+    for truncation behaviour. In strict mode, raises ValueError on coercion failure.
     
     Args:
         param_name: Parameter's PARAM_NAME (use this in application code)
@@ -1142,7 +1182,7 @@ def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, stric
         return default
     
     try:
-        # Use int(float(value)) for truncation behavior
+        # Use int(float(value)) for truncation behaviour
         return int(float(value))
     except (ValueError, TypeError) as error:
         if strict:
@@ -1363,10 +1403,15 @@ def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=
         return _get_param_str(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
+def _validate_toggle(value):
+    """Validate TOGGLE parameter by converting to bool."""
+    return bool(value)
+
+
 # Type validator lookup dict - maps param types to validation functions
 _TYPE_VALIDATORS = {
     PARAM_TYPE_NUMBER: _validate_number,
-    PARAM_TYPE_TOGGLE: lambda value: bool(value),
+    PARAM_TYPE_TOGGLE: _validate_toggle,
     PARAM_TYPE_LIST: _validate_list,
     PARAM_TYPE_DICT: _validate_dict,
     PARAM_TYPE_TEXT: _validate_text,

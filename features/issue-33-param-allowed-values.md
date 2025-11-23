@@ -125,6 +125,12 @@ def _validate_allowed_values(param_definition, value):
                 f"Must provide at least one value from: {allowed_str}"
             )
         
+        # Ensure value is iterable before attempting to iterate
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value for LIST parameter '{param_name}' must be a list, got {type(value).__name__}"
+            )
+        
         for element in value:
             if _normalise_text_to_allowed_case(element, allowed_values) is None:
                 allowed_str = ', '.join(str(av) for av in allowed_values)
@@ -177,6 +183,12 @@ def _normalise_allowed_value(param_definition, value):
     
     # Normalise LIST elements to canonical case
     if param_type == PARAM_TYPE_LIST:
+        # Ensure value is iterable before attempting to iterate
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                f"Value for LIST parameter must be a list, got {type(value).__name__}"
+            )
+        
         normalised_list = []
         for element in value:
             canonical = _normalise_text_to_allowed_case(element, allowed_values)
@@ -219,16 +231,21 @@ Modify `_validate_param_value()` to call `_validate_allowed_values()` after type
 
 **Location:** In `_validate_param_value()` function (around line 1230), after type validation, before returning the validated value.
 
-**Also add module-level type validator dict** before `_validate_param_value()` function:
+**Also add module-level type validator dict** before `_validate_param_value()` function. Note: Create `_validate_toggle()` helper function to replace the inline `bool(value)` logic for consistency:
 
 ```python
+def _validate_toggle(value):
+    """Validate and coerce value to boolean for TOGGLE parameters."""
+    return bool(value)
+
 # Type validator lookup dict - maps param types to validation functions
 _TYPE_VALIDATORS = {
     PARAM_TYPE_NUMBER: _validate_number,
-    PARAM_TYPE_TOGGLE: lambda value: bool(value),
+    PARAM_TYPE_TOGGLE: _validate_toggle,
     PARAM_TYPE_LIST: _validate_list,
     PARAM_TYPE_DICT: _validate_dict,
     PARAM_TYPE_TEXT: _validate_text,
+}
 }
 ```
 
@@ -294,6 +311,8 @@ def _validate_param_value(param_definition, value, strict=True):
 Add validation in `add_param()` to check that `PARAM_DEFAULT` is in `PARAM_ALLOWED_VALUES` when both are specified. Use the normalised value returned by the validator.
 
 **Location:** In `add_param()` function, after parameter definition is constructed but before it's added to `_PARAMS`.
+
+**Important:** Call the `_validate_allowed_values()` and `_normalise_allowed_value()` helper functions rather than duplicating validation logic. This ensures consistent validation and error messages across all validation points.
 
 **Add validation logic:**
 
@@ -1045,7 +1064,7 @@ Add `params_allowed_values.py` to examples list in the Parameters section:
 **Rationale:**
 - User-friendly: Users don't need to remember exact casing ('prod' vs 'Prod' vs 'PROD')
 - Common pattern: Environment names and config values typically case-insensitive
-- Clear behavior: Input normalized to match allowed value's case
+- Clear behaviour: Input normalised to match allowed value's case
 - Predictable: Always get canonical case from allowed values list
 
 **Implementation:**

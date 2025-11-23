@@ -11,7 +11,6 @@ from spafw37.constants.param import (
     PARAM_DEFAULT,
     PARAM_NAME,
     PARAM_TYPE,
-    PARAM_TYPE_DICT,
     PARAM_TYPE_LIST,
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TEXT,
@@ -272,20 +271,20 @@ def test_validate_allowed_values_text_valid():
 
 
 def test_validate_allowed_values_text_invalid():
-        """Test that the _validate_allowed_values helper rejects invalid TEXT parameter values.
-        
-        This test verifies that when a TEXT parameter has PARAM_ALLOWED_VALUES defined,
-        values that are not in the allowed list are rejected with a clear ValueError.
-        This behaviour is expected because invalid values must be rejected to enforce the whitelist constraint.
-        """
-        setup_function()
-        param_def = {
-            PARAM_NAME: 'environment',
-            PARAM_TYPE: PARAM_TYPE_TEXT,
-            PARAM_ALLOWED_VALUES: ['dev', 'staging', 'production']
-        }
-        with pytest.raises(ValueError, match="Value 'test' not allowed for parameter 'environment'"):
-            param._validate_allowed_values(param_def, 'test')
+    """Test that the _validate_allowed_values helper rejects invalid TEXT parameter values.
+    
+    This test verifies that when a TEXT parameter has PARAM_ALLOWED_VALUES defined,
+    values that are not in the allowed list are rejected with a clear ValueError.
+    This behaviour is expected because invalid values must be rejected to enforce the whitelist constraint.
+    """
+    setup_function()
+    param_def = {
+        PARAM_NAME: 'environment',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALLOWED_VALUES: ['dev', 'staging', 'production']
+    }
+    with pytest.raises(ValueError, match="Value 'test' not allowed for parameter 'environment'"):
+        param._validate_allowed_values(param_def, 'test')
     
 def test_validate_allowed_values_list_valid():
     """Test that the _validate_allowed_values helper accepts valid LIST parameter elements.
