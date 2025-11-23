@@ -12,7 +12,7 @@
   - [Creating Your First Application](#creating-your-first-application)
   - [Running Your Application](#running-your-application)
 - [Key Features](#key-features)
-  - [Flexible Parameter System](#flexible-parameter-system)
+  - [Declarative Parameter Definition](#declarative-parameter-definition)
   - [Declarative Command Definition](#declarative-command-definition)
   - [Command Orchestration](#command-orchestration)
   - [Multi-Phase Execution](#multi-phase-execution)
@@ -28,7 +28,7 @@
 
 SPAFW37 provides a declarative approach to building CLI applications by defining commands and parameters as structured dictionaries. The framework handles:
 
-- **Parameter Management** - Flexible parameter system with aliases, types, and validation
+- **Parameter Management** - Parameter system with aliases, types, and validation
 - **Command Registration & Execution** - Define commands with actions, dependencies, and sequencing
 - **Configuration Management** - Persistent and runtime configuration with file I/O
 - **Command Orchestration** - Automatic dependency resolution and topological sorting
@@ -192,7 +192,7 @@ python my_app.py help greet
 
 ## Key Features
 
-### Flexible Parameter System
+### Declarative Parameter Definition
 
 Parameters support multiple aliases, types, and automatic configuration binding:
 

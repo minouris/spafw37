@@ -170,7 +170,7 @@ tags = spafw37.get_param('tags')
 ```
 
 **Benefits of new API:**
-- Flexible resolution (by name, binding, or alias)
+- Parameter access by name, bind_name, or alias
 - Type-specific operations (string joining, list appending, dict merging)
 - Clearer separation between replacing (`set_param`) and accumulating (`join_param`) values
 ### Setting Configuration Values

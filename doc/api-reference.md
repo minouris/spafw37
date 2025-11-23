@@ -48,6 +48,11 @@ This design keeps the API surface clean and shields applications from internal i
 - Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
 - Deprecated legacy configuration API (`get_config_value()`, `get_config_str()`, etc.)
 
+**Parameter Validation:**
+- Added `PARAM_ALLOWED_VALUES` for restricting TEXT, NUMBER, and LIST parameters to predefined value sets
+- TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case
+- Provides clear error messages when invalid values are provided
+
 **Parameter Protection:**
 - Added `PARAM_IMMUTABLE` for write-once, read-many semantics
 - Immutable parameters cannot be modified, unset, or reset once they have a value
@@ -1098,6 +1103,7 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_TYPE` | str | Data type (required, see types below) |
 | `PARAM_ALIASES` | list[str] | CLI aliases (e.g., `['--input', '-i']`) |
 | `PARAM_DEFAULT` | any | Default value |
+| `PARAM_ALLOWED_VALUES` | list | Allowed values for TEXT/NUMBER/LIST params. For TEXT/LIST, case-insensitive matching with normalisation. See [Parameters Guide - Allowed Values](parameters.md#allowed-values) and [example](../examples/params_allowed_values.py) |
 | `PARAM_IMMUTABLE` | bool | Prevents modification or removal once set. See [Parameters Guide - Immutable Parameters](parameters.md#immutable-parameters) and [example](../examples/params_immutable.py) |
 
 #### Configuration Binding

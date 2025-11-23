@@ -6,8 +6,8 @@ Pivot from config dict access to param-focused interface with metadata-driven va
 
 **Key architectural decisions:**
 
-- **Flexible param resolution:** Public API accepts params by name, bind_name, or alias with failover
-- **Internal resolution helper:** `_resolve_param_definition()` encapsulates discovery logic
+- **Multiple parameter identifiers:** Public API accepts params by name, bind_name, or alias
+- **Internal resolution helper:** `_resolve_param_definition()` encapsulates lookup logic
 - **Separation of concerns:** CLI parses → param validates → config stores
 - **Type-safe getters:** Typed getter functions with automatic coercion
 - **Deprecation strategy:** Old APIs wrapped with warnings, removed in v2.0.0
@@ -37,14 +37,14 @@ This ensures:
 - [Implementation Steps](#implementation-steps)
   - [1. Add parameter configuration constants](#1-add-parameter-configuration-constants)
   - [2. Make internal `param.py` helpers private and reorganize modules](#2-make-internal-parampy-helpers-private-and-reorganize-modules)
-  - [3. Create flexible param resolution system](#3-create-flexible-param-resolution-system)
+  - [3. Create parameter lookup system](#3-create-parameter-lookup-system)
   - [4. Extract type-specific validation helpers](#4-extract-type-specific-validation-helpers)
   - [5. Create `_validate_param_value()` orchestrator](#5-create-_validate_param_value-orchestrator)
   - [6. Refactor CLI parsing to use structured dict approach](#6-refactor-cli-parsing-to-use-structured-dict-approach)
-  - [7. Add `set_param_value()` with flexible resolution](#7-add-set_param_value-with-flexible-resolution)
-  - [8. Add `join_param_value()` with flexible resolution](#8-add-join_param_value-with-flexible-resolution)
+  - [7. Add `set_param_value()` function](#7-add-set_param_value-function)
+  - [8. Add `join_param_value()` function](#8-add-join_param_value-function)
   - [9. Add XOR validation for toggle params](#9-add-xor-validation-for-toggle-params)
-  - [10. Add typed param getters with flexible resolution](#10-add-typed-param-getters-with-flexible-resolution)
+  - [10. Add typed param getters](#10-add-typed-param-getters)
   - [11. Export param API through `core.py` facade](#11-export-param-api-through-corepy-facade)
   - [12. Refactor CLI layer](#12-refactor-cli-layer)
   - [13. Deprecate and refactor `config_func.py` param-setting functions](#13-deprecate-and-refactor-config_funcpy-param-setting-functions)
@@ -59,7 +59,7 @@ This ensures:
   - [3. Type coercion failure messages - RESOLVED](#3-type-coercion-failure-messages---resolved)
   - [4. String join edge cases - RESOLVED](#4-string-join-edge-cases---resolved)
   - [5. Private method testing approach - RESOLVED](#5-private-method-testing-approach---resolved)
-  - [6. Flexible param resolution usage patterns - RESOLVED](#6-flexible-param-resolution-usage-patterns---resolved)
+  - [6. Parameter lookup usage patterns - RESOLVED](#6-parameter-lookup-usage-patterns---resolved)
   - [7. Migration path for `set_config_list_value()` users - RESOLVED](#7-migration-path-for-set_config_list_value-users---resolved)
 - [Success Criteria](#success-criteria)
 
@@ -162,7 +162,7 @@ This ensures:
 
 [↑ Back to top](#table-of-contents)
 
-### 3. Create flexible param resolution system
+### 3. Create parameter lookup system
 
 **File:** `src/spafw37/param.py`
 
@@ -173,7 +173,7 @@ This ensures:
   - Create public backward-compat wrappers with deprecation warnings
 
 - **Create `_resolve_param_definition()` helper:**
-  - Flexible param resolution supporting three address spaces:
+  - Lookup parameter by name, bind_name, or alias:
     1. **param_name** - parameter name (e.g., `'database-host'`)
     2. **bind_name** - config key (e.g., `'database_host'`)
     3. **alias** - CLI alias (e.g., `'--db-host'`, `-d`)
@@ -589,7 +589,7 @@ This ensures:
 
 [↑ Back to top](#table-of-contents)
 
-### 7. Add `set_param_value()` with flexible resolution
+### 7. Add `set_param_value()` function
 
 **File:** `src/spafw37/param.py`
 
@@ -634,7 +634,7 @@ This ensures:
 
 [↑ Back to top](#table-of-contents)
 
-### 8. Add `join_param_value()` with flexible resolution
+### 8. Add `join_param_value()` function
 
 **File:** `src/spafw37/param.py`
 
@@ -712,11 +712,11 @@ This ensures:
 
 [↑ Back to top](#table-of-contents)
 
-### 10. Add typed param getters with flexible resolution
+### 10. Add typed param getters
 
 **File:** `src/spafw37/param.py`
 
-- **Create base getter with flexible resolution:**
+- **Create base getter:**
 
   ```python
   def get_param_value(param_name=None, bind_name=None, alias=None, default=None, strict=False):
@@ -729,7 +729,7 @@ This ensures:
   - Retrieve from config: `config.get_config_value(config_key)`
   - Return raw value or default if missing
 
-- **Create typed getters (all with flexible resolution):**
+- **Create typed getters:**
   
   - `get_param_str(param_name=None, bind_name=None, alias=None, default='', strict=False)`:
     - Get value via `get_param_value()`
@@ -1238,11 +1238,11 @@ Current tests call `_parse_value()` directly (13 matches).
 
 [↑ Back to top](#table-of-contents)
 
-### 6. Flexible param resolution usage patterns - RESOLVED
+### 6. Parameter lookup usage patterns - RESOLVED
 
 **Decision:** Document both patterns with clear guidelines (Step 16).
 
-The `_resolve_param_definition()` helper enables three levels of specificity:
+The `_resolve_param_definition()` helper supports three lookup methods:
 
 - **Failover mode (user-friendly):** `set_param_value('database', value='postgres')`
   - Tries param_name → bind_name → alias until match found
@@ -1332,7 +1332,7 @@ This section documents significant deviations from the original implementation p
 
 ### API Simplification: Unified `get_param()` Instead of Typed Getters
 
-**Original Plan:** Step 10 specified six typed getters (`get_param_str()`, `get_param_int()`, `get_param_bool()`, `get_param_float()`, `get_param_list()`, `get_param_dict()`), each with flexible resolution and coercion logic.
+**Original Plan:** Step 10 specified six typed getters (`get_param_str()`, `get_param_int()`, `get_param_bool()`, `get_param_float()`, `get_param_list()`, `get_param_dict()`), each accepting name, bind_name, or alias with type coercion logic.
 
 **Actual Implementation:** Created a single unified `get_param()` function that automatically routes to the appropriate typed getter based on `PARAM_TYPE` from the parameter definition.
 
@@ -1570,16 +1570,22 @@ Issue #27: Pivot from Config Focus to Param Focus
 - `PARAM_DICT_MERGE_TYPE` constant controls whether dict merging recurses into nested dicts or only merges top-level keys.
 - `PARAM_DICT_OVERRIDE_STRATEGY` constant determines which value wins when same key appears in multiple dicts being merged.
 - `PARAM_INPUT_FILTER` constant specifies function to transform raw CLI input before type validation runs.
-- Multiple JSON blocks in one parameter occurrence get merged: `--config '{"a":1}' '{"b":2}'` produces `{"a":1, "b":2}`.
-- `@filename` in JSON value loads file content: `--config '{"data": @file.json}'` reads file and embeds content.
-- Multiple `@filename` references for list parameters load all files: `--files @batch1.txt @batch2.txt` reads both files into one list.
-- Parameters can be referenced by name, bind_name, or alias. Each identifier checks its own namespace.
+- Multiple JSON blocks in one parameter occurrence get merged.
+- File reference syntax in JSON values loads file content.
+- Multiple file references for list parameters load all files into one list.
+- Parameters can be referenced by name, bind_name, or alias.
 
 ### Removals
 
 These functions removed in v2.0.0 (emit deprecation warnings in v1.1.0):
 
-- `get_config_value()`, `get_config_str()`, `get_config_int()`, `get_config_bool()`, `get_config_float()`, `get_config_list()`, `get_config_dict()`
+- `get_config_value()`
+- `get_config_str()`
+- `get_config_int()`
+- `get_config_bool()`
+- `get_config_float()`
+- `get_config_list()`
+- `get_config_dict()`
 - `set_config_value()`
 - `set_config_list_value()`
 
@@ -1592,28 +1598,36 @@ These functions removed in v2.0.0 (emit deprecation warnings in v1.1.0):
 
 - Change `get_config_str('key')` to `get_param('key')`
 - Change `get_config_int('key', 0)` to `get_param('key', 0)`
-- Same pattern for bool, float, list, dict variants
-- Change `set_config_value('key', value)` to `set_param(param_name='key', value=value)` when replacing entire value
-- Change `set_config_value('key', value)` to `join_param(param_name='key', value=value)` when adding to existing value
-- Change manual list append pattern (get, append, set) to single `join_param()` call
+- Change `set_config_value('key', value)` to `set_param(param_name='key', value=value)` for replacement
+- Change `set_config_value('key', value)` to `join_param(param_name='key', value=value)` for accumulation
 
 ### Documentation
 
-- 8 documentation files updated to use new API
-- 11 parameter examples updated
-- 10+ command examples updated
-- 3 cycle examples updated
-- 2 new examples: `params_join.py` demonstrates join operations, `params_input_filter.py` demonstrates input transformation
+- `doc/parameters.md` added parameter API section
+- `doc/configuration.md` clarified config vs param distinction
+- `doc/commands.md` changed command implementation examples
+- `doc/api-reference.md` added Parameter API section
+- `doc/README.md` changed quick start examples
+- `doc/cycles.md` changed cycle examples to param API
+- `doc/phases.md` changed phase examples to param API
+- `doc/logging.md` changed logging examples to param API
+- `examples/params_join.py` demonstrates join operations
+- `examples/params_input_filter.py` demonstrates input transformation
+- 11 parameter examples changed
+- 10+ command examples changed
+- 3 cycle examples changed
 
 ### Testing
 
 - 509 tests pass
 - 94.46% code coverage
-- Deprecated functions have backward compatibility tests
-- No test failures from existing test suite
+- New tests for parameter lookup by name, bind_name, and alias
+- New tests for typed getters with coercion
+- New tests for join operations (list, string, dict)
+- Deprecated function backward compatibility tests
+- No failures from existing test suite
 
 ---
 
 Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0  
-Issue: https://github.com/minouris/spafw37/issues/27  
-Pull request: https://github.com/minouris/spafw37/pull/31
+Issues: https://github.com/minouris/spafw37/issues/27

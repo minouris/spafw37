@@ -18,6 +18,7 @@ PARAM_HAS_VALUE = 'has-value'  # DEPRECATED: Use PARAM_TYPE to determine if para
 PARAM_RUNTIME_ONLY = 'runtime-only'  # Not persisted, only for runtime use, not checked at start of queue, but checked when a command that uses them is run
 PARAM_GROUP = 'param-group'  # Group name for organising parameters in help display
 PARAM_IMMUTABLE = 'immutable'  # Immutability flag - prevents modification and removal after initial value set. Boolean flag, default: False
+PARAM_ALLOWED_VALUES = 'allowed-values'  # List of allowed values for TEXT and NUMBER params. Value must be in this list.
 
 # Param Persistence Options
 PARAM_PERSISTENCE_ALWAYS = 'always'  # Param is always persisted to main config file
