@@ -85,7 +85,71 @@ jobs:
 
     - name: Build package
       run: |
-        python3 -m build
+        # Build both source distribution and wheel explicitly
+        python3 -m build --sdist --wheel
+
+    - name: List distribution artifacts
+      run: |
+        echo "Built files in dist/"
+        ls -la dist || true
+
+    # Guard: ensure both a universal wheel and a source distribution are present
+    # This prevents uploading incomplete packaging artifacts to TestPyPI.
+    - name: Verify distribution artifacts and metadata
+      run: |
+        set -euo pipefail
+
+        echo "Checking for wheel and sdist in dist/"
+
+        WHEEL=$(ls dist/*.whl 2>/dev/null | grep -E 'py3-none-any|py2.py3-none-any|py3-none-any' | head -n1 || true)
+        if [ -z "$WHEEL" ]; then
+          WHEEL=$(ls dist/*.whl 2>/dev/null | head -n1 || true)
+        fi
+
+        if [ -z "$WHEEL" ]; then
+          echo "ERROR: No wheel file found in dist/"
+          ls -la dist || true
+          exit 1
+        fi
+
+        echo "Inspecting wheel: $WHEEL"
+
+        TMPDIR=$(mktemp -d)
+        unzip -q "$WHEEL" -d "$TMPDIR"
+        META=$(find "$TMPDIR" -type f -name METADATA -print -quit || true)
+        if [ -z "$META" ]; then
+          echo "ERROR: Could not find METADATA inside wheel: $WHEEL"
+          ls -la "$TMPDIR" || true
+          rm -rf "$TMPDIR"
+          exit 1
+        fi
+
+        grep -i '^Requires-Python:' "$META" || true
+
+        REQUIRES_PYTHON=$(grep -i '^Requires-Python:' "$META" | sed 's/[Rr]equires-[Pp]ython:\s*//') || true
+        if [ -z "$REQUIRES_PYTHON" ]; then
+          echo "ERROR: Wheel METADATA does not include a Requires-Python field; expected '>=3.7'"
+          rm -rf "$TMPDIR"
+          exit 1
+        fi
+
+        echo "Requires-Python: $REQUIRES_PYTHON"
+
+        echo "$REQUIRES_PYTHON" | grep -E '>= *3\.7|3\.7' >/dev/null 2>&1 || {
+          echo "ERROR: Wheel does not advertise Python >=3.7 in Requires-Python: $REQUIRES_PYTHON"
+          rm -rf "$TMPDIR"
+          exit 1
+        }
+
+        rm -rf "$TMPDIR"
+
+        if ls dist/*.tar.gz 1> /dev/null 2>&1; then
+          echo "Found sdist (.tar.gz)"
+        else
+          echo "ERROR: No source distribution (.tar.gz) found in dist/"
+          ls -la dist || true
+          exit 1
+        fi
 
     - name: Publish to TestPyPI
       env:
