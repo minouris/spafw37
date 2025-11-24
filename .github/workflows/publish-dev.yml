@@ -116,12 +116,18 @@ jobs:
         git push origin "$TAG"
         echo "Created and pushed tag: $TAG"
 
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        python3 .github/scripts/generate_dev_release_notes.py "${{ steps.publish_version.outputs.version }}" > release_notes.md
+        echo "Release notes generated"
+
     - name: Create GitHub pre-release
       run: |
         TAG="v${{ steps.publish_version.outputs.version }}"
         gh release create "$TAG" \
           --title "Dev Release ${{ steps.publish_version.outputs.version }}" \
-          --notes "Development pre-release. Install with: \`pip install -i https://test.pypi.org/simple/ spafw37==${{ steps.publish_version.outputs.version }}\`" \
+          --notes-file release_notes.md \
           --prerelease \
           dist/*
       env:

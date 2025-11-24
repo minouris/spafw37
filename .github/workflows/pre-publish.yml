@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+
 concurrency:
   group: pre-publish-${{ github.ref }}
   cancel-in-progress: true
@@ -152,3 +155,48 @@ jobs:
         name: dist-packages
         path: dist/
         retention-days: 7
+
+  update-changelog:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: ${{ github.ref }}
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.7'
+
+    - name: Generate changelog
+      id: generate
+      run: |
+        python3 .github/scripts/generate_changelog.py
+
+    - name: Check if CHANGELOG.md changed
+      id: check_changes
+      run: |
+        if git diff --quiet CHANGELOG.md; then
+          echo "No changes to CHANGELOG.md"
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG.md has changes"
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Commit and push changelog
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        git add CHANGELOG.md
+        git commit -m "Update CHANGELOG.md [skip ci]"
+        git push

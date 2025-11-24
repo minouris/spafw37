@@ -73,13 +73,22 @@ jobs:
         echo "release_version=${RELEASE}" >> $GITHUB_OUTPUT
         echo "Stripped dev suffix, release version: ${RELEASE}"
 
+    - name: Update README links to point to release tag
+      run: |
+        RELEASE="${{ steps.version.outputs.release_version }}"
+        # Update links from /tree/main/ to /tree/v1.0.0/
+        sed -i "s|/tree/main/|/tree/v${RELEASE}/|g" README.md
+        # Update links from /blob/main/ to /blob/v1.0.0/
+        sed -i "s|/blob/main/|/blob/v${RELEASE}/|g" README.md
+        echo "Updated README links to point to v${RELEASE}"
+
     - name: Create release branch
       run: |
         RELEASE="${{ steps.version.outputs.release_version }}"
         BRANCH="release/v${RELEASE}"
         
         git checkout -b "$BRANCH"
-        git add setup.cfg
+        git add setup.cfg README.md
         git commit -m "Release version ${RELEASE} [skip ci]"
         git push origin "$BRANCH"
         echo "Created release branch: $BRANCH"
@@ -136,12 +145,55 @@ jobs:
         git push origin "$TAG"
         echo "Created and pushed tag: $TAG"
 
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.prepare-stable-release.outputs.release_version }}"
+        # For stable releases, generate full changelog
+        python3 .github/scripts/generate_dev_release_notes.py "${VERSION}" > release_notes_temp.md
+        
+        # Create stable release notes with proper formatting
+        {
+          echo "## Stable Release ${VERSION}"
+          echo ""
+          echo "This is a production release published to PyPI."
+          echo ""
+          echo "### Installation"
+          echo ""
+          echo "Install from PyPI:"
+          echo ""
+          echo '```bash'
+          echo "pip install spafw37==${VERSION}"
+          echo '```'
+          echo ""
+          echo "Or to upgrade an existing installation:"
+          echo ""
+          echo '```bash'
+          echo "pip install --upgrade spafw37==${VERSION}"
+          echo '```'
+          echo ""
+        } > release_notes.md
+        
+        # Extract just the Changes section from dev release notes
+        sed -n '/### Changes/,/^---/p' release_notes_temp.md | sed '$ d' >> release_notes.md
+        
+        # Add package links
+        {
+          echo ""
+          echo "---"
+          echo ""
+          echo "📦 **Package:** [spafw37 on PyPI](https://pypi.org/project/spafw37/${VERSION}/)"
+          echo "📋 **Full Changelog:** [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)"
+        } >> release_notes.md
+        
+        echo "Release notes generated"
+
     - name: Create GitHub Release
       run: |
         TAG="v${{ needs.prepare-stable-release.outputs.release_version }}"
         gh release create "$TAG" \
           --title "Release ${{ needs.prepare-stable-release.outputs.release_version }}" \
-          --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details." \
+          --notes-file release_notes.md \
           dist/*
       env:
         GH_TOKEN: ${{ github.token }}
