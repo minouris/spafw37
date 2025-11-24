@@ -46,6 +46,17 @@ python params_toggles.py process --input data.txt --csv
 python params_lists.py process --file a.txt --file b.txt --tag urgent --tag review
 ```
 
+### `params_allowed_values.py` - Restrict parameter values to allowed set
+- Constraining TEXT, NUMBER, and LIST parameters to predefined values
+- Case-insensitive matching for TEXT parameters
+- Clear error messages for invalid values
+
+**Run:**
+```bash
+python params_allowed_values.py deploy --env production
+python params_allowed_values.py start --port 8080 --size large
+```
+
 ### `params_dict.py` - Dict (JSON) Parameters
 - Dict/object parameters with JSON data
 - Inline JSON, multi-token JSON, file loading

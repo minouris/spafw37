@@ -699,3 +699,99 @@ def test_no_logging_suppresses_non_errors(capfd):
     assert "Test debug message" not in captured.err
     assert "Test info message" not in captured.err
     assert "Test warning message" not in captured.err
+
+
+def test_log_level_param_accepts_valid_values():
+    """Test that LOG_LEVEL_PARAM accepts all valid log level values.
+    
+    Verifies that the LOG_LEVEL_PARAM can be set to any of the allowed values:
+    CRITICAL, ERROR, WARNING, INFO, DEBUG, TRACE.
+    """
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    
+    # All valid log levels should be accepted
+    valid_levels = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'TRACE']
+    for level in valid_levels:
+        param.set_param(param_name=LOG_LEVEL_PARAM, value=level)
+        assert param.get_param(param_name=LOG_LEVEL_PARAM) == level
+
+
+def test_log_level_param_rejects_invalid_values():
+    """Test that LOG_LEVEL_PARAM rejects invalid log level values.
+    
+    Verifies that attempting to set LOG_LEVEL_PARAM to a value not in the
+    allowed values list raises a ValueError with appropriate error message.
+    """
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    
+    import pytest
+    # Invalid log levels should be rejected
+    with pytest.raises(ValueError, match="Value 'INVALID' not allowed for parameter 'log-level'"):
+        param.set_param(param_name=LOG_LEVEL_PARAM, value='INVALID')
+    
+    with pytest.raises(ValueError, match="Value 'NOTSET' not allowed for parameter 'log-level'"):
+        param.set_param(param_name=LOG_LEVEL_PARAM, value='NOTSET')
+    
+    with pytest.raises(ValueError, match="Value 'VERBOSE' not allowed for parameter 'log-level'"):
+        param.set_param(param_name=LOG_LEVEL_PARAM, value='VERBOSE')
+
+
+def test_log_level_param_case_insensitive_matching():
+    """Test that LOG_LEVEL_PARAM performs case-insensitive matching.
+    
+    Verifies that log level values can be provided in any case (lowercase,
+    uppercase, mixed case) and are normalised to the canonical uppercase form.
+    """
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    
+    # Lowercase input should be normalised to uppercase
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='debug')
+    assert param.get_param(param_name=LOG_LEVEL_PARAM) == 'DEBUG'
+    
+    # Mixed case should be normalised to uppercase
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='WaRnInG')
+    assert param.get_param(param_name=LOG_LEVEL_PARAM) == 'WARNING'
+    
+    # Lowercase 'trace' should be normalised to 'TRACE'
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='trace')
+    assert param.get_param(param_name=LOG_LEVEL_PARAM) == 'TRACE'
+    
+    # Verify invalid value in lowercase is still rejected
+    import pytest
+    with pytest.raises(ValueError, match="Value 'invalid' not allowed for parameter 'log-level'"):
+        param.set_param(param_name=LOG_LEVEL_PARAM, value='invalid')
+
+
+def test_log_level_param_integration_with_logging_system():
+    """Test that LOG_LEVEL_PARAM with allowed values integrates correctly with logging system.
+    
+    Verifies that setting LOG_LEVEL_PARAM to various allowed values correctly
+    configures the logging system to use those levels.
+    """
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    
+    # Set to WARNING and verify it applies
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='WARNING')
+    logging.apply_logging_config()
+    assert logging._console_handler.level == stdlib_logging.WARNING
+    assert logging._file_handler.level == stdlib_logging.WARNING
+    
+    # Reset logging and try ERROR level
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='ERROR')
+    logging.apply_logging_config()
+    assert logging._console_handler.level == stdlib_logging.ERROR
+    assert logging._file_handler.level == stdlib_logging.ERROR
+    
+    # Reset logging and try DEBUG with lowercase input
+    setup_function()
+    param.add_params(LOGGING_PARAMS)
+    param.set_param(param_name=LOG_LEVEL_PARAM, value='debug')  # lowercase
+    logging.apply_logging_config()
+    assert logging._console_handler.level == stdlib_logging.DEBUG
+    assert logging._file_handler.level == stdlib_logging.DEBUG

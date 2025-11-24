@@ -37,7 +37,7 @@ No changes to the logging system in this release. The logging API remains stable
 - **Custom TRACE level** - Below DEBUG for ultra-detailed logging
 - **Scope-based logging** - Organise logs by module, phase, or feature
 - **Multiple outputs** - File, console (stdout), and error (stderr) handlers
-- **Flexible control** - CLI parameters for runtime log level adjustment
+- **Runtime control** - CLI parameters for runtime log level adjustment
 - **Automatic formatting** - Consistent timestamped log entries
 - **Persistent preferences** - Save log directory between runs
 

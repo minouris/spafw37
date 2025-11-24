@@ -1,0 +1,48 @@
+name: Build Python from source (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        type: string
+        required: false
+        default: "3.7.9"
+
+jobs:
+  build-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure cache directories exist
+        run: |
+          mkdir -p "${{ github.workspace }}/.local/python-${{ inputs.python_version }}" "${{ github.workspace }}/.cache/pip"
+
+      - name: Restore Python build cache
+        id: python-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+          key: python-build-${{ runner.os }}-${{ inputs.python_version }}
+
+      - name: Restore pip cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/pip
+          key: pip-${{ runner.os }}-${{ inputs.python_version }}-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ inputs.python_version }}-
+
+      - name: Build and install Python (only if cache miss)
+        if: steps.python-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          PY=${{ inputs.python_version }}
+          PY_PREFIX="${{ github.workspace }}/.local/python-${{ inputs.python_version }}"
+          mkdir -p $HOME/src
+          cd $HOME/src
+          wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
+          tar xzf Python-${PY}.tgz
+          cd Python-${PY}
+          ./configure --prefix=$PY_PREFIX --with-ensurepip=install
+          make -j "$(nproc)"
+          make install
+          ls -la "$PY_PREFIX/bin"

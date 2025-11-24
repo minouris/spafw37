@@ -1,18 +1,31 @@
 name: Test
 
 on:
-  push:
-    branches: [ "main", "master", "develop" ]
-  pull_request:
-    branches: [ "main", "master", "develop" ]
-  workflow_call:  # Allow this workflow to be called by other workflows
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to build/use'
+        required: false
+        type: string
+        default: '3.7.9'
+      coverage_threshold:
+        description: 'Coverage threshold to enforce (integer)'
+        required: false
+        type: number
+        default: 80
 
 jobs:
+  prepare-python:
+    uses: ./.github/workflows/build-python.yml
+    with:
+      python_version: ${{ inputs.python_version || '3.7.9' }}
+
   test:
+    needs: prepare-python
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: '3.7.9'
-      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PYTHON_VERSION: ${{ inputs.python_version || '3.7.9' }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version || '3.7.9' }}
       PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
     
     steps:
@@ -23,38 +36,19 @@ jobs:
       run: |
         mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
 
-    - name: Restore Python build & pip caches
-      id: python-cache
+    - name: Restore Python build cache
       uses: actions/cache@v4
       with:
-        path: |
-          ${{ env.PY_PREFIX }}
-          ${{ env.PIP_CACHE_DIR }}
-        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
-          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
-
-    - name: Install build dependencies
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
-          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
-          libnss3-dev liblzma-dev libffi-dev uuid-dev
-
-    - name: Build and install Python (only if cache miss)
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        set -euo pipefail
-        PY=${{ env.PYTHON_VERSION }}
-        mkdir -p $HOME/src
-        cd $HOME/src
-        wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
-        tar xzf Python-${PY}.tgz
-        cd Python-${PY}
-        ./configure --prefix=$PY_PREFIX --with-ensurepip=install
-        make -j "$(nproc)"
-        make install     
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
     - name: Add built Python to PATH
       run: |
@@ -72,10 +66,9 @@ jobs:
         if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
         python3 -m pip install -e .
 
-    - name: Run tests
+    - name: Run tests and enforce coverage
       run: |
-        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term-missing
-
-    - name: Check test coverage
-      run: |
-        python3 -m pytest tests/ --cov=spafw37 --cov-report=term --cov-fail-under=80
+        set -euo pipefail
+        THRESHOLD=${{ inputs.coverage_threshold || 80 }}
+        echo "Running tests with coverage threshold: ${THRESHOLD}%"
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=${THRESHOLD}

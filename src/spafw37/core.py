@@ -364,9 +364,9 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
     This replaces any existing value. Use join_param() to accumulate values instead.
     
     Args:
-        param_name: Parameter name to set (flexible resolution).
-        bind_name: Config bind name to set (flexible resolution).
-        alias: Parameter alias to set (flexible resolution).
+        param_name: Parameter name to set.
+        bind_name: Config bind name to set.
+        alias: Parameter alias to set.
         value: The value to set for the parameter.
     
     Raises:
@@ -391,9 +391,9 @@ def join_param(param_name=None, bind_name=None, alias=None, value=None):
     - Dicts: Merges (shallow or deep based on PARAM_DICT_MERGE_TYPE)
     
     Args:
-        param_name: Parameter name to join (flexible resolution).
-        bind_name: Config bind name to join (flexible resolution).
-        alias: Parameter alias to join (flexible resolution).
+        param_name: Parameter name to join.
+        bind_name: Config bind name to join.
+        alias: Parameter alias to join.
         value: The value to join to the parameter.
     
     Raises:

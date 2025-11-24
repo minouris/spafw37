@@ -49,17 +49,6 @@ Manual workflow for production releases to PyPI with selectable modes.
   - Skips all git operations and versioning
 - Provides detailed workflow summary showing mode, status, and next steps
 
-### post-patreon.yml
-
-Manual workflow for posting release announcements to Patreon.
-
-- Triggered manually via workflow_dispatch
-- Requires version number input
-- Optional GitHub Release URL (auto-detected if not provided)
-- Extracts changelog for the version
-- Posts formatted announcement to Patreon
-- Requires PATREON_ACCESS_TOKEN secret
-
 ### backout-release.yml
 
 Manual workflow for rolling back a release.
@@ -103,38 +92,7 @@ Manual workflow for updating PyPI documentation without creating a new release.
 5. Value: Paste the token from TestPyPI
 6. Click **Add secret**
 
-### 3. (Optional) Configure Patreon Integration
-
-The release workflow can automatically post release announcements to Patreon.
-
-#### Create Patreon Access Token
-
-1. Go to the [Patreon Creator Portal](https://www.patreon.com/portal/registration/register-clients)
-2. Click "Create Client"
-3. Fill in the application details:
-   - **App Name**: Your project name (e.g., "spafw37 Release Bot")
-   - **Description**: Brief description (e.g., "Automated release announcements")
-   - **App Category**: Choose "Tools & Utilities"
-   - **Redirect URIs**: Add `http://localhost:3000/oauth/redirect` (required but not used)
-4. Click "Create Client"
-5. Copy your **Client ID** and **Client Secret**
-6. Generate an access token:
-   - Go to the OAuth2 playground or use the Patreon API to get a Creator Access Token
-   - Scopes needed: `w:posts.create` (create posts)
-7. Copy the access token
-
-#### Add Patreon Token to GitHub Secrets
-
-1. Go to your repository on GitHub
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Name: `PATREON_ACCESS_TOKEN`
-5. Value: Paste the access token from Patreon
-6. Click **Add secret**
-
-If the `PATREON_ACCESS_TOKEN` secret is not configured, the release workflow will skip the Patreon posting step without failing.
-
-### 4. Version Management
+### 3. Version Management
 
 The version in `setup.cfg` follows the format: `X.Y.Z.devN`
 

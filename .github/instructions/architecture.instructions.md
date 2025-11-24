@@ -1,33 +1,31 @@
+---
+applyTo: "doc/architecture/**/*"
+---
+
 # Architecture Design Instructions
 
-## CRITICAL: NO GUESSING POLICY
+## Critical Requirements
 
-**NEVER guess or make assumptions about:**
-- External API specifications, endpoints, or data structures
-- Third-party library behavior or usage patterns
-- File formats, protocols, or standards you're not certain about
-- Configuration requirements for external services
+**NO GUESSING POLICY:** See `general.instructions.md` for the complete NO GUESSING POLICY. Never guess about external APIs, third-party libraries, file formats, protocols, or configuration requirements.
 
-**If you don't know something:**
-1. **Explicitly state that you don't know**
-2. **Explain what you would need to know to proceed**
-3. **Suggest where the user can find the information**
-4. **Ask the user to verify or provide the correct information**
+**UK ENGLISH:** See `general.instructions.md` for localization requirements. Use UK English spelling, metric units, and internationally neutral examples.
 
-**Example of correct behavior:**
-"I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
+**GIT OPERATIONS:** See `general.instructions.md` for Git operations policy. You may not commit or push code.
 
-**This applies to ALL work - code, configuration, documentation, and any other task.**
+## Scope
 
-## Context
+This instructions file applies to architecture documentation work (typically in `doc/architecture/**` or similar directories).
 
-This instructions file applies to work in the `doc/architecture/**` folder. We are designing a **fresh implementation** of the embedded Python debugger from the ground up, without assumptions from the previous implementation.
+**Related Instructions:**
+- `general.instructions.md` - NO GUESSING POLICY, UK English, Git policy
+- `documentation.instructions.md` - General documentation standards
+- `mermaid.instructions.md` - Mermaid diagram styling and conventions 
 
 ## Core Principles
 
 ### Clean Slate Design
-- **No legacy assumptions**: Do not assume the new design must match the current implementation
-- **Protocol-agnostic**: Do not assume DAP, debugpy, or any specific front-side protocol
+- **No legacy assumptions**: Do not assume the new design must match any current implementation
+- **Technology-agnostic**: Do not assume specific protocols, frameworks, or libraries without explicit requirements
 - **Fresh thinking**: Question all previous design decisions and evaluate alternatives
 - **Ground-up rebuild**: Start from requirements and design the optimal solution
 
@@ -60,34 +58,26 @@ This instructions file applies to work in the `doc/architecture/**` folder. We a
 ## Documentation Standards
 
 ### Architecture Documents
-- **Location**: `doc/architecture/` directory. Create new documents under this directory
+- **Location**: Architecture documentation directory (e.g., `doc/architecture/`)
 - **Format**: Markdown with Mermaid diagrams
 - **Structure**: Modular files discussing different aspects
-- **Navigation**: Maintain `index.md` and cross-references
+- **Navigation**: Maintain index and cross-references between documents
 
 ### Mermaid Diagrams
 - **Required**: Use Mermaid for all architectural diagrams
-- **Style guide**: Follow `doc/architecture/reference.md` colour palette and conventions
+- **Style guide**: Follow `mermaid.instructions.md` for colour palette and conventions
 - **Consistency**: Use the same colours for the same concepts across all diagrams
 - **Clarity**: Create small, focused diagrams rather than monolithic ones
-- **Dark mode**: Use dark backgrounds with white text (`colour:#fff`) as specified in reference.md
 
-### Colour Palette (from reference.md)
-- **Client/External Layer**: Dark red/pink tones
-- **FrontSide Adapter Layer**: Dark blue tones
-- **Central Control Layer**: Dark purple tones
-- **Backend/Tracer Layer**: Dark green tones
-- **Supporting Components**: Dark magenta/purple tones
-- **Synchronization**: Locks (red), Conditions (blue), Queues (magenta), Events (amber)
-
-All nodes must explicitly set:
-```
-style NodeName fill:#1565c0,stroke:#333,stroke-width:2px,colour:#fff
-```
+See `mermaid.instructions.md` for:
+- Complete colour palette by layer
+- Styling classes for different component types
+- Diagram examples and patterns
+- Mermaid syntax constraints and best practices
 
 ### Document Organisation
-- **Glossary**: Define all terms in `glossary.md` before using them
-- **Index**: Update `index.md` when adding new documents
+- **Glossary**: Maintain a glossary defining all architecture-specific terms
+- **Index**: Maintain an index of all architecture documents
 - **Cross-references**: Link related concepts across documents
 - **Versioning**: Note design version and date in each document
 
@@ -122,31 +112,10 @@ Architecture documents are for **design**, not implementation. Code examples are
 **USE DIAGRAMS INSTEAD:**
 - Class diagrams for structure
 - Sequence diagrams for interactions
-- State diagrams for behavior
+- State diagrams for behaviour
 - Flowcharts for logic
 
-**Example of ACCEPTABLE minimal code** (only when explicitly requested):
-```python
-def create_listener_tracer(base_class, listener_config=None):
-    class ListenerTracer(base_class):
-        # Implementation details omitted
-
-    return ListenerTracer
-```
-
-**Example of FORBIDDEN code** (NEVER include):
-```python
-def create_listener_tracer(base_class, listener_config=None):
-    class ListenerTracer(base_class):
-        def __init__(self):
-            super().__init__()
-            self._call_listener = Listener(**config)
-            # ... more implementation
-        
-        def user_call(self, frame, arg):
-            self._call_listener.dispatch(frame, arg)
-            # ... more implementation
-```
+See `mermaid.instructions.md` for diagram examples and patterns.
 
 **When in doubt: Use a diagram. Never use code.**
 
@@ -159,24 +128,24 @@ def create_listener_tracer(base_class, listener_config=None):
 
 ## Design Considerations
 
-### Protocol Independence
-- **No protocol assumptions**: Design should support multiple front-side protocols (DAP, CDP, custom)
-- **Adapter pattern**: Use adapters to isolate protocol specifics
-- **Canonical models**: Define protocol-independent internal models (Command, Event, etc.)
-- **Extensibility**: Design for easy addition of new protocols
+### Interface Independence
+- **No interface assumptions**: Design should support multiple interface types and communication protocols
+- **Adapter pattern**: Use adapters to isolate interface and protocol specifics
+- **Canonical models**: Define interface-independent internal models and data structures
+- **Extensibility**: Design for easy addition of new interfaces and protocols
 
-### Embedded Environment Constraints
-- **Python 3.7.9 compatibility**: All designs must work with Python 3.7 stdlib only
-- **No external dependencies**: Cannot rely on pip packages or external libraries
-- **Minimal footprint**: Must run efficiently in embedded/constrained environments
-- **Fault isolation**: Debugger failures must not crash the host application
-- **Standard library only**: All functionality using Python 3.7 standard library
+### Deployment Environment Constraints
+- **Version compatibility**: Designs must work within specified language/platform version constraints
+- **Dependency management**: Consider restrictions on external dependencies and libraries
+- **Resource efficiency**: Must run efficiently within target environment resource limits
+- **Fault isolation**: Application failures must not crash or corrupt the host environment
+- **Standard libraries**: Prefer standard libraries where possible to minimise dependencies
 
 ### Deployment Flexibility
-- **Compressed packages**: May run from zip/compressed archives
-- **Custom loaders**: Host may use non-standard import mechanisms
-- **No subprocesses**: Cannot spawn external processes
-- **Thread-safe**: Must coexist with host's threading model
+- **Package formats**: Consider various packaging and distribution formats
+- **Loading mechanisms**: Account for standard and non-standard loading patterns
+- **Process constraints**: Consider subprocess limitations in target environments
+- **Concurrency**: Design for thread-safety and concurrent operation where required
 
 ## Design Patterns to Consider
 
@@ -187,7 +156,7 @@ def create_listener_tracer(base_class, listener_config=None):
 - **Command**: Encapsulate operations as objects
 - **Factory**: Enable dependency injection and testing
 - **State**: Model component lifecycle
-- **Strategy**: Pluggable algorithms (e.g., stepping strategies)
+- **Strategy**: Pluggable algorithms and behaviour variations
 
 ### Anti-Patterns to Avoid
 - **God Object**: Distribute responsibilities appropriately
@@ -201,12 +170,13 @@ def create_listener_tracer(base_class, listener_config=None):
 Before finalising any design:
 
 - [ ] All terms defined in glossary
-- [ ] Mermaid diagrams follow style guide
-- [ ] Protocol independence maintained
-- [ ] Python 3.7 constraints respected
-- [ ] Standard library only (no external deps)
-- [ ] Embedded environment constraints addressed
-- [ ] Thread safety considered
+- [ ] Mermaid diagrams follow `mermaid.instructions.md` style guide
+- [ ] UK English spelling and conventions used (see `general.instructions.md`)
+- [ ] Interface independence maintained
+- [ ] Language/platform version constraints respected
+- [ ] Dependency constraints addressed
+- [ ] Deployment environment constraints addressed
+- [ ] Concurrency requirements considered
 - [ ] Fault isolation ensured
 - [ ] Design alternatives documented
 - [ ] Trade-offs explained
@@ -221,10 +191,10 @@ Before finalising any design:
 - Present multiple options with trade-offs
 - Explain reasoning behind recommendations
 - Start high-level and wait for direction to elaborate
-- Use the established glossary and terminology
+- Use established glossary and terminology
 - Create focused, modular diagrams
 - Document alternatives considered
-- Follow the Mermaid style guide religiously
+- Follow `mermaid.instructions.md` style guide
 - **Use diagrams to illustrate all design concepts**
 - **Show only minimal function/class signatures if explicitly requested**
 
@@ -232,11 +202,10 @@ Before finalising any design:
 - Provide code implementations (this is design work only)
 - **Include ANY code examples unless explicitly requested and approved**
 - **Show implementation details, method bodies, or logic in code**
-- Assume DAP or any specific protocol
-- Make assumptions based on the old implementation
+- Assume specific protocols, frameworks, or libraries without requirements
+- Make assumptions based on previous implementations
 - Add features or details without being asked
 - Create monolithic diagrams trying to show everything
-- Use light backgrounds or light text (breaks dark mode)
 - Skip glossary definitions
 - Anticipate or assume next steps
 
@@ -249,10 +218,18 @@ A good architecture design:
 3. **Flexible**: Can accommodate change and new requirements
 4. **Testable**: Components can be tested in isolation
 5. **Documented**: Decisions and trade-offs are recorded
-6. **Protocol-agnostic**: Not tied to any specific front-side protocol
-7. **Constraint-aware**: Respects Python 3.7 and embedded environment limits
+6. **Interface-agnostic**: Not tied to specific interfaces or protocols without justification
+7. **Constraint-aware**: Respects language, platform, and deployment environment constraints
 8. **Maintainable**: Future developers can understand and modify
 
 ---
 
-**Remember**: We are designing a new debugger from scratch. Question everything. Document thoroughly. Wait for user direction.
+## Related Instructions
+
+- **`general.instructions.md`** - NO GUESSING POLICY, UK English, Git operations policy, communication style
+- **`documentation.instructions.md`** - General documentation standards, formatting, version annotations
+- **`mermaid.instructions.md`** - Mermaid diagram colour palette, styling, syntax constraints, examples
+
+---
+
+**Remember**: Question everything. Document thoroughly. Wait for user direction.

@@ -20,6 +20,7 @@
 - [Default Values](#default-values)
 - [Required Parameters](#required-parameters)
 - [Configuration Binding](#configuration-binding)
+- [Allowed Values](#allowed-values)
 - [Immutable Parameters](#immutable-parameters)
 - [Persistence Control](#persistence-control)
 - [Mutual Exclusion (Switch Lists)](#mutual-exclusion-switch-lists)
@@ -369,6 +370,7 @@ Parameters are defined as dictionaries using these constants as keys:
 |----------|-------------|
 | `PARAM_CONFIG_NAME` | The internal name this param is bound to in the config dict. Defaults to PARAM_NAME if not specified. |
 | `PARAM_REQUIRED` | Whether this param always needs to be set, either by the user or in the config file. See [examples/params_required.py](../examples/params_required.py) for usage. |
+| `PARAM_ALLOWED_VALUES` | List of allowed values for TEXT, NUMBER, and LIST params. Value must be in this list. For TEXT and LIST, matching is case-insensitive with normalisation to canonical case. See [Allowed Values](#allowed-values) and [examples/params_allowed_values.py](../examples/params_allowed_values.py) for usage. |
 | `PARAM_IMMUTABLE` | Prevents modification or removal once set. See [Immutable Parameters](#immutable-parameters) and [examples/params_immutable.py](../examples/params_immutable.py) for usage. |
 
 ### Persistence Control
@@ -910,6 +912,120 @@ Access in commands:
 def my_command():
     path = spafw37.get_param('input')  # Use parameter name
 ```
+
+## Allowed Values
+
+**Added in v1.1.0**
+
+Restrict parameter values to a predefined set using `PARAM_ALLOWED_VALUES`. Only applies to TEXT, NUMBER, and LIST parameter types.
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_TYPE_LIST,
+    PARAM_ALIASES,
+    PARAM_DESCRIPTION,
+    PARAM_ALLOWED_VALUES,
+    PARAM_DEFAULT,
+)
+
+params = [
+    {
+        PARAM_NAME: 'environment',
+        PARAM_DESCRIPTION: 'Target environment',
+        PARAM_ALIASES: ['--env'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALLOWED_VALUES: ['dev', 'staging', 'production'],
+        PARAM_DEFAULT: 'dev',
+    },
+    {
+        PARAM_NAME: 'port',
+        PARAM_DESCRIPTION: 'Server port',
+        PARAM_ALIASES: ['--port'],
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_ALLOWED_VALUES: [80, 443, 8080, 8443],
+        PARAM_DEFAULT: 8080,
+    },
+    {
+        PARAM_NAME: 'features',
+        PARAM_DESCRIPTION: 'Enabled features',
+        PARAM_ALIASES: ['--feature'],
+        PARAM_TYPE: PARAM_TYPE_LIST,
+        PARAM_ALLOWED_VALUES: ['auth', 'api', 'database', 'cache'],
+    },
+]
+```
+
+**Validation:**
+- Values must be in the allowed list
+- Type coercion happens before validation
+- Default value must be in allowed values list
+- Clear error messages show allowed values
+
+**Case-insensitive matching:**
+- TEXT parameters: Case-insensitive matching with normalisation to canonical case
+- LIST parameters: Each element validated case-insensitively with normalisation
+- NUMBER parameters: Exact match required
+
+**What is canonical case normalisation?**
+
+When you specify allowed values, the framework stores them in a canonical case (the exact case you define). When users provide input, the framework:
+
+1. Performs case-insensitive matching to find a match in the allowed values list
+2. Returns the value in the canonical case from the allowed values list
+
+**Example:**
+
+```python
+params = [
+    {
+        PARAM_NAME: 'username',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_ALLOWED_VALUES: ['Alice', 'Bob', 'Charlie'],  # Canonical mixed case
+    }
+]
+
+# User provides lowercase input
+spafw37.set_param(param_name='username', value='alice')
+
+# Framework normalises to canonical case
+user = spafw37.get_param('username')  # Returns 'Alice' (mixed case from allowed values)
+```
+
+This ensures:
+- Users can type values in any case (alice, ALICE, Alice, aLiCe)
+- Your code always receives consistent, predictable values ('Alice')
+- Comparisons and logic work reliably without case-sensitivity issues
+
+For LIST parameters, each element is normalised individually:
+
+```python
+params = [
+    {
+        PARAM_NAME: 'users',
+        PARAM_TYPE: PARAM_TYPE_LIST,
+        PARAM_ALLOWED_VALUES: ['Alice', 'Bob', 'Charlie'],
+    }
+]
+
+# User provides mixed case
+spafw37.set_param(param_name='users', value=['alice', 'BOB', 'Charlie'])
+
+# Framework normalises each element to canonical case
+users = spafw37.get_param('users')  # Returns ['Alice', 'Bob', 'Charlie']
+```
+
+**Restrictions:**
+- Only TEXT, NUMBER, and LIST params support allowed values
+- TOGGLE params have implicit allowed values (True/False)
+- DICT params not supported (use custom validation)
+- Empty lists are rejected when allowed values are specified
+
+See [examples/params_allowed_values.py](../examples/params_allowed_values.py) for complete usage examples.
 
 ## Immutable Parameters
 

@@ -1,0 +1,516 @@
+name: Release Common
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to build/use'
+        required: false
+        type: string
+        default: '3.7.9'
+      coverage_threshold:
+        description: 'Coverage threshold to enforce (integer)'
+        required: false
+        type: number
+        default: 80
+      publish_to:
+        description: 'Publication target: pypi or testpypi'
+        required: true
+        type: string
+      version_operation:
+        description: 'Version operation: increment-dev, strip-dev, or none'
+        required: true
+        type: string
+      create_release_branch:
+        description: 'Create release branch for README link updates'
+        required: false
+        type: boolean
+        default: false
+      create_bugfix_branch:
+        description: 'Create bugfix branch from release tag'
+        required: false
+        type: boolean
+        default: false
+      create_release:
+        description: 'Create GitHub release (true) or pre-release (false)'
+        required: false
+        type: boolean
+        default: false
+      generate_full_changelog:
+        description: 'Generate full changelog (true) or issue-specific (false)'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Dry run mode (skip final commits/pushes/publishes)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  prepare-python:
+    uses: ./.github/workflows/build-python.yml
+    permissions:
+      contents: read
+    with:
+      python_version: ${{ inputs.python_version }}
+
+  test:
+    needs: prepare-python
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
+    - name: Install dependencies and package
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        python3 -m pip install -e .
+
+    - name: Run tests and enforce coverage
+      run: |
+        set -euo pipefail
+        THRESHOLD=${{ inputs.coverage_threshold }}
+        echo "Running tests with coverage threshold: ${THRESHOLD}%"
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=${THRESHOLD}
+
+  get_version:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.read_version.outputs.version }}
+      release_version: ${{ steps.calc_version.outputs.version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Read current version
+      id: read_version
+      run: |
+        VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+
+    - name: Calculate release version
+      id: calc_version
+      run: |
+        CURRENT="${{ steps.read_version.outputs.version }}"
+        OPERATION="${{ inputs.version_operation }}"
+        
+        if [[ "$OPERATION" == "strip-dev" ]]; then
+          # Remove .devN suffix for prod releases
+          RELEASE=$(echo "$CURRENT" | sed 's/\.dev[0-9]*$//')
+        elif [[ "$OPERATION" == "increment-dev" ]]; then
+          # Increment dev counter for dev releases
+          if [[ "$CURRENT" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.dev([0-9]+)$ ]]; then
+            BASE="${BASH_REMATCH[1]}"
+            DEV="${BASH_REMATCH[2]}"
+            NEXT=$((DEV + 1))
+            RELEASE="${BASE}.dev${NEXT}"
+          else
+            echo "Error: Cannot increment non-dev version: $CURRENT"
+            exit 1
+          fi
+        else
+          # No change
+          RELEASE="$CURRENT"
+        fi
+        
+        echo "version=$RELEASE" >> $GITHUB_OUTPUT
+        echo "Release version: $RELEASE"
+
+  prepare_release:
+    needs: [test, prepare-python, get_version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+      RELEASE_VERSION: ${{ needs.get_version.outputs.release_version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    outputs:
+      release_branch: ${{ steps.create_branch.outputs.branch }}
+      tag_name: ${{ steps.create_tag.outputs.tag }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Create release branch
+      id: create_branch
+      if: inputs.create_release_branch
+      run: |
+        BRANCH="release/v${{ env.RELEASE_VERSION }}"
+        echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+        git checkout -b "$BRANCH"
+        echo "Created release branch: $BRANCH"
+
+    - name: Update version in setup.cfg
+      if: inputs.version_operation != 'none'
+      run: |
+        sed -i "s/^version = .*/version = ${{ env.RELEASE_VERSION }}/" setup.cfg
+        echo "Updated version to ${{ env.RELEASE_VERSION }}"
+        git diff setup.cfg
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build & pip caches
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.PY_PREFIX }}
+          ${{ env.PIP_CACHE_DIR }}
+        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Update changelog version and date
+      if: inputs.generate_full_changelog && inputs.version_operation == 'strip-dev'
+      run: |
+        CURRENT="${{ needs.get_version.outputs.current_version }}"
+        RELEASE="${{ env.RELEASE_VERSION }}"
+        DATE=$(date +%Y-%m-%d)
+        
+        # Escape dots in CURRENT for regex safety
+        CURRENT_ESCAPED=$(echo "$CURRENT" | sed 's/\./\\./g')
+        
+        # Update version header from [X.Y.Z.devN] to [X.Y.Z] (YYYY-MM-DD)
+        sed -i "s/^\[${CURRENT_ESCAPED}\]/[${RELEASE}] (${DATE})/" CHANGELOG.md
+        echo "Updated CHANGELOG.md version to [$RELEASE] ($DATE)"
+        git diff CHANGELOG.md
+
+    - name: Update README links to tagged version
+      if: inputs.create_release_branch
+      run: |
+        TAG="v${{ env.RELEASE_VERSION }}"
+        
+        # Update /tree/main/ to /tree/vX.Y.Z/
+        sed -i "s|/tree/main/|/tree/${TAG}/|g" README.md
+        
+        # Update /blob/main/ to /blob/vX.Y.Z/
+        sed -i "s|/blob/main/|/blob/${TAG}/|g" README.md
+        
+        echo "Updated README.md links to ${TAG}"
+        git diff README.md
+
+    - name: Commit changes to release branch
+      if: inputs.version_operation != 'none' || inputs.generate_full_changelog || inputs.create_release_branch
+      run: |
+        git add setup.cfg CHANGELOG.md README.md || true
+        git commit -m "Release v${{ env.RELEASE_VERSION }} [skip ci]" || echo "No changes to commit"
+        git log --oneline -3
+
+    - name: Push version bump to main (dev releases)
+      if: inputs.version_operation == 'increment-dev' && env.DRY_RUN != 'true'
+      run: |
+        git push origin HEAD:main
+        echo "Pushed version bump to main"
+
+    - name: Create tag
+      id: create_tag
+      run: |
+        TAG="v${{ env.RELEASE_VERSION }}"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        git tag -a "$TAG" -m "Release $TAG"
+        echo "Created tag: $TAG"
+
+    - name: Push release branch
+      if: inputs.create_release_branch && env.DRY_RUN != 'true'
+      run: |
+        BRANCH="${{ steps.create_branch.outputs.branch }}"
+        git push origin "$BRANCH"
+        echo "Pushed release branch: $BRANCH"
+
+    - name: Push tag
+      if: env.DRY_RUN != 'true'
+      run: |
+        TAG="${{ steps.create_tag.outputs.tag }}"
+        git push origin "$TAG"
+        echo "Pushed tag: $TAG"
+
+    - name: Create bugfix branch from tag
+      if: inputs.create_bugfix_branch && env.DRY_RUN != 'true'
+      run: |
+        TAG="${{ steps.create_tag.outputs.tag }}"
+        VERSION="${{ env.RELEASE_VERSION }}"
+        
+        # Validate version doesn't contain .dev suffix
+        if [[ "$VERSION" =~ \.dev ]]; then
+          echo "Error: Cannot create bugfix branch from dev version: $VERSION"
+          exit 1
+        fi
+        
+        # Extract major.minor from version
+        if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\. ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          BUGFIX_BRANCH="bugfix/${MAJOR}.${MINOR}.x"
+          
+          git checkout -b "$BUGFIX_BRANCH" "$TAG"
+          git push origin "$BUGFIX_BRANCH"
+          echo "Created bugfix branch: $BUGFIX_BRANCH"
+        else
+          echo "Error: Could not extract major.minor from version: $VERSION"
+          exit 1
+        fi
+
+    - name: Merge release branch to main (excluding README)
+      if: inputs.create_release_branch && env.DRY_RUN != 'true'
+      run: |
+        BRANCH="${{ steps.create_branch.outputs.branch }}"
+        git checkout main
+        git pull origin main
+        
+        # Count the number of commits on the release branch not in main
+        COMMIT_COUNT=$(git rev-list --count "${BRANCH}" ^main)
+        
+        if [ "$COMMIT_COUNT" -ge 2 ]; then
+          # Merge all commits except the final one (which contains README changes)
+          git merge "${BRANCH}~1" --no-ff -m "Merge ${BRANCH} to main (version and changelog) [skip ci]"
+          git push origin main
+          echo "Merged $BRANCH to main (excluding README commit)"
+        else
+          echo "Not enough commits on $BRANCH to perform selective merge (expected at least 2, found $COMMIT_COUNT). Skipping merge."
+        fi
+
+    - name: Dry run summary
+      if: env.DRY_RUN == 'true'
+      run: |
+        echo "[DRY RUN] Would have performed:"
+        echo "  - Created tag: ${{ steps.create_tag.outputs.tag }}"
+        if [[ "${{ inputs.create_release_branch }}" == "true" ]]; then
+          echo "  - Pushed release branch: ${{ steps.create_branch.outputs.branch }}"
+          echo "  - Merged to main (excluding README)"
+        fi
+        if [[ "${{ inputs.create_bugfix_branch }}" == "true" ]]; then
+          echo "  - Created bugfix branch from tag"
+        fi
+
+  build_and_verify:
+    needs: [prepare_release, prepare-python]
+    uses: ./.github/workflows/build-and-verify.yml
+    with:
+      python_version: ${{ inputs.python_version }}
+      require_sdist: true
+
+  publish:
+    needs: [build_and_verify, get_version]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # For PyPI Trusted Publisher OIDC
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Download built dist artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist
+
+    - name: Publish to PyPI
+      if: inputs.publish_to == 'pypi' && env.DRY_RUN != 'true'
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel twine
+        python3 -m twine upload dist/*
+
+    - name: Publish to TestPyPI
+      if: inputs.publish_to == 'testpypi' && env.DRY_RUN != 'true'
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel twine
+        python3 -m twine upload --repository testpypi dist/*
+
+    - name: Dry run - Skip publish
+      if: env.DRY_RUN == 'true'
+      run: |
+        echo "[DRY RUN] Skipping publication to ${{ inputs.publish_to }}"
+        echo "Would publish the following files:"
+        ls -lh dist/
+
+  post_release:
+    needs: [publish, get_version, prepare_release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+      RELEASE_VERSION: ${{ needs.get_version.outputs.release_version }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Bump version for next development cycle
+      if: inputs.version_operation == 'strip-dev'
+      run: |
+        python3 .github/scripts/generate_dev_release_notes.py "${{ env.RELEASE_VERSION }}" > release_notes.md
+        echo "Generated release notes:"
+        cat release_notes.md
+
+    - name: Create GitHub release
+      if: env.DRY_RUN != 'true'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="${{ needs.prepare_release.outputs.tag_name }}"
+        RELEASE_TYPE=""
+        if [[ "${{ inputs.create_release }}" != "true" ]]; then
+          RELEASE_TYPE="--prerelease"
+        fi
+        
+        gh release create "$TAG" \
+          --title "Release $TAG" \
+          --notes-file release_notes.md \
+          $RELEASE_TYPE
+
+    - name: Bump version for next development cycle
+      if: inputs.version_operation == 'strip-dev'
+      run: |
+        # Pull latest changes from main to avoid conflicts
+        git checkout main
+        git pull origin main
+        
+        VERSION="${{ env.RELEASE_VERSION }}"
+        
+        # Extract major.minor.patch and increment patch
+        if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}.dev0"
+          
+          sed -i "s/^version = .*/version = ${NEXT_VERSION}/" setup.cfg
+          echo "Bumped version to ${NEXT_VERSION} for next development cycle"
+          git diff setup.cfg
+        else
+          echo "Error: Could not parse version: $VERSION"
+          exit 1
+        fi
+
+    - name: Commit version bump
+      if: inputs.version_operation == 'strip-dev' && env.DRY_RUN != 'true'
+      run: |
+        git add setup.cfg
+        git commit -m "Bump version to next development cycle [skip ci]"
+        git push origin main
+
+    - name: Dry run summary
+      if: env.DRY_RUN == 'true'
+      run: |
+        echo "[DRY RUN] Would have performed:"
+        echo "  - Created GitHub release: ${{ needs.prepare_release.outputs.tag_name }}"
+        if [[ "${{ inputs.version_operation }}" == "strip-dev" ]]; then
+          echo "  - Bumped version for next development cycle"
+        fi

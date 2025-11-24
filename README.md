@@ -154,6 +154,7 @@ from spafw37.constants.param import *
 - [`params_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/params_basic.py) - Text, number, aliases, defaults
 - [`params_toggles.py`](https://github.com/minouris/spafw37/blob/main/examples/params_toggles.py) - Boolean flags and mutually exclusive options
 - [`params_lists.py`](https://github.com/minouris/spafw37/blob/main/examples/params_lists.py) - Multi-value parameters
+- [`params_allowed_values.py`](https://github.com/minouris/spafw37/blob/main/examples/params_allowed_values.py) - Restrict parameter values to allowed set
 - [`params_dict.py`](https://github.com/minouris/spafw37/blob/main/examples/params_dict.py) - Dictionary parameters for key-value pairs
 - [`params_file.py`](https://github.com/minouris/spafw37/blob/main/examples/params_file.py) - File path parameters with validation
 - [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
@@ -336,14 +337,11 @@ Requires 80% test coverage to pass.
 
 ## Python 3.7 Compatibility
 
-This framework is specifically designed for Python 3.7 compatibility:
-- No type hints on function parameters or return types
-- No walrus operator (`:=`)
-- No positional-only parameters
-- Compatible with Python 3.7.0+
+This framework is specifically designed for Python 3.7.x<=9 compatibility, largely to make it of better use to the Sims 4 modding community.
 
 ## What's New in v1.1.0
 
+- **Allowed Values Validation** - New `PARAM_ALLOWED_VALUES` constant restricts TEXT, NUMBER, and LIST parameters to predefined value sets. TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case. Provides clear error messages when invalid values are provided.
 - **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
 - **Parameter Lifecycle Management** - Complete lifecycle control with `unset_param()` to remove values and `reset_param()` to restore defaults, plus `PARAM_IMMUTABLE` for write-once protection.
 - **Param-Focused Architecture** - Parameters are now the primary abstraction, with direct access to config being deprecated.

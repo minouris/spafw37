@@ -3,6 +3,7 @@ import re
 from spafw37 import logging
 
 from spafw37.constants.param import (
+    PARAM_ALLOWED_VALUES,
     PARAM_NAME,
     PARAM_CONFIG_NAME,
     PARAM_RUNTIME_ONLY,
@@ -357,6 +358,173 @@ def _validate_text(value):
     """
     if not isinstance(value, str):
         return str(value)
+    return value
+
+
+def _normalise_text_to_allowed_case(value, allowed_values):
+    """Match value case-insensitively against allowed_values and return canonical case.
+    
+    Performs case-insensitive comparison between value and each item in allowed_values.
+    Returns the canonical case from allowed_values if a match is found, None otherwise.
+    
+    Args:
+        value: String value to normalise
+        allowed_values: List of allowed string values in canonical case
+        
+    Returns:
+        String in canonical case if match found, None otherwise
+        
+    Example:
+        If allowed_values contains 'DEBUG' and value is 'debug', returns 'DEBUG'
+    """
+    value_lower = value.lower()
+    for allowed in allowed_values:
+        if allowed.lower() == value_lower:
+            return allowed
+    return None
+
+
+def _validate_text_allowed_values(param_name, value, allowed_values):
+    """Validate TEXT parameter value against allowed values with case-insensitive matching.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: String value to validate
+        allowed_values: List of allowed string values
+        
+    Raises:
+        ValueError: If value not in allowed values list
+    """
+    if _normalise_text_to_allowed_case(value, allowed_values) is None:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Value '{value}' not allowed for parameter '{param_name}'. "
+            f"Allowed values: {allowed_str}"
+        )
+
+
+def _validate_list_allowed_values(param_name, value, allowed_values):
+    """Validate LIST parameter elements against allowed values.
+    
+    Validates each element individually with case-insensitive matching.
+    Rejects empty lists when allowed values are specified.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: List of values to validate
+        allowed_values: List of allowed values
+        
+    Raises:
+        ValueError: If list is empty or any element not in allowed values
+    """
+    if not value:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Empty list not allowed for parameter '{param_name}'. "
+            f"Must provide at least one value from: {allowed_str}"
+        )
+    
+    if isinstance(value, (list, tuple)):
+        for element in value:
+            if _normalise_text_to_allowed_case(element, allowed_values) is None:
+                allowed_str = ', '.join(str(av) for av in allowed_values)
+                raise ValueError(
+                    f"List element '{element}' not allowed for parameter '{param_name}'. "
+                    f"Allowed values: {allowed_str}"
+                )
+
+
+def _validate_number_allowed_values(param_name, value, allowed_values):
+    """Validate NUMBER parameter value against allowed values with exact match.
+    
+    Args:
+        param_name: Parameter name for error messages
+        value: Numeric value to validate
+        allowed_values: List of allowed numeric values
+        
+    Raises:
+        ValueError: If value not in allowed values list
+    """
+    if value not in allowed_values:
+        allowed_str = ', '.join(str(av) for av in allowed_values)
+        raise ValueError(
+            f"Value {value} not allowed for parameter '{param_name}'. "
+            f"Allowed values: {allowed_str}"
+        )
+
+
+def _validate_allowed_values(param_definition, value):
+    """Validate value against allowed values list if specified.
+    
+    Checks if the parameter has PARAM_ALLOWED_VALUES defined and validates
+    that the provided value is in the allowed list. Delegates to type-specific
+    handlers for TEXT, NUMBER, and LIST parameters.
+    
+    Does not modify the value - raises ValueError if validation fails.
+    
+    Args:
+        param_definition: Parameter definition dict
+        value: Value to validate (single value for TEXT/NUMBER, list for LIST)
+        
+    Raises:
+        ValueError: If value is not in allowed values list
+    """
+    allowed_values = param_definition.get(PARAM_ALLOWED_VALUES)
+    if allowed_values is None:
+        return
+    
+    param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    param_name = param_definition.get(PARAM_NAME, 'unknown')
+    
+    # Only validate TEXT, NUMBER, and LIST params
+    if param_type not in (PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER, PARAM_TYPE_LIST):
+        return
+    
+    # Delegate to type-specific validator
+    if param_type == PARAM_TYPE_LIST:
+        _validate_list_allowed_values(param_name, value, allowed_values)
+    elif param_type == PARAM_TYPE_TEXT:
+        _validate_text_allowed_values(param_name, value, allowed_values)
+    elif param_type == PARAM_TYPE_NUMBER:
+        _validate_number_allowed_values(param_name, value, allowed_values)
+
+
+def _normalise_allowed_value(param_definition, value):
+    """Normalise value to canonical case from allowed values list.
+    
+    For TEXT parameters, returns the canonical case from PARAM_ALLOWED_VALUES.
+    For LIST parameters, returns list with each element normalised to canonical case.
+    For NUMBER parameters and others, returns value unchanged.
+    
+    Should only be called after _validate_allowed_values() has confirmed the value is valid.
+    
+    Args:
+        param_definition: Parameter definition dict
+        value: Value to normalise (must be valid)
+        
+    Returns:
+        Normalised value with canonical case
+    """
+    allowed_values = param_definition.get(PARAM_ALLOWED_VALUES)
+    if allowed_values is None:
+        return value
+    
+    param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    
+    # Normalise LIST elements to canonical case
+    if param_type == PARAM_TYPE_LIST:
+        normalised_list = []
+        if isinstance(value, (list, tuple)):
+            for element in value:
+                canonical = _normalise_text_to_allowed_case(element, allowed_values)
+                normalised_list.append(canonical)
+        return normalised_list
+    
+    # Normalise TEXT to canonical case
+    if param_type == PARAM_TYPE_TEXT:
+        return _normalise_text_to_allowed_case(value, allowed_values)
+    
+    # NUMBER and others - no normalisation needed
     return value
 
 
@@ -774,19 +942,26 @@ def param_in_args(param_name, args):
                 return True
     return False
 
-def add_param(_param):
-    """Add a parameter and activate it immediately.
+def _process_param_aliases(_param):
+    """Process and register all aliases for a parameter.
     
     Args:
-        _param: Parameter definition dictionary with keys like
-                PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
+        _param: Parameter definition dictionary.
     """
-    _param_name = _param.get(PARAM_NAME)
     if PARAM_ALIASES in _param:
-        for alias in _param.get(PARAM_ALIASES, []):
+        for alias in _param[PARAM_ALIASES]:
             _register_param_alias(_param, alias)
+
+
+def _process_param_switch_list(_param):
+    """Process inline parameter definitions in PARAM_SWITCH_LIST.
     
-    # Process inline parameter definitions in PARAM_SWITCH_LIST
+    Normalises switch list to contain parameter names and establishes
+    mutual exclusion relationships.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
     if PARAM_SWITCH_LIST in _param:
         switch_list = _param[PARAM_SWITCH_LIST]
         normalized_switches = []
@@ -795,8 +970,14 @@ def add_param(_param):
             normalized_switches.append(param_name)
         _param[PARAM_SWITCH_LIST] = normalized_switches
         _set_param_xor_list(_param[PARAM_NAME], normalized_switches)
+
+
+def _assign_default_input_filter(_param):
+    """Assign default input filter based on parameter type if not specified.
     
-    # Assign default input filter if not specified
+    Args:
+        _param: Parameter definition dictionary.
+    """
     if PARAM_INPUT_FILTER not in _param:
         param_type = _param.get(PARAM_TYPE, PARAM_TYPE_TEXT)
         # Look up the filter function name from the constants dict
@@ -804,9 +985,49 @@ def add_param(_param):
         if filter_func_name:
             # Resolve the function from this module's globals
             _param[PARAM_INPUT_FILTER] = globals()[filter_func_name]
+
+
+def _validate_and_normalise_default(_param):
+    """Validate default value against allowed values and normalise it.
     
+    Updates the parameter definition with the normalised default value.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
+    default_value = _param.get(PARAM_DEFAULT)
+    if default_value is not None:
+        _validate_allowed_values(_param, default_value)
+        normalised_default = _normalise_allowed_value(_param, default_value)
+        # Update param with normalised default (canonical case for TEXT, normalised list for LIST)
+        _param[PARAM_DEFAULT] = normalised_default
+
+
+def _apply_runtime_only_constraint(_param):
+    """Apply PARAM_PERSISTENCE_NEVER to runtime-only parameters.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
     if _param.get(PARAM_RUNTIME_ONLY, False):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
+
+
+def add_param(_param):
+    """Add a parameter and activate it immediately.
+    
+    Args:
+        _param: Parameter definition dictionary with keys like
+                PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
+    """
+    _param_name = _param.get(PARAM_NAME)
+    
+    _process_param_aliases(_param)
+    _process_param_switch_list(_param)
+    _assign_default_input_filter(_param)
+    _validate_and_normalise_default(_param)
+    _apply_runtime_only_constraint(_param)
+    
     _params[_param_name] = _param
 
 
@@ -975,7 +1196,7 @@ def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, stric
     Retrieve integer parameter value with type coercion and truncation.
     
     Gets raw value via get_param_value() and coerces to int via int(float(value))
-    for truncation behavior. In strict mode, raises ValueError on coercion failure.
+    for truncation behaviour. In strict mode, raises ValueError on coercion failure.
     
     Args:
         param_name: Parameter's PARAM_NAME (use this in application code)
@@ -1006,7 +1227,7 @@ def _get_param_int(param_name=None, bind_name=None, alias=None, default=0, stric
         return default
     
     try:
-        # Use int(float(value)) for truncation behavior
+        # Use int(float(value)) for truncation behaviour
         return int(float(value))
     except (ValueError, TypeError) as error:
         if strict:
@@ -1167,6 +1388,17 @@ def _get_param_dict(param_name=None, bind_name=None, alias=None, default=None, s
     )
 
 
+# Type getter lookup dict - maps param types to getter functions
+# This allows for future configurability of type-specific retrieval behaviour
+_PARAM_TYPE_GETTERS = {
+    PARAM_TYPE_NUMBER: _get_param_int,
+    PARAM_TYPE_TOGGLE: _get_param_bool,
+    PARAM_TYPE_LIST: _get_param_list,
+    PARAM_TYPE_DICT: _get_param_dict,
+    PARAM_TYPE_TEXT: _get_param_str,
+}
+
+
 def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=False):
     """
     Retrieve parameter value with automatic type coercion based on parameter definition.
@@ -1214,53 +1446,39 @@ def get_param(param_name=None, bind_name=None, alias=None, default=None, strict=
     param_type = param_def.get(PARAM_TYPE, PARAM_TYPE_TEXT)
     
     # Route to appropriate typed getter based on parameter type
-    if param_type == PARAM_TYPE_NUMBER:
-        # Number params could be int or float, use int getter for consistency
-        return _get_param_int(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
-    elif param_type == PARAM_TYPE_TOGGLE:
-        return _get_param_bool(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
-    elif param_type == PARAM_TYPE_LIST:
-        return _get_param_list(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
-    elif param_type == PARAM_TYPE_DICT:
-        return _get_param_dict(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
-    else:  # PARAM_TYPE_TEXT or unknown
-        return _get_param_str(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
+    # Use lookup dict for configurability - defaults to text getter for unknown types
+    getter_func = _PARAM_TYPE_GETTERS.get(param_type, _get_param_str)
+    return getter_func(param_name=param_name, bind_name=bind_name, alias=alias, default=default, strict=strict)
 
 
-def _validate_param_value(param_definition, value, strict=True):
+def _validate_toggle(value):
+    """Validate TOGGLE parameter by converting to bool."""
+    return bool(value)
+
+
+# Type validator lookup dict - maps param types to validation functions
+_TYPE_VALIDATORS = {
+    PARAM_TYPE_NUMBER: _validate_number,
+    PARAM_TYPE_TOGGLE: _validate_toggle,
+    PARAM_TYPE_LIST: _validate_list,
+    PARAM_TYPE_DICT: _validate_dict,
+    PARAM_TYPE_TEXT: _validate_text,
+}
+
+
+def _validate_param_value(param_definition, value):
     """
-    Validate and coerce value according to parameter type definition.
-    
-    Applies type-specific validation using existing validation helpers. In strict
-    mode, raises ValueError for validation failures. In non-strict mode, attempts
-    best-effort coercion.
+    Validate value according to parameter constraints (e.g., allowed values).
     
     Args:
-        param_definition: Parameter definition dict containing type information
-        value: Value to validate and potentially coerce
-        strict: If True, raises ValueError on validation failure (default: True)
-    
-    Returns:
-        Validated and potentially coerced value appropriate for the parameter type
+        param_definition: Parameter definition dict containing validation rules
+        value: Value to validate (should already be coerced by input filter)
     
     Raises:
-        ValueError: If strict=True and validation fails
+        ValueError: If value fails validation
     """
-    param_type = param_definition.get(PARAM_TYPE, PARAM_TYPE_TEXT)
-    
-    if param_type == PARAM_TYPE_NUMBER:
-        return _validate_number(value)
-    elif param_type == PARAM_TYPE_TOGGLE:
-        # For programmatic setting, use the value as-is (toggles are just booleans)
-        return bool(value)
-    elif param_type == PARAM_TYPE_LIST:
-        return _validate_list(value)
-    elif param_type == PARAM_TYPE_DICT:
-        return _validate_dict(value)
-    elif param_type == PARAM_TYPE_TEXT:
-        return _validate_text(value)
-    else:
-        return value
+    # Allowed values validation (TEXT/NUMBER/LIST)
+    _validate_allowed_values(param_definition, value)
 
 
 def _validate_xor_conflicts(param_definition, value_to_set):
@@ -1359,28 +1577,31 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
     if _is_toggle_param(param_definition):
         # If value is explicitly provided, use it; otherwise flip the default
         if value is None:
-            validated_value = not bool(param_definition.get(PARAM_DEFAULT, False))
+            value = not bool(param_definition.get(PARAM_DEFAULT, False))
         else:
-            validated_value = bool(value)
+            value = bool(value)
     else:
-        # Validate and coerce value according to parameter type
-        validated_value = _validate_param_value(param_definition, value, strict=True)
+        # Validate constraints (e.g., allowed values)
+        _validate_param_value(param_definition, value)
+        
+        # Normalise to canonical case (TEXT/LIST only)
+        value = _normalise_allowed_value(param_definition, value)
     
     # If param is in a switch list, check for XOR conflicts BEFORE setting value
     # This check respects the global _skip_xor_validation flag set via _set_xor_validation_enabled()
     if not _skip_xor_validation and len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
-        _validate_xor_conflicts(param_definition, validated_value)
+        _validate_xor_conflicts(param_definition, value)
     
     # Log the parameter setting at DEBUG level
     param_name_for_log = param_definition[PARAM_NAME]
-    logging.log_debug(_message="Set param '{}' = {}".format(param_name_for_log, validated_value))
+    logging.log_debug(_message="Set param '{}' = {}".format(param_name_for_log, value))
     
     # Store value using bind name as config key
     config_key = _get_bind_name(param_definition)
-    config.set_config_value(config_key, validated_value)
+    config.set_config_value(config_key, value)
     
     # Notify persistence layer about the change
-    notify_persistence_change(param_definition[PARAM_NAME], validated_value)
+    notify_persistence_change(param_definition[PARAM_NAME], value)
 
 
 def _join_string_value(existing, new, separator):
@@ -1598,6 +1819,9 @@ def join_param(param_name=None, bind_name=None, alias=None, value=None):
     
     # Store updated value
     config.set_config_value(config_key, joined_value)
+    
+    # Notify persistence layer about the change
+    notify_persistence_change(param_definition[PARAM_NAME], joined_value)
 
 
 def _check_immutable(param_def):
@@ -1632,9 +1856,9 @@ def unset_param(param_name=None, bind_name=None, alias=None):
     Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
     
     Args:
-        param_name: Parameter name to unset (flexible resolution).
-        bind_name: Config bind name to unset (flexible resolution).
-        alias: Parameter alias to unset (flexible resolution).
+        param_name: Parameter name to unset.
+        bind_name: Config bind name to unset.
+        alias: Parameter alias to unset.
     
     Raises:
         ValueError: If parameter not found or parameter is immutable.
@@ -1660,6 +1884,9 @@ def unset_param(param_name=None, bind_name=None, alias=None):
     
     # Remove from config dict
     config.remove_config_value(config_bind_name)
+    
+    # Notify persistence layer about the removal (pass None as value)
+    notify_persistence_change(param_def[PARAM_NAME], None)
 
 
 def reset_param(param_name=None, bind_name=None, alias=None):
@@ -1670,9 +1897,9 @@ def reset_param(param_name=None, bind_name=None, alias=None):
     Respects PARAM_IMMUTABLE flag - raises ValueError if param is immutable.
     
     Args:
-        param_name: Parameter name to reset (flexible resolution).
-        bind_name: Config bind name to reset (flexible resolution).
-        alias: Parameter alias to reset (flexible resolution).
+        param_name: Parameter name to reset.
+        bind_name: Config bind name to reset.
+        alias: Parameter alias to reset.
     
     Raises:
         ValueError: If parameter not found or parameter is immutable.
