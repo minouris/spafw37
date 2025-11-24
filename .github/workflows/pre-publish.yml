@@ -161,6 +161,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -173,10 +176,27 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
       with:
-        python-version: '3.7'
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
 
     - name: Generate changelog
       id: generate
