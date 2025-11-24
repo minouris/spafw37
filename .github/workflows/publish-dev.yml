@@ -1,0 +1,126 @@
+name: Publish Dev Release (TestPyPI + GitHub)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      skip_version_bump:
+        description: 'Skip version increment (publish current version)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-dev
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Read current version
+      id: read_version
+      run: |
+        VERSION=$(grep '^version = ' setup.cfg | sed 's/version = //')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+
+    - name: Increment dev version
+      if: inputs.skip_version_bump != true
+      id: bump_version
+      run: |
+        CURRENT="${{ steps.read_version.outputs.version }}"
+        
+        if [[ "$CURRENT" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.dev([0-9]+)$ ]]; then
+          BASE="${BASH_REMATCH[1]}"
+          DEV_NUM="${BASH_REMATCH[2]}"
+          NEXT_DEV=$((DEV_NUM + 1))
+          NEW_VERSION="${BASE}.dev${NEXT_DEV}"
+        else
+          echo "Error: Current version is not a dev version: $CURRENT"
+          exit 1
+        fi
+        
+        sed -i "s/^version = .*/version = ${NEW_VERSION}/" setup.cfg
+        echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+        echo "Incremented version to ${NEW_VERSION}"
+        git add setup.cfg
+        git commit -m "Bump version to ${NEW_VERSION} [skip ci]"
+        git push origin main
+
+    - name: Set publish version
+      id: publish_version
+      run: |
+        if [ "${{ inputs.skip_version_bump }}" == "true" ]; then
+          echo "version=${{ steps.read_version.outputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build distributions
+      run: |
+        python3 -m pip install --upgrade pip build wheel
+        python3 -m build --sdist --wheel
+
+    - name: Publish to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+
+    - name: Create git tag
+      run: |
+        TAG="v${{ steps.publish_version.outputs.version }}"
+        git tag "$TAG"
+        git push origin "$TAG"
+        echo "Created and pushed tag: $TAG"
+
+    - name: Create GitHub pre-release
+      run: |
+        TAG="v${{ steps.publish_version.outputs.version }}"
+        gh release create "$TAG" \
+          --title "Dev Release ${{ steps.publish_version.outputs.version }}" \
+          --notes "Development pre-release. Install with: \`pip install -i https://test.pypi.org/simple/ spafw37==${{ steps.publish_version.outputs.version }}\`" \
+          --prerelease \
+          dist/*
+      env:
+        GH_TOKEN: ${{ github.token }}
+
