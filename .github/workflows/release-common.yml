@@ -50,6 +50,8 @@ on:
 jobs:
   prepare-python:
     uses: ./.github/workflows/build-python.yml
+    permissions:
+      contents: read
     with:
       python_version: ${{ inputs.python_version }}
 
