@@ -55,10 +55,55 @@ jobs:
 
   test:
     needs: prepare-python
-    uses: ./.github/workflows/test.yml
-    with:
-      python_version: ${{ inputs.python_version }}
-      coverage_threshold: ${{ inputs.coverage_threshold }}
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
+    - name: Install dependencies and package
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        python3 -m pip install -e .
+
+    - name: Run tests and enforce coverage
+      run: |
+        set -euo pipefail
+        THRESHOLD=${{ inputs.coverage_threshold }}
+        echo "Running tests with coverage threshold: ${THRESHOLD}%"
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=${THRESHOLD}
 
   get_version:
     needs: test
