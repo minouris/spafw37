@@ -57,10 +57,17 @@ jobs:
         python3 -m pip install -e .
         python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=95
 
-    - name: Strip dev suffix from version
-      id: version
+    - name: Read current version
+      id: current_version
       run: |
         CURRENT=$(grep '^version = ' setup.cfg | sed 's/version = //')
+        echo "current_version=${CURRENT}" >> $GITHUB_OUTPUT
+        echo "Current version: ${CURRENT}"
+
+    - name: Calculate release version
+      id: version
+      run: |
+        CURRENT="${{ steps.current_version.outputs.current_version }}"
         
         if [[ "$CURRENT" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.dev[0-9]+$ ]]; then
           RELEASE="${BASH_REMATCH[1]}"
@@ -69,8 +76,25 @@ jobs:
           exit 1
         fi
         
-        sed -i "s/^version = .*/version = ${RELEASE}/" setup.cfg
         echo "release_version=${RELEASE}" >> $GITHUB_OUTPUT
+        echo "Release version will be: ${RELEASE}"
+
+    - name: Build distributions
+      run: |
+        python3 -m pip install --upgrade pip build wheel
+        python3 -m build --sdist --wheel
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: stable-dist-packages
+        path: dist/
+        retention-days: 7
+
+    - name: Strip dev suffix from version
+      run: |
+        RELEASE="${{ steps.version.outputs.release_version }}"
+        sed -i "s/^version = .*/version = ${RELEASE}/" setup.cfg
         echo "Stripped dev suffix, release version: ${RELEASE}"
 
     - name: Update README links to point to release tag
@@ -108,6 +132,12 @@ jobs:
       with:
         ref: release/v${{ needs.prepare-stable-release.outputs.release_version }}
 
+    - name: Download pre-built packages
+      uses: actions/download-artifact@v4
+      with:
+        name: stable-dist-packages
+        path: dist/
+
     - name: Ensure cache directories exist
       run: |
         mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
@@ -130,20 +160,8 @@ jobs:
       run: |
         echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
 
-    - name: Build distributions
-      run: |
-        python3 -m pip install --upgrade pip build wheel
-        python3 -m build --sdist --wheel
-
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-
-    - name: Create git tag
-      run: |
-        TAG="v${{ needs.prepare-stable-release.outputs.release_version }}"
-        git tag "$TAG"
-        git push origin "$TAG"
-        echo "Created and pushed tag: $TAG"
 
     - name: Generate release notes
       id: release_notes
@@ -187,6 +205,13 @@ jobs:
         } >> release_notes.md
         
         echo "Release notes generated"
+
+    - name: Create git tag
+      run: |
+        TAG="v${{ needs.prepare-stable-release.outputs.release_version }}"
+        git tag "$TAG"
+        git push origin "$TAG"
+        echo "Created and pushed tag: $TAG"
 
     - name: Create GitHub Release
       run: |

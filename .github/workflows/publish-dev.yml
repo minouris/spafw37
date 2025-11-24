@@ -33,6 +33,7 @@ jobs:
         fetch-depth: 0
 
     - name: Download pre-built packages
+      if: github.event_name == 'workflow_run'
       uses: actions/download-artifact@v4
       with:
         name: dist-packages
@@ -74,9 +75,9 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Current version: $VERSION"
 
-    - name: Increment dev version
+    - name: Calculate next version
       if: inputs.skip_version_bump != 'true'
-      id: bump_version
+      id: next_version
       run: |
         CURRENT="${{ steps.read_version.outputs.version }}"
         
@@ -90,8 +91,27 @@ jobs:
           exit 1
         fi
         
-        sed -i "s/^version = .*/version = ${NEW_VERSION}/" setup.cfg
         echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+        echo "Next version will be: ${NEW_VERSION}"
+
+    - name: Build distributions (for manual dispatch)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        python3 -m pip install --upgrade pip build wheel
+        python3 -m build --sdist --wheel
+
+    - name: Publish to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+
+    - name: Bump version after successful publish
+      if: inputs.skip_version_bump != 'true'
+      id: bump_version
+      run: |
+        NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
+        sed -i "s/^version = .*/version = ${NEW_VERSION}/" setup.cfg
         echo "Incremented version to ${NEW_VERSION}"
         git add setup.cfg
         git commit -m "Bump version to ${NEW_VERSION} [skip ci]"
@@ -103,14 +123,8 @@ jobs:
         if [ "${{ inputs.skip_version_bump }}" == "true" ]; then
           echo "version=${{ steps.read_version.outputs.version }}" >> $GITHUB_OUTPUT
         else
-          echo "version=${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_OUTPUT
+          echo "version=${{ steps.next_version.outputs.new_version }}" >> $GITHUB_OUTPUT
         fi
-
-    - name: Publish to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
     - name: Create git tag
       run: |
