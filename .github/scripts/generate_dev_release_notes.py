@@ -28,6 +28,11 @@ def find_pr_number():
 
 def check_previous_dev_releases(version):
     """Check if there are previous dev releases for the same base version."""
+    # If version has no .dev suffix, it's a prod release
+    # Prod releases should always get full changelog
+    if not re.search(r'\.dev\d+$', version):
+        return False
+    
     # Strip .devN suffix to get base version
     base_version = re.sub(r'\.dev\d+$', '', version)
     pattern = f"v{base_version}.dev"

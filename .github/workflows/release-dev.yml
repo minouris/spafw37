@@ -1,0 +1,46 @@
+name: Release (Dev)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip TestPyPI publish and version bump)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  set_dry_run:
+    runs-on: ubuntu-latest
+    outputs:
+      dry_run: ${{ steps.calculate.outputs.dry_run }}
+    steps:
+      - name: Calculate dry_run flag
+        id: calculate
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && "${{ inputs.dry_run }}" != "true" ]]; then
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+            echo "Dry run: false (live release)"
+          else
+            echo "dry_run=true" >> $GITHUB_OUTPUT
+            echo "Dry run: true (preview mode)"
+          fi
+
+  release:
+    needs: set_dry_run
+    uses: ./.github/workflows/release-common.yml
+    with:
+      python_version: '3.7.9'
+      coverage_threshold: 80
+      publish_to: 'testpypi'
+      version_operation: 'increment-dev'
+      create_release_branch: false
+      create_bugfix_branch: false
+      create_release: false
+      generate_full_changelog: false
+      dry_run: ${{ needs.set_dry_run.outputs.dry_run }}
+    secrets: inherit
