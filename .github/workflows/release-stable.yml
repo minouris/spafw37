@@ -3,14 +3,6 @@ name: Release (Stable)
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: 'Release mode'
-        required: true
-        type: choice
-        options:
-          - full-release
-          - docs-only
-        default: 'full-release'
       dry_run:
         description: 'Dry run (skip git push and PyPI publish)'
         required: false
@@ -22,7 +14,7 @@ jobs:
     uses: ./.github/workflows/release-common.yml
     with:
       python_version: '3.7.9'
-      coverage_threshold: ${{ inputs.mode == 'full-release' && 95 || 80 }}
+      coverage_threshold: 95
       publish_to: 'pypi'
       version_operation: 'strip-dev'
       create_release_branch: true

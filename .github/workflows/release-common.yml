@@ -171,8 +171,11 @@ jobs:
         RELEASE="${{ env.RELEASE_VERSION }}"
         DATE=$(date +%Y-%m-%d)
         
+        # Escape dots in CURRENT for regex safety
+        CURRENT_ESCAPED=$(echo "$CURRENT" | sed 's/\./\\./g')
+        
         # Update version header from [X.Y.Z.devN] to [X.Y.Z] (YYYY-MM-DD)
-        sed -i "s/^\[${CURRENT}\]/[${RELEASE}] (${DATE})/" CHANGELOG.md
+        sed -i "s/^\[${CURRENT_ESCAPED}\]/[${RELEASE}] (${DATE})/" CHANGELOG.md
         echo "Updated CHANGELOG.md version to [$RELEASE] ($DATE)"
         git diff CHANGELOG.md
 
@@ -191,7 +194,7 @@ jobs:
         git diff README.md
 
     - name: Commit changes to release branch
-      if: inputs.version_operation != 'none' || inputs.generate_full_changelog
+      if: inputs.version_operation != 'none' || inputs.generate_full_changelog || inputs.create_release_branch
       run: |
         git add setup.cfg CHANGELOG.md README.md || true
         git commit -m "Release v${{ env.RELEASE_VERSION }} [skip ci]" || echo "No changes to commit"
@@ -231,6 +234,12 @@ jobs:
         TAG="${{ steps.create_tag.outputs.tag }}"
         VERSION="${{ env.RELEASE_VERSION }}"
         
+        # Validate version doesn't contain .dev suffix
+        if [[ "$VERSION" =~ \.dev ]]; then
+          echo "Error: Cannot create bugfix branch from dev version: $VERSION"
+          exit 1
+        fi
+        
         # Extract major.minor from version
         if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)\. ]]; then
           MAJOR="${BASH_REMATCH[1]}"
@@ -252,10 +261,17 @@ jobs:
         git checkout main
         git pull origin main
         
-        # Merge all commits except the final one (which contains README changes)
-        git merge "${BRANCH}~1" --no-ff -m "Merge ${BRANCH} to main (version and changelog) [skip ci]"
-        git push origin main
-        echo "Merged $BRANCH to main (excluding README commit)"
+        # Count the number of commits on the release branch not in main
+        COMMIT_COUNT=$(git rev-list --count "${BRANCH}" ^main)
+        
+        if [ "$COMMIT_COUNT" -ge 2 ]; then
+          # Merge all commits except the final one (which contains README changes)
+          git merge "${BRANCH}~1" --no-ff -m "Merge ${BRANCH} to main (version and changelog) [skip ci]"
+          git push origin main
+          echo "Merged $BRANCH to main (excluding README commit)"
+        else
+          echo "Not enough commits on $BRANCH to perform selective merge (expected at least 2, found $COMMIT_COUNT). Skipping merge."
+        fi
 
     - name: Dry run summary
       if: env.DRY_RUN == 'true'
@@ -280,6 +296,8 @@ jobs:
   publish:
     needs: [build_and_verify, get_version]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # For PyPI Trusted Publisher OIDC
     env:
       PYTHON_VERSION: ${{ inputs.python_version }}
       PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
@@ -404,6 +422,10 @@ jobs:
     - name: Bump version for next development cycle
       if: inputs.version_operation == 'strip-dev'
       run: |
+        # Pull latest changes from main to avoid conflicts
+        git checkout main
+        git pull origin main
+        
         VERSION="${{ env.RELEASE_VERSION }}"
         
         # Extract major.minor.patch and increment patch

@@ -42,5 +42,5 @@ jobs:
       create_bugfix_branch: false
       create_release: false
       generate_full_changelog: false
-      dry_run: ${{ needs.set_dry_run.outputs.dry_run == 'true' }}
+      dry_run: ${{ needs.set_dry_run.outputs.dry_run }}
     secrets: inherit
