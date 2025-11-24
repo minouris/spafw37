@@ -65,7 +65,7 @@ jobs:
         echo "Current version: $VERSION"
 
     - name: Increment dev version
-      if: inputs.skip_version_bump != true
+      if: inputs.skip_version_bump != 'true'
       id: bump_version
       run: |
         CURRENT="${{ steps.read_version.outputs.version }}"
