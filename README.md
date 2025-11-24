@@ -337,11 +337,7 @@ Requires 80% test coverage to pass.
 
 ## Python 3.7 Compatibility
 
-This framework is specifically designed for Python 3.7 compatibility:
-- No type hints on function parameters or return types
-- No walrus operator (`:=`)
-- No positional-only parameters
-- Compatible with Python 3.7.0+
+This framework is specifically designed for Python 3.7.x<=9 compatibility, largely to make it of better use to the Sims 4 modding community.
 
 ## What's New in v1.1.0
 

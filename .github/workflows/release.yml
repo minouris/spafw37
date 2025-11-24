@@ -11,14 +11,33 @@ on:
           - full-release
           - docs-only
         default: 'full-release'
+      dry_run:
+        description: 'Dry run (skip git push and PyPI publish)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # Step 0: Run tests first
   test:
     uses: ./.github/workflows/test.yml
+    with:
+      python_version: '3.7.9'
+      coverage_threshold: ${{ inputs.mode == 'full-release' && 95 || 80 }}
+
+  # Prepare Python build/cache so later jobs can restore it
+  prepare-python:
+    needs: test
+    uses: ./.github/workflows/build-python.yml
+    with:
+      python_version: '3.7.9'
 
   release:
-    needs: test
+    needs: [test, prepare-python]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_mode: ${{ env.RELEASE_MODE }}
+      dry_run: ${{ inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write  # For creating releases and pushing commits
@@ -28,6 +47,7 @@ jobs:
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
       PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
       RELEASE_MODE: ${{ inputs.mode }}
+      DRY_RUN: ${{ inputs.dry_run }}
     
     steps:
     - name: Checkout code
@@ -56,27 +76,7 @@ jobs:
         restore-keys: |
           python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
-    - name: Install build dependencies
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
-          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
-          libnss3-dev liblzma-dev libffi-dev uuid-dev
-
-    - name: Build and install Python (only if cache miss)
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        set -euo pipefail
-        PY=${{ env.PYTHON_VERSION }}
-        mkdir -p $HOME/src
-        cd $HOME/src
-        wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
-        tar xzf Python-${PY}.tgz
-        cd Python-${PY}
-        ./configure --prefix=$PY_PREFIX --with-ensurepip=install
-        make -j "$(nproc)"
-        make install     
+    # Python build is prepared by `prepare-python` reusable job and restored from cache here
 
     - name: Add built Python to PATH
       run: |
@@ -115,7 +115,11 @@ jobs:
         
         echo "Creating release branch: ${BRANCH_NAME}"
         git checkout -b "${BRANCH_NAME}"
-        git push origin "${BRANCH_NAME}"
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin "${BRANCH_NAME}"
+        else
+          echo "[DRY RUN] Skipping: git push origin ${BRANCH_NAME}"
+        fi
 
     # Step 3: Remove .dev suffix from version on release branch
     - name: Remove .dev suffix from version
@@ -129,7 +133,7 @@ jobs:
         echo "Updated setup.cfg to version $RELEASE_VERSION"
         
         git add setup.cfg
-        git commit -m "Release version $RELEASE_VERSION [skip ci]"
+        git commit -m "Release version $RELEASE_VERSION [skip ci]" || echo "No changes to commit"
 
     # Step 4: Generate changelog on release branch
     - name: Get previous release tag
@@ -257,7 +261,11 @@ jobs:
         
         # Push release branch with version and changelog changes
         TAG="v${{ steps.version.outputs.version }}"
-        git push origin "release/${TAG}"
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin "release/${TAG}"
+        else
+          echo "[DRY RUN] Skipping: git push origin release/${TAG}"
+        fi
 
     # Step 5: Update README links to point to tagged versions (separate commit, not merged to main)
     - name: Update README links to tagged documentation
@@ -278,7 +286,11 @@ jobs:
         git commit -m "Update README links to ${TAG} for tag [skip ci]" || echo "No README changes to commit"
         
         # Push this commit to release branch
-        git push origin "release/${TAG}"
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin "release/${TAG}"
+        else
+          echo "[DRY RUN] Skipping: git push origin release/${TAG}"
+        fi
 
     # Step 6: Create git tag from release branch (includes README with tagged links)
     - name: Create git tag
@@ -286,7 +298,11 @@ jobs:
       run: |
         # Tag is created from current branch (release/vX.Y.Z) which has README with tagged links
         git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }} [skip ci]"
-        git push origin "v${{ steps.version.outputs.version }}"
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin "v${{ steps.version.outputs.version }}"
+        else
+          echo "[DRY RUN] Skipping: git push origin v${{ steps.version.outputs.version }}"
+        fi
 
     # Step 7: Create bugfix branch from tag
     - name: Create bugfix branch from tag
@@ -303,7 +319,11 @@ jobs:
         git checkout -b "$BRANCH_NAME" "v${{ steps.version.outputs.version }}"
         
         # Push the branch
-        git push origin "$BRANCH_NAME"
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin "$BRANCH_NAME"
+        else
+          echo "[DRY RUN] Skipping: git push origin $BRANCH_NAME"
+        fi
 
     # Step 8: Merge release branch back to main (without README link changes)
     - name: Merge release branch to main
@@ -320,134 +340,128 @@ jobs:
         git merge "release/${TAG}~1" --no-ff -m "Merge release ${TAG} to main [skip ci]"
         
         # Push to main
-        git push origin main
+        if [ "${{ inputs.dry_run }}" != "true" ]; then
+          git push origin main
+        else
+          echo "[DRY RUN] Skipping: git push origin main"
+        fi
 
-    # Step 9: Publish to PyPI using Trusted Publisher (OIDC)
-    - name: Build distribution packages
+  # Step 9: Packaging using reusable build-and-verify workflow
+  packaging:
+    needs: [release, prepare-python]
+    uses: ./.github/workflows/build-and-verify.yml
+    with:
+      python_version: '3.7.9'
+      require_sdist: true
+
+  # Step 10: Publish to PyPI (uses artifact produced by packaging)
+  pypi_publish:
+    needs: packaging
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Download dist artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist
+
+    - name: List distribution artifacts
       run: |
-        python3 -m pip install --upgrade build
-        python3 -m build
+        echo "Files in dist/"
+        ls -la dist || true
 
     - name: Publish to PyPI
       id: pypi_publish
+      if: ${{ needs.release.outputs.dry_run != 'true' }}
       continue-on-error: true
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
 
-    # Step 10: Increment version and add .dev0 suffix for next development cycle
+    - name: Dry run - Skip PyPI publish
+      if: ${{ needs.release.outputs.dry_run == 'true' }}
+      run: |
+        echo "[DRY RUN] Skipping PyPI publish"
+        echo "Would publish the following files:"
+        ls -lh dist/
+
+  # Step 11: Post-publish tasks (version bump, create GitHub Release, summary)
+  post_publish:
+    needs: [pypi_publish, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
     - name: Increment version for next development cycle
-      if: env.RELEASE_MODE == 'full-release'
+      if: ${{ needs.release.outputs.release_mode == 'full-release' }}
       id: next_version
       run: |
-        # Ensure we're on main
         git checkout main
         git pull origin main
-        
-        VERSION="${{ steps.version.outputs.version }}"
-        echo "Current release version: $VERSION"
-        
-        # Parse version components (X.Y.Z)
+        VERSION="${{ needs.release.outputs.version }}"
         IFS='.' read -r major minor patch <<< "$VERSION"
-        
-        # Increment patch version
         next_patch=$((patch + 1))
         NEXT_VERSION="${major}.${minor}.${next_patch}.dev0"
-        
-        echo "Next development version: $NEXT_VERSION"
         echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-        
-        # Update setup.cfg
         sed -i "s/^version = .*/version = $NEXT_VERSION/" setup.cfg
 
-    # Step 11: Commit dev version and create GitHub Release
     - name: Commit development version
-      if: env.RELEASE_MODE == 'full-release'
+      if: ${{ needs.release.outputs.release_mode == 'full-release' }}
       run: |
         git add setup.cfg
-        git commit -m "Bump version to ${{ steps.next_version.outputs.next_version }} [skip ci]"
-        git push origin main
+        git commit -m "Bump version to ${{ steps.next_version.outputs.next_version }} [skip ci]" || echo "No version changes to commit"
+        if [ "${{ needs.release.outputs.dry_run }}" != "true" ]; then
+          git push origin main
+        else
+          echo "[DRY RUN] Skipping: git push origin main (version bump)"
+        fi
 
-    # Create GitHub Release
     - name: Create GitHub Release
-      if: env.RELEASE_MODE == 'full-release'
+      if: ${{ needs.release.outputs.release_mode == 'full-release' && needs.release.outputs.dry_run != 'true' }}
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ steps.version.outputs.version }}
-        release_name: Release v${{ steps.version.outputs.version }}
+        tag_name: v${{ needs.release.outputs.version }}
+        release_name: Release v${{ needs.release.outputs.version }}
         body: |
-          Release of spafw37 version ${{ steps.version.outputs.version }}
-          
-          Install with:
-          ```
-          pip install spafw37==${{ steps.version.outputs.version }}
-          ```
-          
-          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          Release of spafw37 version ${{ needs.release.outputs.version }}
         draft: false
         prerelease: false
 
-    # Summary of what happened
+    - name: Dry run - Skip GitHub Release
+      if: ${{ needs.release.outputs.release_mode == 'full-release' && needs.release.outputs.dry_run == 'true' }}
+      run: |
+        echo "[DRY RUN] Skipping GitHub Release creation"
+        echo "Would create release: v${{ needs.release.outputs.version }}"
+
     - name: Release Summary
       if: always()
       run: |
         echo "## Release Workflow Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Mode:** ${{ env.RELEASE_MODE }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "${{ env.RELEASE_MODE }}" == "full-release" ]; then
-          echo "### Full Release Process" >> $GITHUB_STEP_SUMMARY
+        echo "**Mode:** ${{ needs.release.outputs.release_mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Dry Run:** ${{ needs.release.outputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.release.outputs.dry_run }}" == "true" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ steps.pypi_publish.outcome }}" == "success" ]; then
-            echo "✅ **PyPI Publish:** Success" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ steps.pypi_publish.outcome }}" == "failure" ]; then
-            echo "⚠️  **PyPI Publish:** Failed (version may already exist)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-            echo "- Check if version already exists on PyPI" >> $GITHUB_STEP_SUMMARY
-            echo "- If documentation needs updating, run workflow again with 'docs-only' mode" >> $GITHUB_STEP_SUMMARY
-            echo "- For code changes, create a new patch release" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⏭️  **PyPI Publish:** Skipped or cancelled" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Actions Completed:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Created release branch \`release/v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Updated version in setup.cfg" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Generated/updated CHANGELOG.md" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Created git tag \`v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Created bugfix branch" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Merged changes to main" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Bumped version to \`${{ steps.next_version.outputs.next_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Created GitHub Release" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "### Documentation-Only Update" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ steps.pypi_publish.outcome }}" == "success" ]; then
-            echo "✅ **PyPI Documentation:** Successfully updated" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The package metadata and long description on PyPI have been refreshed." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Note:** PyPI may take a few minutes to display the updated documentation." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **PyPI Documentation:** Update failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The documentation update could not be completed. This usually means:" >> $GITHUB_STEP_SUMMARY
-            echo "- The package version doesn't exist on PyPI yet" >> $GITHUB_STEP_SUMMARY
-            echo "- There was a problem with the PyPI upload" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Actions Completed:**" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Built package with current documentation" >> $GITHUB_STEP_SUMMARY
-          echo "- ⏭️  Skipped git operations (no tags/branches created)" >> $GITHUB_STEP_SUMMARY
-          echo "- ⏭️  Skipped version bumps" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **This was a dry run - no permanent changes were made**" >> $GITHUB_STEP_SUMMARY
         fi

@@ -1,0 +1,162 @@
+name: Development Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version from setup.cfg'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip tag creation and release)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # Step 1: Download artifacts from previous job
+  dev_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # For creating releases and tags
+    env:
+      PYTHON_VERSION: '3.7.9'
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+      DRY_RUN: ${{ inputs.dry_run }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history for changelog and PR detection
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Get version
+      id: version
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          VERSION="${{ inputs.version }}"
+        else
+          VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        echo "Tag: v$VERSION"
+
+    - name: Check if tag already exists
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists - will update release if it exists"
+        else
+          echo "Tag $TAG is available - will create new"
+        fi
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build & pip caches
+      id: python-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.PY_PREFIX }}
+          ${{ env.PIP_CACHE_DIR }}
+        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+
+    - name: Download built dist artifact (if called from workflow)
+      if: ${{ inputs.version != '' }}
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist
+      continue-on-error: true
+
+    - name: Build package (if manual dispatch)
+      if: ${{ inputs.version == '' }}
+      run: |
+        python3 -m pip install build
+        python3 -m build
+
+    - name: Generate release notes
+      id: release_notes
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        python3 .github/scripts/generate_dev_release_notes.py "$VERSION" > /tmp/release_notes.md
+        echo "Release notes generated"
+        cat /tmp/release_notes.md
+
+    - name: Create or update development tag
+      if: ${{ inputs.dry_run != true }}
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        
+        # Check if tag exists
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG exists - deleting to update"
+          git tag -d "$TAG"
+          git push origin ":refs/tags/$TAG" || true
+        fi
+        
+        git tag -a "$TAG" -m "Development release $TAG"
+        git push origin "$TAG"
+        echo "Created and pushed tag: $TAG"
+
+    - name: Create or update GitHub Release
+      if: ${{ inputs.dry_run != true }}
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Check if release exists
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "Release $TAG exists - deleting to update"
+          gh release delete "$TAG" --yes
+        fi
+        
+        gh release create "$TAG" \
+          --prerelease \
+          --title "Development: $TAG" \
+          --notes-file /tmp/release_notes.md \
+          dist/*
+        
+        echo "Created GitHub Release: $TAG"
+
+    - name: Dry run summary
+      if: ${{ inputs.dry_run == true }}
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        echo "=== DRY RUN MODE ==="
+        echo "Would have created/updated tag: $TAG"
+        echo "Would have created GitHub Pre-Release with:"
+        echo "  - Title: Development: $TAG"
+        echo "  - Version: $VERSION"
+        echo "  - Assets: $(ls -1 dist/)"
+        echo ""
+        echo "Release notes:"
+        cat /tmp/release_notes.md

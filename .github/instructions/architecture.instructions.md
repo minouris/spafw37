@@ -4,30 +4,22 @@ applyTo: "doc/architecture/**/*"
 
 # Architecture Design Instructions
 
-## CRITICAL: NO GUESSING POLICY
+## Critical Requirements
 
-> Fully documented in [NO GUESSING POLICY in general.instructions.md](general.instructions.md#critical-no-guessing-policy) - those instructions should take priority.
+**NO GUESSING POLICY:** See `general.instructions.md` for the complete NO GUESSING POLICY. Never guess about external APIs, third-party libraries, file formats, protocols, or configuration requirements.
 
-**NEVER guess or make assumptions about:**
-- External API specifications, endpoints, or data structures
-- Third-party library behavior or usage patterns
-- File formats, protocols, or standards you're not certain about
-- Configuration requirements for external services
+**UK ENGLISH:** See `general.instructions.md` for localization requirements. Use UK English spelling, metric units, and internationally neutral examples.
 
-**If you don't know something:**
-1. **Explicitly state that you don't know**
-2. **Explain what you would need to know to proceed**
-3. **Suggest where the user can find the information**
-4. **Ask the user to verify or provide the correct information**
+**GIT OPERATIONS:** See `general.instructions.md` for Git operations policy. You may not commit or push code.
 
-**Example of correct behavior:**
-"I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
+## Scope
 
-**This applies to ALL work - code, configuration, documentation, and any other task.**
+This instructions file applies to architecture documentation work (typically in `doc/architecture/**` or similar directories).
 
-## Context
-
-This instructions file applies to work in the `doc/architecture/**` folder. 
+**Related Instructions:**
+- `general.instructions.md` - NO GUESSING POLICY, UK English, Git policy
+- `documentation.instructions.md` - General documentation standards
+- `mermaid.instructions.md` - Mermaid diagram styling and conventions 
 
 ## Core Principles
 
@@ -66,34 +58,26 @@ This instructions file applies to work in the `doc/architecture/**` folder.
 ## Documentation Standards
 
 ### Architecture Documents
-- **Location**: `doc/architecture/` directory. Create new documents under this directory
+- **Location**: Architecture documentation directory (e.g., `doc/architecture/`)
 - **Format**: Markdown with Mermaid diagrams
 - **Structure**: Modular files discussing different aspects
-- **Navigation**: Maintain `index.md` and cross-references
+- **Navigation**: Maintain index and cross-references between documents
 
 ### Mermaid Diagrams
 - **Required**: Use Mermaid for all architectural diagrams
-- **Style guide**: Follow `doc/architecture/reference.md` colour palette and conventions
+- **Style guide**: Follow `mermaid.instructions.md` for colour palette and conventions
 - **Consistency**: Use the same colours for the same concepts across all diagrams
 - **Clarity**: Create small, focused diagrams rather than monolithic ones
-- **Dark mode**: Use dark backgrounds with white text (`colour:#fff`) as specified in reference.md
 
-### Colour Palette (from reference.md)
-- **Client/External Layer**: Dark red/pink tones
-- **Adapter Layer**: Dark blue tones
-- **Central Control Layer**: Dark purple tones
-- **Backend/Data Layer**: Dark green tones
-- **Supporting Components**: Dark magenta/purple tones
-- **Synchronization**: Locks (red), Conditions (blue), Queues (magenta), Events (amber)
-
-All nodes must explicitly set:
-```
-style NodeName fill:#1565c0,stroke:#333,stroke-width:2px,colour:#fff
-```
+See `mermaid.instructions.md` for:
+- Complete colour palette by layer
+- Styling classes for different component types
+- Diagram examples and patterns
+- Mermaid syntax constraints and best practices
 
 ### Document Organisation
-- **Glossary**: Define all terms in `glossary.md` before using them
-- **Index**: Update `index.md` when adding new documents
+- **Glossary**: Maintain a glossary defining all architecture-specific terms
+- **Index**: Maintain an index of all architecture documents
 - **Cross-references**: Link related concepts across documents
 - **Versioning**: Note design version and date in each document
 
@@ -128,31 +112,10 @@ Architecture documents are for **design**, not implementation. Code examples are
 **USE DIAGRAMS INSTEAD:**
 - Class diagrams for structure
 - Sequence diagrams for interactions
-- State diagrams for behavior
+- State diagrams for behaviour
 - Flowcharts for logic
 
-**Example of ACCEPTABLE minimal code** (only when explicitly requested):
-```python
-def create_handler(base_class, config=None):
-    class Handler(base_class):
-        # Implementation details omitted
-
-    return Handler
-```
-
-**Example of FORBIDDEN code** (NEVER include):
-```python
-def create_handler(base_class, config=None):
-    class Handler(base_class):
-        def __init__(self):
-            super().__init__()
-            self._processor = Processor(**config)
-            # ... more implementation
-        
-        def handle_event(self, data):
-            self._processor.dispatch(data)
-            # ... more implementation
-```
+See `mermaid.instructions.md` for diagram examples and patterns.
 
 **When in doubt: Use a diagram. Never use code.**
 
@@ -207,7 +170,8 @@ def create_handler(base_class, config=None):
 Before finalising any design:
 
 - [ ] All terms defined in glossary
-- [ ] Mermaid diagrams follow style guide
+- [ ] Mermaid diagrams follow `mermaid.instructions.md` style guide
+- [ ] UK English spelling and conventions used (see `general.instructions.md`)
 - [ ] Interface independence maintained
 - [ ] Language/platform version constraints respected
 - [ ] Dependency constraints addressed
@@ -227,10 +191,10 @@ Before finalising any design:
 - Present multiple options with trade-offs
 - Explain reasoning behind recommendations
 - Start high-level and wait for direction to elaborate
-- Use the established glossary and terminology
+- Use established glossary and terminology
 - Create focused, modular diagrams
 - Document alternatives considered
-- Follow the Mermaid style guide religiously
+- Follow `mermaid.instructions.md` style guide
 - **Use diagrams to illustrate all design concepts**
 - **Show only minimal function/class signatures if explicitly requested**
 
@@ -239,10 +203,9 @@ Before finalising any design:
 - **Include ANY code examples unless explicitly requested and approved**
 - **Show implementation details, method bodies, or logic in code**
 - Assume specific protocols, frameworks, or libraries without requirements
-- Make assumptions based on any previous implementation
+- Make assumptions based on previous implementations
 - Add features or details without being asked
 - Create monolithic diagrams trying to show everything
-- Use light backgrounds or light text (breaks dark mode)
 - Skip glossary definitions
 - Anticipate or assume next steps
 
@@ -261,4 +224,12 @@ A good architecture design:
 
 ---
 
-**Remember**: We are designing software from scratch. Question everything. Document thoroughly. Wait for user direction.
+## Related Instructions
+
+- **`general.instructions.md`** - NO GUESSING POLICY, UK English, Git operations policy, communication style
+- **`documentation.instructions.md`** - General documentation standards, formatting, version annotations
+- **`mermaid.instructions.md`** - Mermaid diagram colour palette, styling, syntax constraints, examples
+
+---
+
+**Remember**: Question everything. Document thoroughly. Wait for user direction.

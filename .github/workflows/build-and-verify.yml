@@ -1,0 +1,81 @@
+name: Build and Verify Package
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to build/use'
+        required: false
+        type: string
+        default: '3.7.9'
+      require_sdist:
+        description: 'Whether to require a source distribution (.tar.gz)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      wheel_path: ${{ steps.verify_metadata.outputs.wheel_path }}
+      sdist_path: ${{ steps.verify_metadata.outputs.sdist_path }}
+      requires_python: ${{ steps.verify_metadata.outputs.requires_python }}
+    env:
+      PYTHON_VERSION: ${{ inputs.python_version }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version }}
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build & pip caches
+      id: python-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.PY_PREFIX }}
+          ${{ env.PIP_CACHE_DIR }}
+        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
+    - name: Install build tools
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel build
+        python3 -m pip install --upgrade build
+
+    - name: Build both sdist and wheel
+      run: |
+        python3 -m build --sdist --wheel
+
+    - name: List distribution artifacts
+      run: |
+        echo "Built files in dist/"
+        ls -la dist || true
+
+    - name: Verify distribution artifacts and metadata (script)
+      id: verify_metadata
+      run: bash ./.github/scripts/ci_verify.sh "${{ inputs.require_sdist }}"
+
+    - name: Upload dist artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist
+
+    # note: step outputs are written by the verify_metadata step to $GITHUB_OUTPUT
