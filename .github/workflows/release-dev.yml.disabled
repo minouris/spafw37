@@ -2,7 +2,7 @@ name: Release (Dev)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -12,6 +12,10 @@ on:
         required: false
         type: boolean
         default: false
+
+concurrency:
+  group: release-dev-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   set_dry_run:
@@ -33,6 +37,9 @@ jobs:
   release:
     needs: set_dry_run
     uses: ./.github/workflows/release-common.yml
+    permissions:
+      contents: write
+      id-token: write
     with:
       python_version: '3.7.9'
       coverage_threshold: 80

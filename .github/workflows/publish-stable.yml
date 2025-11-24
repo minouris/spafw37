@@ -1,0 +1,237 @@
+name: Publish Stable Release (PyPI + GitHub)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-stable
+  cancel-in-progress: false
+
+jobs:
+  prepare-stable-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Run 95% coverage tests
+      run: |
+        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        python3 -m pip install -e .
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=95
+
+    - name: Strip dev suffix from version
+      id: version
+      run: |
+        CURRENT=$(grep '^version = ' setup.cfg | sed 's/version = //')
+        
+        if [[ "$CURRENT" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.dev[0-9]+$ ]]; then
+          RELEASE="${BASH_REMATCH[1]}"
+        else
+          echo "Error: Current version is not a dev version: $CURRENT"
+          exit 1
+        fi
+        
+        sed -i "s/^version = .*/version = ${RELEASE}/" setup.cfg
+        echo "release_version=${RELEASE}" >> $GITHUB_OUTPUT
+        echo "Stripped dev suffix, release version: ${RELEASE}"
+
+    - name: Update README links to point to release tag
+      run: |
+        RELEASE="${{ steps.version.outputs.release_version }}"
+        # Update links from /tree/main/ to /tree/v1.0.0/
+        sed -i "s|/tree/main/|/tree/v${RELEASE}/|g" README.md
+        # Update links from /blob/main/ to /blob/v1.0.0/
+        sed -i "s|/blob/main/|/blob/v${RELEASE}/|g" README.md
+        echo "Updated README links to point to v${RELEASE}"
+
+    - name: Create release branch
+      run: |
+        RELEASE="${{ steps.version.outputs.release_version }}"
+        BRANCH="release/v${RELEASE}"
+        
+        git checkout -b "$BRANCH"
+        git add setup.cfg README.md
+        git commit -m "Release version ${RELEASE} [skip ci]"
+        git push origin "$BRANCH"
+        echo "Created release branch: $BRANCH"
+
+  publish:
+    needs: prepare-stable-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout release branch
+      uses: actions/checkout@v3
+      with:
+        ref: release/v${{ needs.prepare-stable-release.outputs.release_version }}
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Build distributions
+      run: |
+        python3 -m pip install --upgrade pip build wheel
+        python3 -m build --sdist --wheel
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+    - name: Create git tag
+      run: |
+        TAG="v${{ needs.prepare-stable-release.outputs.release_version }}"
+        git tag "$TAG"
+        git push origin "$TAG"
+        echo "Created and pushed tag: $TAG"
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.prepare-stable-release.outputs.release_version }}"
+        # For stable releases, generate full changelog
+        python3 .github/scripts/generate_dev_release_notes.py "${VERSION}" > release_notes_temp.md
+        
+        # Create stable release notes with proper formatting
+        {
+          echo "## Stable Release ${VERSION}"
+          echo ""
+          echo "This is a production release published to PyPI."
+          echo ""
+          echo "### Installation"
+          echo ""
+          echo "Install from PyPI:"
+          echo ""
+          echo '```bash'
+          echo "pip install spafw37==${VERSION}"
+          echo '```'
+          echo ""
+          echo "Or to upgrade an existing installation:"
+          echo ""
+          echo '```bash'
+          echo "pip install --upgrade spafw37==${VERSION}"
+          echo '```'
+          echo ""
+        } > release_notes.md
+        
+        # Extract just the Changes section from dev release notes
+        sed -n '/### Changes/,/^---/p' release_notes_temp.md | sed '$ d' >> release_notes.md
+        
+        # Add package links
+        {
+          echo ""
+          echo "---"
+          echo ""
+          echo "📦 **Package:** [spafw37 on PyPI](https://pypi.org/project/spafw37/${VERSION}/)"
+          echo "📋 **Full Changelog:** [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)"
+        } >> release_notes.md
+        
+        echo "Release notes generated"
+
+    - name: Create GitHub Release
+      run: |
+        TAG="v${{ needs.prepare-stable-release.outputs.release_version }}"
+        gh release create "$TAG" \
+          --title "Release ${{ needs.prepare-stable-release.outputs.release_version }}" \
+          --notes-file release_notes.md \
+          dist/*
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+  post-release:
+    needs: [prepare-stable-release, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout main
+      uses: actions/checkout@v3
+      with:
+        ref: main
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Bump to next dev version
+      run: |
+        RELEASE="${{ needs.prepare-stable-release.outputs.release_version }}"
+        
+        if [[ "$RELEASE" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}.dev0"
+          
+          sed -i "s/^version = .*/version = ${NEXT_VERSION}/" setup.cfg
+          git add setup.cfg
+          git commit -m "Bump version to ${NEXT_VERSION} for next development cycle [skip ci]"
+          git push origin main
+          echo "Bumped version to ${NEXT_VERSION}"
+        else
+          echo "Error: Could not parse version: $RELEASE"
+          exit 1
+        fi

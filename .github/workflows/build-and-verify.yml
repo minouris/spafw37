@@ -34,16 +34,19 @@ jobs:
       run: |
         mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
 
-    - name: Restore Python build & pip caches
-      id: python-cache
+    - name: Restore Python build cache
       uses: actions/cache@v4
       with:
-        path: |
-          ${{ env.PY_PREFIX }}
-          ${{ env.PIP_CACHE_DIR }}
-        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
-          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
     - name: Add built Python to PATH
       run: |
@@ -73,7 +76,7 @@ jobs:
       run: bash ./.github/scripts/ci_verify.sh "${{ inputs.require_sdist }}"
 
     - name: Upload dist artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist

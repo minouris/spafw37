@@ -9,13 +9,13 @@ This document describes the release process for spafw37, including continuous in
 - [Overview](#overview)
 - [Continuous Integration Workflows](#continuous-integration-workflows)
   - [Workflow Architecture](#workflow-architecture)
-  - [Test Workflow](#test-workflow)
-  - [Development Release Workflow](#development-release-workflow)
-  - [Changelog Generation Workflow](#changelog-generation-workflow)
+  - [Pre-Publish Validation Workflow](#pre-publish-validation-workflow)
+  - [Publish Dev Workflow](#publish-dev-workflow)
+  - [Publish Stable Workflow](#publish-stable-workflow)
 - [Prerequisites](#prerequisites)
 - [Creating a Release](#creating-a-release)
 - [Development Releases](#development-releases)
-- [Dry-Run Mode](#dry-run-mode)
+- [Manual Overrides](#manual-overrides)
 - [What Happens During Stable Release](#what-happens-during-stable-release)
   - [Detailed Steps](#detailed-steps)
   - [Version Flow Diagram](#version-flow-diagram)
@@ -44,12 +44,13 @@ This document describes the release process for spafw37, including continuous in
 
 [⬆ Back to Top](#table-of-contents)
 
-spafw37 uses an automated release system with two types of releases:
+spafw37 uses an automated release system with three independent workflows:
 
-- **Development Releases** - Automatically published to TestPyPI on every push to `main`. Tagged as `vX.Y.Z.devN` and marked as pre-releases on GitHub.
-- **Stable Releases** - Manually triggered production releases published to PyPI. Tagged as `vX.Y.Z` with full release branches and bugfix branch creation.
+- **Pre-Publish Validation** - Automatically validates code on all branch pushes and pull requests to main. Runs tests, builds packages, and verifies metadata.
+- **Development Releases** - Automatically publishes to TestPyPI when pre-publish validation succeeds on main. Tagged as `vX.Y.Z.devN` and marked as pre-releases on GitHub.
+- **Stable Releases** - Manually triggered production releases published to PyPI. Tagged as `vX.Y.Z` with full release notes and GitHub release creation.
 
-Both release types use a unified workflow architecture where launcher workflows (`release-dev.yml` and `release-stable.yml`) call a single shared implementation (`release-common.yml`) with different parameters.
+The architecture uses workflow dependencies to ensure code is validated before publishing, eliminating race conditions and duplicate work.
 
 See the [Workflow Architecture](#workflow-architecture) section for detailed workflow descriptions.
 
@@ -61,219 +62,228 @@ spafw37 uses several automated workflows for testing, deployment, and changelog 
 
 ### Workflow Architecture
 
-The release process uses a unified architecture where two launcher workflows call a single shared implementation:
+The release process uses three independent top-level workflows that coordinate through workflow dependencies:
 
 #### Workflow Files Overview
 
-**Launcher Workflows:**
+**Validation Workflow:**
 
-- **`release-dev.yml`** - Development Release Launcher
-  - **Triggers**: Push to `main` (live), pull requests to `main` (preview), manual dispatch
-  - **Purpose**: Publishes development versions to TestPyPI for testing
-  - **Behaviour**: Automatically determines dry-run mode (false for main pushes, true for PRs)
-  - **Parameters passed to unified workflow**:
-    - Coverage: 80%
-    - Publish target: TestPyPI
-    - Version operation: increment-dev (bumps .devN suffix)
-    - Branching: disabled
-    - GitHub release: pre-release only
+- **`pre-publish.yml`** - Pre-Publish Validation
+  - **Triggers**: All branch pushes, pull requests to main
+  - **Purpose**: Validates code quality before any publishing occurs
+  - **Jobs**: prepare-python, test (80% coverage), build-and-verify
+  - **Outputs**: Built and verified packages
+  - **Concurrency**: Per-branch (allows parallel validation of different branches)
 
-- **`release-stable.yml`** - Stable Release Launcher
+**Publishing Workflows:**
+
+- **`publish-dev.yml`** - Development Release Publishing
+  - **Triggers**: 
+    - Workflow run completion (waits for pre-publish on main branch)
+    - Manual workflow dispatch (for emergency overrides)
+  - **Purpose**: Publishes validated code to TestPyPI
+  - **Dependency**: Only runs if pre-publish succeeds on main
+  - **Actions**: Increment dev version, build, publish to TestPyPI, create GitHub pre-release
+  - **Concurrency**: Single group (prevents overlapping publications)
+
+- **`publish-stable.yml`** - Stable Release Publishing  
   - **Triggers**: Manual workflow dispatch only
   - **Purpose**: Publishes production releases to PyPI
-  - **Behaviour**: Accepts dry-run parameter for preview mode
-  - **Parameters passed to unified workflow**:
-    - Coverage: 95%
-    - Publish target: PyPI
-    - Version operation: strip-dev (removes .devN suffix)
-    - Branching: creates release and bugfix branches
-    - GitHub release: full release
-
-**Core Workflows:**
-
-- **`release-common.yml`** - Unified Release Implementation
-  - **Type**: Reusable workflow (workflow_call)
-  - **Purpose**: Single source of truth for all release operations
-  - **Jobs**: prepare-python, test, get_version, prepare_release, build_and_verify, publish, post_release
-  - **Parameterised**: Accepts 9 inputs to control behaviour
-  - **Used by**: Both release-dev.yml and release-stable.yml
+  - **Actions**: Strip dev suffix, build, publish to PyPI, create git tag, create GitHub release, bump main to next dev version
+  - **Concurrency**: Single group (prevents overlapping publications)
 
 **Supporting Workflows:**
 
 - **`build-python.yml`** - Python Build
   - **Type**: Reusable workflow
   - **Purpose**: Builds Python 3.7.9 from source with caching
-  - **Used by**: release-common.yml, test.yml, build-and-verify.yml
+  - **Used by**: pre-publish.yml
   - **Caching**: Stores built Python and pip cache for reuse
-
-- **`test.yml`** - Test Suite
-  - **Triggers**: Push/PR to main/develop branches, or called by other workflows
-  - **Purpose**: Runs pytest with coverage enforcement
-  - **Configurable**: Coverage threshold (80% or 95%)
-  - **Used by**: release-common.yml, and runs independently on all pushes
 
 - **`build-and-verify.yml`** - Package Build and Verification
   - **Type**: Reusable workflow
   - **Purpose**: Builds wheel and source distribution, validates package structure
   - **Verification**: Checks METADATA file, Python version requirements
-  - **Used by**: release-common.yml
+  - **Used by**: pre-publish.yml
+  - **Requirements**: upload-artifact@v4 (v3 deprecated)
 
-- **`update-changelog.yml`** - Automatic Changelog Generation
-  - **Triggers**: Push to feature/** or bugfix/** branches
-  - **Purpose**: Extracts CHANGES sections from plan files and updates CHANGELOG.md
-  - **Dependencies**: Waits for Test and Packaging workflows to succeed
-  - **Behaviour**: Commits updated changelog with [skip ci]
+**Workflow Dependency Flow:**
 
-**Workflow Call Hierarchy:**
+**Validation (All Branches):**
 
 ```mermaid
-graph TB
-    A[release-dev.yml<br/>Dev Launcher] -->|80% coverage<br/>TestPyPI<br/>increment-dev| C[release-common.yml<br/>Unified Implementation]
-    B[release-stable.yml<br/>Stable Launcher] -->|95% coverage<br/>PyPI<br/>strip-dev| C
+graph LR
+    A["Push/PR"] --> B["pre-publish.yml"]
+    B --> C["prepare-python"]
+    C --> D["test<br/>80% coverage"]
+    D --> E["build-and-verify"]
     
-    C -->|calls| D[build-python.yml]
-    C -->|calls| E[test.yml]
-    C -->|calls| F[build-and-verify.yml]
-    
-    classDef launcherStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
-    classDef unifiedStyle fill:#d9b3ff,stroke:#6600cc,stroke-width:2px,color:#333
-    classDef supportStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
-    
-    class A,B launcherStyle
-    class C unifiedStyle
-    class D,E,F supportStyle
-    
+    classDef validationStyle fill:#cce6ff,stroke:#0066cc,stroke-width:2px,color:#333
+    class A,B,C,D,E validationStyle
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-**Benefits of unified architecture:**
-- Single source of truth for release logic
-- Consistent behaviour between dev and stable releases
-- Easier to maintain and test
-- Clear separation between launcher and implementation
-- Parameterisation allows for flexible release strategies
-
-### Test Workflow
-
-**File:** `.github/workflows/test.yml`
-
-Runs on every push and pull request to verify code quality:
+**Development Publishing (Main Branch Only):**
 
 ```mermaid
-flowchart LR
-    A[Push/PR] --> B[Restore Python<br/>Cache]
-    B --> C{Cache Hit?}
-    C -->|No| D[Build Python<br/>3.7.9]
-    C -->|Yes| E[Use Cached<br/>Python]
-    D --> F[Install<br/>Dependencies]
-    E --> F
-    F --> G[Run pytest]
-    G --> H{Coverage ≥<br/>Threshold?}
-    H -->|Yes| I[✓ Pass]
-    H -->|No| J[✗ Fail]
+graph LR
+    F["pre-publish<br/>succeeds on main"] -->|workflow_run| G["publish-dev.yml"]
+    G --> H["Increment<br/>dev version"]
+    H --> I["Build"]
+    I --> J["Publish<br/>TestPyPI"]
+    J --> K["Create GitHub<br/>pre-release"]
+    
+    classDef publishStyle fill:#d9b3ff,stroke:#6600cc,stroke-width:2px,color:#333
+    class F,G,H,I,J,K publishStyle
+    linkStyle default stroke:#8c8c8c,stroke-width:2px
+```
+
+**Production Release (Manual):**
+
+```mermaid
+graph LR
+    L["Manual<br/>trigger"] --> M["publish-stable.yml"]
+    M --> N["Test<br/>95% Coverage"]
+    N --> O["Strip dev suffix<br/>& Build"]
+    O --> P["Publish PyPI<br/>& Create tag"]
+    P --> Q["Create GitHub<br/>release"]
+    Q --> R["Bump main<br/>to next dev"]
+    
+    classDef stableStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
+    class L,M,N,O,P,Q,R stableStyle
+    linkStyle default stroke:#8c8c8c,stroke-width:2px
+```
+
+**Architecture benefits:**
+- No race conditions (validation completes before publishing)
+- No duplicate work (validation runs once, publishing uses results)
+- Clear separation of concerns (validate vs publish)
+- Automatic gating (failed validation prevents publishing)
+- Manual override preserved (workflow_dispatch for emergencies)
+
+### Pre-Publish Validation Workflow
+
+**File:** `.github/workflows/pre-publish.yml`
+
+Validates code quality on all branch pushes and pull requests:
+
+```mermaid
+flowchart TB
+    A["Push/PR"] --> B["prepare-python"]
+    B --> C{"Cache Hit?"}
+    C -->|No| D["Build Python 3.7.9"]
+    C -->|Yes| E["test"]
+    D --> E
+    E --> F["Install & Run pytest"]
+    F --> G{"Coverage ≥ 80%?"}
+    G -->|No| H["Fail"]
+    G -->|Yes| I["build-and-verify"]
+    I --> J["Build & Verify<br/>Packages"]
+    J --> K["Upload Artifacts"]
+    K --> L["Pass"]
     
     classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
     classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
     classDef successStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
     classDef errorStyle fill:#ffcccc,stroke:#cc0000,stroke-width:2px,color:#333
     
-    class A,B,D,E,F,G processStyle
-    class C,H decisionStyle
-    class I successStyle
-    class J errorStyle
+    class A,B,D,E,F,I,J,K processStyle
+    class C,G decisionStyle
+    class L successStyle
+    class H errorStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
 **Workflow execution:**
 
-1. **Cache restoration** (`test.yml` step: "Restore Python build & pip caches")
+1. **Prepare Python** (`pre-publish.yml` job: "prepare-python")
    - Checks for cached Python 3.7.9 build
-   - Cache key includes Python version and requirements.txt hash
-   - Significantly speeds up subsequent runs
+   - Cache key includes Python version and requirements hash
+   - Builds Python from source if cache miss (~5-10 minutes)
+   - Stores Python and pip cache for reuse
 
-2. **Python installation** (`test.yml` step: "Install build dependencies")
-   - Only runs on cache miss
-   - Downloads Python 3.7.9 source from python.org
-   - Compiles and installs to local directory
-   - Takes ~5-10 minutes on first run
-
-3. **Dependency installation** (`test.yml` step: "Install dependencies")
-   - Installs project in editable mode with dev dependencies
-   - Uses pip with cached packages when available
-
-4. **Test execution** (`test.yml` step: "Run tests with pytest")
-   - Runs pytest with coverage tracking
-   - Coverage threshold: 80% (default) or 95% (stable releases)
+2. **Test** (`pre-publish.yml` job: "test")
+   - Restores Python from cache
+   - Installs project with development dependencies
+   - Runs pytest with 80% coverage requirement
    - Fails if coverage below threshold
    - Generates coverage report
 
+3. **Build and verify** (`pre-publish.yml` job: "build-and-verify")
+   - Builds wheel and source distribution
+   - Verifies METADATA file contents
+   - Checks Python version requirements (>=3.7,<4)
+   - Uploads build artifacts with upload-artifact@v4
+
+4. **Update changelog** (`pre-publish.yml` job: "update-changelog")
+   - Extracts CHANGES sections from plan files in `features/`
+   - Updates CHANGELOG.md with changes for current version
+   - Commits with [skip ci] if changes detected
+   - Runs on all branches (not just feature/bugfix)
+
 **Triggers:**
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop` branches
-- Manual workflow dispatch
-- Called by `release-common.yml`
+- Push to any branch
+- Pull requests to main
 
 **Actions:**
-- Builds Python 3.7.9 from source with caching
-- Installs project with development dependencies
-- Runs pytest with configurable coverage requirement (80% for dev releases, 95% for stable releases)
-- Reports test results and coverage
+- Validates code quality on all branches
+- Prevents broken code from being merged
+- Provides fast feedback to developers
+- Stores build artifacts for potential publishing
 
-### Development Release Workflow
+### Publish Dev Workflow
 
-**File:** `.github/workflows/release-dev.yml`
+**File:** `.github/workflows/publish-dev.yml`
 
-Automatically publishes development versions to TestPyPI on every push to `main`, and provides dry-run preview on pull requests.
+Automatically publishes development versions to TestPyPI when validation succeeds on main branch.
 
-#### Dry-Run Determination
+**Workflow trigger:**
 
 ```mermaid
 flowchart TD
-    A[Event Trigger] --> B{Event Type?}
-    B -->|Push to main<br/>NOT manual dry-run| C[dry_run = false]
-    B -->|Pull request| D[dry_run = true]
-    B -->|Manual dispatch<br/>with dry_run=true| D
+    A[pre-publish.yml<br/>succeeds on main] -->|workflow_run| B{Check Success}
+    B -->|Success| C[Start publish-dev]
+    B -->|Failure| D[Skip]
     
-    C --> E[Live Release Mode]
-    D --> F[Preview Mode]
+    E[Manual<br/>workflow_dispatch] --> C
     
     classDef triggerStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
     classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
-    classDef liveStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
-    classDef previewStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
+    classDef processStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
+    classDef skipStyle fill:#ffcccc,stroke:#cc0000,stroke-width:2px,color:#333
     
-    class A triggerStyle
+    class A,E triggerStyle
     class B decisionStyle
-    class C,E liveStyle
-    class D,F previewStyle
+    class C processStyle
+    class D skipStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-**Dry-run logic** (`release-dev.yml` job: "set_dry_run"):
-- Push to main branch: dry_run = false (live release)
-- Pull request to main: dry_run = true (preview only)
-- Manual dispatch with dry_run input: uses provided value
+**Trigger logic** (`publish-dev.yml`):
+- Workflow run completion: waits for Pre-Publish Validation workflow to complete on main branch
+- Only starts if pre-publish succeeded (`conclusion == 'success'`)
+- Manual dispatch: allows emergency overrides (bypasses pre-publish check)
 
-#### Live Release Flow
+**This ensures:**
+- No race conditions (pre-publish completes before publishing)
+- Failed validation prevents publishing (automatic gating)
+- Manual override preserved (emergency deployments)
+
+#### Publication Flow
 
 ```mermaid
-flowchart TD
-    A[Push to Main] --> B[Call release-common.yml]
-    B --> C[Build Python<br/>3.7.9]
-    C --> D[Run Tests<br/>80% Coverage]
-    D --> E[Get Current<br/>Version]
-    E --> F[Increment .devN<br/>Suffix]
-    F --> G[Update setup.cfg]
-    G --> H[Commit &<br/>Push to Main]
-    H --> I[Create Tag<br/>vX.Y.Z.devN]
-    I --> J[Push Tag]
-    J --> K[Build Package]
-    K --> L[Publish to<br/>TestPyPI]
-    L --> M[Create GitHub<br/>Pre-Release]
-    M --> N[Generate<br/>Release Notes]
-    N --> O[✓ Complete]
+flowchart LR
+    A["Pre-publish<br/>Success"] --> B["Get Version"]
+    B --> C["Increment<br/>devN"]
+    C --> D["Update<br/>setup.cfg"]
+    D --> E["Commit & Push<br/>(skip ci)"]
+    E --> F["Create & Push<br/>Tag"]
+    F --> G["Build"]
+    G --> H["Publish<br/>TestPyPI"]
+    H --> I["Create Release<br/>& Notes"]
+    I --> J["Complete"]
     
     classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
     classDef versionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
@@ -281,190 +291,105 @@ flowchart TD
     classDef publishStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
     classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
     
-    class A,B,C,D,K processStyle
-    class E,F,G versionStyle
-    class H,I,J gitStyle
-    class L,M,N publishStyle
-    class O successStyle
+    class A,G processStyle
+    class B,C,D versionStyle
+    class E,F gitStyle
+    class H,I publishStyle
+    class J successStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-**Live release execution** (dry_run = false):
+**Publication execution:**
 
-1. **Python build** (`release-common.yml` job: "prepare-python")
-   - Calls `build-python.yml` to ensure Python 3.7.9 is available
-   - Uses cached build if available
-
-2. **Testing** (`release-common.yml` job: "test")
-   - Calls `test.yml` with 80% coverage threshold
-   - Fails release if tests don't pass
-
-3. **Version calculation** (`release-common.yml` job: "get_version")
+1. **Version calculation** (`publish-dev.yml` job: "get_version")
    - Reads current version from `setup.cfg` (e.g., `1.2.0.dev5`)
    - Increments dev counter (e.g., `1.2.0.dev5` → `1.2.0.dev6`)
 
-4. **Version update** (`release-common.yml` job: "prepare_release")
+2. **Version update** (`publish-dev.yml` job: "prepare_release")
    - Updates `setup.cfg` with new version
-   - Commits change with `[skip ci]`
+   - Commits change with `[skip ci]` to avoid triggering pre-publish again
    - Pushes directly to main branch
 
-5. **Tagging** (`release-common.yml` job: "prepare_release")
+3. **Tagging** (`publish-dev.yml` job: "prepare_release")
    - Creates annotated tag (e.g., `v1.2.0.dev6`)
    - Pushes tag to repository
 
-6. **Package build** (`release-common.yml` job: "build_and_verify")
-   - Calls `build-and-verify.yml` to build wheel and source distribution
-   - Verifies package metadata
-   - Uploads artifacts for publication
+4. **Package build** (`publish-dev.yml` job: "build")
+   - Builds wheel and source distribution
+   - Verifies package structure
 
-7. **Publication** (`release-common.yml` job: "publish")
-   - Downloads built package artifacts
+5. **Publication** (`publish-dev.yml` job: "publish")
    - Publishes to test.pypi.org using Trusted Publisher authentication
+   - Uses PyPI API token from GitHub secrets
 
-8. **GitHub release** (`release-common.yml` job: "post_release")
+6. **GitHub release** (`publish-dev.yml` job: "post_release")
    - Generates release notes from plan files
    - Creates GitHub pre-release (marked with pre-release flag)
    - Includes TestPyPI installation instructions
 
-#### Preview Mode Flow
+**Triggers:**
+- Automatic: When pre-publish completes successfully on main
+- Manual: workflow_dispatch (for emergency overrides)
+
+**Actions:**
+- Increments dev version (.devN suffix)
+- Builds and publishes to TestPyPI
+- Creates GitHub pre-release with installation instructions
+- Commits version bump with [skip ci]
+
+### Publish Stable Workflow
+
+**File:** `.github/workflows/publish-stable.yml`
+
+Manually triggered production releases to PyPI.
+
+#### Production Release Flow
 
 ```mermaid
-flowchart TD
-    A[Pull Request] --> B[Call release-common.yml<br/>with dry_run=true]
-    B --> C[Build Python<br/>3.7.9]
-    C --> D[Run Tests<br/>80% Coverage]
-    D --> E[Calculate Version<br/>No Changes]
-    E --> F[Build Package<br/>Verify Only]
-    F --> G[✓ Preview<br/>Complete]
+flowchart LR
+    A["Manual Trigger"] --> B["Test<br/>95% Coverage"]
+    B --> C["Strip devN<br/>Suffix"]
+    C --> D["Build & Publish<br/>to PyPI"]
+    D --> E["Create Tag<br/>& Release"]
+    E --> F["Bump Main<br/>to Next Dev"]
+    F --> G["Complete"]
     
     classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
-    classDef previewStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
+    classDef versionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
+    classDef publishStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
     classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
     
-    class A,B,C,D processStyle
-    class E,F previewStyle
+    class A,B processStyle
+    class C,F versionStyle
+    class D,E publishStyle
     class G successStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-**Preview mode execution** (dry_run = true):
+**Production release execution:**
 
-1. **Testing** - Same as live mode
-2. **Version calculation** - Calculates what version would be, but doesn't update files
-3. **Package build** - Builds package to verify it can be built successfully
-4. **Skipped operations**:
-   - No commits or pushes to repository
-   - No tag creation
-   - No publication to TestPyPI
-   - No GitHub release creation
+The stable release workflow consists of three jobs:
 
-**Purpose:** Validates that the release workflow would succeed without making any changes.
+1. **prepare-stable-release** - Restores Python from cache, runs tests with 95% coverage requirement, strips dev suffix, updates README links, creates release branch
+2. **publish** - Builds packages, publishes to PyPI, creates git tag, generates release notes, creates GitHub release
+3. **post-release** - Bumps main branch to next development version
+
+See [Detailed Steps](#detailed-steps) section below for complete information.
 
 **Triggers:**
-- Push to `main` branch (live release)
-- Pull requests to `main` branch (dry-run preview)
+- Manual: workflow_dispatch only
 
 **Actions:**
-1. Determines dry-run mode based on event type
-2. Calls unified release workflow with dev parameters:
-   - Coverage threshold: 80%
-   - Publish target: TestPyPI
-   - Version operation: increment-dev (.devN suffix)
-   - No branching operations
-3. In live mode: publishes to TestPyPI and creates GitHub pre-release
-4. In dry-run mode: validates build without publishing
+- Strips dev suffix from version
+- Runs tests with 95% coverage requirement
+- Builds and publishes to production PyPI
+- Creates GitHub release with full release notes
+- Bumps main to next development version
+- Commits all version changes with [skip ci]
 
-**Purpose:** Provides continuous deployment for testing development versions with preview capability.
-
-### Changelog Generation Workflow
-
-**File:** `.github/workflows/update-changelog.yml`
-
-Automatically updates `CHANGELOG.md` when feature/bugfix branches are pushed.
-
-```mermaid
-flowchart TD
-    A[Push Feature/<br/>Bugfix Branch] --> B[Trigger Test &<br/>Packaging Workflows]
-    B --> C{Workflows<br/>Pass?}
-    C -->|No| D[✗ Stop]
-    C -->|Yes| E[Run Changelog<br/>Workflow]
-    E --> F[Read Version<br/>from setup.cfg]
-    F --> G[Find Plan Files<br/>in features/]
-    G --> H{Plan Files<br/>for Version?}
-    H -->|No| I[Skip<br/>No Changes]
-    H -->|Yes| J[Extract CHANGES<br/>Sections]
-    J --> K[Combine<br/>by Issue]
-    K --> L[Filter Stat<br/>Lines]
-    L --> M[Update<br/>CHANGELOG.md]
-    M --> N[Commit with<br/>skip ci]
-    N --> O[✓ Complete]
-    
-    classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
-    classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
-    classDef errorStyle fill:#ffcccc,stroke:#cc0000,stroke-width:2px,color:#333
-    classDef skipStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
-    classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
-    
-    class A,B,E,F,G,J,K,L processStyle
-    class C,H decisionStyle
-    class D errorStyle
-    class I skipStyle
-    class M,N,O successStyle
-    
-    linkStyle default stroke:#8c8c8c,stroke-width:2px
-```
-
-**Workflow execution:**
-
-1. **Trigger** (`update-changelog.yml` trigger: "workflow_run")
-   - Waits for Test and Packaging workflows to complete
-   - Only runs if both workflows succeeded
-   - Triggered by pushes to `feature/**` or `bugfix/**` branches
-
-2. **Version detection** (`update-changelog.yml` step: "Generate changelog" → `generate_changelog.py`)
-   - Reads current development version from `setup.cfg`
-   - Example: `1.2.0.dev5` → target version `1.2.0`
-
-3. **Plan file discovery** (`generate_changelog.py`)
-   - Searches `features/` directory for plan files
-   - Matches by filename pattern: `issue-*-<version>.md`
-   - Also checks CHANGES section headers for version match
-
-4. **Content extraction** (`generate_changelog.py`)
-   - Extracts CHANGES sections from each plan file
-   - Groups changes by issue number
-   - Preserves section structure (Additions, Changes, Fixes, etc.)
-
-5. **Filtering** (`generate_changelog.py`)
-   - Removes statistical summary lines (e.g., "11 parameter examples changed")
-   - Keeps only user-relevant changes
-
-6. **Update CHANGELOG.md** (`generate_changelog.py`)
-   - Updates or replaces the version entry
-   - Maintains chronological order (newest first)
-   - Follows CHANGES-TEMPLATE.md format
-
-7. **Commit** (`update-changelog.yml` step: "Commit and push changelog")
-   - Commits updated CHANGELOG.md
-   - Uses `[skip ci]` to avoid triggering more workflows
-   - Pushes directly to the feature/bugfix branch
-
-**Triggers:**
-- Push to `feature/**` or `bugfix/**` branches
-- After Test and Packaging workflows complete successfully
-
-**Actions:**
-1. Reads current development version from `setup.cfg`
-2. Finds all plan files in `features/` targeting that version
-3. Extracts CHANGES sections from each plan file
-4. Combines sections organised by issue number
-5. Filters out statistical summary lines
-6. Updates or replaces version entry in `CHANGELOG.md`
-7. Commits changes with `[skip ci]`
-
-**Purpose:** Keeps changelog current during development without manual consolidation.
+**Purpose:** Production releases require manual approval and higher quality standards.
 
 ## Prerequisites
 
@@ -475,7 +400,7 @@ Before creating a release, ensure:
 1. All changes for the release are merged to `main`
 2. All tests are passing on `main`
 3. PyPI Trusted Publisher is configured for this repository (see [Configuration](#configuration) below)
-4. `CHANGELOG.md` is up to date (automatically maintained by changelog workflow)
+4. `CHANGELOG.md` is up to date (automatically maintained by pre-publish workflow)
 
 ## Creating a Release
 
@@ -487,114 +412,94 @@ Stable releases are created manually using GitHub Actions:
 2. Select the **Stable Release** workflow from the left sidebar
 3. Click **Run workflow** button
 4. Select the `main` branch (should be selected by default)
-5. **Optional: Enable dry-run mode** to preview the release without publishing
-6. Click **Run workflow** to start the release process
+5. Click **Run workflow** to start the release process
 
-The stable release workflow calls the unified release workflow with production parameters:
-- Coverage threshold: 95%
-- Publish target: PyPI
-- Version operation: strip-dev (removes .devN suffix)
-- Creates release branch and bugfix branch
-- Creates GitHub Release (not pre-release)
+The stable release workflow:
+- Runs tests with 95% coverage requirement
+- Strips dev suffix from version (e.g., `1.2.0.dev6` → `1.2.0`)
+- Publishes to production PyPI
+- Creates annotated git tag
+- Creates GitHub Release (full release)
+- Bumps main to next development version (e.g., `1.2.1.dev0`)
 
 ## Development Releases
 
 [⬆ Back to Top](#table-of-contents)
 
-Development releases are automatically published to TestPyPI and GitHub whenever code is pushed to `main`. Pull requests trigger dry-run previews without publishing.
+Development releases are automatically published to TestPyPI whenever code is merged to `main` and passes validation.
 
 ```mermaid
-flowchart TD
-    A{Trigger?} --> B[Push to Main]
-    A --> C[Pull Request]
-    B --> D[Run Tests<br/>80%]
-    C --> E[Run Tests<br/>80%]
-    D --> F{Tests Pass?}
-    E --> G{Tests Pass?}
-    F -->|No| H[✗ Stop]
-    G -->|No| H
-    F -->|Yes| I[Build & Verify]
-    G -->|Yes| J[Build & Verify]
-    I --> K[Publish to<br/>TestPyPI]
-    J --> L[Dry-Run<br/>Preview]
-    K --> M[Increment<br/>Version]
-    L --> N[✓ Preview<br/>Complete]
-    M --> O[Create GitHub<br/>Pre-Release]
-    O --> P[Generate<br/>Release Notes]
-    P --> Q[✓ Dev Release<br/>Published]
+flowchart LR
+    A["Push to Main"] --> B["pre-publish<br/>validates"]
+    B --> C{"Tests<br/>Pass?"}
+    C -->|No| D["Stop"]
+    C -->|Yes| E["publish-dev<br/>triggers"]
+    E --> F["Increment<br/>dev version"]
+    F --> G["Build & Publish<br/>to TestPyPI"]
+    G --> H["Create<br/>Pre-Release"]
+    H --> I["Complete"]
     
-    classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
     classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
+    classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
     classDef errorStyle fill:#ffcccc,stroke:#cc0000,stroke-width:2px,color:#333
     classDef publishStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
-    classDef previewStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
     classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
     
-    class A,F,G decisionStyle
-    class B,C,D,E,I,J,M,O,P processStyle
-    class H errorStyle
-    class K publishStyle
-    class L,N previewStyle
-    class Q successStyle
+    class A,B,E,F processStyle
+    class C decisionStyle
+    class D errorStyle
+    class G,H publishStyle
+    class I successStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-**What happens on push to main (live release):**
+**What happens on merge to main:**
 
-Development releases automatically publish to TestPyPI and create GitHub pre-releases. The process uses the same `release-common.yml` workflow as stable releases, but with different parameters.
+Development releases automatically publish after validation succeeds. The workflow_run trigger ensures no race conditions or duplicate work.
 
-**Job execution for dev releases:**
+**Execution flow for dev releases:**
 
-1. **Job: prepare-python** (`release-common.yml` → `build-python.yml`)
-   - Ensures Python 3.7.9 is available (from cache or built)
+1. **Pre-publish validation** (`pre-publish.yml`)
+   - Builds Python 3.7.9 (from cache or source)
+   - Runs pytest with **80% coverage requirement**
+   - Builds and verifies package structure
+   - Uploads build artifacts
 
-2. **Job: test** (`release-common.yml` → `test.yml`)
-   - Runs pytest with **80% coverage threshold** (lower than stable releases)
-   - Fails release if tests don't pass
-
-3. **Job: get_version** (`release-common.yml`)
+2. **Publish dev** (`publish-dev.yml` - triggered by pre-publish success)
+   - Waits for pre-publish to complete successfully on main
    - Reads current version from `setup.cfg` (e.g., `1.2.0.dev5`)
    - Increments dev counter: `1.2.0.dev5` → `1.2.0.dev6`
-
-4. **Job: prepare_release** (`release-common.yml`)
-   - Updates `setup.cfg` with new version: `version = 1.2.0.dev6`
+   - Updates `setup.cfg` with new version
    - Commits change with `[skip ci]`
-   - **Pushes directly to main branch** (no release branch created)
+   - Pushes directly to main branch
    - Creates tag: `v1.2.0.dev6`
    - Pushes tag to repository
-   - **No bugfix branch created** (only for stable releases)
-
-5. **Job: build_and_verify** (`release-common.yml` → `build-and-verify.yml`)
    - Builds wheel and source distribution
-   - Verifies package structure
-
-6. **Job: publish** (`release-common.yml`)
-   - Publishes to **test.pypi.org** (not production PyPI)
-   - Uses TEST_PYPI_API_TOKEN secret
-
-7. **Job: post_release** (`release-common.yml`)
-   - Generates release notes (see [Release Notes Behaviour](#release-notes-behaviour) below)
+   - Publishes to **test.pypi.org** using Trusted Publisher (OIDC)
+   - Generates release notes using `generate_dev_release_notes.py` (see [Release Notes Behaviour](#release-notes-behaviour) below)
    - Creates **GitHub pre-release** (marked with pre-release flag)
-   - **No version bump** (version already incremented in prepare_release)
 
 **Key differences from stable releases:**
 - 80% vs 95% coverage threshold
 - TestPyPI vs PyPI
 - Increments .devN suffix vs strips it
 - No release branch created
-- No bugfix branch created
 - Pre-release vs full release
 - Version pushed to main immediately
 
-**What happens on pull request (dry-run preview):**
+**Accessing development releases:**
 
-1. **Tests run** - Verifies 80% code coverage
-2. **Package built** - Creates wheel and source distribution
-3. **Build validated** - Ensures package structure is correct
-4. **No publishing** - Package is not uploaded to TestPyPI
-5. **No git operations** - No commits, tags, or releases created
-6. **Preview complete** - Workflow confirms package would build successfully
+- **TestPyPI**: https://test.pypi.org/project/spafw37/
+- **GitHub Releases**: Tagged as `vX.Y.Z.devN` and marked as pre-release
+
+**Installing from TestPyPI:**
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ spafw37==1.2.0.dev6
+```
+
+**Note:** Development releases are separate from stable releases on PyPI and are automatically cleaned up after 30 days on TestPyPI.
 
 ### Release Notes Behaviour
 
@@ -627,246 +532,85 @@ This ensures:
 - Subsequent dev releases show incremental progress
 - Stable releases provide comprehensive documentation
 
-**Accessing development releases:**
-
-- **TestPyPI**: https://test.pypi.org/project/spafw37/
-- **GitHub Releases**: Tagged as `vX.Y.Z.devN` and marked as pre-release
-
-**Installing from TestPyPI:**
-
-```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ spafw37==1.2.0.dev6
-```
-
-**Note:** Development releases are separate from stable releases on PyPI and are automatically cleaned up after 30 days on TestPyPI.
-
-## Dry-Run Mode
+## Manual Overrides
 
 [⬆ Back to Top](#table-of-contents)
 
-Both development and stable releases support dry-run mode for previewing releases without publishing:
+Both development and stable releases support manual triggering via workflow_dispatch:
 
-```mermaid
-graph TD
-    A[Trigger Release] --> B{Dry-Run?}
-    B -->|Yes| C[Preview Mode]
-    B -->|No| D[Live Mode]
-    
-    C --> C1[Run Tests]
-    C1 --> C2[Build Package]
-    C2 --> C3[Verify Build]
-    C3 --> C4[✓ Preview<br/>Complete]
-    
-    D --> D1[Run Tests]
-    D1 --> D2[Build Package]
-    D2 --> D3[Publish<br/>Package]
-    D3 --> D4[Create<br/>Release]
-    D4 --> D5[Git<br/>Operations]
-    D5 --> D6[✓ Release<br/>Complete]
-    
-    classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
-    classDef previewStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
-    classDef releaseStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
-    classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
-    
-    class A,B decisionStyle
-    class C,C1,C2,C3,C4 previewStyle
-    class D,D1,D2,D3,D4,D5 releaseStyle
-    class D6 successStyle
-    
-    linkStyle default stroke:#8c8c8c,stroke-width:2px
-```
+**Development releases:**
+- Go to Actions → Publish Dev
+- Click "Run workflow"
+- Select main branch
+- This bypasses pre-publish validation (use with caution)
 
-**When to use dry-run:**
-- Testing release workflow changes
-- Verifying package builds correctly
-- Previewing release without publishing
-- Development workflow triggered by pull requests (automatic dry-run)
+**Stable releases:**
+- Go to Actions → Stable Release
+- Click "Run workflow"
+- Select main branch
+- Runs full validation (95% coverage) before publishing
 
-**Dry-run mode skips:**
-- Package publication to PyPI/TestPyPI
-- Git commits and pushes
-- Tag creation
-- GitHub Release creation
+**When to use manual triggers:**
+- Emergency hotfix deployment
+- Republishing after TestPyPI cleanup
+- Testing workflow changes
+- Recovering from failed automated releases
 
-**Dry-run mode performs:**
-- Full test suite execution
-- Package build and verification
-- All validation checks
+**Caution:** Manual dev releases bypass validation. Ensure tests pass before triggering manually.
 
 ## What Happens During Stable Release
 
 [⬆ Back to Top](#table-of-contents)
 
-**File:** `.github/workflows/release-stable.yml` → calls `.github/workflows/release-common.yml`
+**File:** `.github/workflows/publish-stable.yml`
 
 The stable release workflow automates the entire production release process. It is triggered manually and creates a full release with branching, tagging, and PyPI publication.
 
-### Release Flow Overview
-
-```mermaid
-sequenceDiagram
-    participant Dev as Developer
-    participant Launcher as release-stable.yml
-    participant Common as release-common.yml
-    participant Test as test.yml
-    participant Build as build-and-verify.yml
-    participant Git as Git Repository
-    participant PyPI as PyPI
-    participant GH as GitHub Release
-    
-    Dev->>Launcher: Manual trigger
-    Launcher->>Common: Call with stable params
-    Common->>Test: Run tests (95% coverage)
-    Test-->>Common: ✓ Pass
-    Common->>Common: Calculate version<br/>(strip .devN)
-    Common->>Git: Update version in setup.cfg
-    Common->>Git: Create release/vX.Y.Z branch
-    Common->>Git: Update README links
-    Common->>Git: Create vX.Y.Z tag
-    Common->>Git: Push branch & tag
-    Common->>Build: Build package
-    Build-->>Common: Package artifacts
-    Common->>PyPI: Publish package
-    PyPI-->>Common: ✓ Published
-    Common->>Git: Create bugfix/X.Y.x branch
-    Common->>Git: Merge to main (excluding README)
-    Common->>Git: Bump version to X.Y.Z+1.dev0
-    Common->>GH: Create GitHub Release
-    GH-->>Dev: ✓ Release vX.Y.Z Complete
-```
-
-**Stable release parameters passed to release-common.yml:**
-- `coverage_threshold: 95` (higher than dev releases)
-- `publish_to: 'pypi'` (production PyPI)
-- `version_operation: 'strip-dev'` (removes .devN suffix)
-- `create_release_branch: true`
-- `create_bugfix_branch: true`
-- `create_release: true` (GitHub Release, not pre-release)
-- `generate_full_changelog: true`
-
 ### Detailed Steps
 
-The stable release process consists of 7 jobs in `release-common.yml`, each performing specific tasks:
+The stable release process consists of the following jobs in `publish-stable.yml`:
 
-#### Job 1: prepare-python
+#### Job 1: prepare-stable-release
 
-**File:** `release-common.yml` job: "prepare-python" → calls `build-python.yml`
-
-- Ensures Python 3.7.9 is available
-- Restores from cache if available (~2 seconds)
-- Builds from source if cache miss (~5-10 minutes)
-- Stores built Python and pip cache for subsequent jobs
-
-#### Job 2: test
-
-**File:** `release-common.yml` job: "test" → calls `test.yml`
-
-- Restores Python build from cache
-- Installs project with dev dependencies
-- Runs pytest with **95% coverage threshold** (higher than dev releases)
+- Restores Python 3.7.9 from cache (built by pre-publish workflow)
+- Runs pytest with **95% coverage requirement** (higher than dev releases)
 - Fails entire release if tests don't pass or coverage insufficient
-- Typical duration: 30-60 seconds (after cache warm)
-
-#### Job 3: get_version
-
-**File:** `release-common.yml` job: "get_version"
-
-- Reads current version from `setup.cfg` (e.g., `1.0.0.dev9`)
-- Calculates release version by stripping `.devN` suffix (e.g., `1.0.0`)
-- Outputs both current and release versions for subsequent jobs
-- Typical duration: <5 seconds
-
-#### Job 4: prepare_release
-
-**File:** `release-common.yml` job: "prepare_release"
 
 This job performs all git operations to prepare the release:
 
-1. **Update version** (`setup.cfg`)
-   - Changes `version = 1.0.0.dev9` to `version = 1.0.0`
+1. **Strip dev suffix**
+   - Reads current version from `setup.cfg` (e.g., `1.0.0.dev9`)
+   - Removes `.devN` suffix (e.g., `1.0.0.dev9` → `1.0.0`)
+   - Updates `setup.cfg` with stable version
    - Commits with message: "Release v1.0.0 [skip ci]"
 
 2. **Create release branch**
    - Branch name: `release/v1.0.0`
-   - Contains version updates and README link changes
+   - Commits setup.cfg and README.md with version and link updates
+   - Pushes branch to repository
 
-3. **Update README links**
-   - Changes `/tree/main/` → `/tree/v1.0.0/`
-   - Changes `/blob/main/` → `/blob/v1.0.0/`
-   - Ensures README on the tag points to correct tagged documentation
+**Typical duration:** 30-60 seconds (tests) + 10-20 seconds (git operations)
 
-4. **Update changelog** (if `generate_full_changelog: true`)
-   - Updates version header from `[1.0.0.dev9]` to `[1.0.0] (2025-11-24)`
-   - Adds release date
+#### Job 2: publish
 
-5. **Create and push tag**
-   - Tag name: `v1.0.0`
-   - Annotated tag with message: "Release v1.0.0"
-   - Pushed to repository
-
-6. **Push release branch**
-   - Branch `release/v1.0.0` pushed to repository
-   - Contains all version and README updates
-
-7. **Merge to main** (excluding README)
-   - Merges version and changelog updates to main
-   - Excludes README commit to keep main pointing to `/main/` links
-   - Commit message: "Merge release/v1.0.0 to main (version and changelog) [skip ci]"
-
-8. **Create bugfix branch**
-   - Branch name: `bugfix/1.0.x` (extracted from version)
-   - Created from the release tag
-   - Used for future patch releases (1.0.1, 1.0.2, etc.)
-   - Pushed to repository
-
-**Typical duration:** 10-20 seconds (mostly git operations)
-
-#### Job 5: build_and_verify
-
-**File:** `release-common.yml` job: "build_and_verify" → calls `build-and-verify.yml`
-
+- Checks out release branch `release/v1.0.0`
 - Restores Python build from cache
-- Installs build tools (pip, setuptools, wheel, build)
+- Installs build tools (pip, build, wheel)
 - Builds wheel: `spafw37-1.0.0-py3-none-any.whl`
 - Builds source distribution: `spafw37-1.0.0.tar.gz`
-- Verifies package structure and metadata
-- Uploads artifacts for publication job
-- Typical duration: 15-30 seconds
-
-#### Job 6: publish
-
-**File:** `release-common.yml` job: "publish"
-
-- Downloads built package artifacts from build_and_verify job
-- Installs twine for PyPI upload
-- Authenticates using PyPI Trusted Publisher (OIDC)
-- Publishes to **PyPI** (pypi.org, not TestPyPI)
-- Upload includes both wheel and source distribution
-- Typical duration: 5-15 seconds
+- Publishes to **PyPI** using Trusted Publisher (OIDC)
+- Creates git tag `v1.0.0` and pushes it
+- Generates release notes using `generate_dev_release_notes.py`
+- Creates GitHub Release (full release, not pre-release) with build artifacts
+- Typical duration: 20-30 seconds
 
 **Authentication:** Uses GitHub OIDC token (no API key required) - see [PyPI Trusted Publisher](#pypi-trusted-publisher) section.
 
-#### Job 7: post_release
+#### Job 3: post-release
 
-**File:** `release-common.yml` job: "post_release"
+This job handles post-release version bump:
 
-This job handles post-release tasks:
-
-1. **Generate release notes**
-   - Runs `.github/scripts/generate_dev_release_notes.py`
-   - For stable releases: aggregates full changelog from all plan files
-   - Formats for GitHub Release display
-   - Includes installation instructions
-
-2. **Create GitHub Release**
-   - Uses `gh release create` command
-   - Title: "Release v1.0.0"
-   - Uses generated release notes
-   - Creates full release (not pre-release)
-   - Attached to tag `v1.0.0`
-
-3. **Bump version for next development cycle**
+1. **Bump version for next development cycle**
    - Increments patch version: `1.0.0` → `1.0.1`
    - Adds `.dev0` suffix: `1.0.1.dev0`
    - Updates `setup.cfg`
@@ -877,7 +621,7 @@ This job handles post-release tasks:
 
 ### Summary of Changes
 
-1. **Runs all tests** - Verifies that all tests pass and coverage targets are met (95%)
+1. **Runs all tests** - Verifies that all tests pass and coverage meets 95% requirement
 
 2. **Removes development suffix** - Changes version from `X.Y.Z.devN` to `X.Y.Z` in `setup.cfg`
 
@@ -885,17 +629,17 @@ This job handles post-release tasks:
 
 4. **Updates README links** - Changes all documentation and example links from `/main/` to `/vX.Y.Z/` so the README on the tag points to the correct tagged documentation
 
-5. **Creates git tag** - Creates a version tag (e.g., `v1.0.0`) from the release branch and pushes it
+5. **Publishes to PyPI** - Builds distribution packages and uploads them using PyPI Trusted Publisher (OIDC authentication, no API token needed)
 
-6. **Creates bugfix branch** - Creates a `bugfix/X.Y.x` branch from the tag for future patch releases
+6. **Creates git tag** - Creates a version tag (e.g., `v1.0.0`) and pushes it
 
-7. **Publishes to PyPI** - Builds distribution packages and uploads them using PyPI Trusted Publisher (OIDC authentication, no API token needed)
+7. **Generates release notes** - Uses `generate_dev_release_notes.py` to create full changelog with PyPI installation instructions
 
-8. **Bumps development version** - Increments the patch version and adds `.dev0` suffix on `main` (e.g., `1.0.0` → `1.0.1.dev0`)
+8. **Creates GitHub Release** - Creates a GitHub Release with generated release notes and build artifacts
 
-9. **Creates GitHub Release** - Creates a GitHub Release with install instructions
+9. **Bumps development version** - Increments the patch version and adds `.dev0` suffix on `main` (e.g., `1.0.0` → `1.0.1.dev0`)
 
-All commits use `[skip ci]` to avoid triggering the test workflow unnecessarily.
+All commits use `[skip ci]` to avoid triggering validation workflows unnecessarily.
 
 ### Version Flow Diagram
 
@@ -904,20 +648,17 @@ graph LR
     A[1.0.0.dev9<br/>main] -->|Release| B[1.0.0<br/>release/v1.0.0]
     B -->|Tag| C[v1.0.0<br/>tag]
     C -->|Publish| D[PyPI<br/>1.0.0]
-    C -->|Branch| E[1.0.0<br/>bugfix/1.0.x]
-    A -->|Bump| F[1.0.1.dev0<br/>main]
+    A -->|Bump| E[1.0.1.dev0<br/>main]
     
     classDef devStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
     classDef releaseStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
     classDef tagStyle fill:#d9b3ff,stroke:#6600cc,stroke-width:2px,color:#333
     classDef publishStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
-    classDef bugfixStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
     
-    class A,F devStyle
+    class A,E devStyle
     class B releaseStyle
     class C tagStyle
     class D publishStyle
-    class E bugfixStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
@@ -927,30 +668,23 @@ graph LR
 [⬆ Back to Top](#table-of-contents)
 
 ```mermaid
-graph TD
-    A[Release Complete] --> B{Need to...?}
-    B -->|Fix Issues| C[Rollback Release]
-    B -->|Continue| D[Next Development]
+graph TB
+    A["Release Complete"] --> B{"Need to fix<br/>issues?"}
+    B -->|Yes| C["Delete Release<br/>& Tag"]
+    B -->|No| D["Continue<br/>Development"]
     
-    C --> C1[Manual Git<br/>Operations]
-    C1 --> C2[Delete Release<br/>& Tag]
-    C2 --> C3[Reset Version]
-    C3 --> C4[⚠ Create Patch<br/>Release]
-    
-    D --> D1[Continue<br/>Development]
-    D1 --> D2[✓ Normal<br/>Workflow]
+    C --> E["Reset Version"]
+    E --> F["Create Patch<br/>Release"]
     
     classDef decisionStyle fill:#f2e6ff,stroke:#9933ff,stroke-width:2px,color:#333
     classDef rollbackStyle fill:#ffcccc,stroke:#cc0000,stroke-width:2px,color:#333
     classDef processStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
     classDef warningStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
-    classDef successStyle fill:#b3e6b3,stroke:#00cc66,stroke-width:2px,color:#333
     
     class A,B decisionStyle
-    class C,C1,C2,C3 rollbackStyle
-    class D,D1 processStyle
-    class C4 warningStyle
-    class D2 successStyle
+    class C,E rollbackStyle
+    class D processStyle
+    class F warningStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
@@ -1036,7 +770,7 @@ The release workflow automatically:
 
 [⬆ Back to Top](#table-of-contents)
 
-Each release automatically creates a bugfix branch for that release series:
+Bugfix branches can be manually created to maintain older release series:
 
 ```mermaid
 gitGraph
@@ -1263,9 +997,21 @@ If the release workflow fails:
 
 1. Check the workflow logs in the Actions tab to identify the failure point
 2. Common issues:
-   - Tests failing (fix tests and retry)
-   - Missing `PYPI_API_TOKEN` secret (add in repository settings)
-   - Permission issues (check repository permissions)
+   - **Tests failing** - Fix tests and retry
+   - **Permission issues** - Check repository permissions (Settings → Actions → General → Workflow permissions)
+   - **upload-artifact version** - Ensure using upload-artifact@v4 (v3 was deprecated January 30, 2025)
+   - **PyPI Trusted Publisher** - Ensure Trusted Publisher is configured correctly (see [PyPI Trusted Publisher](#pypi-trusted-publisher) section)
+
+### Development Release Not Triggering
+
+If publish-dev doesn't run after merging to main:
+
+1. Check pre-publish workflow completed successfully
+   - `publish-dev` only triggers when `pre-publish` succeeds on main
+   - Check Actions tab for pre-publish status
+2. If pre-publish failed:
+   - Fix the issue and push again
+   - Or manually trigger publish-dev via workflow_dispatch (bypasses pre-publish check)
 
 ### Version Already Published
 
@@ -1327,14 +1073,14 @@ sequenceDiagram
    **For stable releases (PyPI):**
    - **Owner**: `minouris`
    - **Repository name**: `spafw37`
-   - **Workflow name**: `release-common.yml`
+   - **Workflow name**: `publish-stable.yml`
    - **Environment name**: (leave blank)
    
    **For dev releases (TestPyPI):**
    - Go to TestPyPI project settings: <https://test.pypi.org/manage/project/spafw37/settings/publishing/>
    - **Owner**: `minouris`
    - **Repository name**: `spafw37`
-   - **Workflow name**: `release-common.yml`
+   - **Workflow name**: `publish-dev.yml`
    - **Environment name**: (leave blank)
    
 3. Save the configurations
@@ -1368,12 +1114,10 @@ graph TD
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-The unified release workflow (`release-common.yml`) requires:
+All release workflows require:
 - `contents: write` - For creating releases and pushing commits/tags
 - `id-token: write` - For PyPI Trusted Publisher OIDC authentication
 - Standard `GITHUB_TOKEN` permissions for other operations
-
-Both launcher workflows (`release-dev.yml` and `release-stable.yml`) inherit these permissions when calling the unified workflow.
 
 ### GitHub Secrets
 
@@ -1381,24 +1125,25 @@ The following secrets can be configured in repository settings:
 
 ```mermaid
 graph LR
-    A[GitHub Repository] -->|Optional| B[OPENAI_API_KEY]
-    A -->|Automatic| C[GITHUB_TOKEN]
+    A[GitHub Repository] -->|Automatic| B[GITHUB_TOKEN]
+    A -->|Configured| C[PyPI Trusted<br/>Publisher]
     
-    B -->|Enables| D[AI-Powered<br/>Changelog]
-    C -->|Provides| E[Standard<br/>Operations]
+    B -->|Provides| D[Standard<br/>Operations]
+    C -->|Enables| E[TestPyPI &<br/>PyPI Publishing]
     
     classDef repoStyle fill:#e6f7ff,stroke:#3399ff,stroke-width:2px,color:#333
-    classDef optionalStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
     classDef autoStyle fill:#e6ffe6,stroke:#33cc33,stroke-width:2px,color:#333
+    classDef configStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px,color:#333
     classDef featureStyle fill:#f0fff0,stroke:#66ff66,stroke-width:2px,color:#333
     
     class A repoStyle
-    class B optionalStyle
-    class C autoStyle
+    class B autoStyle
+    class C configStyle
     class D,E featureStyle
     
     linkStyle default stroke:#8c8c8c,stroke-width:2px
 ```
 
-- `OPENAI_API_KEY` - *Optional* - OpenAI API key for AI-powered changelog generation (currently unused - changelog generated from plan files)
-- `GITHUB_TOKEN` - Automatically provided by GitHub Actions
+- `GITHUB_TOKEN` - Automatically provided by GitHub Actions for standard operations
+- **PyPI Trusted Publisher** - Configured via PyPI/TestPyPI web interface (no tokens needed)
+  - See [PyPI Trusted Publisher](#pypi-trusted-publisher) section for setup instructions

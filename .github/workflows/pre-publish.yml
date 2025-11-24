@@ -1,0 +1,222 @@
+name: Pre-Publish Validation
+
+on:
+  push: 
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pre-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure cache directories exist
+        run: |
+          mkdir -p "${{ github.workspace }}/.local/python-3.7.9" "${{ github.workspace }}/.cache/pip"
+
+      - name: Restore Python build cache
+        id: python-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.local/python-3.7.9
+          key: python-build-${{ runner.os }}-3.7.9
+
+      - name: Restore pip cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/pip
+          key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-3.7.9-
+
+      - name: Build and install Python (only if cache miss)
+        if: steps.python-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          PY=3.7.9
+          PY_PREFIX="${{ github.workspace }}/.local/python-3.7.9"
+          
+          sudo apt-get update
+          sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
+            libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
+            libnss3-dev liblzma-dev libffi-dev uuid-dev
+          
+          mkdir -p $HOME/src
+          cd $HOME/src
+          wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
+          tar xzf Python-${PY}.tgz
+          cd Python-${PY}
+          ./configure --prefix=$PY_PREFIX --with-ensurepip=install
+          make -j "$(nproc)"
+          make install
+          ls -la "$PY_PREFIX/bin"
+
+  test:
+    needs: prepare-python
+    runs-on: ubuntu-latest
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Verify Python
+      run: |
+        python3 --version
+        python3 -m pip --version
+
+    - name: Install dependencies and package
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install pytest==6.2.5 pytest-cov==2.12.1 typing_extensions
+        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+        python3 -m pip install -e .
+
+    - name: Run tests with 80% coverage
+      run: |
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=80
+
+  build-and-verify:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Install build tools
+      run: |
+        python3 -m pip install --upgrade pip build wheel twine
+
+    - name: Build distributions
+      run: |
+        python3 -m build --sdist --wheel
+
+    - name: Verify package metadata
+      run: |
+        python3 -m twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-packages
+        path: dist/
+        retention-days: 7
+
+  update-changelog:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: ${{ github.ref }}
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Ensure cache directories exist
+      run: |
+        mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
+
+    - name: Restore Python build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-3.7.9
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-3.7.9-
+
+    - name: Add built Python to PATH
+      run: |
+        echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
+
+    - name: Generate changelog
+      id: generate
+      run: |
+        python3 .github/scripts/generate_changelog.py
+
+    - name: Check if CHANGELOG.md changed
+      id: check_changes
+      run: |
+        if git diff --quiet CHANGELOG.md; then
+          echo "No changes to CHANGELOG.md"
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG.md has changes"
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Commit and push changelog
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        git add CHANGELOG.md
+        git commit -m "Update CHANGELOG.md [skip ci]"
+        git push
