@@ -33,6 +33,33 @@ If you are not certain about something, you must explicitly state that you don't
 
 **This applies to ALL work - code, configuration, documentation, and any other task.**
 
+### Mandatory Full Log Review for CI/CD Failures
+
+When diagnosing GitHub Actions workflow failures or any CI/CD errors:
+
+1. **ALWAYS retrieve and examine the COMPLETE log output** for the failed step/job
+2. **Never grep for specific error patterns** before seeing the full context
+3. **Read the entire step output** from start to finish to understand what happened
+4. **Look for multiple errors** - the visible error may be a consequence of an earlier issue
+5. **Check surrounding steps** - failures may cascade from previous steps
+
+**Why this is critical:**
+- Searching for specific patterns introduces confirmation bias
+- You may miss earlier errors that caused the visible failure
+- Context before/after the error often reveals the root cause
+- Multiple errors may occur in sequence
+
+**Example of correct behaviour:**
+```bash
+# WRONG - searching for a specific error
+gh run view 12345 --log | grep "SomeError"
+
+# RIGHT - retrieve full output for the failed step
+gh run view 12345 --log 2>&1 | awk '/StepName.*##\[group\]/,/##\[error\]/'
+```
+
+**This applies to ALL remote error diagnosis - GitHub Actions, CI systems, remote servers, etc.**
+
 ### Mandatory Source Citation for External Knowledge
 
 When answering questions about external systems, tools, APIs, documentation, or any information not directly visible in workspace files:

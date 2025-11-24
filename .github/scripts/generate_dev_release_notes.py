@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate development release notes for GitHub releases."""
 
+import json
 import re
 import subprocess
 import sys
@@ -62,7 +63,6 @@ def extract_issue_from_pr(pr_number):
             text=True,
             check=True
         )
-        import json
         pr_data = json.loads(result.stdout)
         
         # Look for issue references in title or body
