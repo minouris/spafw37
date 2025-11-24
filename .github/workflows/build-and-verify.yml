@@ -76,7 +76,7 @@ jobs:
       run: bash ./.github/scripts/ci_verify.sh "${{ inputs.require_sdist }}"
 
     - name: Upload dist artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist
