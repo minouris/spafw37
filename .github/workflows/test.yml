@@ -5,14 +5,25 @@ on:
     branches: [ "main", "master", "develop" ]
   pull_request:
     branches: [ "main", "master", "develop" ]
-  workflow_call:  # Allow this workflow to be called by other workflows
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to build/use'
+        required: false
+        type: string
+        default: '3.7.9'
+      coverage_threshold:
+        description: 'Coverage threshold to enforce (integer)'
+        required: false
+        type: number
+        default: 80
 
 jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: '3.7.9'
-      PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
+      PYTHON_VERSION: ${{ inputs.python_version || '3.7.9' }}
+      PY_PREFIX: ${{ github.workspace }}/.local/python-${{ inputs.python_version || '3.7.9' }}
       PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
     
     steps:
@@ -72,10 +83,9 @@ jobs:
         if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
         python3 -m pip install -e .
 
-    - name: Run tests
+    - name: Run tests and enforce coverage
       run: |
-        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term-missing
-
-    - name: Check test coverage
-      run: |
-        python3 -m pytest tests/ --cov=spafw37 --cov-report=term --cov-fail-under=80
+        set -euo pipefail
+        THRESHOLD=${{ inputs.coverage_threshold || 80 }}
+        echo "Running tests with coverage threshold: ${THRESHOLD}%"
+        python3 -m pytest tests/ -v --cov=spafw37 --cov-report=term --cov-fail-under=${THRESHOLD}

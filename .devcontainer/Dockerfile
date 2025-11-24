@@ -23,6 +23,7 @@ RUN sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive
     git \
     curl \
     ca-certificates \
+    unzip \
  && rm -rf /var/lib/apt/lists/*
 
 ENV PIP_OPTIONS="--trusted-host pypi.org --trusted-host files.pythonhosted.org"

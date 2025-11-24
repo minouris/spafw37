@@ -3,7 +3,13 @@ name: Publish to TestPyPI (Dev)
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip TestPyPI publish and version bump)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write  # Required for increment-version workflow to commit
@@ -11,10 +17,28 @@ permissions:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
+    with:
+      python_version: '3.7.9'
+      coverage_threshold: 80
+
+  prepare-python:
+    needs: test
+    uses: ./.github/workflows/build-python.yml
+    with:
+      python_version: '3.7.9'
+
+  build_and_verify:
+    needs: [test, prepare-python]
+    uses: ./.github/workflows/build-and-verify.yml
+    with:
+      python_version: '3.7.9'
+      require_sdist: true
 
   publish:
-    needs: test
+    needs: [test, prepare-python, build_and_verify]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     env:
       PYTHON_VERSION: '3.7.9'
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
@@ -25,6 +49,13 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
+
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=$(grep "^version = " setup.cfg | sed 's/version = //')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
 
     - name: Ensure cache directories exist
       run: |
@@ -41,123 +72,43 @@ jobs:
         restore-keys: |
           python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
-    - name: Install build dependencies
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential wget curl libssl-dev zlib1g-dev \
-          libbz2-dev libreadline-dev libsqlite3-dev libncurses5-dev libgdbm-dev \
-          libnss3-dev liblzma-dev libffi-dev uuid-dev
-
-    - name: Build and install Python (only if cache miss)
-      if: steps.python-cache.outputs.cache-hit != 'true'
-      run: |
-        set -euo pipefail
-        PY=${{ env.PYTHON_VERSION }}
-        mkdir -p $HOME/src
-        cd $HOME/src
-        wget --no-verbose https://www.python.org/ftp/python/${PY}/Python-${PY}.tgz
-        tar xzf Python-${PY}.tgz
-        cd Python-${PY}
-        ./configure --prefix=$PY_PREFIX --with-ensurepip=install
-        make -j "$(nproc)"
-        make install
-
     - name: Add built Python to PATH
       run: |
         echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
 
-    - name: Verify Python
-      run: |
-        python3 --version
-        python3 -m pip --version
-
-    - name: Install package and build tools
-      run: |
-        python3 -m pip install --upgrade pip setuptools wheel
-        if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
-        python3 -m pip install -e .
-        python3 -m pip install --upgrade build twine
-
-    - name: Install build tools
-      run: |
-        python3 -m pip install --upgrade build twine
-
-    - name: Build package
-      run: |
-        # Build both source distribution and wheel explicitly
-        python3 -m build --sdist --wheel
-
-    - name: List distribution artifacts
-      run: |
-        echo "Built files in dist/"
-        ls -la dist || true
-
-    # Guard: ensure both a universal wheel and a source distribution are present
-    # This prevents uploading incomplete packaging artifacts to TestPyPI.
-    - name: Verify distribution artifacts and metadata
-      run: |
-        set -euo pipefail
-
-        echo "Checking for wheel and sdist in dist/"
-
-        WHEEL=$(ls dist/*.whl 2>/dev/null | grep -E 'py3-none-any|py2.py3-none-any|py3-none-any' | head -n1 || true)
-        if [ -z "$WHEEL" ]; then
-          WHEEL=$(ls dist/*.whl 2>/dev/null | head -n1 || true)
-        fi
-
-        if [ -z "$WHEEL" ]; then
-          echo "ERROR: No wheel file found in dist/"
-          ls -la dist || true
-          exit 1
-        fi
-
-        echo "Inspecting wheel: $WHEEL"
-
-        TMPDIR=$(mktemp -d)
-        unzip -q "$WHEEL" -d "$TMPDIR"
-        META=$(find "$TMPDIR" -type f -name METADATA -print -quit || true)
-        if [ -z "$META" ]; then
-          echo "ERROR: Could not find METADATA inside wheel: $WHEEL"
-          ls -la "$TMPDIR" || true
-          rm -rf "$TMPDIR"
-          exit 1
-        fi
-
-        grep -i '^Requires-Python:' "$META" || true
-
-        REQUIRES_PYTHON=$(grep -i '^Requires-Python:' "$META" | sed 's/[Rr]equires-[Pp]ython:\s*//') || true
-        if [ -z "$REQUIRES_PYTHON" ]; then
-          echo "ERROR: Wheel METADATA does not include a Requires-Python field; expected '>=3.7'"
-          rm -rf "$TMPDIR"
-          exit 1
-        fi
-
-        echo "Requires-Python: $REQUIRES_PYTHON"
-
-        echo "$REQUIRES_PYTHON" | grep -E '>= *3\.7|3\.7' >/dev/null 2>&1 || {
-          echo "ERROR: Wheel does not advertise Python >=3.7 in Requires-Python: $REQUIRES_PYTHON"
-          rm -rf "$TMPDIR"
-          exit 1
-        }
-
-        rm -rf "$TMPDIR"
-
-        if ls dist/*.tar.gz 1> /dev/null 2>&1; then
-          echo "Found sdist (.tar.gz)"
-        else
-          echo "ERROR: No source distribution (.tar.gz) found in dist/"
-          ls -la dist || true
-          exit 1
-        fi
+    - name: Download built dist artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist
 
     - name: Publish to TestPyPI
+      if: ${{ inputs.dry_run != true }}
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
       run: |
+        python3 -m pip install --upgrade pip setuptools wheel twine
+        ls -la dist || true
         python3 -m twine upload --repository testpypi dist/*
+
+    - name: Dry run - Skip TestPyPI publish
+      if: ${{ inputs.dry_run == true }}
+      run: |
+        echo "[DRY RUN] Skipping TestPyPI publish"
+        echo "Would publish the following files:"
+        ls -lh dist/
 
   increment-version:
     needs: publish
+    if: ${{ inputs.dry_run != true }}
     uses: ./.github/workflows/increment-version.yml
+
+  dev-release:
+    needs: [publish, increment-version]
+    if: ${{ inputs.dry_run != true && !cancelled() }}
+    uses: ./.github/workflows/milestone-release.yml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.publish.outputs.version }}

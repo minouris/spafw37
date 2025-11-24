@@ -7,17 +7,37 @@ on:
     branches: [ main ]
 
 jobs:
+  prepare-python:
+    uses: ./.github/workflows/build-python.yml
+    with:
+      python_version: '3.7.9'
+
   packaging:
+    needs: prepare-python
     runs-on: ubuntu-latest
     name: Build and verify packaging artifacts
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.7
-        uses: actions/setup-python@v4
+      - name: Ensure cache directories exist
+        run: |
+          mkdir -p "${{ github.workspace }}/.local/python-3.7.9" "${{ github.workspace }}/.cache/pip"
+
+      - name: Restore Python build & pip caches
+        id: python-cache
+        uses: actions/cache@v4
         with:
-          python-version: '3.7'
+          path: |
+            ${{ github.workspace }}/.local/python-3.7.9
+            ${{ github.workspace }}/.cache/pip
+          key: python-${{ runner.os }}-3.7.9-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            python-${{ runner.os }}-3.7.9-
+
+      - name: Add built Python to PATH
+        run: |
+          echo "${{ github.workspace }}/.local/python-3.7.9/bin" >> $GITHUB_PATH
 
       - name: Install build tools
         run: |
