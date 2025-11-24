@@ -311,15 +311,19 @@ jobs:
       run: |
         mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
 
-    - name: Restore Python build & pip caches
+    - name: Restore Python build cache
       uses: actions/cache@v4
       with:
-        path: |
-          ${{ env.PY_PREFIX }}
-          ${{ env.PIP_CACHE_DIR }}
-        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
-          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
     - name: Add built Python to PATH
       run: |
@@ -382,22 +386,26 @@ jobs:
       run: |
         mkdir -p "${{ env.PY_PREFIX }}" "${{ env.PIP_CACHE_DIR }}"
 
-    - name: Restore Python build & pip caches
+    - name: Restore Python build cache
       uses: actions/cache@v4
       with:
-        path: |
-          ${{ env.PY_PREFIX }}
-          ${{ env.PIP_CACHE_DIR }}
-        key: python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements.txt') }}
+        path: ${{ env.PY_PREFIX }}
+        key: python-build-${{ runner.os }}-${{ env.PYTHON_VERSION }}
+
+    - name: Restore pip cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PIP_CACHE_DIR }}
+        key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/requirements*.txt') }}
         restore-keys: |
-          python-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+          pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
     - name: Add built Python to PATH
       run: |
         echo "${{ env.PY_PREFIX }}/bin" >> $GITHUB_PATH
 
-    - name: Generate release notes
-      id: release_notes
+    - name: Bump version for next development cycle
+      if: inputs.version_operation == 'strip-dev'
       run: |
         python3 .github/scripts/generate_dev_release_notes.py "${{ env.RELEASE_VERSION }}" > release_notes.md
         echo "Generated release notes:"
