@@ -28,16 +28,18 @@ def check_previous_dev_releases(version):
             check=True
         )
         tags = result.stdout.strip().split('\n')
-        # Filter out empty strings and count
-        matching_tags = [t for t in tags if t.strip()]
+        # Filter out empty strings and the current version's tag
+        current_tag = f"v{version}"
+        matching_tags = [t for t in tags if t.strip() and t != current_tag]
         return len(matching_tags) > 0
     except subprocess.CalledProcessError:
         return False
 
 
 def get_previous_dev_tag(version):
-    """Get the most recent dev tag for the same base version."""
+    """Get the most recent dev tag for the same base version, excluding current version."""
     base_version = re.sub(r'\.dev\d+$', '', version)
+    current_tag = f"v{version}"
     pattern = f"v{base_version}.dev"
     
     try:
@@ -48,8 +50,10 @@ def get_previous_dev_tag(version):
             check=True
         )
         tags = [t.strip() for t in result.stdout.strip().split('\n') if t.strip()]
-        if tags:
-            return tags[0]
+        # Filter out the current tag and get the most recent previous one
+        previous_tags = [t for t in tags if t != current_tag]
+        if previous_tags:
+            return previous_tags[0]
     except subprocess.CalledProcessError:
         pass
     
@@ -161,9 +165,6 @@ def get_changelog_for_issue(version):
     return get_changelog_for_version(version)
 
 
-def generate_release_notes(version):
-    """Generate complete release notes for a development version."""
-    changelog = get_changelog_for_version(version)
 def generate_release_notes(version):
     """Generate complete release notes for a development version."""
     changelog = get_changelog_for_version(version)
