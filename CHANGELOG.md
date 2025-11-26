@@ -9,6 +9,7 @@
 - #32: Switch Param Grouped Behaviour
 - #33: Param Allowed Values
 - #35: Add CYCLE_LOOP_END to Cycles
+- #48: Param Defaults are set after pre-parse args
 
 ### Additions
 
@@ -69,6 +70,10 @@
 - `set_config_value()`
 - `set_config_list_value()`
 
+**Issue #48:**
+
+- `cli._set_defaults()` function removed. Default-setting now occurs in `param.py` during parameter registration.
+
 ### Changes
 
 **Issue #26:**
@@ -88,6 +93,12 @@
 **Issue #35:**
 
 - Cycle execution now calls `CYCLE_LOOP_END` function at end of each iteration if defined in cycle definition.
+
+**Issue #48:**
+
+- Default values for parameters are now set immediately when `add_param()` is called, rather than after pre-parsing during CLI execution.
+- Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
+- XOR validation is temporarily disabled during default-setting in `add_param()` to avoid false conflicts when registering multiple params in the same XOR group.
 
 ### Migration
 
@@ -151,6 +162,10 @@
 - `doc/api-reference.md` added `CYCLE_LOOP_END` constant documentation
 - `examples/cycles_loop_end.py` demonstrates per-iteration cleanup and counter patterns
 - `examples/README.md` updated with new example entry
+
+**Issue #48:**
+
+- No documentation changes required. This is an internal implementation fix with no user-facing API changes.
 
 ## [1.0.1] - 2025-11-15
 
