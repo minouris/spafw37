@@ -271,7 +271,7 @@ def test_xor_clashing_params_raise_error():
         assert False, "Expected ValueError for clashing xor params"
     except ValueError as e:
         # Error message order may vary, just check both params are mentioned
-        assert "Conflicting parameters provided" in str(e)
+        assert "conflicts with" in str(e)
         assert "option1" in str(e)
         assert "option2" in str(e)
 
@@ -296,7 +296,7 @@ def test_xor_with_non_toggle_text_params():
         cli.handle_cli_args(args)
         assert False, "Expected ValueError for conflicting text params"
     except ValueError as e:
-        assert "Conflicting parameters provided" in str(e)
+        assert "conflicts with" in str(e)
     
     # Reset for next test
     setup_function()
@@ -339,7 +339,7 @@ def test_xor_with_non_toggle_number_params():
         cli.handle_cli_args(args)
         assert False, "Expected ValueError for conflicting number params"
     except ValueError as e:
-        assert "Conflicting parameters provided" in str(e)
+        assert "conflicts with" in str(e)
     
     # Reset for next test
     setup_function()
@@ -382,7 +382,7 @@ def test_xor_with_mixed_param_types():
         cli.handle_cli_args(args)
         assert False, "Expected ValueError for conflicting mixed-type params"
     except ValueError as e:
-        assert "Conflicting parameters provided" in str(e)
+        assert "conflicts with" in str(e)
 
 def test_add_command_registers_command():
     setup_function()

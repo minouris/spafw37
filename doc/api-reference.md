@@ -1132,6 +1132,7 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | Constant | Type | Description |
 |----------|------|-------------|
 | `PARAM_SWITCH_LIST` | list[str] | Mutually exclusive params |
+| `PARAM_SWITCH_CHANGE_BEHAVIOR` | str | Controls what happens to other switches in the group when one is set. Values: `SWITCH_UNSET`, `SWITCH_RESET`, `SWITCH_REJECT` (default). See [Parameters Guide - Switch Change Behaviour](parameters.md#switch-change-behaviour) and [example](../examples/params_switch_behavior.py). Added in v1.1.0. |
 | `PARAM_GROUP` | str | Group name for help display |
 
 #### Advanced Configuration
@@ -1149,6 +1150,18 @@ Constants modules provide dictionary keys for defining parameters, commands, cyc
 | `PARAM_TYPE_TOGGLE` | `'toggle'` | Boolean flag |
 | `PARAM_TYPE_LIST` | `'list'` | List of values |
 | `PARAM_TYPE_DICT` | `'dict'` | Dictionary/object value |
+
+#### Switch Change Behaviour Constants (v1.1.0)
+
+**v1.1.0** These constants control what happens to other parameters in a switch group when one parameter is set ([see example](../examples/params_switch_behavior.py)).
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `SWITCH_UNSET` | `'switch-unset'` | Automatically unset other switches in the same group when one is set. Uses `unset_param()` to remove conflicting switches from configuration. Useful for mode switching where previous mode should be cleared. |
+| `SWITCH_RESET` | `'switch-reset'` | Reset other switches in the same group to their default values when one is set. Uses `reset_param()` to restore conflicting switches to defaults. Useful when switches have meaningful default states that should be preserved. |
+| `SWITCH_REJECT` | `'switch-reject'` | Raise `ValueError` if another switch in the group is already set (default behaviour). Maintains backward compatibility with existing behaviour. Useful for strict validation where only one switch should ever be set. |
+
+**See:** [Parameters Guide - Switch Change Behaviour](parameters.md#switch-change-behaviour) for detailed usage patterns and examples.
 
 #### Join and Merge Configuration (v1.1.0)
 

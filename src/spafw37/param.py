@@ -31,6 +31,10 @@ from spafw37.constants.param import (
     DICT_OVERRIDE_OLDEST,
     DICT_OVERRIDE_ERROR,
     SEPARATOR_SPACE,
+    PARAM_SWITCH_CHANGE_BEHAVIOR,
+    SWITCH_UNSET,
+    SWITCH_RESET,
+    SWITCH_REJECT,
 )
 from spafw37 import config
 
@@ -53,6 +57,9 @@ _preparse_args = []
 # XOR validation control - used internally to skip validation during defaults/config loading
 _skip_xor_validation = False
 
+# Batch mode flag - when True, forces SWITCH_REJECT for all switch params
+_batch_mode = False
+
 
 # Helper functions for inline object definitions
 def _set_xor_validation_enabled(enabled):
@@ -66,6 +73,29 @@ def _set_xor_validation_enabled(enabled):
     """
     global _skip_xor_validation
     _skip_xor_validation = not enabled
+
+
+def _set_batch_mode(enabled):
+    """Enable or disable batch mode for parameter initialisation.
+    
+    When batch mode is enabled, all switch params use SWITCH_REJECT behaviour
+    regardless of their configured PARAM_SWITCH_CHANGE_BEHAVIOR. This ensures
+    CLI arguments always produce clear errors for conflicting switches.
+    
+    Args:
+        enabled: True to enable batch mode, False to disable
+    """
+    global _batch_mode
+    _batch_mode = enabled
+
+
+def _get_batch_mode():
+    """Check if batch mode is currently enabled.
+    
+    Returns:
+        True if batch mode is enabled, False otherwise
+    """
+    return _batch_mode
 
 
 def _get_param_name(param_def):
@@ -1481,54 +1511,122 @@ def _validate_param_value(param_definition, value):
     _validate_allowed_values(param_definition, value)
 
 
-def _validate_xor_conflicts(param_definition, value_to_set):
-    """
-    Check for XOR conflicts when setting any parameter with a switch list.
+def _get_switch_change_behavior(param_definition):
+    """Get switch change behaviour from param definition.
     
-    Verifies that no mutually exclusive parameter is already set in configuration.
-    For parameters with PARAM_SWITCH_LIST defined, checks if any other parameter
-    in the same switch-list is currently set.
-    
-    For toggle params: only checks conflict when setting to True (enabling).
-                       Setting to False is allowed (disabling doesn't conflict).
-    For other types: checks conflict if value is not None (setting any value).
+    When batch mode is enabled, always returns SWITCH_REJECT regardless of
+    the configured behaviour. Otherwise returns the configured behaviour
+    or SWITCH_REJECT as default for backward compatibility.
     
     Args:
-        param_definition: Parameter definition dict to check for conflicts
-        value_to_set: The value that will be set for this parameter
-    
-    Raises:
-        ValueError: If a conflicting parameter is already set
+        param_definition: Parameter definition dict
+        
+    Returns:
+        One of SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
     """
-    bind_name = _get_bind_name(param_definition)
+    if _get_batch_mode():
+        return SWITCH_REJECT
+    
+    return param_definition.get(PARAM_SWITCH_CHANGE_BEHAVIOR, SWITCH_REJECT)
+
+
+def _has_switch_conflict(param_definition, xor_param_bind_name):
+    """Check if a param in the switch group has a conflicting value.
+    
+    Args:
+        param_definition: Definition of param being set
+        xor_param_bind_name: Bind name of other param to check
+        
+    Returns:
+        True if conflict exists, False otherwise
+    """
+    existing_value = config.get_config_value(xor_param_bind_name)
+    
+    if _is_toggle_param(param_definition):
+        return existing_value is True
+    else:
+        return existing_value is not None
+
+
+def _resolve_switch_conflict(bind_name, xor_param_bind_name, behavior):
+    """Resolve a conflict with another param in the switch group.
+    
+    Args:
+        bind_name: Bind name of param being set
+        xor_param_bind_name: Bind name of conflicting param
+        behavior: One of SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
+        
+    Raises:
+        ValueError: If behavior is SWITCH_REJECT
+    """
+    if behavior == SWITCH_REJECT:
+        raise ValueError(
+            "Cannot set '{}', conflicts with '{}'".format(bind_name, xor_param_bind_name)
+        )
+    elif behavior == SWITCH_UNSET:
+        unset_param(bind_name=xor_param_bind_name)
+    elif behavior == SWITCH_RESET:
+        reset_param(bind_name=xor_param_bind_name)
+
+
+def _apply_switch_behavior_to_group(param_definition, value_to_set, behavior):
+    """Apply switch change behaviour to other params in switch group.
+    
+    Checks each param in the switch group for conflicts. If conflicts exist,
+    applies the specified behaviour (UNSET, RESET, or REJECT).
+    
+    Args:
+        param_definition: Definition of param being set
+        value_to_set: Value being set on the param
+        behavior: One of SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
+        
+    Raises:
+        ValueError: If behavior is SWITCH_REJECT and conflicts exist
+    """
+    bind_name = param_definition.get(PARAM_CONFIG_NAME) or param_definition.get(PARAM_NAME)
     xor_params = get_xor_params(bind_name)
     
     if not xor_params:
         return
     
-    # For toggles being set to False, skip XOR check (disabling doesn't conflict)
-    if _is_toggle_param(param_definition):
-        if not value_to_set:
-            return  # Setting to False - no conflict possible
-        # Setting to True - check if any XOR toggle is already True
-        for xor_param_bind_name in xor_params:
-            if xor_param_bind_name == bind_name:
-                continue
-            existing_value = config.get_config_value(xor_param_bind_name)
-            if existing_value is True:
-                raise ValueError(
-                    "Cannot set '{}', conflicts with '{}'".format(bind_name, xor_param_bind_name)
-                )
-    else:
-        # For non-toggle params, check if any XOR param is already set (not None)
-        for xor_param_bind_name in xor_params:
-            if xor_param_bind_name == bind_name:
-                continue
-            existing_value = config.get_config_value(xor_param_bind_name)
-            if existing_value is not None:
-                raise ValueError(
-                    "Conflicting parameters provided: {} and {}".format(bind_name, xor_param_bind_name)
-                )
+    # Apply behaviour to each switch in the group
+    for xor_param_bind_name in xor_params:
+        # Skip self check
+        if xor_param_bind_name == bind_name:
+            continue
+        
+        # Check for conflict
+        if _has_switch_conflict(param_definition, xor_param_bind_name):
+            _resolve_switch_conflict(bind_name, xor_param_bind_name, behavior)
+
+
+def _handle_switch_group_behavior(param_definition, value_to_set):
+    """Handle switch group behaviour when setting a parameter.
+    
+    Renamed from _validate_xor_conflicts to reflect expanded responsibility.
+    Now applies configured behaviour (unset, reset, or reject) rather than
+    only validating.
+    
+    Args:
+        param_definition: Definition of param being set
+        value_to_set: Value being set on the param
+        
+    Raises:
+        ValueError: If SWITCH_REJECT is configured and conflicts exist
+    """
+    # Skip if validation is disabled (e.g., during config loading)
+    if _skip_xor_validation:
+        return
+    
+    # Skip if this is a toggle param being set to False (no conflict)
+    if _is_toggle_param(param_definition) and value_to_set is False:
+        return
+    
+    # Get the configured behaviour (may be forced to SWITCH_REJECT in batch mode)
+    behavior = _get_switch_change_behavior(param_definition)
+    
+    # Apply the behaviour to other params in the group
+    _apply_switch_behavior_to_group(param_definition, value_to_set, behavior)
 
 
 def set_param(param_name=None, bind_name=None, alias=None, value=None):
@@ -1590,7 +1688,7 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
     # If param is in a switch list, check for XOR conflicts BEFORE setting value
     # This check respects the global _skip_xor_validation flag set via _set_xor_validation_enabled()
     if not _skip_xor_validation and len(param_definition.get(PARAM_SWITCH_LIST, [])) > 0:
-        _validate_xor_conflicts(param_definition, value)
+        _handle_switch_group_behavior(param_definition, value)
     
     # Log the parameter setting at DEBUG level
     param_name_for_log = param_definition[PARAM_NAME]
@@ -1602,6 +1700,50 @@ def set_param(param_name=None, bind_name=None, alias=None, value=None):
     
     # Notify persistence layer about the change
     notify_persistence_change(param_definition[PARAM_NAME], value)
+
+
+def set_values(param_values):
+    """Set multiple parameter values with batch mode enabled.
+    
+    This function is designed for CLI parsing and other initialisation scenarios
+    where switch params should always reject conflicts. It enables batch mode,
+    processes all param values, then disables batch mode.
+    
+    Args:
+        param_values: List of dicts with structure [{"alias": "--name", "value": "val"}]
+    """
+    _set_batch_mode(True)
+    try:
+        _process_param_values(param_values)
+    finally:
+        _set_batch_mode(False)
+
+
+def _process_param_values(param_values):
+    """Process each parameter value entry.
+    
+    Routes list/dict params to join_param and all others to set_param.
+    
+    Args:
+        param_values: List of dicts with structure [{"alias": "--name", "value": "val"}]
+    """
+    for param_entry in param_values:
+        _process_single_param_entry(param_entry)
+
+
+def _process_single_param_entry(param_entry):
+    """Process a single parameter entry.
+    
+    Args:
+        param_entry: Dict with structure {"alias": "--name", "value": "val"}
+    """
+    alias = param_entry.get("alias")
+    value = param_entry.get("value")
+    
+    if is_list_param(alias=alias) or is_dict_param(alias=alias):
+        join_param(alias=alias, value=value)
+    else:
+        set_param(alias=alias, value=value)
 
 
 def _join_string_value(existing, new, separator):
