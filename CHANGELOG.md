@@ -1,11 +1,12 @@
 # Changelog
 
-## [1.1.0] - 2025-11-25
+## [1.1.0] - 2025-11-26
 
 ### Issues Closed
 
 - #26: Add Parameter Unset Capability
 - #27: Pivot from Config Focus to Param Focus
+- #32: Switch Param Grouped Behaviour
 - #33: Param Allowed Values
 - #35: Add CYCLE_LOOP_END to Cycles
 
@@ -33,6 +34,13 @@
 - File reference syntax in JSON values loads file content.
 - Multiple file references for list parameters load all files into one list.
 - Parameters can be referenced by name, bind_name, or alias.
+
+**Issue #32:**
+
+- `SWITCH_UNSET` constant controls switch group behaviour. When set on `PARAM_SWITCH_CHANGE_BEHAVIOR`, causes other switches in the same group to be completely removed from configuration using `unset_param()`. Useful for mode switching where previous mode should be cleared.
+- `SWITCH_RESET` constant controls switch group behaviour. When set on `PARAM_SWITCH_CHANGE_BEHAVIOR`, causes other switches in the same group to be reset to their default values using `reset_param()`. Useful when switches have meaningful default states that should be restored.
+- `SWITCH_REJECT` constant controls switch group behaviour (default, backward compatible). When set on `PARAM_SWITCH_CHANGE_BEHAVIOR`, raises `ValueError` preventing the new switch param from being set if other switches in the group are already active. Matches current behaviour for strict validation.
+- `PARAM_SWITCH_CHANGE_BEHAVIOR` property configures how switch params in the same group interact when values change. Accepts `SWITCH_UNSET`, `SWITCH_RESET`, or `SWITCH_REJECT` (default). Applied at parameter definition time in `add_param()`.
 
 **Issue #33:**
 
@@ -115,6 +123,14 @@
 - `doc/logging.md` changed logging examples to param API
 - `examples/params_join.py` demonstrates join operations
 - `examples/params_input_filter.py` demonstrates input transformation
+
+**Issue #32:**
+
+- `doc/parameters.md` added "Switch Change Behaviour" section after "Mutual Exclusion (Switch Lists)" section. Documents `PARAM_SWITCH_CHANGE_BEHAVIOR` property with three behaviour options (`SWITCH_REJECT`, `SWITCH_UNSET`, `SWITCH_RESET`). Includes three complete examples demonstrating mode switching with `SWITCH_UNSET`, state restoration with `SWITCH_RESET`, and strict validation with `SWITCH_REJECT`. Each example shows parameter definitions and usage patterns with expected results.
+- `doc/api-reference.md` added `PARAM_SWITCH_CHANGE_BEHAVIOR` to Parameter Properties table with description and version note (Added in v1.1.0).
+- `doc/api-reference.md` added Switch Change Behaviour Constants section with definitions for `SWITCH_UNSET`, `SWITCH_RESET`, and `SWITCH_REJECT`, including when to use each constant.
+- `examples/params_switch_behavior.py` demonstrates all three switch change behaviours with complete runnable examples. Shows mode switching use case (UNSET), state restoration use case (RESET), and strict validation use case (REJECT). Includes environment, region, port, size, and priority parameters with CLI commands.
+- `examples/README.md` added `params_switch_behavior.py` entry in Parameters section.
 
 **Issue #33:**
 
