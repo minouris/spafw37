@@ -98,7 +98,9 @@
 
 - Default values for parameters are now set immediately when `add_param()` is called, rather than after pre-parsing during CLI execution.
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
-- During default-setting in `add_param()`, registration mode is enabled, causing `_get_switch_behavior()` to return `_SWITCH_REGISTER` and skip XOR validation for parameters in the same XOR group.
+- Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
+- Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
+- Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
 
 ### Migration
 
