@@ -195,13 +195,106 @@ Modify `add_param()` to call `_set_param_default()` immediately after adding the
 
 **Implementation order:**
 
-1. Write integration tests for `add_param()` with defaults (Tests 3.2.1-3.2.4) - tests will fail initially
-2. Modify `add_param()` to wrap `_set_param_default()` call in XOR validation disable/enable block
-3. Place call after parameter is added to `_params` dictionary
-4. Ensure XOR validation is re-enabled even if default-setting fails
-5. Verify integration tests now pass
+1. Add registration mode flag and accessors (`_registration_mode`, `_set_registration_mode()`, `_get_registration_mode()`)
+2. Modify `_get_switch_behavior()` to check registration mode and return `_SWITCH_REGISTER`
+3. Update `_has_switch_conflict()` to skip validation when behavior is `_SWITCH_REGISTER`
+4. Write integration tests for `add_param()` with defaults (Tests 3.2.1-3.2.4) - tests will fail initially
+5. Modify `add_param()` to wrap `_set_param_default()` call in registration mode enable/disable block
+6. Place call after parameter is added to `_params` dictionary
+7. Ensure registration mode is reset even if default-setting fails
+8. Update existing tests that verify defaults set at registration (Tests 5.2.1, 5.2.2, 5.2.3)
+9. Verify integration tests now pass
 
-**Code 3.1: Modified add_param function**
+**Code 3.1: Registration mode flag and accessors**
+
+```python
+# Block 3.1.1: Module-level registration mode flag
+_registration_mode = False
+
+def _set_registration_mode(enabled):
+    """Enable/disable registration mode for switch param behavior.
+    
+    When enabled, switch params skip XOR validation entirely during
+    default-setting at parameter registration time.
+    
+    Args:
+        enabled: Boolean to enable (True) or disable (False) registration mode.
+    """
+    # Block 3.1.2
+    global _registration_mode
+    # Block 3.1.3
+    _registration_mode = enabled
+
+def _get_registration_mode():
+    """Check if currently in registration mode.
+    
+    Returns:
+        Boolean indicating whether registration mode is active.
+    """
+    # Block 3.1.4
+    return _registration_mode
+```
+
+**Code 3.2: Modified _get_switch_behavior function**
+
+```python
+def _get_switch_behavior(param_definition):
+    """Get switch behavior for parameter, considering operational modes.
+    
+    Checks batch_mode and registration_mode to determine appropriate
+    behavior for switch conflict resolution.
+    
+    Args:
+        param_definition: Parameter definition dict
+        
+    Returns:
+        One of SWITCH_UNSET, SWITCH_RESET, SWITCH_REJECT, or _SWITCH_REGISTER
+    """
+    # Block 3.2.1
+    if _get_batch_mode():
+        return SWITCH_REJECT
+    # Block 3.2.2
+    if _get_registration_mode():
+        return _SWITCH_REGISTER  # Skip all validation during registration
+    
+    # Block 3.2.3
+    return param_definition.get(PARAM_SWITCH_CHANGE_BEHAVIOR, SWITCH_REJECT)
+```
+
+**Code 3.3: Modified _has_switch_conflict function**
+
+```python
+def _has_switch_conflict(param_definition, xor_param_bind_name):
+    """Check if a param in the switch group has a conflicting value.
+    
+    During registration mode (_SWITCH_REGISTER), always returns False
+    to skip validation while setting defaults.
+    
+    Args:
+        param_definition: Definition of param being set
+        xor_param_bind_name: Bind name of other param to check
+        
+    Returns:
+        True if conflict exists, False otherwise
+    """
+    # Block 3.3.1: Get current behavior mode
+    behavior = _get_switch_behavior(param_definition)
+    
+    # Block 3.3.2: Skip conflict detection entirely during registration
+    if behavior == _SWITCH_REGISTER:
+        return False
+    
+    # Block 3.3.3: Rest of existing conflict detection logic
+    existing_value = config.get_config_value(xor_param_bind_name)
+    
+    # Block 3.3.4
+    if _is_toggle_param(param_definition):
+        return existing_value is True
+    else:
+        return existing_value is not None
+```
+
+**Code 3.4: Modified add_param function**
 
 ```python
 def add_param(_param):
@@ -211,28 +304,28 @@ def add_param(_param):
         _param: Parameter definition dictionary with keys like
                 PARAM_NAME, PARAM_ALIASES, PARAM_TYPE, etc.
     """
-    # Block 3.1.1
+    # Block 3.4.1
     _param_name = _param.get(PARAM_NAME)
     
-    # Block 3.1.2: Process and validate parameter
+    # Block 3.4.2: Process and validate parameter
     _process_param_aliases(_param)
     _process_param_switch_list(_param)
     _assign_default_input_filter(_param)
     _validate_and_normalise_default(_param)
     _apply_runtime_only_constraint(_param)
     
-    # Block 3.1.3: Register parameter
+    # Block 3.4.3: Register parameter
     _params[_param_name] = _param
     
-    # Block 3.1.4: Set default value if defined
-    _set_xor_validation_enabled(False)
-    # Block 3.1.5: try/finally for XOR validation
+    # Block 3.4.4: Set default value if defined (with registration mode to skip switch validation)
+    _set_registration_mode(True)
+    # Block 3.4.5: try/finally for registration mode
     try:
-        # Block 3.1.5.1
+        # Block 3.4.5.1
         _set_param_default(_param)
     finally:
-        # Block 3.1.5.2
-        _set_xor_validation_enabled(True)
+        # Block 3.4.5.2
+        _set_registration_mode(False)
 ```
 
 **Tests:** Integration tests for `add_param()` with defaults
@@ -268,29 +361,31 @@ Scenario: add_param sets default for non-toggle param
   # Validates: Non-toggle defaults are set at registration time
 ```
 
-**Test 3.2.3: add_param disables XOR validation during default-setting**
+**Test 3.2.3: add_param enables registration mode during default-setting**
 
 ```gherkin
-Scenario: add_param temporarily disables XOR validation
+Scenario: add_param enables registration mode to skip switch validation
   Given I have two toggle params in the same XOR group
   And both have PARAM_DEFAULT = False
   When I call add_param(param1)
   And I call add_param(param2)
   Then both parameters should be added successfully
   And no XOR conflict error should be raised
+  And both params should have value False in config
   
-  # Validates: XOR validation is disabled during default-setting to avoid false conflicts
+  # Validates: Registration mode prevents false conflicts during default-setting
 ```
 
-**Test 3.2.4: add_param re-enables XOR validation after default-setting**
+**Test 3.2.4: add_param resets registration mode after default-setting**
 
 ```gherkin
-Scenario: add_param re-enables XOR validation after defaults
+Scenario: add_param resets registration mode after defaults
   Given I have a param with a default that raises an error during set_param
   When I call add_param(param) and it raises an error
-  Then _set_xor_validation_enabled should still be called with True
+  Then _set_registration_mode should still be called with False
+  And registration mode should be disabled
   
-  # Validates: XOR validation is restored even if default-setting fails
+  # Validates: Registration mode is restored even if default-setting fails
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -304,10 +399,11 @@ Remove the `_set_defaults()` function and its call from `run_cli()`. This elimin
 **Implementation order:**
 
 1. Write integration tests (Tests 4.2.1-4.2.3) - tests will pass since defaults are now set at registration
-2. Remove call to `_set_defaults()` from `run_cli()` (line ~291)
-3. Delete `_set_defaults()` function definition (lines ~208-226)
-4. Verify no other references to `_set_defaults()` exist
-5. Verify integration tests still pass
+2. Update `test_handle_cli_args_sets_defaults` to verify defaults preserved during CLI handling (Test 5.2.4)
+3. Remove call to `_set_defaults()` from `run_cli()` (line ~291)
+4. Delete `_set_defaults()` function definition (lines ~208-226)
+5. Verify no other references to `_set_defaults()` exist
+6. Verify integration tests still pass
 
 **Code 4.1: Modified run_cli function (relevant section)**
 
@@ -399,7 +495,7 @@ Verify that the test from step 1 now passes, and update any other existing tests
 
 - **Verify step 1 test passes:** The test demonstrating the bug should now pass
 - **Backward compatibility:** Verify non-pre-parse params with defaults still work
-- **XOR validation:** Verify XOR validation is properly managed during default-setting
+- **Registration mode:** Verify registration mode is properly managed during default-setting
 - **Test coverage:** Maintain 80%+ coverage requirement
 
 **Test 5.1.1: Verify the test from step 1 now passes**
@@ -412,6 +508,131 @@ Scenario: Verify bug fix - test from step 1 should now pass
   
   # Validates: The fix is complete - pre-parse params are no longer overridden
 ```
+
+#### Existing Tests Requiring Updates
+
+Four existing tests in `tests/test_cli.py` directly test `cli._set_defaults()` which is being removed. These tests must be updated or removed.
+
+**Test 5.2.1: Update test_set_default_param_values**
+
+**Old test logic (to be removed):**
+```gherkin
+Scenario: _set_defaults sets default for text param (OLD - tests removed function)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  And I call add_param() to register it (does NOT set default yet)
+  When I call cli._set_defaults()
+  Then the config should contain 'default_value'
+  
+  # Tests: Old behavior where defaults set in CLI module
+```
+
+**New test logic (replacement):**
+```gherkin
+Scenario: add_param sets default for text param immediately (NEW - tests new behavior)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  When I call add_param() to register it
+  Then the config should immediately contain 'default_value'
+  And I should NOT need to call cli._set_defaults()
+  
+  # Tests: New behavior where defaults set at registration in param module
+  # Validates: Defaults are available immediately after add_param()
+```
+
+**Why this change is necessary:**
+The old test validates that `cli._set_defaults()` sets defaults when called. This function is being removed because defaults are now set in `param.add_param()` at registration time. The new test validates that defaults are set immediately when the parameter is registered, which is the new correct behavior.
+
+---
+
+**Test 5.2.2: Update test_set_default_param_toggle_with_default_true**
+
+**Old test logic (to be removed):**
+```gherkin
+Scenario: _set_defaults sets True for toggle with explicit default (OLD)
+  Given I have a toggle param with PARAM_DEFAULT = True
+  And I call add_param() to register it (does NOT set default yet)
+  When I call cli._set_defaults()
+  Then the config should contain True
+  
+  # Tests: Old behavior where defaults set in CLI module
+```
+
+**New test logic (replacement):**
+```gherkin
+Scenario: add_param sets True for toggle with explicit default immediately (NEW)
+  Given I have a toggle param with PARAM_DEFAULT = True
+  When I call add_param() to register it
+  Then the config should immediately contain True
+  And I should NOT need to call cli._set_defaults()
+  
+  # Tests: New behavior where toggle defaults set at registration
+  # Validates: Explicit toggle defaults available immediately after add_param()
+```
+
+**Why this change is necessary:**
+Same rationale as 5.2.1. The test must validate the new timing (registration) rather than old timing (CLI parsing). Toggle params with explicit defaults should be set immediately when registered.
+
+---
+
+**Test 5.2.3: Update test_set_default_param_toggle_with_no_default**
+
+**Old test logic (to be removed):**
+```gherkin
+Scenario: _set_defaults sets False for toggle without explicit default (OLD)
+  Given I have a toggle param WITHOUT PARAM_DEFAULT
+  And I call add_param() to register it (does NOT set default yet)
+  When I call cli._set_defaults()
+  Then the config should contain False (implicit toggle default)
+  
+  # Tests: Old behavior where implicit toggle defaults set in CLI module
+```
+
+**New test logic (replacement):**
+```gherkin
+Scenario: add_param sets False for toggle without explicit default immediately (NEW)
+  Given I have a toggle param WITHOUT PARAM_DEFAULT
+  When I call add_param() to register it
+  Then the config should immediately contain False (implicit toggle default)
+  And I should NOT need to call cli._set_defaults()
+  
+  # Tests: New behavior where implicit toggle defaults set at registration
+  # Validates: Toggle params always have defined state (False) immediately after add_param()
+```
+
+**Why this change is necessary:**
+Toggle params without explicit defaults implicitly default to `False`. The old test validated this happened in `cli._set_defaults()`. The new test validates this happens in `add_param()`. This ensures toggle params have predictable state immediately upon registration.
+
+---
+
+**Test 5.2.4: Update test_handle_cli_args_sets_defaults**
+
+**Old test logic (to be updated):**
+```gherkin
+Scenario: handle_cli_args sets defaults during CLI processing (OLD)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  And I call add_param() to register it (does NOT set default yet)
+  When I call handle_cli_args([]) with no arguments
+  Then the config should contain 'default_value'
+  
+  # Tests: Old behavior - defaults set during handle_cli_args via _set_defaults()
+```
+
+**New test logic (replacement):**
+```gherkin
+Scenario: add_param sets defaults immediately, handle_cli_args preserves them (NEW)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  When I call add_param() to register it
+  Then the config should already contain 'default_value'
+  When I call handle_cli_args([]) with no arguments
+  Then the config should still contain 'default_value' (unchanged)
+  
+  # Tests: New behavior - defaults set at registration, CLI handling preserves them
+  # Validates: handle_cli_args does not interfere with pre-set defaults
+```
+
+**Why this change is necessary:**
+The old test validates that `handle_cli_args()` is responsible for setting defaults by calling `cli._set_defaults()`. The new test validates that defaults are already set before `handle_cli_args()` is called (set during `add_param()`), and that `handle_cli_args()` does not interfere with them. This reflects the architectural shift: default-setting is now a parameter registration concern, not a CLI parsing concern.
+
+---
 
 **Tests:** Manual review to verify test coverage and correctness
 
@@ -464,18 +685,97 @@ Scenario: Verify bug fix - test from step 1 should now pass
 
 **Question:** The current `_set_defaults()` disables XOR validation while setting defaults to avoid false conflicts. How should this be handled in the refactored version?
 
-**Answer:** Wrap `_set_param_default()` call in `add_param()` with XOR validation disable/enable, matching current behavior.
+**Answer:** Use a registration mode flag (similar to `batch_mode`) that causes switch params to skip XOR validation entirely during registration.
 
 **Rationale:**
-- Backward compatibility: Maintains existing behavior where setting defaults doesn't trigger XOR conflicts
-- False positives: Two toggle params in same XOR group both default to `False` should not trigger conflict
-- Proper placement: XOR validation disable/enable belongs in `add_param()` at registration time, not in CLI parsing
-- Clean separation: Individual `_set_param_default()` doesn't need XOR awareness, caller manages it
+- Type-based behavior: Switch param behavior should reflect the current operational mode (registration vs. runtime)
+- Minimal disruption: Only affects validation logic during registration; no changes to existing test expectations
+- Clean separation: Registration mode is orthogonal to XOR validation disable flag
+- Follows existing pattern: `batch_mode` already provides a model for mode-based behavior switching
+- Surgical fix: Only affects switch conflict detection logic, doesn't change `unset_param()` or test assertions
 
-**Implementation:**
-- In `add_param()`, call `_set_xor_validation_enabled(False)` before `_set_param_default()`
-- Always call `_set_xor_validation_enabled(True)` in `finally` block to ensure restoration
-- `_set_param_default()` itself doesn't manipulate XOR validation state
+**Implementation details:**
+
+1. **Add registration mode flag and accessors** (similar to `batch_mode`):
+   ```python
+   # In param.py module-level
+   _registration_mode = False
+   
+   def _set_registration_mode(enabled):
+       """Enable/disable registration mode for switch param behavior.
+       
+       When enabled, switch params skip XOR validation entirely during
+       default-setting at parameter registration time.
+       """
+       global _registration_mode
+       _registration_mode = enabled
+   
+   def _get_registration_mode():
+       """Check if currently in registration mode."""
+       return _registration_mode
+   ```
+
+2. **Modify switch behavior resolution** to check registration mode:
+   ```python
+   def _get_switch_behavior(param_definition):
+       """Get switch behavior for parameter, considering operational modes.
+       
+       Returns:
+           SWITCH_REJECT (batch mode),
+           _SWITCH_REGISTER (registration mode - skips validation),
+           or configured behavior from param_definition
+       """
+       if _get_batch_mode():
+           return SWITCH_REJECT
+       if _get_registration_mode():
+           return _SWITCH_REGISTER  # Special mode that skips validation
+       return param_definition.get(PARAM_SWITCH_CHANGE_BEHAVIOR, SWITCH_REJECT)
+   ```
+
+3. **Update switch conflict detection** to handle registration mode:
+   ```python
+   def _has_switch_conflict(param_definition, xor_param_bind_name):
+       """Check if a param in the switch group has a conflicting value.
+       
+       During registration mode, always returns False to skip validation.
+       """
+       # Get current behavior mode
+       behavior = _get_switch_behavior(param_definition)
+       
+       # Skip conflict detection entirely during registration
+       if behavior == _SWITCH_REGISTER:
+           return False
+       
+       # ... rest of existing conflict detection logic ...
+   ```
+
+4. **Wrap `_set_param_default()` call** in `add_param()`:
+   ```python
+   def add_param(_param):
+       # ... existing parameter processing ...
+       
+       _params[_param_name] = _param
+       
+       # Set default value with registration mode enabled
+       _set_registration_mode(True)
+       try:
+           _set_param_default(_param)
+       finally:
+           _set_registration_mode(False)
+   ```
+
+**Why this approach is better than XOR validation disable:**
+- Preserves existing behavior: No test changes required for Issue #26 (unset) or Issue #32 (switch behavior)
+- Preserves toggle semantics: Unset toggles remain `None`, not `False`
+- Preserves `unset_param()` behavior: Still removes values completely rather than restoring defaults
+- Surgical fix: Only affects the validation check during registration, not the entire parameter lifecycle
+- Type-based: Switch behavior checks naturally incorporate mode, rather than globally disabling validation
+
+**Rejected alternative:** Globally disable XOR validation with `_set_xor_validation_enabled(False)`
+- Con: Too broad - disables all XOR validation, not just switch conflict detection
+- Con: Requires changing test expectations for previous features
+- Con: Changes fundamental behavior of `unset_param()` (restoring defaults vs. removing)
+- Con: Changes toggle param semantics (False vs. None for unset state)
 
 [↑ Back to top](#table-of-contents)
 
@@ -520,7 +820,8 @@ None.
 
 - Default values for parameters are now set immediately when `add_param()` is called, rather than after pre-parsing during CLI execution.
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
-- XOR validation is temporarily disabled during default-setting in `add_param()` to avoid false conflicts when registering multiple params in the same XOR group.
+- Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
+- Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
 
 ### Migration
 
@@ -534,8 +835,13 @@ No documentation changes required. This is an internal implementation fix with n
 
 - 8 new tests in `tests/test_param.py` covering `_set_param_default()` behavior
 - 5 new tests in `tests/test_cli.py` verifying integration and regression testing
-- Tests cover toggle params, non-toggle params, XOR validation handling, and pre-parse param behavior
-- All existing tests updated to reflect new timing of default-setting
+- 4 existing tests in `tests/test_cli.py` updated to reflect new default-setting timing:
+  - `test_set_default_param_values` - Now tests `add_param()` instead of `cli._set_defaults()`
+  - `test_set_default_param_toggle_with_default_true` - Now tests immediate default-setting at registration
+  - `test_set_default_param_toggle_with_no_default` - Now tests implicit False default at registration
+  - `test_handle_cli_args_sets_defaults` - Now validates defaults preserved (not set) during CLI handling
+- Tests cover toggle params, non-toggle params, registration mode handling, and pre-parse param behavior
+- All tests updated to reflect defaults being set at registration time rather than CLI parsing time
 
 ---
 
