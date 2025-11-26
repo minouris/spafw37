@@ -25,9 +25,9 @@ The fix will move default-setting responsibility from `cli.py` to `param.py`, en
   - [4. Remove _set_defaults from cli.py](#4-remove-_set_defaults-from-clipy)
   - [5. Verify fix and update tests](#5-verify-fix-and-update-tests)
 - [Further Considerations](#further-considerations)
-  - [1. Should defaults be set in add_param or add_params?](#1-should-defaults-be-set-in-add_param-or-add_params---resolved)
-  - [2. Should we use unset_param instead of refactoring?](#2-should-we-use-unset_param-instead-of-refactoring---resolved)
-  - [3. What about XOR validation during default-setting?](#3-what-about-xor-validation-during-default-setting---resolved)
+  - [1. Should defaults be set in add_param or add_params?](#1-should-defaults-be-set-in-add_param-or-add_params--resolved)
+  - [2. Should we use unset_param instead of refactoring?](#2-should-we-use-unset_param-instead-of-refactoring--resolved)
+  - [3. What about XOR validation during default-setting?](#3-what-about-xor-validation-during-default-setting--resolved)
 - [Success Criteria](#success-criteria)
 - [CHANGES for v1.1.0 Release](#changes-for-v110-release)
 
