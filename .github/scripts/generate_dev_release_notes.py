@@ -90,7 +90,8 @@ def get_changelog_from_plan_files(plan_files, version):
                 content = f.read()
             
             # Look for CHANGES section matching this version
-            pattern = rf'## CHANGES.*?v{re.escape(base_version)}.*?\n(.*?)(?=\n##|\Z)'
+            # Match level-2 headers only (## followed by space, not ### or ####)
+            pattern = rf'## CHANGES.*?v{re.escape(base_version)}.*?\n(.*?)(?=\n## (?!#)|\Z)'
             match = re.search(pattern, content, re.DOTALL)
             
             if match:
@@ -114,7 +115,8 @@ def get_full_changelog(version):
             content = f.read()
         
         # Find the section for this version
-        pattern = rf'## \[{re.escape(base_version)}\].*?\n(.*?)(?=\n## \[|\Z)'
+        # Match level-2 headers only (## followed by space or [, not ###)
+        pattern = rf'## \[{re.escape(base_version)}\].*?\n(.*?)(?=\n## (?!#)|\Z)'
         match = re.search(pattern, content, re.DOTALL)
         
         if match:
