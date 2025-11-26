@@ -1,18 +1,11 @@
 {
     "python.envFile": "${workspaceFolder}/.env",
-    "python.defaultInterpreterPath": "/usr/bin/python3",
+    "python.defaultInterpreterPath": "/usr/local/bin/python",
     "python.terminal.activateEnvironment": false,
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
     // optional: folder(s) or args to pass to pytest discovery
     "python.testing.pytestArgs": ["tests"],
     // ensure discover runs automatically on save (default true)
-    "python.testing.autoTestDiscoverOnSaveEnabled": true,
-    "python-envs.pythonProjects": [
-        {
-            "path": "src",
-            "envManager": "ms-python.python:venv",
-            "packageManager": "ms-python.python:pip"
-        }
-    ]
+    "python.testing.autoTestDiscoverOnSaveEnabled": true
 }

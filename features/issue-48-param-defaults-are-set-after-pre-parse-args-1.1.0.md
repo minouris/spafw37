@@ -115,22 +115,21 @@ def _set_param_default(_param):
     # Block 2.1.1
     param_name = _param.get(PARAM_NAME)
     
-    # Block 2.1.2: Handle toggle params (always have defaults)
+    # Block 2.1.2: Determine default value based on param type
     if _is_toggle_param(_param):
         # Block 2.1.2.1
         default_value = _get_param_default(_param, False)
-        # Block 2.1.2.2
-        logging.log_trace(_message=f"Setting default for toggle param '{param_name}'= {default_value}")
-        # Block 2.1.2.3
-        set_param(param_name=param_name, value=default_value)
-    # Block 2.1.3: Handle non-toggle params (only if default specified)
     elif _param_has_default(_param):
-        # Block 2.1.3.1
+        # Block 2.1.2.2
         default_value = _get_param_default(_param, None)
-        # Block 2.1.3.2
-        logging.log_trace(_message=f"Setting default for param '{param_name}'= {default_value}")
-        # Block 2.1.3.3
-        set_param(param_name=param_name, value=default_value)
+    else:
+        # Block 2.1.2.3: No default to set
+        return
+    
+    # Block 2.1.3: Set the default value
+    logging.log_trace(_message=f"Setting default for param '{param_name}' = {default_value}")
+    # Block 2.1.4
+    set_param(param_name=param_name, value=default_value)
 ```
 
 **Tests:** Unit tests for `_set_param_default()`
