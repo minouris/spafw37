@@ -921,7 +921,6 @@ def _apply_switch_behavior_to_group(param_definition, value_to_set, behavior):
     for xor_param_bind_name in xor_params:
         # Block 3.6.5.4.1: skip self check
         if xor_param_bind_name == bind_name:
-        if xor_param_bind_name == bind_name:
             # Block 3.6.5.4.1.1
             continue
         
@@ -1617,7 +1616,7 @@ def demo_switch_reject():
     print(f"  mode_write={spafw37.get_param('mode_write')}")
 ```
 
-**Code 5.3: demo_switch_unset function**
+**Code 5.2: demo_switch_unset function**
 
 ```python
 def demo_switch_unset():
@@ -1672,7 +1671,7 @@ def demo_switch_unset():
     print(f"  mode_append={spafw37.get_param('mode_append')}")
 ```
 
-**Code 5.4: demo_switch_reset function**
+**Code 5.3: demo_switch_reset function**
 
 ```python
 def demo_switch_reset():
