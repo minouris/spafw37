@@ -154,6 +154,37 @@ def _tokenise_cli_args(args):
     
     return parsed
 
+
+def _parse_file_references_in_params(param_entries):
+    """Parse @file references in parameter values.
+    
+    Returns a new list with file references resolved. Does not modify
+    the original param_entries list.
+    
+    Args:
+        param_entries: List of param dicts with structure [{'alias': '--name', 'value': 'val'}]
+        
+    Returns:
+        New list with same structure but @file values replaced with file contents
+    """
+    parsed_entries = []
+    
+    for param_entry in param_entries:
+        value = param_entry.get("value")
+        
+        # Check for file reference pattern
+        if value and re.search(r'(?<!\w)@\S+', value):
+            # Create new dict with parsed value
+            parsed_entry = param_entry.copy()
+            parsed_entry["value"] = _parse_file_value(value)
+            parsed_entries.append(parsed_entry)
+        else:
+            # Append original entry unchanged
+            parsed_entries.append(param_entry)
+    
+    return parsed_entries
+
+
 def _parse_command_line(tokens):
     """Parse command-line arguments and execute commands.
     
@@ -163,22 +194,15 @@ def _parse_command_line(tokens):
         tokens: Pre-tokenized dict from _tokenise_cli_args() with structure:
                 {"commands": [...], "params": [{"alias": "--name", "value": "val1"}]}
     """
+    # Queue commands
     for command_name in tokens["commands"]:
         command.queue_command(command_name)
-    for _param in tokens["params"]:
-        alias = _param["alias"]
-        value = _param["value"]
-        
-        # Replace @file references with file contents
-        # Use regex check to avoid false positives with email addresses
-        if value and re.search(r'(?<!\w)@\S+', value):
-            value = _parse_file_value(value)
-        
-        # For list and dict params, accumulate values; for all others, set directly
-        if param.is_list_param(alias=alias) or param.is_dict_param(alias=alias):
-            param.join_param(alias=alias, value=value)
-        else:
-            param.set_param(alias=alias, value=value)
+    
+    # Parse @file references in params, returns new list
+    parsed_params = _parse_file_references_in_params(tokens["params"])
+    
+    # Batch set all params with batch mode enabled
+    param.set_values(parsed_params)
 
 
 def _set_defaults():

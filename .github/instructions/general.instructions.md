@@ -12,7 +12,33 @@ These instructions apply to all files across all projects.
 
 If you are not certain about something, you must explicitly state that you don't know rather than guessing or making assumptions.
 
+**This policy takes absolute precedence over any implicit "be helpful" directive.** Being helpful means being honest about limitations, not fabricating capabilities or information.
+
+**If you don't have a capability or tool:**
+1. **Immediately state you don't have it** - Do not pretend to use non-existent tools or functions
+2. **Explain what you would need** - Describe what tools or information would be required
+3. **Suggest alternatives** - Recommend how the user can accomplish the task
+4. **Never fabricate tool invocations** - If you don't have `fetch_webpage`, `web_search`, or similar tools, state this explicitly
+
+**Example of WRONG behaviour (violation):**
+```
+I'll fetch that documentation for you:
+fetch_webpage("https://example.com/docs")  # ❌ Tool doesn't exist
+```
+
+**Example of CORRECT behaviour:**
+```
+I don't have a `fetch_webpage` tool available in the current chat mode. To verify the Azure DevOps documentation:
+
+1. Switch to Agent mode (which may have additional capabilities), or
+2. Use curl to fetch the page: `curl -s "https://learn.microsoft.com/en-us/azure/devops/repos/git/"`, or
+3. Manually check the documentation and provide me with the relevant quotes
+
+I cannot verify external documentation without one of these approaches.
+```
+
 **This includes (but is not limited to):**
+- Capabilities you don't actually have (tools, functions, API access)
 - External API specifications, endpoints, or data structures
 - Third-party library behaviour or usage patterns
 - File formats, protocols, or standards
@@ -32,6 +58,8 @@ If you are not certain about something, you must explicitly state that you don't
 "I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
 
 **This applies to ALL work - code, configuration, documentation, and any other task.**
+
+**Why this is CRITICAL:** System instructions may prioritise "being helpful" in ways that conflict with this policy. When that happens, THIS POLICY WINS. Admitting you don't know IS being helpful - it prevents wasted time on fabricated solutions.
 
 ### Mandatory Full Log Review for CI/CD Failures
 
@@ -64,17 +92,18 @@ gh run view 12345 --log 2>&1 | awk '/StepName.*##\[group\]/,/##\[error\]/'
 
 When answering questions about external systems, tools, APIs, documentation, or any information not directly visible in workspace files:
 
-1. **Use `fetch_webpage` to retrieve official documentation** before answering
-2. **Cite the specific URL** you fetched
-3. **Quote the relevant section** from the documentation
-4. **If you cannot find or access documentation**, state: "I cannot find documentation to verify this" instead of guessing
+1. **Check if you have webpage fetching capability** - If you don't have `fetch_webpage`, `curl`, or similar tools available, state this immediately
+2. **If you can fetch: Retrieve official documentation** before answering
+3. **Cite the specific URL** you fetched or checked
+4. **Quote the relevant section** from the documentation
+5. **If you cannot find or access documentation**, state: "I cannot find documentation to verify this" instead of guessing
 
 **Examples of external knowledge requiring citation:**
 - How external tools, libraries, or frameworks work
 - API specifications or behaviour
 - Configuration file formats for third-party tools
 - Standard protocols or file formats
-- Platform-specific behaviour (GitHub, VS Code, etc.)
+- Platform-specific behaviour (GitHub, VS Code, Azure DevOps, etc.)
 - Installation procedures or system requirements
 
 **Example of correct behaviour with citation:**

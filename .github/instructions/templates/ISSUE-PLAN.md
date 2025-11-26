@@ -130,10 +130,106 @@ def example_function():
 
 [Add as many steps as needed to complete the implementation]
 
-**Note:** When adding new features:
-- Update main `README.md` to reflect new functionality in relevant sections (features list, code examples, examples list, "What's New in vX.X.X")
-- Add version notes ("**Added in vX.X.X**") at the start of new documentation sections
-- This helps users discover new features and understand when they were introduced
+[↑ Back to top](#table-of-contents)
+
+### 6. Update documentation
+
+[If applicable] Update user-facing documentation to describe the new functionality. Add version notes to indicate when features were added.
+
+---
+
+#### 6.1. Update [doc file name]
+
+**File:** `doc/filename.md`
+
+[Description of what to add/change and why. Include context about where in the file and what the section should cover.]
+
+**Location:** [Where in the file to add content - e.g., "After 'Related Section' section" or "In the 'Constants' section"]
+
+**Content to add:**
+
+````markdown
+## [Section Heading]
+
+**Added in vX.Y.Z**
+
+[Full markdown content to be added to the documentation file, including:
+- Feature description
+- Code examples
+- Usage explanations
+- Links to example files
+- Any other relevant content]
+
+### Example: [Use Case Name]
+
+```python
+# Complete code example
+spafw37.add_params([{
+    PARAM_NAME: 'example',
+    # Additional configuration
+}])
+```
+
+[Explanation of the example]
+
+See complete example in [`examples/example_file.py`](../examples/example_file.py).
+````
+
+**Tests:** Manual review to verify documentation clarity and accuracy
+
+---
+
+#### 6.2. Update [another doc file]
+
+**File:** `doc/another.md`
+
+[Description of updates needed]
+
+**Updates required:**
+
+1. **[Section/location name]** - [Specific change]:
+   ```markdown
+   [Content to add - e.g., table row, constant definition, function signature]
+   ```
+
+2. **[Another section]** - [Specific change]:
+   ```markdown
+   [Content to add]
+   ```
+
+3. **[Another section]** - [Specific change]:
+   ```markdown
+   [Content to add]
+   ```
+
+**Tests:** Manual review to verify documentation completeness and accuracy
+
+---
+
+#### 6.3. Update README.md
+
+**File:** `README.md`
+
+[Description of README updates]
+
+**Updates required:**
+
+1. **Features list** - Add bullet point:
+   ```markdown
+   - [Feature description with technical details]
+   ```
+
+2. **Examples list** - Add new example entry:
+   ```markdown
+   - **`example_file.py`** - [Brief description of what example demonstrates]
+   ```
+
+3. **"What's New in vX.Y.Z" section** - Add concise one-line bullet:
+   ```markdown
+   - [Feature summary with key constants/functions in backticks]
+   ```
+
+**Tests:** Manual review to verify README clarity and consistency
 
 [↑ Back to top](#table-of-contents)
 

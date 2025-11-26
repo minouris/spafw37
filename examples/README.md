@@ -57,6 +57,16 @@ python params_allowed_values.py deploy --env production
 python params_allowed_values.py start --port 8080 --size large
 ```
 
+### `params_switch_behavior.py` - Switch Change Behaviour Control
+- Control what happens when setting parameters in mutually exclusive groups
+- **v1.1.0:** `SWITCH_REJECT` (raise error - default), `SWITCH_UNSET` (clear conflicts), `SWITCH_RESET` (restore defaults)
+- Mode switching patterns and state restoration
+
+**Run:**
+```bash
+python params_switch_behavior.py
+```
+
 ### `params_dict.py` - Dict (JSON) Parameters
 - Dict/object parameters with JSON data
 - Inline JSON, multi-token JSON, file loading

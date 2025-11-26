@@ -24,6 +24,7 @@
 - [Immutable Parameters](#immutable-parameters)
 - [Persistence Control](#persistence-control)
 - [Mutual Exclusion (Switch Lists)](#mutual-exclusion-switch-lists)
+- [Switch Change Behaviour](#switch-change-behaviour)
 - [Parameter Groups](#parameter-groups)
 - [Runtime-Only Parameters](#runtime-only-parameters)
 - [Custom Input Filters](#custom-input-filters)
@@ -385,6 +386,7 @@ Parameters are defined as dictionaries using these constants as keys:
 | Constant | Description |
 |----------|-------------|
 | `PARAM_SWITCH_LIST` | Identifies a list of params that are mutually exclusive with this one - only one param in this list can be set at a time. |
+| `PARAM_SWITCH_CHANGE_BEHAVIOR` | Controls what happens to other parameters in a switch group when one is set. Options: `SWITCH_REJECT` (default, raise error), `SWITCH_UNSET` (unset conflicts), `SWITCH_RESET` (reset to defaults). See [Switch Change Behaviour](#switch-change-behaviour). |
 | `PARAM_GROUP` | Group name for organizing parameters in help display |
 
 ### Advanced Configuration
@@ -413,6 +415,14 @@ Parameters are defined as dictionaries using these constants as keys:
 | `PARAM_TYPE_TOGGLE` | Boolean flag that flips from its default value (typically False by default, True when present) |
 | `PARAM_TYPE_LIST` | List of values (e.g., multiple file paths, tags, or options) |
 | `PARAM_TYPE_DICT` | Dictionary/object value (JSON format) |
+
+### Switch Change Behaviour Constants
+
+| Constant | Description |
+|----------|-------------|
+| `SWITCH_REJECT` | Raise error if another switch in the group is already set (default) |
+| `SWITCH_UNSET` | Automatically unset other switches in the group |
+| `SWITCH_RESET` | Reset other switches in the group to their default values |
 
 ## Basic Parameter Definition
 
@@ -1206,6 +1216,126 @@ params = [
 ```
 
 **Note:** `PARAM_SWITCH_LIST` automatically creates bidirectional mutual exclusion relationships. When you add `format-xml` to `format-json`'s switch list, the framework automatically ensures `format-xml` excludes `format-json` as well. You only need to declare the relationship once.
+
+## Switch Change Behaviour
+
+**Added in v1.1.0**
+
+Control what happens to other parameters in a switch group when one parameter is set. By default, attempting to set multiple mutually exclusive parameters raises an error (`SWITCH_REJECT`). You can configure alternate behaviours using `PARAM_SWITCH_CHANGE_BEHAVIOR`.
+
+### Behaviour Options
+
+- `SWITCH_REJECT` (default): Raise error if another switch in the group is already set
+- `SWITCH_UNSET`: Automatically unset other switches in the group
+- `SWITCH_RESET`: Reset other switches in the group to their default values
+
+### Example: Mode Switching with SWITCH_UNSET
+
+```python
+spafw37.add_params([
+    {
+        PARAM_NAME: 'mode_read',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_SWITCH_LIST: ['mode_write', 'mode_append'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_UNSET,
+    },
+    {
+        PARAM_NAME: 'mode_write',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_SWITCH_LIST: ['mode_read', 'mode_append'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_UNSET,
+    },
+    {
+        PARAM_NAME: 'mode_append',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_SWITCH_LIST: ['mode_read', 'mode_write'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_UNSET,
+    },
+])
+
+# Switch between modes freely
+spafw37.set_param('mode_read', True)   # mode_read=True
+spafw37.set_param('mode_write', True)  # mode_write=True, mode_read=None (unset)
+spafw37.set_param('mode_append', True) # mode_append=True, mode_write=None (unset)
+```
+
+This example demonstrates automatic mode switching behaviour. Params are configured with `PARAM_SWITCH_CHANGE_BEHAVIOR` set to `SWITCH_UNSET`.
+
+When `mode_write` is set, the previously active `mode_read` is automatically removed from configuration. The system calls `unset_param()` on conflicting switches in the same group.
+
+This pattern is useful for applications with mutually exclusive operational modes where the user should be able to switch freely between modes without manually clearing previous settings.
+
+See complete example in [`examples/params_switch_behavior.py`](../examples/params_switch_behavior.py) - `demo_switch_unset()` function.
+
+### Example: State Restoration with SWITCH_RESET
+
+```python
+spafw37.add_params([
+    {
+        PARAM_NAME: 'priority_high',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False,
+        PARAM_SWITCH_LIST: ['priority_low'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_RESET,
+    },
+    {
+        PARAM_NAME: 'priority_low',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False,
+        PARAM_SWITCH_LIST: ['priority_high'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_RESET,
+    },
+])
+
+# Switch between priorities
+spafw37.set_param('priority_high', True)  # priority_high=True
+spafw37.set_param('priority_low', True)   # priority_low=True, priority_high=False (reset)
+spafw37.set_param('priority_high', True)  # priority_high=True, priority_low=False (reset)
+```
+
+This example demonstrates state restoration behaviour. Params are configured with `PARAM_SWITCH_CHANGE_BEHAVIOR` set to `SWITCH_RESET`.
+
+When `priority_low` is set, the previously active `priority_high` is reset to its default value (False) rather than being removed entirely. The system calls `reset_param()` on conflicting switches in the same group.
+
+This pattern preserves parameter definitions in configuration while ensuring only one switch is active. It is useful for switches that have meaningful default states that should be restored when switching modes.
+
+See complete example in [`examples/params_switch_behavior.py`](../examples/params_switch_behavior.py) - `demo_switch_reset()` function.
+
+### Example: Strict Validation with SWITCH_REJECT
+
+```python
+spafw37.add_params([
+    {
+        PARAM_NAME: 'mode_read',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_SWITCH_LIST: ['mode_write'],
+        PARAM_SWITCH_CHANGE_BEHAVIOR: SWITCH_REJECT,  # or omit - this is the default
+    },
+    {
+        PARAM_NAME: 'mode_write',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_SWITCH_LIST: ['mode_read'],
+        # PARAM_SWITCH_CHANGE_BEHAVIOR omitted - defaults to SWITCH_REJECT
+    },
+])
+
+# Strict validation enforced
+spafw37.set_param('mode_read', True)  # mode_read=True
+try:
+    spafw37.set_param('mode_write', True)  # Raises ValueError
+except ValueError as e:
+    print(f"Error: {e}")  # "Cannot set 'mode_write', conflicts with 'mode_read'"
+```
+
+This example demonstrates the default strict validation behaviour (backward compatible with existing behaviour). Params are configured with `PARAM_SWITCH_CHANGE_BEHAVIOR` set to `SWITCH_REJECT`, or the property is omitted entirely (SWITCH_REJECT is the default).
+
+When attempting to set `mode_write` while `mode_read` is already active, a `ValueError` is raised immediately. The system does not modify any parameters in the switch group.
+
+This pattern enforces explicit conflict resolution by the application. It ensures users are aware when they attempt to set conflicting parameters and must handle the conflict explicitly in their code.
+
+See complete example in [`examples/params_switch_behavior.py`](../examples/params_switch_behavior.py) - `demo_switch_reject()` function.
+
+**Note on CLI behaviour:** When parameters are set from the command line, the framework always uses `SWITCH_REJECT` behaviour regardless of `PARAM_SWITCH_CHANGE_BEHAVIOR` configuration. This ensures users receive clear error messages about conflicting command-line arguments. The configured behaviour only applies to programmatic `set_param()` calls.
 
 ## Parameter Groups
 

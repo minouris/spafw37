@@ -19,6 +19,7 @@ PARAM_RUNTIME_ONLY = 'runtime-only'  # Not persisted, only for runtime use, not 
 PARAM_GROUP = 'param-group'  # Group name for organising parameters in help display
 PARAM_IMMUTABLE = 'immutable'  # Immutability flag - prevents modification and removal after initial value set. Boolean flag, default: False
 PARAM_ALLOWED_VALUES = 'allowed-values'  # List of allowed values for TEXT and NUMBER params. Value must be in this list.
+PARAM_SWITCH_CHANGE_BEHAVIOR = 'switch-change-behavior'  # Controls switch group interaction: SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
 
 # Param Persistence Options
 PARAM_PERSISTENCE_ALWAYS = 'always'  # Param is always persisted to main config file
@@ -72,3 +73,8 @@ SEPARATOR_PIPE = '|'
 SEPARATOR_PIPE_PADDED = ' | '
 SEPARATOR_NEWLINE = '\n'
 SEPARATOR_TAB = '\t'
+
+# Switch Change Behaviour Options
+SWITCH_UNSET = 'switch-unset'  # Unset other switches in group using unset_param()
+SWITCH_RESET = 'switch-reset'  # Reset other switches in group using reset_param()
+SWITCH_REJECT = 'switch-reject'  # Reject change if other switches already set (current behaviour)

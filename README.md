@@ -11,7 +11,7 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 
 ## Features
 
-- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, persistence, and complete lifecycle management (get/set/unset/reset)
+- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, persistence, complete lifecycle management (get/set/unset/reset), and switch change behaviour control for mutually exclusive groups
 - **Declarative Command Definition** - Define commands with actions, dependencies, and orchestration
 - **Command Orchestration** - Automatic dependency resolution, sequencing, and triggers
 - **Multi-Phase Execution** - Organize commands into setup, cleanup, execution, teardown, and end phases
@@ -155,6 +155,7 @@ from spafw37.constants.param import *
 - [`params_toggles.py`](https://github.com/minouris/spafw37/blob/main/examples/params_toggles.py) - Boolean flags and mutually exclusive options
 - [`params_lists.py`](https://github.com/minouris/spafw37/blob/main/examples/params_lists.py) - Multi-value parameters
 - [`params_allowed_values.py`](https://github.com/minouris/spafw37/blob/main/examples/params_allowed_values.py) - Restrict parameter values to allowed set
+- [`params_switch_behavior.py`](https://github.com/minouris/spafw37/blob/main/examples/params_switch_behavior.py) - Control switch group conflict behaviour (unset/reset/reject)
 - [`params_dict.py`](https://github.com/minouris/spafw37/blob/main/examples/params_dict.py) - Dictionary parameters for key-value pairs
 - [`params_file.py`](https://github.com/minouris/spafw37/blob/main/examples/params_file.py) - File path parameters with validation
 - [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
@@ -341,6 +342,7 @@ This framework is specifically designed for Python 3.7.x<=9 compatibility, large
 
 ## What's New in v1.1.0
 
+- **Switch Change Behaviour Control** - New `PARAM_SWITCH_CHANGE_BEHAVIOR` constant controls what happens when setting parameters in mutually exclusive groups: `SWITCH_UNSET` (automatically clear conflicting switches), `SWITCH_RESET` (restore defaults), or `SWITCH_REJECT` (raise error - default). Enables mode switching patterns and state restoration while maintaining backward compatibility.
 - **Allowed Values Validation** - New `PARAM_ALLOWED_VALUES` constant restricts TEXT, NUMBER, and LIST parameters to predefined value sets. TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case. Provides clear error messages when invalid values are provided.
 - **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
 - **Parameter Lifecycle Management** - Complete lifecycle control with `unset_param()` to remove values and `reset_param()` to restore defaults, plus `PARAM_IMMUTABLE` for write-once protection.
@@ -366,27 +368,18 @@ When reporting bugs, please include:
 
 For feature requests and questions, also use [GitHub Issues](https://github.com/minouris/spafw37/issues) with the appropriate label.
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-Copyright (c) 2025 Ciara Norrish (@minouris)
-
-## CI/CD
-
-The project uses GitHub Actions for continuous integration:
-
-- **Test Workflow** - Runs on every push/PR to main/develop
-- **Publish to TestPyPI** - Automatic deployment on push to main with version auto-increment
-
-See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
-
 ## Author
 
 **Minouris (Ciara Norrish)** ([@minouris](https://github.com/minouris))
 
 **Support Me:** Support me on Patreon at [Minouris Does Stuff!](https://patreon.com/Minouris) I'll post news and previews of all my projects, software and otherwise, including this one! 
 
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+Copyright (c) 2025 Ciara Norrish (@minouris)
 ## Links
 
 - **PyPI:** https://pypi.org/project/spafw37/
