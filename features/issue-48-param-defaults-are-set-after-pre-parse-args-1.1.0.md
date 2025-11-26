@@ -195,15 +195,23 @@ Modify `add_param()` to call `_set_param_default()` immediately after adding the
 
 **Implementation order:**
 
-1. Add registration mode flag and accessors (`_registration_mode`, `_set_registration_mode()`, `_get_registration_mode()`)
-2. Modify `_get_switch_behavior()` to check registration mode and return `_SWITCH_REGISTER`
-3. Update `_has_switch_conflict()` to skip validation when behavior is `_SWITCH_REGISTER`
-4. Write integration tests for `add_param()` with defaults (Tests 3.2.1-3.2.4) - tests will fail initially
-5. Modify `add_param()` to wrap `_set_param_default()` call in registration mode enable/disable block
-6. Place call after parameter is added to `_params` dictionary
-7. Ensure registration mode is reset even if default-setting fails
-8. Update existing tests that verify defaults set at registration (Tests 5.2.1, 5.2.2, 5.2.3)
-9. Verify integration tests now pass
+1. Define `_SWITCH_REGISTER` constant for registration-time behavior
+2. Add registration mode flag and accessors (`_registration_mode`, `_set_registration_mode()`, `_get_registration_mode()`)
+3. Modify `_get_switch_behavior()` to check registration mode and return `_SWITCH_REGISTER`
+4. Update `_has_switch_conflict()` to skip validation when behavior is `_SWITCH_REGISTER`
+5. Write integration tests for `add_param()` with defaults (Tests 3.2.1-3.2.4) - tests will fail initially
+6. Modify `add_param()` to wrap `_set_param_default()` call in registration mode enable/disable block
+7. Place call after parameter is added to `_params` dictionary
+8. Ensure registration mode is reset even if default-setting fails
+9. Update existing tests that verify defaults set at registration (Tests 5.2.1, 5.2.2, 5.2.3)
+10. Verify integration tests now pass
+
+**Code 3.0: _SWITCH_REGISTER constant**
+
+```python
+# Block 3.0.1: Module-level switch behaviour constant for registration mode
+_SWITCH_REGISTER = 'switch-register'  # Internal: Skip validation during registration
+```
 
 **Code 3.1: Registration mode flag and accessors**
 
@@ -783,7 +791,7 @@ The old test validates that `handle_cli_args()` is responsible for setting defau
 
 - [ ] `_set_param_default()` function created in `param.py`
 - [ ] `_set_param_default()` correctly sets defaults for toggle and non-toggle params
-- [ ] `add_param()` calls `_set_param_default()` with XOR validation disabled
+- [ ] `add_param()` calls `_set_param_default()` with registration mode enabled
 - [ ] `_set_defaults()` function removed from `cli.py`
 - [ ] Call to `_set_defaults()` removed from `run_cli()`
 - [ ] Pre-parse params with defaults retain their pre-parsed values
@@ -822,6 +830,7 @@ None.
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
 - Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
 - Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
+- Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
 
 ### Migration
 

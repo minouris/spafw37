@@ -98,7 +98,7 @@
 
 - Default values for parameters are now set immediately when `add_param()` is called, rather than after pre-parsing during CLI execution.
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
-- XOR validation is temporarily disabled during default-setting in `add_param()` to avoid false conflicts when registering multiple params in the same XOR group.
+- During default-setting in `add_param()`, registration mode is enabled, causing `_get_switch_behavior()` to return `_SWITCH_REGISTER` and skip XOR validation for parameters in the same XOR group.
 
 ### Migration
 
