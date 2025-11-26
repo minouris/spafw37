@@ -366,27 +366,18 @@ When reporting bugs, please include:
 
 For feature requests and questions, also use [GitHub Issues](https://github.com/minouris/spafw37/issues) with the appropriate label.
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-Copyright (c) 2025 Ciara Norrish (@minouris)
-
-## CI/CD
-
-The project uses GitHub Actions for continuous integration:
-
-- **Test Workflow** - Runs on every push/PR to main/develop
-- **Publish to TestPyPI** - Automatic deployment on push to main with version auto-increment
-
-See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
-
 ## Author
 
 **Minouris (Ciara Norrish)** ([@minouris](https://github.com/minouris))
 
 **Support Me:** Support me on Patreon at [Minouris Does Stuff!](https://patreon.com/Minouris) I'll post news and previews of all my projects, software and otherwise, including this one! 
 
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+Copyright (c) 2025 Ciara Norrish (@minouris)
 ## Links
 
 - **PyPI:** https://pypi.org/project/spafw37/

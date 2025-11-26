@@ -67,6 +67,7 @@ Create a new planning document in the `features/` directory:
    - Milestone version in CHANGES section
 3. Leave sections as placeholder text where information is not yet known
 4. Include all template sections (do not remove any)
+5. Mark "Further Considerations" with "PENDING REVIEW" status - never mark as "RESOLVED" without explicit user confirmation
 
 **Template location:** `features/ISSUE-PLAN-TEMPLATE.md`
 
