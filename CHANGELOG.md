@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2025-11-26
+## [1.1.0] - 2025-11-27
 
 ### Issues Closed
 
@@ -9,6 +9,7 @@
 - #32: Switch Param Grouped Behaviour
 - #33: Param Allowed Values
 - #35: Add CYCLE_LOOP_END to Cycles
+- #48: Param Defaults are set after pre-parse args
 
 ### Additions
 
@@ -69,6 +70,10 @@
 - `set_config_value()`
 - `set_config_list_value()`
 
+**Issue #48:**
+
+- `cli._set_defaults()` function removed. Default-setting now occurs in `param.py` during parameter registration.
+
 ### Changes
 
 **Issue #26:**
@@ -88,6 +93,15 @@
 **Issue #35:**
 
 - Cycle execution now calls `CYCLE_LOOP_END` function at end of each iteration if defined in cycle definition.
+
+**Issue #48:**
+
+- Default values for parameters are now set immediately when `add_param()` is called, rather than after pre-parsing during CLI execution.
+- Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
+- Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
+- Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
+- **Bug fix:** `_has_switch_conflict()` now correctly checks the type of the conflicting parameter (not the parameter being set) when determining conflict logic for mixed-type switch groups (e.g., TEXT + TOGGLE params). This fixes false conflicts when setting non-toggle params that share switch groups with toggle params.
+- Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
 
 ### Migration
 
@@ -151,6 +165,10 @@
 - `doc/api-reference.md` added `CYCLE_LOOP_END` constant documentation
 - `examples/cycles_loop_end.py` demonstrates per-iteration cleanup and counter patterns
 - `examples/README.md` updated with new example entry
+
+**Issue #48:**
+
+- No documentation changes required. This is an internal implementation fix with no user-facing API changes.
 
 ## [1.0.1] - 2025-11-15
 

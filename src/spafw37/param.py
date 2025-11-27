@@ -60,6 +60,12 @@ _skip_xor_validation = False
 # Batch mode flag - when True, forces SWITCH_REJECT for all switch params
 _batch_mode = False
 
+# Registration mode flag - when True, switch params skip XOR validation during default-setting
+_registration_mode = False
+
+# Module-level switch behaviour constant for registration mode
+_SWITCH_REGISTER = 'switch-register'  # Internal: Skip validation during registration
+
 
 # Helper functions for inline object definitions
 def _set_xor_validation_enabled(enabled):
@@ -96,6 +102,28 @@ def _get_batch_mode():
         True if batch mode is enabled, False otherwise
     """
     return _batch_mode
+
+
+def _set_registration_mode(enabled):
+    """Enable/disable registration mode for switch param behavior.
+    
+    When enabled, switch params skip XOR validation entirely during
+    default-setting at parameter registration time.
+    
+    Args:
+        enabled: Boolean to enable (True) or disable (False) registration mode.
+    """
+    global _registration_mode
+    _registration_mode = enabled
+
+
+def _get_registration_mode():
+    """Check if currently in registration mode.
+    
+    Returns:
+        Boolean indicating whether registration mode is active.
+    """
+    return _registration_mode
 
 
 def _get_param_name(param_def):
@@ -1043,6 +1071,33 @@ def _apply_runtime_only_constraint(_param):
         _param[PARAM_PERSISTENCE] = PARAM_PERSISTENCE_NEVER
 
 
+def _set_param_default(_param):
+    """Set default value for a parameter if defined.
+    
+    This function is called by add_param() to set the default value for a parameter
+    immediately after registration. For toggle params, always sets a default (using
+    False if not explicitly specified). For non-toggle params, only sets default if
+    PARAM_DEFAULT is present.
+    
+    Args:
+        _param: Parameter definition dictionary.
+    """
+    param_name = _param.get(PARAM_NAME)
+    
+    # Determine default value based on param type
+    if _is_toggle_param(_param):
+        default_value = _get_param_default(_param, False)
+    elif _param_has_default(_param):
+        default_value = _get_param_default(_param, None)
+    else:
+        # No default to set
+        return
+    
+    # Set the default value
+    logging.log_trace(_message=f"Setting default for param '{param_name}' = {default_value}")
+    set_param(param_name=param_name, value=default_value)
+
+
 def add_param(_param):
     """Add a parameter and activate it immediately.
     
@@ -1059,6 +1114,13 @@ def add_param(_param):
     _apply_runtime_only_constraint(_param)
     
     _params[_param_name] = _param
+    
+    # Set default value if defined (with registration mode to skip switch validation)
+    _set_registration_mode(True)
+    try:
+        _set_param_default(_param)
+    finally:
+        _set_registration_mode(False)
 
 
 def _register_param_alias(param, alias):
@@ -1515,23 +1577,29 @@ def _get_switch_change_behavior(param_definition):
     """Get switch change behaviour from param definition.
     
     When batch mode is enabled, always returns SWITCH_REJECT regardless of
-    the configured behaviour. Otherwise returns the configured behaviour
-    or SWITCH_REJECT as default for backward compatibility.
+    the configured behaviour. When registration mode is enabled, returns
+    _SWITCH_REGISTER to skip validation entirely. Otherwise returns the
+    configured behaviour or SWITCH_REJECT as default for backward compatibility.
     
     Args:
         param_definition: Parameter definition dict
         
     Returns:
-        One of SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
+        One of SWITCH_UNSET, SWITCH_RESET, SWITCH_REJECT, or _SWITCH_REGISTER
     """
     if _get_batch_mode():
         return SWITCH_REJECT
+    if _get_registration_mode():
+        return _SWITCH_REGISTER  # Skip all validation during registration
     
     return param_definition.get(PARAM_SWITCH_CHANGE_BEHAVIOR, SWITCH_REJECT)
 
 
 def _has_switch_conflict(param_definition, xor_param_bind_name):
     """Check if a param in the switch group has a conflicting value.
+    
+    During registration mode (_SWITCH_REGISTER), always returns False
+    to skip validation while setting defaults.
     
     Args:
         param_definition: Definition of param being set
@@ -1540,9 +1608,20 @@ def _has_switch_conflict(param_definition, xor_param_bind_name):
     Returns:
         True if conflict exists, False otherwise
     """
+    # Get current behavior mode
+    behavior = _get_switch_change_behavior(param_definition)
+    
+    # Skip conflict detection entirely during registration
+    if behavior == _SWITCH_REGISTER:
+        return False
+    
     existing_value = config.get_config_value(xor_param_bind_name)
     
-    if _is_toggle_param(param_definition):
+    # Look up the conflicting param's definition
+    conflicting_param_def = _get_param_definition_by_bind_name(xor_param_bind_name)
+    
+    # Check type of conflicting param (not param being set)
+    if _is_toggle_param(conflicting_param_def):
         return existing_value is True
     else:
         return existing_value is not None
@@ -1972,6 +2051,9 @@ def _check_immutable(param_def):
     Private helper for set_param() and unset_param() to enforce immutability.
     Blocks modification/removal only if parameter is immutable AND value exists.
     
+    During registration mode, immutability checking is skipped to allow
+    default values to be set during parameter registration.
+    
     Args:
         param_def: Parameter definition dict.
     
@@ -1980,6 +2062,10 @@ def _check_immutable(param_def):
     """
     if not param_def.get(PARAM_IMMUTABLE, False):
         return  # Not immutable, allow operation
+    
+    # Skip immutability check during registration mode (setting defaults)
+    if _get_registration_mode():
+        return
     
     # Check if value exists
     config_bind_name = _get_bind_name(param_def)

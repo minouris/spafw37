@@ -205,26 +205,6 @@ def _parse_command_line(tokens):
     param.set_values(parsed_params)
 
 
-def _set_defaults():
-    """Set default values for all registered parameters."""
-    # Disable XOR validation while setting defaults to avoid false conflicts
-    param._set_xor_validation_enabled(False)
-    try:
-        for param_definition in param.get_all_param_definitions():
-            param_name = param_definition.get(PARAM_NAME)
-            if param._is_toggle_param(param_definition):
-                _def = param._get_param_default(param_definition, False)
-                print(f"Setting default for toggle param '{param_name}'= {_def}")
-                param.set_param(param_name=param_name, value=_def)
-            else:
-                if param._param_has_default(param_definition):
-                    _def = param._get_param_default(param_definition, None)
-                    logging.log_trace(_message=f"Setting default for param '{param_name}'= {_def}")
-                    param.set_param(param_name=param_name, value=_def)
-    finally:
-        # Always re-enable XOR validation after setting defaults
-        param._set_xor_validation_enabled(True)
-
 def _pre_parse_params(tokenized_args):
     """Silently parse pre-registered params before main CLI parsing.
     
@@ -289,9 +269,6 @@ def handle_cli_args(args):
     
     # Apply logging configuration based on pre-parsed params
     logging_module.apply_logging_config()
-    
-    # Set defaults for all parameters
-    _set_defaults()
 
     # Parse command line arguments using regex tokenizer
     _parse_command_line(tokenized_args)

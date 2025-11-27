@@ -567,6 +567,113 @@ Scenario: set_values enables batch mode at start
 - **Edge cases:** Test boundary conditions, error cases, empty inputs
 - **Backward compatibility:** Verify default behaviours match existing functionality
 
+### Documenting Changes to Existing Tests
+
+**When implementation changes require updates to existing tests, document them explicitly in the plan.**
+
+**Create a subsection within the implementation step that makes the code change:**
+
+````markdown
+#### Existing Tests Requiring Updates
+
+Document each test that needs updating with:
+
+1. **Test identification:**
+   - Test name: `test_function_name`
+   - File: `tests/test_module.py`
+
+2. **Old test logic (Gherkin):**
+   ```gherkin
+   Scenario: Old behavior description (OLD - tests removed/changed functionality)
+     Given preconditions for old behavior
+     When action performed in old way
+     Then outcome expected in old implementation
+     
+     # Tests: What the old test validated
+   ```
+
+3. **New test logic (Gherkin):**
+   ```gherkin
+   Scenario: New behavior description (NEW - tests new functionality)
+     Given preconditions for new behavior
+     When action performed in new way
+     Then outcome expected in new implementation
+     
+     # Tests: What the new test validates
+     # Validates: Why this test validates correct behavior
+   ```
+
+4. **Rationale paragraph:** Explain why the test change is necessary, referencing the architectural change being made.
+````
+
+**Example:**
+
+````markdown
+#### Existing Tests Requiring Updates
+
+**Test 5.2.1: Update test_set_default_param_values**
+
+**Old test logic (to be removed):**
+```gherkin
+Scenario: _set_defaults sets default for text param (OLD - tests removed function)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  And I call add_param() to register it (does NOT set default yet)
+  When I call cli._set_defaults()
+  Then the config should contain 'default_value'
+  
+  # Tests: Old behavior where defaults set in CLI module
+```
+
+**New test logic (replacement):**
+```gherkin
+Scenario: add_param sets default for text param immediately (NEW - tests new behavior)
+  Given I have a param with PARAM_DEFAULT = 'default_value'
+  When I call add_param() to register it
+  Then the config should immediately contain 'default_value'
+  And I should NOT need to call cli._set_defaults()
+  
+  # Tests: New behavior where defaults set at registration in param module
+  # Validates: Defaults are available immediately after add_param()
+```
+
+**Why this change is necessary:**
+The old test validates that `cli._set_defaults()` sets defaults when called. This function is being removed because defaults are now set in `param.add_param()` at registration time. The new test validates that defaults are set immediately when the parameter is registered, which is the new correct behavior.
+````
+
+**Include test update subsection in implementation order:**
+
+Add a step in the implementation order that references these test updates at the point where the code change is made:
+
+```markdown
+**Implementation order:**
+
+1. Write new functionality tests
+2. Implement new functionality
+3. Update existing tests that validate old behavior (Tests 5.2.1, 5.2.2, 5.2.3)
+4. Remove old functionality
+5. Verify all tests pass
+```
+
+**Update Testing section in CHANGES:**
+
+In the CHANGES section, explicitly list existing tests that were updated:
+
+```markdown
+### Testing
+
+- 8 new tests in `tests/test_param.py` covering new functionality
+- 3 existing tests in `tests/test_cli.py` updated to reflect new behavior:
+  - `test_function_one` - Now tests X instead of Y
+  - `test_function_two` - Now validates Z at different lifecycle point
+  - `test_function_three` - Updated to verify A preserved during B
+```
+
+**Benefits of documenting test changes:**
+- Reviewers understand why tests are being modified
+- Prevents accidental regression when changing tests to "make them pass"
+- Documents the behavioral shift being made
+- Ensures test changes align with architectural changes
+
 ### Examples Must Follow Plan Numbering
 
 **Example code blocks use the same numbering system:**

@@ -667,7 +667,6 @@ def test_reset_param_immutable_through_core():
     """
     test_param = {PARAM_NAME: 'app-id', PARAM_TYPE: PARAM_TYPE_TEXT, 'immutable': True, PARAM_DEFAULT: 'abc'}
     param.add_param(test_param)
-    param.set_param(param_name='app-id', value='abc')
     
     with pytest.raises(ValueError, match="Cannot modify immutable parameter"):
         core.reset_param(param_name='app-id')

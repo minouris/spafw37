@@ -356,7 +356,6 @@ def test_reset_param_immutable():
         PARAM_DEFAULT: '1.0.0',
     }
     param.add_param(test_param)
-    param.set_param(param_name='version', value='1.0.0')
     
     # Try to reset (which would call set_param with default, but value exists)
     with pytest.raises(ValueError, match="Cannot modify immutable parameter 'version'"):
