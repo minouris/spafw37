@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2025-11-26
+## [1.1.0] - 2025-11-27
 
 ### Issues Closed
 
@@ -100,6 +100,7 @@
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
 - Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
 - Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
+- **Bug fix:** `_has_switch_conflict()` now correctly checks the type of the conflicting parameter (not the parameter being set) when determining conflict logic for mixed-type switch groups (e.g., TEXT + TOGGLE params). This fixes false conflicts when setting non-toggle params that share switch groups with toggle params.
 - Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
 
 ### Migration
