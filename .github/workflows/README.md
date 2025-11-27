@@ -91,7 +91,7 @@ The changelog is generated automatically as part of the `pre-publish.yml` workfl
 
 1. **Proper Python environment**: Uses the cached Python 3.7.9 build from source (same as tests)
 2. **Only runs after successful builds**: Changelog generation happens after tests and build verification pass
-3. **Non-AI generation**: Uses `.github/scripts/generate_changelog.py` to extract CHANGES sections from issue plan files in `features/`
+3. **Script-based generation**: Uses `.github/scripts/generate_changelog.py` to extract CHANGES sections from issue plan files in `features/`
 
 ### How Changelog Generation Works
 
