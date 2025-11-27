@@ -161,7 +161,7 @@ On your first publish, TestPyPI might reject the package name if it's already ta
 
 ### Pre-Publish Flow
 
-1. **Trigger**: Push to `main` branch or PR
+1. **Trigger**: Push to any branch or PR to `main`
 2. **Prepare Python**: Build Python 3.7.9 from source (with caching)
 3. **Test**: Run pytest with 80% coverage requirement
 4. **Build**: Create source distribution and wheel
