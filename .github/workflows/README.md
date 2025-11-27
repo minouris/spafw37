@@ -30,7 +30,7 @@ Reusable workflow for building and verifying the package.
 
 ### pre-publish.yml
 
-Runs on every push and PR to `main` branch.
+Runs on every push to any branch and on pull requests to the `main` branch.
 
 - Prepares Python environment (builds from source with caching)
 - Runs tests with 80% coverage requirement
