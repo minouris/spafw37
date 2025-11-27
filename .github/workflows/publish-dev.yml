@@ -120,11 +120,9 @@ jobs:
     - name: Set publish version
       id: publish_version
       run: |
-        if [ "${{ inputs.skip_version_bump }}" == "true" ]; then
-          echo "version=${{ steps.read_version.outputs.version }}" >> $GITHUB_OUTPUT
-        else
-          echo "version=${{ steps.next_version.outputs.new_version }}" >> $GITHUB_OUTPUT
-        fi
+        # Always use the version that was actually published to TestPyPI
+        # The pre-built packages contain read_version, not next_version
+        echo "version=${{ steps.read_version.outputs.version }}" >> $GITHUB_OUTPUT
 
     - name: Create git tag
       run: |
