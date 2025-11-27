@@ -25,6 +25,7 @@ from spafw37.constants.param import (
     PARAM_SWITCH_LIST,
     PARAM_HAS_VALUE,
     PARAM_TYPE_TOGGLE,
+    PARAM_TYPE_TEXT,
 )
 import spafw37.constants.param as param_consts
 import spafw37.configure
@@ -51,6 +52,12 @@ def setup_function():
 
 
 def test_set_default_param_values():
+    """Test add_param sets default for text param immediately.
+    
+    When a param with PARAM_DEFAULT is registered, add_param() should
+    set the default value immediately. This validates that defaults are
+    available at registration time rather than during CLI parsing.
+    """
     setup_function()
     bind_name = 'test_bind'
     param_name = 'test_param'
@@ -59,10 +66,16 @@ def test_set_default_param_values():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
-    cli._set_defaults()
+    # Should already have the default value (no need to call cli._set_defaults())
     assert spafw37.config._config[bind_name] == 'default_value'
 
 def test_set_default_param_toggle_with_default_true():
+    """Test add_param sets True for toggle with explicit default immediately.
+    
+    When a toggle param with PARAM_DEFAULT = True is registered, add_param()
+    should set the value immediately. This validates that toggle defaults are
+    available at registration time.
+    """
     setup_function()
     bind_name = 'toggle_param'
     param_name = 'toggle_param_name'
@@ -72,10 +85,16 @@ def test_set_default_param_toggle_with_default_true():
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE,
         param.PARAM_DEFAULT: True
     })
-    cli._set_defaults()
+    # Should already have True (no need to call cli._set_defaults())
     assert spafw37.config._config[bind_name] is True
 
 def test_set_default_param_toggle_with_no_default():
+    """Test add_param sets False for toggle without explicit default immediately.
+    
+    When a toggle param without PARAM_DEFAULT is registered, add_param() should
+    set the implicit default (False) immediately. This validates that toggle params
+    always have defined state after registration.
+    """
     setup_function()
     bind_name = 'toggle_no_default'
     param_name = 'toggle_no_default_name'
@@ -84,7 +103,7 @@ def test_set_default_param_toggle_with_no_default():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_TYPE: param.PARAM_TYPE_TOGGLE
     })
-    cli._set_defaults()
+    # Should already have False as implicit default (no need to call cli._set_defaults())
     assert spafw37.config._config[bind_name] is False
 
 
@@ -610,6 +629,13 @@ def test_save_config_write_error_during_operation():
              config_func.save_user_config()
 
 def test_handle_cli_args_sets_defaults():
+    """Test add_param sets defaults immediately, handle_cli_args preserves them.
+    
+    When a param with a default is registered, add_param() should set the default
+    immediately. When handle_cli_args() is called with no arguments, it should
+    preserve the default value that was already set. This validates that handle_cli_args
+    does not interfere with pre-set defaults.
+    """
     setup_function()
     bind_name = 'default_bind'
     param_name = 'default_param'
@@ -618,7 +644,9 @@ def test_handle_cli_args_sets_defaults():
         param_consts.PARAM_NAME: param_name,
         param.PARAM_DEFAULT: 'default_value'
     })
-    # calling handle_cli_args with no args should set defaults
+    # Default should already be set by add_param()
+    assert spafw37.config._config[bind_name] == 'default_value'
+    # Calling handle_cli_args with no args should preserve the default
     cli.handle_cli_args([])
     assert spafw37.config._config[bind_name] == 'default_value'
 
@@ -935,3 +963,114 @@ def test_is_quoted_token_not_quoted():
     assert cli._is_quoted_token('--alias') is False
 
 
+def test_pre_parse_param_with_default_not_overridden():
+    """Test pre-parse param with default is not overridden by _set_defaults.
+    
+    Demonstrates the bug: pre-parse params with default values get overridden
+    by _set_defaults() after pre-parsing completes. This test should FAIL
+    initially, proving the bug exists.
+    
+    The test registers a pre-parse param "silent" with PARAM_DEFAULT = False,
+    then calls run_cli(["--silent"]) which should set the value to True.
+    Currently, _set_defaults() runs after pre-parsing and overwrites the
+    True value with the False default, causing this test to fail.
+    """
+    setup_function()
+    
+    # Register pre-parse param with default value
+    param.add_pre_parse_args(["silent"])
+    
+    # Add param with default value
+    param.add_param({
+        PARAM_NAME: "silent",
+        PARAM_ALIASES: ["--silent"],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False
+    })
+    
+    # Call run_cli with --silent flag (should set to True)
+    cli.handle_cli_args(["--silent"])
+    
+    # Should return True (CLI value), not False (default value)
+    # This assertion will FAIL initially, demonstrating the bug
+    assert param.get_param("silent") is True
+
+
+
+
+
+
+# Integration tests for defaults now being set at registration
+
+def test_pre_parse_params_retain_values():
+    """Test pre-parse param values are not overridden by defaults.
+    
+    When a pre-parse param has a default value, the value set during pre-parsing
+    should be retained rather than overridden. This validates that defaults are
+    set at registration time (before pre-parsing) rather than after.
+    """
+    setup_function()
+    
+    # Register pre-parse param with default value
+    param.add_pre_parse_args(["silent"])
+    
+    # Add param with default value
+    param.add_param({
+        PARAM_NAME: "silent",
+        PARAM_ALIASES: ["--silent"],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False
+    })
+    
+    # Call handle_cli_args with --silent flag (should set to True)
+    cli.handle_cli_args(["--silent"])
+    
+    # Should return True (CLI value), not False (default value)
+    assert param.get_param("silent") is True
+
+
+def test_non_pre_parse_params_still_get_defaults():
+    """Test non-pre-parse params receive defaults correctly.
+    
+    When a param that is not pre-parsed has a default value, it should
+    receive that default at registration time. This validates that the
+    refactoring maintains backward compatibility for regular params.
+    """
+    setup_function()
+    
+    # Add param with default (not pre-parsed)
+    param.add_param({
+        PARAM_NAME: "database",
+        PARAM_ALIASES: ["--database"],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: "production"
+    })
+    
+    # Call handle_cli_args with no arguments
+    cli.handle_cli_args([])
+    
+    # Should have the default value
+    assert param.get_param("database") == "production"
+
+
+def test_toggle_params_default_to_false():
+    """Test toggle params default to False when not specified.
+    
+    When a toggle param without explicit PARAM_DEFAULT is registered,
+    it should receive the implicit default (False) at registration time.
+    This validates backward-compatible toggle param behavior.
+    """
+    setup_function()
+    
+    # Add toggle param without explicit default
+    param.add_param({
+        PARAM_NAME: "verbose",
+        PARAM_ALIASES: ["--verbose"],
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    })
+    
+    # Call handle_cli_args with no arguments
+    cli.handle_cli_args([])
+    
+    # Should have False as implicit default
+    assert param.get_param("verbose") is False

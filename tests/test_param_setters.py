@@ -14,6 +14,10 @@ from spafw37.constants.param import (
     PARAM_TYPE_LIST,
     PARAM_TYPE_DICT,
     PARAM_IMMUTABLE,
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_DEFAULT,
+    PARAM_SWITCH_LIST,
 )
 
 
@@ -440,3 +444,199 @@ class TestSetParamImmutability:
         param.set_param(param_name='normal-param', value='second')
         
         assert config.get_config_value('normal-param') == 'second'
+
+
+# Tests for _set_param_default() helper function
+
+def test_set_param_default_toggle_with_explicit_default():
+    """Test _set_param_default sets default for toggle param.
+    
+    When a toggle param has an explicit PARAM_DEFAULT value, _set_param_default()
+    should call set_param() with that value. This validates that the function
+    correctly handles toggle params with explicitly configured defaults.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'verbose',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: True
+    }
+    param._params['verbose'] = test_param
+    
+    # Call _set_param_default
+    param._set_param_default(test_param)
+    
+    # Should have set the value to True
+    assert config.get_config_value('verbose') is True
+
+
+def test_set_param_default_toggle_without_explicit_default():
+    """Test _set_param_default sets False for toggle without explicit default.
+    
+    When a toggle param does not have an explicit PARAM_DEFAULT, _set_param_default()
+    should call set_param() with False. This ensures toggle params always have a
+    defined state after registration, maintaining backward compatibility.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'verbose',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    param._params['verbose'] = test_param
+    
+    # Call _set_param_default
+    param._set_param_default(test_param)
+    
+    # Should have set the value to False (implicit toggle default)
+    assert config.get_config_value('verbose') is False
+
+
+def test_set_param_default_non_toggle_with_default():
+    """Test _set_param_default sets default for non-toggle param.
+    
+    When a non-toggle param has PARAM_DEFAULT specified, _set_param_default()
+    should call set_param() with that value. This validates that text, number,
+    list, and dict params receive their configured defaults.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'database',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'production'
+    }
+    param._params['database'] = test_param
+    
+    # Call _set_param_default
+    param._set_param_default(test_param)
+    
+    # Should have set the value to 'production'
+    assert config.get_config_value('database') == 'production'
+
+
+def test_set_param_default_non_toggle_without_default():
+    """Test _set_param_default skips non-toggle param without default.
+    
+    When a non-toggle param does not have PARAM_DEFAULT, _set_param_default()
+    should return early without calling set_param(). This validates that params
+    without defaults remain unset in the configuration.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'database',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    param._params['database'] = test_param
+    
+    # Call _set_param_default
+    param._set_param_default(test_param)
+    
+    # Should NOT have set any value
+    assert 'database' not in config._config
+
+
+# Integration tests for add_param() with defaults
+
+def test_add_param_sets_default_for_toggle():
+    """Test add_param sets default for toggle param at registration.
+    
+    When a toggle param is added with a default value, add_param() should
+    call _set_param_default() which sets the value immediately. This validates
+    that defaults are available immediately after registration.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'verbose',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: True
+    }
+    
+    # Call add_param
+    param.add_param(test_param)
+    
+    # Should have set the default immediately
+    assert config.get_config_value('verbose') is True
+
+
+def test_add_param_sets_default_for_non_toggle():
+    """Test add_param sets default for non-toggle param at registration.
+    
+    When a non-toggle param is added with a default value, add_param() should
+    call _set_param_default() which sets the value immediately. This validates
+    that text, number, list, and dict params receive defaults at registration.
+    """
+    setup_function()
+    
+    test_param = {
+        PARAM_NAME: 'database',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'production'
+    }
+    
+    # Call add_param
+    param.add_param(test_param)
+    
+    # Should have set the default immediately
+    assert config.get_config_value('database') == 'production'
+
+
+def test_add_param_enables_registration_mode_during_default_setting():
+    """Test add_param enables registration mode to skip switch validation.
+    
+    When adding two toggle params in the same XOR group, both with defaults,
+    add_param() should enable registration mode which causes switch conflict
+    detection to be skipped. This prevents false conflicts during default-setting.
+    """
+    setup_function()
+    
+    # Add two toggle params in same XOR group, both with False default
+    param1 = {
+        PARAM_NAME: 'mode_read',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False,
+        PARAM_SWITCH_LIST: ['mode_write']
+    }
+    param2 = {
+        PARAM_NAME: 'mode_write',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE,
+        PARAM_DEFAULT: False
+    }
+    
+    # Both should add successfully without XOR conflict errors
+    param.add_param(param1)
+    param.add_param(param2)
+    
+    # Both should have False in config
+    assert config.get_config_value('mode_read') is False
+    assert config.get_config_value('mode_write') is False
+
+
+def test_add_param_resets_registration_mode_after_default_setting():
+    """Test add_param resets registration mode even if default-setting fails.
+    
+    When an error occurs during default-setting, the finally block should
+    still disable registration mode. This ensures the flag is restored to
+    prevent affecting subsequent operations.
+    """
+    setup_function()
+    
+    # Create a param with invalid default that will fail validation
+    test_param = {
+        PARAM_NAME: 'count',
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_DEFAULT: 'not_a_number'  # Will cause validation error
+    }
+    
+    # Attempt to add param (should raise error)
+    try:
+        param.add_param(test_param)
+        assert False, "Should have raised ValueError"
+    except ValueError:
+        pass
+    
+    # Registration mode should still be disabled after error
+    assert param._get_registration_mode() is False

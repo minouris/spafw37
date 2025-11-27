@@ -787,25 +787,547 @@ The old test validates that `handle_cli_args()` is responsible for setting defau
 
 [↑ Back to top](#table-of-contents)
 
+### 4. Switch behavior test failures - toggle initial state - RESOLVED
+
+**Issue:** After implementing the fix, 9 tests in `test_param_switch_behavior.py` are failing with assertion errors.
+
+**Failure pattern:**
+
+Tests expect toggle params to be `None` before they're ever explicitly set, but they now have value `False` (the implicit toggle default set during registration).
+
+**Example from `test_switch_unset_toggle_removes_conflicting_param()`:**
+
+```python
+param.add_params([...])  # Add mode_read and mode_write toggles
+param.set_param('mode_read', True)
+assert param.get_param('mode_read') is True
+assert param.get_param('mode_write') is None  # ← FAILS: expects None, gets False
+```
+
+**Root cause:**
+
+The test expects `mode_write` to be `None` because it hasn't been explicitly set yet. However, toggle params now receive their implicit default (`False`) during registration via `add_param()`, so `mode_write` has value `False`, not `None`.
+
+**This is the intended behavior of the fix** - toggle params should have defined values after registration, not remain undefined.
+
+**Tests affected (9 total):**
+
+1. `test_switch_reject_does_not_modify_params` - Checks `option_b` before setting
+2. `test_switch_unset_toggle_removes_conflicting_param` - Checks `mode_write` before setting
+3. `test_switch_unset_three_way_group_removes_all_conflicts` - Checks multiple params before setting
+4. `test_switch_unset_no_conflict_when_none_set` - Checks `opt_y` before setting
+5. `test_switch_reset_toggle_resets_to_default` - Checks `priority_low` before setting
+6. `test_switch_reset_three_way_group_resets_all_conflicts` - Checks multiple params before setting
+7. `test_switch_reset_switching_back_and_forth` - Checks `encrypt_off` before setting
+8. `test_mixed_behaviors_in_same_group` - Checks `strict` before setting
+9. `test_switch_behavior_with_no_conflict` - Checks both `alpha` and `beta` before setting
+
+**Analysis:**
+
+These tests are checking the **initial state** of toggle params before they're ever explicitly set. The tests expect `None` (undefined/unset), but get `False` (implicit toggle default).
+
+**Resolution options:**
+
+- Update tests to expect `False` for toggle params that haven't been explicitly set
+- Toggle params now have defined state immediately after registration
+- This aligns with the goal of setting defaults at registration time
+
+**Status:** RESOLVED - Toggle params now have defined state (`False`) after registration. Tests need updating to expect `False` instead of `None` for initial state. See Implementation Step 7 for resolution.
+
+[↑ Back to top](#table-of-contents)
+
+### 5. Logging test failures - mixed-type switch conflict detection - PENDING REVIEW
+
+**Issue:** After implementing the fix, 4 tests in `test_logging.py` are failing with `ValueError` exceptions.
+
+**Failure pattern:**
+
+Tests throw `ValueError: Cannot set 'log-level', conflicts with 'log-verbose'` when trying to set the `log-level` param.
+
+**Example from `test_apply_logging_config_with_log_level_param()`:**
+
+```python
+param.add_params(LOGGING_PARAMS)  # Registers all logging params including toggles
+param.set_param(param_name='log-level', value='WARNING')  # ← THROWS: conflicts with 'log-verbose'
+```
+
+**Root cause:**
+
+`log-level` (TEXT param) is in a switch group with `log-verbose` (TOGGLE param). When `LOGGING_PARAMS` are registered, `log-verbose` gets its implicit default `False` set. Then when setting `log-level`, `_has_switch_conflict()` incorrectly reports a conflict because:
+
+1. `_has_switch_conflict()` receives `log-level` param definition and checks `_is_toggle_param(param_definition)` → False
+2. Since it's not a toggle, it uses the non-toggle check: `existing_value is not None`
+3. It checks `log-verbose` value: `False is not None` → True (conflict detected!)
+4. This triggers the switch conflict error
+
+**The bug:** `_has_switch_conflict()` checks the type of **the param being set**, but it should check the type of **the conflicting param** (the one whose `existing_value` is being examined).
+
+**Current code (incorrect):**
+
+```python
+def _has_switch_conflict(param_definition, xor_param_bind_name):
+    # ...
+    existing_value = config.get_config_value(xor_param_bind_name)
+    
+    if _is_toggle_param(param_definition):  # ← Checks WRONG param
+        return existing_value is True
+    else:
+        return existing_value is not None
+```
+
+**Expected behavior:**
+
+Should check whether the **conflicting param** (at `xor_param_bind_name`) is a toggle:
+- If conflicting param is a toggle: only conflict if `existing_value is True`
+- If conflicting param is not a toggle: conflict if `existing_value is not None`
+
+**Tests affected (4 total):**
+
+1. `test_apply_logging_config_with_log_level_param` - Sets `log-level` after registering LOGGING_PARAMS
+2. `test_log_level_param_accepts_valid_values` - Sets `log-level` with valid values
+3. `test_log_level_param_case_insensitive_matching` - Sets `log-level` with case variations
+4. `test_log_level_param_integration_with_logging_system` - Sets `log-level` and checks logging
+
+**Analysis:**
+
+This is a **genuine bug** in `_has_switch_conflict()` that was exposed by the fix. The function uses the wrong param type to determine the conflict check logic. It needs to look up the conflicting param's definition and check its type, not use the param being set.
+
+**Resolution required:**
+
+Fix `_has_switch_conflict()` to:
+1. Look up the conflicting param definition from `xor_param_bind_name`
+2. Check if the **conflicting param** is a toggle
+3. Apply the appropriate conflict check based on the conflicting param's type
+
+**Status:** PENDING REVIEW - requires implementation of fix to `_has_switch_conflict()`.
+
+[↑ Back to top](#table-of-contents)
+
+### 6. Update tests for toggle param initial state - PENDING APPROVAL
+
+**Depends on:** Resolution of "Further Consideration #4" regarding switch conflict detection
+
+**File:** `tests/test_param_switch_behavior.py`
+
+Once the switch conflict behavior is resolved, update all failing tests in `test_param_switch_behavior.py` to expect `False` instead of `None` for toggle params that have not been explicitly set.
+
+**Tests to update (9 tests):**
+
+1. `test_switch_reject_does_not_modify_params` - Line ~166: `assert param.get_param('option_b') is None` → `is False`
+2. `test_switch_unset_toggle_removes_conflicting_param` - Line ~205: `assert param.get_param('mode_write') is None` → `is False`
+3. `test_switch_unset_three_way_group_removes_all_conflicts` - Lines checking unset params
+4. `test_switch_unset_no_conflict_when_none_set` - Line ~317: `assert param.get_param('opt_y') is None` → `is False`
+5. `test_switch_reset_toggle_resets_to_default` - Line ~343: `assert param.get_param('priority_low') is None` → `is False`
+6. `test_switch_reset_three_way_group_resets_all_conflicts` - Lines checking unset params
+7. `test_switch_reset_switching_back_and_forth` - Line ~422: `assert param.get_param('encrypt_off') is None` → `is False`
+8. `test_mixed_behaviors_in_same_group` - Lines checking unset params
+9. `test_switch_behavior_with_no_conflict` - Lines ~774-775: Both assertions expecting `None` → `False`
+
+**Implementation:** Replace all assertions checking for `None` with assertions checking for `False` where the param is a toggle that hasn't been explicitly set.
+
+**Status:** PENDING REVIEW - requires implementation of fix to `_has_switch_conflict()`.
+
+[↑ Back to top](#table-of-contents)
+
+## Fixing Test Regressions
+
+After implementing the core fix (steps 1-5), 13 tests fail: 9 in `test_param_switch_behavior.py` due to changed toggle initial state behavior, and 4 in `test_logging.py` due to a bug in `_has_switch_conflict()`.
+
+### 7. Fix _has_switch_conflict() for mixed-type switch groups ✅ COMPLETE
+
+**Depends on:** Core implementation (steps 1-5) complete, Consideration #5 documented
+
+**Status:** COMPLETE - All 4 logging tests now pass
+
+**File:** `src/spafw37/param.py`
+
+Fix the bug in `_has_switch_conflict()` where it checks the type of the param being set instead of the type of the conflicting param. This causes false conflicts when setting TEXT params that are in switch groups with TOGGLE params.
+
+**Current buggy behavior:**
+
+When setting `log-level` (TEXT) that conflicts with `log-verbose` (TOGGLE with value `False`):
+- Function checks if `log-level` is a toggle (it's not)
+- Uses non-toggle check: `existing_value is not None`
+- `False is not None` → True (incorrect conflict detected)
+
+**Correct behavior:**
+
+Should check the type of `log-verbose` (the conflicting param):
+- Look up conflicting param definition by bind name
+- Check if conflicting param is a toggle
+- For toggles: only conflict if value is `True`
+- For non-toggles: conflict if value is not `None`
+
+**Implementation:**
+
+In `_has_switch_conflict()` function (lines ~1597-1625), replace the type check logic.
+
+**Code 7.1: Current buggy implementation**
+
+```python
+def _has_switch_conflict(param_definition, xor_param_bind_name):
+    """Check if a param in the switch group has a conflicting value.
+    
+    During registration mode (_SWITCH_REGISTER), always returns False
+    to skip validation while setting defaults.
+    
+    Args:
+        param_definition: Definition of param being set
+        xor_param_bind_name: Bind name of other param to check
+        
+    Returns:
+        True if conflict exists, False otherwise
+    """
+    # Block 7.1.1: Get current behavior mode
+    behavior = _get_switch_change_behavior(param_definition)
+    
+    # Block 7.1.2: Skip conflict detection entirely during registration
+    if behavior == _SWITCH_REGISTER:
+        return False
+    
+    # Block 7.1.3
+    existing_value = config.get_config_value(xor_param_bind_name)
+    
+    # Block 7.1.4: BUG - checks type of param being set instead of conflicting param
+    if _is_toggle_param(param_definition):
+        return existing_value is True
+    else:
+        return existing_value is not None
+```
+
+**Code 7.2: Fixed implementation**
+
+```python
+def _has_switch_conflict(param_definition, xor_param_bind_name):
+    """Check if a param in the switch group has a conflicting value.
+    
+    During registration mode (_SWITCH_REGISTER), always returns False
+    to skip validation while setting defaults.
+    
+    Args:
+        param_definition: Definition of param being set
+        xor_param_bind_name: Bind name of other param to check
+        
+    Returns:
+        True if conflict exists, False otherwise
+    """
+    # Block 7.2.1: Get current behavior mode
+    behavior = _get_switch_change_behavior(param_definition)
+    
+    # Block 7.2.2: Skip conflict detection entirely during registration
+    if behavior == _SWITCH_REGISTER:
+        return False
+    
+    # Block 7.2.3
+    existing_value = config.get_config_value(xor_param_bind_name)
+    
+    # Block 7.2.4: Look up the conflicting param's definition
+    conflicting_param_def = _get_param_definition_by_bind_name(xor_param_bind_name)
+    
+    # Block 7.2.5: Check type of conflicting param (not param being set)
+    if _is_toggle_param(conflicting_param_def):
+        return existing_value is True
+    else:
+        return existing_value is not None
+```
+
+**Verification:**
+
+After fix, run:
+```bash
+pytest tests/test_logging.py -v
+```
+
+All 4 previously failing logging tests should now pass:
+- `test_apply_logging_config_with_log_level_param`
+- `test_log_level_param_accepts_valid_values`
+- `test_log_level_param_case_insensitive_matching`
+- `test_log_level_param_integration_with_logging_system`
+
+[↑ Back to top](#table-of-contents)
+
+### 8. Update switch behavior tests for toggle initial state ✅ COMPLETE
+
+**Depends on:** Core implementation (steps 1-5) complete, Step 7 complete, Consideration #4 resolved
+
+**Status:** COMPLETE - All 9 switch behavior tests now pass
+
+**File:** `tests/test_param_switch_behavior.py`
+
+Update all failing tests to expect `False` instead of `None` for toggle params that have not been explicitly set. Toggle params now receive their implicit default (`False`) during registration, so they have a defined state immediately after `add_param()`.
+
+**Tests to update (9 tests):**
+
+**Test 8.1: test_switch_reject_does_not_modify_params (Line ~166)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check initial state before setting conflicting param (OLD)
+  Given I have two toggle params in a switch group
+  When I check option_b before setting option_a
+  Then option_b should be None (not yet set)
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check initial state before setting conflicting param (NEW)
+  Given I have two toggle params in a switch group
+  When I check option_b before setting option_a
+  Then option_b should be False (implicit default from registration)
+  
+  # Validates: Toggle params have defined state immediately after registration
+```
+
+**Test 8.2: test_switch_unset_toggle_removes_conflicting_param (Line ~205)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check conflicting param before setting (OLD)
+  Given I have mode_read and mode_write toggles in a switch group
+  When I check mode_write before setting mode_read
+  Then mode_write should be None (not yet set)
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check conflicting param before setting (NEW)
+  Given I have mode_read and mode_write toggles in a switch group
+  When I check mode_write before setting mode_read
+  Then mode_write should be False (implicit default)
+  
+  # Validates: Conflicting toggles have False default, not None
+```
+
+**Test 8.3: test_switch_unset_three_way_group_removes_all_conflicts (Lines ~235, 241)**
+
+Old assertions (expect None):
+```gherkin
+Scenario: Check multiple conflicting params before setting (OLD)
+  Given I have color_red, color_green, color_blue in a switch group
+  When I check color_blue before setting color_red
+  Then color_blue should be None
+  And after setting color_red, color_green and color_blue should both be None
+```
+
+New assertions (expect False):
+```gherkin
+Scenario: Check multiple conflicting params before setting (NEW)
+  Given I have color_red, color_green, color_blue in a switch group
+  When I check color_blue before setting color_red
+  Then color_blue should be False (implicit default)
+  And after setting color_red, color_green and color_blue should both be False
+  
+  # Validates: All toggles in switch group have False default
+```
+
+**Test 8.4: test_switch_unset_no_conflict_when_none_set (Line ~317)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check param when nothing set in switch group (OLD)
+  Given I have opt_x and opt_y toggles in a switch group
+  When I check opt_y before setting any params
+  Then opt_y should be None
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check param when nothing set in switch group (NEW)
+  Given I have opt_x and opt_y toggles in a switch group
+  When I check opt_y before setting any params
+  Then opt_y should be False (implicit default)
+  
+  # Validates: Toggle params have False default even when no conflicts active
+```
+
+**Test 8.5: test_switch_reset_toggle_resets_to_default (Line ~343)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check conflicting param before reset scenario (OLD)
+  Given I have priority_high and priority_low with SWITCH_RESET behavior
+  When I check priority_low before setting priority_high
+  Then priority_low should be None (not set yet)
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check conflicting param before reset scenario (NEW)
+  Given I have priority_high and priority_low with SWITCH_RESET behavior
+  When I check priority_low before setting priority_high
+  Then priority_low should be False (implicit default)
+  
+  # Validates: Params with explicit False default still have False from registration
+```
+
+**Test 8.6: test_switch_reset_three_way_group_resets_all_conflicts (Line ~371)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check param in three-way reset group (OLD)
+  Given I have level_low, level_medium, level_high with SWITCH_RESET
+  When I check level_high before setting level_low
+  Then level_high should be None
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check param in three-way reset group (NEW)
+  Given I have level_low, level_medium, level_high with SWITCH_RESET
+  When I check level_high before setting level_low
+  Then level_high should be False (explicit default matches implicit default)
+  
+  # Validates: Reset behavior doesn't affect initial registration defaults
+```
+
+**Test 8.7: test_switch_reset_switching_back_and_forth (Line ~422)**
+
+Old assertion (expects None):
+```gherkin
+Scenario: Check param before alternating sets (OLD)
+  Given I have encrypt_on and encrypt_off with SWITCH_RESET
+  When I check encrypt_off before setting encrypt_on
+  Then encrypt_off should be None (not set yet)
+```
+
+New assertion (expects False):
+```gherkin
+Scenario: Check param before alternating sets (NEW)
+  Given I have encrypt_on and encrypt_off with SWITCH_RESET
+  When I check encrypt_off before setting encrypt_on
+  Then encrypt_off should be False (explicit False default)
+  
+  # Validates: Explicit False defaults are set at registration
+```
+
+**Test 8.8: test_mixed_behaviors_in_same_group (Lines ~746, 751)**
+
+Old assertions (expect None):
+```gherkin
+Scenario: Check param in mixed-behavior group (OLD)
+  Given I have fast (SWITCH_UNSET) and strict (SWITCH_RESET) in same group
+  When I check strict before setting fast
+  Then strict should be None (both occurrences in test)
+```
+
+New assertions (expect False):
+```gherkin
+Scenario: Check param in mixed-behavior group (NEW)
+  Given I have fast (SWITCH_UNSET) and strict (SWITCH_RESET) in same group
+  When I check strict before setting fast
+  Then strict should be False (implicit default, both occurrences)
+  
+  # Validates: Behavior type doesn't affect initial registration default
+```
+
+**Test 8.9: test_switch_behavior_with_no_conflict (Lines ~774-775)**
+
+Old assertions (expect None):
+```gherkin
+Scenario: Check both params when no conflicts exist (OLD)
+  Given I have alpha and beta toggles in a switch group
+  When I check both params before setting either
+  Then alpha should be None
+  And beta should be None
+```
+
+New assertions (expect False):
+```gherkin
+Scenario: Check both params when no conflicts exist (NEW)
+  Given I have alpha and beta toggles in a switch group
+  When I check both params before setting either
+  Then alpha should be False (implicit default)
+  And beta should be False (implicit default)
+  
+  # Validates: Both params have False default, no conflict with both False
+```
+
+**Implementation approach:**
+
+Use `multi_replace_string_in_file` to update all 9 tests in a single operation. Each replacement should:
+- Include sufficient context (3-5 lines before/after)
+- Update the assertion from `is None` to `is False`
+- Update or add comments explaining the new behavior
+
+**Verification:**
+
+After updates, run:
+```bash
+pytest tests/test_param_switch_behavior.py -v
+```
+
+All 9 previously failing tests should now pass.
+
+**Final verification:**
+
+After completing both Step 7 and Step 8, run full test suite:
+```bash
+pytest tests/test_param_switch_behavior.py tests/test_logging.py -v
+```
+
+All 64 tests should pass (55 that already passed + 4 logging + 9 switch behavior).
+
+[↑ Back to top](#table-of-contents)
+
 ## Success Criteria
 
-- [ ] `_set_param_default()` function created in `param.py`
-- [ ] `_set_param_default()` correctly sets defaults for toggle and non-toggle params
-- [ ] `add_param()` calls `_set_param_default()` with registration mode enabled
-- [ ] `_set_defaults()` function removed from `cli.py`
-- [ ] Call to `_set_defaults()` removed from `run_cli()`
-- [ ] Pre-parse params with defaults retain their pre-parsed values
-- [ ] Non-pre-parse params with defaults still receive defaults correctly
-- [ ] Toggle params without explicit defaults still default to `False`
-- [ ] XOR validation is properly managed during default-setting
-- [ ] Unit tests added for `_set_param_default()`
-- [ ] Integration tests added for `add_param()` with defaults
-- [ ] Regression test added demonstrating issue #48 is fixed
-- [ ] All existing tests still passing
-- [ ] Overall test coverage remains above 80%
+- [x] `_set_param_default()` function created in `param.py`
+- [x] `_set_param_default()` correctly sets defaults for toggle and non-toggle params
+- [x] `add_param()` calls `_set_param_default()` with registration mode enabled
+- [x] `_set_defaults()` function removed from `cli.py`
+- [x] Call to `_set_defaults()` removed from `run_cli()`
+- [x] Pre-parse params with defaults retain their pre-parsed values
+- [x] Non-pre-parse params with defaults still receive defaults correctly
+- [x] Toggle params without explicit defaults still default to `False`
+- [x] XOR validation is properly managed during default-setting
+- [x] Unit tests added for `_set_param_default()`
+- [x] Integration tests added for `add_param()` with defaults
+- [x] Regression test added demonstrating issue #48 is fixed
+- [x] Bug in `_has_switch_conflict()` fixed for mixed-type switch groups
+- [x] Switch behavior tests updated for toggle initial state
+- [x] All existing tests passing (630 tests, 0 failures)
+- [x] Overall test coverage remains above 80% (96.40%)
 - [ ] Issue #48 closed with reference to implementation
 
 [↑ Back to top](#table-of-contents)
+
+---
+
+## Implementation Plan Changes
+
+This section documents changes made to the implementation plan after the initial core implementation (Steps 1-5) was completed.
+
+### Post-Implementation Analysis
+
+After completing Steps 1-5, comprehensive testing revealed 13 test failures that required additional work:
+
+1. **4 logging test failures** - Revealed a genuine bug in `_has_switch_conflict()` where it checked the wrong parameter type for conflict detection in mixed-type switch groups (TEXT + TOGGLE params)
+
+2. **9 switch behavior test failures** - Not bugs, but tests expecting `None` for toggle initial state when the correct new behavior is `False` (implicit default set during registration)
+
+### Additional Implementation Steps
+
+Two additional steps were added to the "Fixing Test Regressions" section:
+
+- **Step 7**: Fix `_has_switch_conflict()` bug for mixed-type switch groups
+- **Step 8**: Update switch behavior tests to expect `False` instead of `None` for toggle initial state
+
+### Additional Considerations
+
+Two additional considerations were documented and resolved:
+
+- **Consideration #4**: Toggle initial state in switch behavior tests (RESOLVED - addressed by Step 8)
+- **Consideration #5**: Logging XOR bug in mixed-type switch groups (RESOLVED - addressed by Step 7)
+
+### Timeline
+
+- Steps 1-5: Implemented and tested (core functionality complete)
+- Step 7: Implemented (fixes mixed-type switch group bug)
+- Step 8: Implemented (updates test expectations)
+- Final result: All 630 tests passing, 96.40% coverage
+
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## CHANGES for v1.1.0 Release
@@ -830,11 +1352,14 @@ None.
 - Pre-parse params with default values now correctly retain their pre-parsed values instead of being overridden.
 - Added registration mode flag to temporarily modify switch param behavior during parameter registration, preventing false XOR conflicts when setting defaults.
 - Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
+- **Bug fix:** `_has_switch_conflict()` now correctly checks the type of the conflicting parameter (not the parameter being set) when determining conflict logic for mixed-type switch groups (e.g., TEXT + TOGGLE params). This fixes false conflicts when setting non-toggle params that share switch groups with toggle params.
 - Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
 
 ### Migration
 
 No migration required. This is a bug fix that corrects the order of operations. Existing code will continue to work, and pre-parse params with defaults will now work correctly.
+
+**Note:** Toggle parameters now have a defined initial state (`False`) immediately after registration via `add_param()`, rather than remaining undefined (`None`) until explicitly set. This is the intended behavior to ensure predictable parameter state. If your code relied on toggle params being `None` before first use, update assertions to expect `False` for the implicit default state.
 
 ### Documentation
 
@@ -842,15 +1367,17 @@ No documentation changes required. This is an internal implementation fix with n
 
 ### Testing
 
-- 8 new tests in `tests/test_param.py` covering `_set_param_default()` behavior
+- 8 new tests in `tests/test_param_setters.py` covering `_set_param_default()` behavior
 - 5 new tests in `tests/test_cli.py` verifying integration and regression testing
 - 4 existing tests in `tests/test_cli.py` updated to reflect new default-setting timing:
   - `test_set_default_param_values` - Now tests `add_param()` instead of `cli._set_defaults()`
   - `test_set_default_param_toggle_with_default_true` - Now tests immediate default-setting at registration
   - `test_set_default_param_toggle_with_no_default` - Now tests implicit False default at registration
   - `test_handle_cli_args_sets_defaults` - Now validates defaults preserved (not set) during CLI handling
-- Tests cover toggle params, non-toggle params, registration mode handling, and pre-parse param behavior
+- 9 tests in `tests/test_param_switch_behavior.py` updated to expect `False` instead of `None` for toggle initial state
+- Tests cover toggle params, non-toggle params, registration mode handling, pre-parse param behavior, and mixed-type switch groups
 - All tests updated to reflect defaults being set at registration time rather than CLI parsing time
+- Final test results: 630 passed, 1 skipped, 96.55% coverage
 
 ---
 

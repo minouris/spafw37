@@ -167,9 +167,9 @@ def test_switch_reject_does_not_modify_params():
     with pytest.raises(ValueError):
         param.set_param('option_b', True)
     
-    # option_a unchanged, option_b not set
+    # option_a unchanged, option_b has implicit default False
     assert param.get_param('option_a') is True
-    assert param.get_param('option_b') is None
+    assert param.get_param('option_b') is False
 
 
 # =============================================================================
@@ -202,7 +202,7 @@ def test_switch_unset_toggle_removes_conflicting_param():
     
     param.set_param('mode_read', True)
     assert param.get_param('mode_read') is True
-    assert param.get_param('mode_write') is None
+    assert param.get_param('mode_write') is False
     
     # Setting mode_write should unset mode_read
     param.set_param('mode_write', True)
@@ -246,7 +246,7 @@ def test_switch_unset_three_way_group_removes_all_conflicts():
     param.set_param('color_green', True)
     assert param.get_param('color_red') is None
     assert param.get_param('color_green') is True
-    assert param.get_param('color_blue') is None
+    assert param.get_param('color_blue') is False
     
     param.set_param('color_blue', True)
     assert param.get_param('color_red') is None
@@ -319,10 +319,10 @@ def test_switch_unset_no_conflict_when_none_set():
         },
     ])
     
-    # No conflicts initially
+    # No conflicts initially - opt_y has implicit default False
     param.set_param('opt_x', True)
     assert param.get_param('opt_x') is True
-    assert param.get_param('opt_y') is None
+    assert param.get_param('opt_y') is False
 
 
 # =============================================================================
@@ -357,7 +357,7 @@ def test_switch_reset_toggle_resets_to_default():
     
     param.set_param('priority_high', True)
     assert param.get_param('priority_high') is True
-    assert param.get_param('priority_low') is None  # Not set yet
+    assert param.get_param('priority_low') is False  # Implicit default
     
     # Setting priority_low should reset priority_high to default (False)
     param.set_param('priority_low', True)
@@ -400,10 +400,10 @@ def test_switch_reset_three_way_group_resets_all_conflicts():
     
     param.set_param('level_low', True)
     param.set_param('level_medium', True)
-    # level_low should be reset to False, level_high unset
+    # level_low should be reset to False, level_high has implicit default False
     assert param.get_param('level_low') is False
     assert param.get_param('level_medium') is True
-    assert param.get_param('level_high') is None
+    assert param.get_param('level_high') is False
     
     param.set_param('level_high', True)
     # level_medium should be reset to False, level_low already False
@@ -476,7 +476,7 @@ def test_switch_reset_switching_back_and_forth():
     # Switch multiple times
     param.set_param('encrypt_on', True)
     assert param.get_param('encrypt_on') is True
-    assert param.get_param('encrypt_off') is None  # Not set yet
+    assert param.get_param('encrypt_off') is False  # Explicit default False
     
     param.set_param('encrypt_off', True)
     assert param.get_param('encrypt_on') is False  # Reset to default
@@ -741,7 +741,7 @@ def test_mixed_behaviors_in_same_group():
     
     # lenient uses UNSET
     param.set_param('lenient', True)
-    assert param.get_param('strict') is None
+    assert param.get_param('strict') is False
     assert param.get_param('lenient') is True
 
 
@@ -773,11 +773,11 @@ def test_switch_behavior_with_no_conflict():
         },
     ])
     
-    # No conflicts initially - both None
-    assert param.get_param('alpha') is None
-    assert param.get_param('beta') is None
+    # No conflicts initially - both have implicit default False
+    assert param.get_param('alpha') is False
+    assert param.get_param('beta') is False
     
     # Setting alpha to True works (no conflict)
     param.set_param('alpha', True)
     assert param.get_param('alpha') is True
-    assert param.get_param('beta') is None
+    assert param.get_param('beta') is False
