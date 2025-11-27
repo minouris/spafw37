@@ -460,7 +460,6 @@ def test_apply_logging_config_with_log_level_param():
     param.add_params(LOGGING_PARAMS)
     
     # Get and set log-level param
-    log_level_param = param.get_param_by_name(LOG_LEVEL_PARAM)
     param.set_param(param_name=LOG_LEVEL_PARAM, value='WARNING')
     
     logging.apply_logging_config()
