@@ -4,6 +4,18 @@
 
 **CRITICAL:** Do NOT update GitHub issue comments. This prompt only updates the local plan document.
 
+**CRITICAL: NO GUESSING POLICY**
+
+NEVER guess or make assumptions. If you are not certain about something, explicitly state that you don't know rather than guessing. This policy takes absolute precedence.
+
+**If you don't know something:**
+1. **Explicitly state that you don't know**
+2. **Explain what you would need to know to proceed**
+3. **Suggest where the user can find the information**
+4. **Ask the user to verify or provide the correct information**
+
+**Never override or second-guess user decisions.** Use exact values, names, and specifications provided by the user without modification.
+
 ## Your Task
 
 You are updating the plan document (`features/{FEATURE_NAME}.md`) with answers, decisions, and analysis provided by the user. This is a LOCAL-ONLY operation - you must NOT post anything to GitHub issue comments.
@@ -130,6 +142,13 @@ Status: 2/8 questions resolved, 2/7 considerations resolved
 - ❌ Call `gh api` to modify comments
 - ❌ Use any GitHub API write operations
 - ❌ Commit or push changes (unless user explicitly requests)
+
+## Table of Contents
+
+Always update the Table of Contents at the end of any changes to the plan document to ensure it accurately reflects the current structure and status of all sections. The ToC should include three levels of depth:
+- Level 1: Major sections (##)
+- Level 2: Subsections (###)
+- Level 3: Individual questions (e.g., Q1, Q2) and sub-items (####)
 
 ## UK English
 

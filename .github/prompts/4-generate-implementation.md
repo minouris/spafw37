@@ -1,6 +1,18 @@
-# Prompt 4: Generate Implementation
+# Prompt: Generate Implementation
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
+**CRITICAL: NO GUESSING POLICY**
+
+NEVER guess or make assumptions. If you are not certain about something, explicitly state that you don't know rather than guessing. This policy takes absolute precedence.
+
+**If you don't know something:**
+1. **Explicitly state that you don't know**
+2. **Explain what you would need to know to proceed**
+3. **Suggest where the user can find the information**
+4. **Ask the user to verify or provide the correct information**
+
+**Never override or second-guess user decisions.** Use exact values, names, and specifications provided by the user without modification.
 
 ## Your Task
 
@@ -268,6 +280,13 @@ def _helper_function(parameters):
     # Implementation with block numbering
 ```
 ```
+
+## Table of Contents
+
+Always update the Table of Contents at the end of any changes to the plan document to ensure it accurately reflects the current structure and status of all sections. The ToC should include three levels of depth:
+- Level 1: Major sections (##)
+- Level 2: Subsections (###)
+- Level 3: Individual questions (e.g., Q1, Q2) and sub-items (####)
 
 ## UK English Requirements
 

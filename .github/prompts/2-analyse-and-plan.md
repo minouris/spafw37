@@ -2,6 +2,18 @@
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
+**CRITICAL: NO GUESSING POLICY**
+
+NEVER guess or make assumptions. If you are not certain about something, explicitly state that you don't know rather than guessing. This policy takes absolute precedence.
+
+**If you don't know something:**
+1. **Explicitly state that you don't know**
+2. **Explain what you would need to know to proceed**
+3. **Suggest where the user can find the information**
+4. **Ask the user to verify or provide the correct information**
+
+**Never override or second-guess user decisions.** Use exact values, names, and specifications provided by the user without modification.
+
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 2 of 6: analysing the issue and creating the implementation breakdown.
@@ -305,6 +317,6 @@ Update the plan document with:
 2. ✅ Program Flow Analysis (if applicable)
 3. ✅ Implementation Steps outline with all steps identified
 4. ✅ Further Considerations with initial questions (all marked PENDING REVIEW)
-5. ✅ Updated Table of Contents to include all new sections
+5. ✅ Updated Table of Contents to include all new sections (three levels: major sections, subsections, individual questions)
 
 Confirm completion and ask user to review considerations before proceeding to Step 3 (test generation).

@@ -15,10 +15,18 @@
 - [Implementation Plan](#implementation-plan)
   - [Program Flow Analysis](#program-flow-analysis)
   - [Design Questions - Awaiting User Clarification](#design-questions---awaiting-user-clarification)
+    - [Q1: Architecture Approach](#q1-architecture-approach)
+    - [Q2: Multiple Choice Population](#q2-multiple-choice-population)
+    - [Q3: Prompt Timing](#q3-prompt-timing)
+    - [Q4: CLI Override Behaviour](#q4-cli-override-behaviour)
+    - [Q5: Cycle Behaviour](#q5-cycle-behaviour)
+    - [Q6: Validation Integration](#q6-validation-integration)
+    - [Q7: User Input Mechanism](#q7-user-input-mechanism)
+    - [Q8: Silent/Batch Mode](#q8-silentbatch-mode)
 - [Further Considerations](#further-considerations)
   - [1. Design Pattern Research](#1-design-pattern-research---resolved)
   - [2. Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved)
-  - [3. Implementation Complexity Assessment](#3-implementation-complexity-assessment---pending-review)
+  - [3. Implementation Complexity Assessment](#3-implementation-complexity-assessment---resolved)
   - [4. User Experience Considerations](#4-user-experience-considerations---resolved)
   - [5. Alternative Solutions](#5-alternative-solutions---pending-review)
   - [6. Backward Compatibility and Breaking Changes](#6-backward-compatibility-and-breaking-changes---pending-review)
@@ -108,7 +116,24 @@ The issue mentions "at the start of a flow, or immediately before the command is
 - What exactly does "immediately before command execution" mean in the context of command queues, dependencies, and phases?
 - Should there be a flag on the command (as suggested in the issue)?
 
-**Answer:** Will use flags for timing control - requires further analysis. Timing control and cycle integration (Q5) are conceptually linked. Will consider param-level and/or command-level flags.
+**Answer:** Use param-level properties for timing control.
+
+**Implementation:**
+
+`PARAM_PROMPT_TIMING` - Controls when the prompt appears:
+- `PROMPT_ON_START`: Prompts immediately at app start
+- `PROMPT_ON_COMMANDS`: List of command names. Auto-populates with commands that have this param in `COMMAND_REQUIRED_PARAMS`. Will prompt before any command on this list.
+
+`PARAM_PROMPT_REPEAT` - Controls repeat behaviour (works with `PROMPT_ON_COMMANDS`):
+- `PROMPT_REPEAT_ALWAYS`: Repeats before every command in `PROMPT_ON_COMMANDS`. Preserves previous value.
+- `PROMPT_REPEAT_IF_BLANK`: Repeats before commands in `PROMPT_ON_COMMANDS` if the value is blank
+- `PROMPT_REPEAT_NEVER`: Never repeat after the first prompt
+
+**Rationale:** Param-level approach provides fine-grained control whilst integrating with existing `COMMAND_REQUIRED_PARAMS` structure. Auto-population from `COMMAND_REQUIRED_PARAMS` reduces configuration burden.
+
+**Breaking changes:** None (new optional properties only).
+
+**Cross-reference:** Resolves timing aspects of Q5 (Cycle Behaviour).
 
 [↑ Back to top](#table-of-contents)
 
@@ -136,7 +161,22 @@ For params in cycle commands, the issue mentions three options:
 
 Which behaviour is preferred? How does this interact with loop iterations (should it prompt once before the cycle, or on each iteration)?
 
-**Answer:** Will use flags for cycle control - linked with timing control (Q3). Cycle integration and timing control are conceptually linked. Requires further analysis to determine optimal flag structure.
+**Answer:** Controlled by `PARAM_PROMPT_REPEAT` (see Q3).
+
+**Implementation:**
+
+Cycle behaviour is handled by the repeat property:
+- `PROMPT_REPEAT_ALWAYS`: Prompts before every cycle iteration (can confirm/change value each time, preserves previous)
+- `PROMPT_REPEAT_IF_BLANK`: Prompts on first iteration if blank, then uses same value for remaining iterations
+- `PROMPT_REPEAT_NEVER`: Prompts once before cycle starts, uses same value for all iterations
+
+Combined with `PROMPT_ON_COMMANDS` listing the cycle command name, this provides full control over cycle prompt behaviour.
+
+**Rationale:** Unified timing/repeat mechanism handles both regular commands and cycles without special-case logic.
+
+**Breaking changes:** None.
+
+**Cross-reference:** See Q3 (Prompt Timing) for full timing control details.
 
 [↑ Back to top](#table-of-contents)
 
@@ -241,7 +281,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ---
 
-### 3. Implementation Complexity Assessment - PENDING REVIEW
+### 3. Implementation Complexity Assessment - RESOLVED
 
 ([#issuecomment-3587791599](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791599))
 
@@ -260,22 +300,22 @@ Once design decisions are provided, implementation planning can proceed to defin
 - Retry logic ✅ (Decided: re-prompt on error, max retry limit with required/optional behaviour)
 - Boolean/number parsing ✅ (Decided: use existing `INPUT_FILTER`, toggles use y/n with natural defaults)
 - Multiple choice with static lists ✅ (Decided: use `PARAM_ALLOWED_VALUES`)
+- Timing control ✅ (Decided: `PARAM_PROMPT_TIMING` with `PROMPT_ON_START` / `PROMPT_ON_COMMANDS`)
+- Cycle integration ✅ (Decided: `PARAM_PROMPT_REPEAT` with `PROMPT_REPEAT_ALWAYS` / `PROMPT_REPEAT_IF_BLANK` / `PROMPT_REPEAT_NEVER`)
 
 **High complexity:**
 - Multiple choice with dynamic population ✅ (Decided: new public API `set_allowed_values()` method)
-- Cycle integration ⚠️ (TBD: needs further analysis, linked with timing control)
-- Timing control ⚠️ (TBD: needs further analysis, linked with cycle behaviour)
 
 **Very high complexity (deferred):**
 - Command-driven population ❌ (Not implementing as special feature in this version, achievable via `set_allowed_values()`)
 
-**Status:** Most decisions made. Remaining work: analyse timing control and cycle integration flags (Q3 & Q5).
+**Status:** All decisions made. Ready for implementation.
 
-**Rationale:** Helps prioritise features and identify implementation risks. Most features can leverage existing framework infrastructure, reducing complexity.
+**Rationale:** Helps prioritise features and identify implementation risks. Most features leverage existing framework infrastructure, reducing complexity. Timing/cycle control moved to medium complexity due to clean param-level property design.
 
-**Implementation:** Phased approach - core features first (text, validation, defaults, retries), then advanced features (timing control, cycle integration) after further analysis.
+**Implementation:** Phased approach - core features first (text, validation, defaults, retries), then timing/cycle control, then advanced features (dynamic population).
 
-**Resolves:** Q2, Q4, Q6, Q7, Q8 (partially resolves Q3 & Q5 - pending further analysis)
+**Resolves:** Q2, Q3, Q4, Q5, Q6, Q7, Q8
 
 [↑ Back to top](#table-of-contents)
 
