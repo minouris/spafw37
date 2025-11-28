@@ -19,7 +19,7 @@
   - [1. Design Pattern Research](#1-design-pattern-research---resolved)
   - [2. Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved)
   - [3. Implementation Complexity Assessment](#3-implementation-complexity-assessment---pending-review)
-  - [4. User Experience Considerations](#4-user-experience-considerations---pending-review)
+  - [4. User Experience Considerations](#4-user-experience-considerations---resolved)
   - [5. Alternative Solutions](#5-alternative-solutions---pending-review)
   - [6. Backward Compatibility and Breaking Changes](#6-backward-compatibility-and-breaking-changes---pending-review)
   - [7. Testing Strategy](#7-testing-strategy---pending-review)
@@ -73,7 +73,7 @@ This feature has several unresolved design questions that make implementation pr
 
 Implementation cannot proceed without answers to the following design questions:
 
-**Q1: Architecture Approach** ([#issuecomment-3584180168](https://github.com/minouris/spafw37/issues/15#issuecomment-3584180168))
+**Q1: Architecture Approach** ([#issuecomment-3587791402](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791402))
 
 Should user input params be:
 - Regular params with additional properties (e.g., `PARAM_PROMPT`, `PARAM_PROMPT_TIMING`)?
@@ -86,7 +86,7 @@ Should user input params be:
 
 ---
 
-**Q2: Multiple Choice Population** ([#issuecomment-3584180997](https://github.com/minouris/spafw37/issues/15#issuecomment-3584180997))
+**Q2: Multiple Choice Population** ([#issuecomment-3587791428](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791428))
 
 For multiple choice prompts, how should the list of choices be populated programmatically?
 - Via a command (as mentioned in the issue: "Specify command to populate list")?
@@ -95,33 +95,39 @@ For multiple choice prompts, how should the list of choices be populated program
 
 If via command: How would a param specify which command to run? This would create a bidirectional dependency between params and commands that doesn't currently exist in the architecture.
 
+**Answer:** Use static list with runtime updates via new public API method `set_allowed_values(param_name, values)`. Multiple choice uses existing `PARAM_ALLOWED_VALUES`. Commands can call this method to populate choices dynamically without creating bidirectional dependencies.
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Q3: Prompt Timing** ([#issuecomment-3584181042](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181042))
+**Q3: Prompt Timing** ([#issuecomment-3587791444](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791444))
 
 The issue mentions "at the start of a flow, or immediately before the command is executed."
 - Should timing be controlled by the param definition or the command definition?
 - What exactly does "immediately before command execution" mean in the context of command queues, dependencies, and phases?
 - Should there be a flag on the command (as suggested in the issue)?
 
+**Answer:** Will use flags for timing control - requires further analysis. Timing control and cycle integration (Q5) are conceptually linked. Will consider param-level and/or command-level flags.
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Q4: CLI Override Behaviour** ([#issuecomment-3584181077](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181077))
+**Q4: CLI Override Behaviour** ([#issuecomment-3587791457](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791457))
 
 If a user input param can also be set on the command line:
 - Should the prompt be skipped entirely if the value is provided via CLI?
 - Should it display the CLI value and ask for confirmation?
 - Does the behaviour differ for required vs optional params?
 
+**Answer:** If param value is already set (via CLI), skip the prompt entirely. Params with aliases can be set by CLI handler. No confirmation needed. Simple and predictable.
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Q5: Cycle Behaviour** ([#issuecomment-3584181122](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181122))
+**Q5: Cycle Behaviour** ([#issuecomment-3587791473](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791473))
 
 For params in cycle commands, the issue mentions three options:
 - Pop up to confirm value if set
@@ -130,22 +136,26 @@ For params in cycle commands, the issue mentions three options:
 
 Which behaviour is preferred? How does this interact with loop iterations (should it prompt once before the cycle, or on each iteration)?
 
+**Answer:** Will use flags for cycle control - linked with timing control (Q3). Cycle integration and timing control are conceptually linked. Requires further analysis to determine optimal flag structure.
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Q6: Validation Integration** ([#issuecomment-3584181170](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181170))
+**Q6: Validation Integration** ([#issuecomment-3587791497](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791497))
 
 The issue states "Not included in validation, as not a command line param" but user input params would still need validation (type checking, allowed values, etc.):
 - Should validation happen immediately on user input?
 - Should these params participate in required param checking?
 - How do they interact with the existing `PARAM_REQUIRED`, `PARAM_ALLOWED_VALUES`, etc.?
 
+**Answer:** Use existing framework validation functions. Validate immediately after entry. Required if `PARAM_REQUIRED: True` OR in `COMMAND_REQUIRED_PARAMS`. Default handling uses bash convention `[default: value]`. Retry logic: re-prompt on error with max retry limit; behaviour on max retry depends on required status (exit if required, set `None` if optional).
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Q7: User Input Mechanism** ([#issuecomment-3584181212](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181212))
+**Q7: User Input Mechanism** ([#issuecomment-3587791517](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791517))
 
 What should the user input mechanism look like?
 - Text: Use Python's `input()` function?
@@ -160,12 +170,14 @@ What should the user input mechanism look like?
 
 ---
 
-**Q8: Silent/Batch Mode** ([#issuecomment-3584181261](https://github.com/minouris/spafw37/issues/15#issuecomment-3584181261))
+**Q8: Silent/Batch Mode** ([#issuecomment-3587791532](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791532))
 
 How should prompts interact with existing framework flags?
 - Should prompts be suppressed with `--silent`?
 - How to disable prompts for automated scripts/batch mode?
 - Should there be a `--no-prompts` flag?
+
+**Answer:** Suppress prompts when `--silent` flag used. Consider adding `--no-prompts` flag. In batch/silent mode: use default if available, use `None` if no default and not required, exit with error if required and no default/value.
 
 [↑ Back to top](#table-of-contents)
 
@@ -183,7 +195,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 1. Design Pattern Research - RESOLVED
 
-([#issuecomment-3587229872](https://github.com/minouris/spafw37/issues/15#issuecomment-3587229872))
+([#issuecomment-3587791560](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791560))
 
 **Question:** How do other CLI frameworks handle interactive user input?
 
@@ -201,7 +213,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 2. Architecture Approach Trade-offs - RESOLVED
 
-([#issuecomment-3587239999](https://github.com/minouris/spafw37/issues/15#issuecomment-3587239999))
+([#issuecomment-3587791581](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791581))
 
 **Question:** What are the pros and cons of each architecture approach?
 
@@ -231,40 +243,63 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 3. Implementation Complexity Assessment - PENDING REVIEW
 
-([#issuecomment-3587233450](https://github.com/minouris/spafw37/issues/15#issuecomment-3587233450))
+([#issuecomment-3587791599](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791599))
 
 **Question:** What is the relative complexity of different aspects of this feature?
 
 **Answer:**
-- **Low complexity:** Text input with `input()` function, basic type conversion
-- **Medium complexity:** Type validation, default handling, retry logic, boolean/number parsing
-- **High complexity:** Multiple choice with dynamic population, cycle integration, timing control
-- **Very high complexity:** Command-driven population (creates bidirectional dependencies), CLI override behaviour coordination
 
-**Rationale:** Helps prioritise features and identify potential implementation risks.
+**Low complexity:**
+- Text input with `input()` function ✅ (Decided: use Python's `input()`)
+- Basic type conversion (only relevant for `get_param()` retrieval and multi-choice number resolution)
+- CLI override behaviour ✅ (Decided: "if set, don't prompt")
 
-**Implementation:** May need to phase implementation (MVP first, advanced features later).
+**Medium complexity:**
+- Type validation ✅ (Decided: use existing framework validation functions)
+- Default handling ✅ (Decided: bash convention `[default: value]`, blank selects default)
+- Retry logic ✅ (Decided: re-prompt on error, max retry limit with required/optional behaviour)
+- Boolean/number parsing ✅ (Decided: use existing `INPUT_FILTER`, toggles use y/n with natural defaults)
+- Multiple choice with static lists ✅ (Decided: use `PARAM_ALLOWED_VALUES`)
+
+**High complexity:**
+- Multiple choice with dynamic population ✅ (Decided: new public API `set_allowed_values()` method)
+- Cycle integration ⚠️ (TBD: needs further analysis, linked with timing control)
+- Timing control ⚠️ (TBD: needs further analysis, linked with cycle behaviour)
+
+**Very high complexity (deferred):**
+- Command-driven population ❌ (Not implementing as special feature in this version, achievable via `set_allowed_values()`)
+
+**Status:** Most decisions made. Remaining work: analyse timing control and cycle integration flags (Q3 & Q5).
+
+**Rationale:** Helps prioritise features and identify implementation risks. Most features can leverage existing framework infrastructure, reducing complexity.
+
+**Implementation:** Phased approach - core features first (text, validation, defaults, retries), then advanced features (timing control, cycle integration) after further analysis.
+
+**Resolves:** Q2, Q4, Q6, Q7, Q8 (partially resolves Q3 & Q5 - pending further analysis)
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### 4. User Experience Considerations - PENDING REVIEW
+### 4. User Experience Considerations - RESOLVED
 
-([#issuecomment-3587234150](https://github.com/minouris/spafw37/issues/15#issuecomment-3587234150))
+([#issuecomment-3587791616](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791616))
 
 **Question:** How should prompts interact with existing framework features?
 
-**Answer:** Several UX questions need resolution:
-- **Silent mode:** Should prompts be suppressed with `--silent`? (Probably yes)
-- **Batch mode:** How to disable prompts for automated scripts? (Need `--no-prompts` or similar)
-- **Testing:** How to mock user input in tests? (Use stdin redirection or test fixtures)
-- **Help text:** How to document promptable params? (Add "Will prompt if not provided" to description)
-- **Error messages:** Clear guidance when prompts fail or are unavailable
+**Answer:** Several UX questions resolved:
+- **Silent mode:** ✅ Prompts suppressed with `--silent` flag
+- **Batch mode:** ✅ Consider adding `--no-prompts` flag for automated scripts
+- **Testing:** Mock user input using stdin redirection or test fixtures
+- **Help text:** Add "Will prompt if not provided" to param description
+- **Error messages:** Provide clear guidance when prompts fail or are unavailable
+- **Silent/batch behaviour:** Use default if available, `None` if no default and not required, exit with error if required and no default/value
 
-**Rationale:** Prompts need to work seamlessly with existing framework features and not break automated workflows.
+**Rationale:** Prompts must work seamlessly with existing framework features and not break automated workflows. Ensures framework remains scriptable.
 
-**Implementation:** Depends on Q8 answer and overall architecture choice.
+**Implementation:** Depends on Q8 answer (RESOLVED) and overall architecture choice (RESOLVED).
+
+**Resolves:** Q8 (Silent/Batch Mode)
 
 [↑ Back to top](#table-of-contents)
 
@@ -272,7 +307,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 5. Alternative Solutions - PENDING REVIEW
 
-([#issuecomment-3587240072](https://github.com/minouris/spafw37/issues/15#issuecomment-3587240072))
+([#issuecomment-3587791636](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791636))
 
 **Question:** Should this be built into the framework at all?
 
@@ -291,7 +326,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 6. Backward Compatibility and Breaking Changes - PENDING REVIEW
 
-([#issuecomment-3587235511](https://github.com/minouris/spafw37/issues/15#issuecomment-3587235511))
+([#issuecomment-3587791658](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791658))
 
 **Question:** What breaking changes might this introduce?
 
@@ -310,7 +345,7 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ### 7. Testing Strategy - PENDING REVIEW
 
-([#issuecomment-3587235638](https://github.com/minouris/spafw37/issues/15#issuecomment-3587235638))
+([#issuecomment-3587791692](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791692))
 
 **Question:** How will interactive prompts be tested?
 
