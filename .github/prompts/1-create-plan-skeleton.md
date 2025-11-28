@@ -1,5 +1,7 @@
 # Prompt 1: Create Plan Document Skeleton and Branch
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
 You are creating an issue plan document for issue #{ISSUE_NUMBER}. This is step 1 of 6: creating the document skeleton and git branch.
@@ -87,13 +89,15 @@ Create a new planning document in the `features/` directory:
 ```markdown
 # Issue #{ISSUE_NUMBER}: {ISSUE_TITLE}
 
+**GitHub Issue:** https://github.com/minouris/spafw37/issues/{ISSUE_NUMBER}
+
 ## Overview
 
-[PLACEHOLDER - Will be filled in Step 2]
+{ISSUE_BODY}
 
 **Key architectural decisions:**
 
-- **[Decision category]:** [PLACEHOLDER]
+- **[Decision category]:** [PLACEHOLDER - Will be filled in Step 2]
 
 ## Table of Contents
 

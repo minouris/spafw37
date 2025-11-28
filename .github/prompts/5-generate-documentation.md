@@ -1,5 +1,7 @@
 # Prompt 5: Generate Documentation Changes and Success Criteria
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 5 of 6: generating documentation changes and completing success criteria.

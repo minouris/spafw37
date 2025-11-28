@@ -1,5 +1,7 @@
 # Prompt 3: Generate Test Specifications
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 3 of 6: generating Gherkin test specifications for all implementation steps.

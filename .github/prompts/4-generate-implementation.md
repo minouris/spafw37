@@ -1,4 +1,6 @@
-# Prompt 4: Generate Implementation Code
+# Prompt 4: Generate Implementation
+
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
 ## Your Task
 

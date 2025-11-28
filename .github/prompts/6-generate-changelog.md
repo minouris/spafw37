@@ -1,5 +1,7 @@
 # Prompt 6: Generate CHANGES Section
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 6 of 6 (FINAL): completing the CHANGES section for the release.

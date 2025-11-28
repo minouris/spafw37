@@ -1,5 +1,7 @@
 # Issue #15: User Input Params
 
+**GitHub Issue:** https://github.com/minouris/spafw37/issues/15
+
 **Status:** PENDING REVIEW  
 **Version:** 1.1.0  
 **Branch:** feature/issue-15-user-input-params-1.1.0
@@ -14,8 +16,8 @@
   - [Program Flow Analysis](#program-flow-analysis)
   - [Design Questions - Awaiting User Clarification](#design-questions---awaiting-user-clarification)
 - [Further Considerations](#further-considerations)
-  - [1. Design Pattern Research](#1-design-pattern-research---pending-review)
-  - [2. Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---pending-review)
+  - [1. Design Pattern Research](#1-design-pattern-research---resolved)
+  - [2. Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved)
   - [3. Implementation Complexity Assessment](#3-implementation-complexity-assessment---pending-review)
   - [4. User Experience Considerations](#4-user-experience-considerations---pending-review)
   - [5. Alternative Solutions](#5-alternative-solutions---pending-review)
@@ -30,16 +32,18 @@
 
 ## Overview
 
-Issue #15 requests adding parameters that solicit user input interactively before a command executes. This feature would allow applications to prompt users for values at runtime rather than requiring all values to be specified on the command line.
+Add params that solicit user input before a Command.
 
-**Key requirements from issue description:**
-- Display text prompt and allow user to enter or select a value
-- Support types: text, bool, number, multiple choice (select from list)
-- Multiple choice populated programmatically (possibly via command)
-- Prompt timing: start of flow or immediately before command execution
-- Not included in standard validation (not a command-line param)
-- Optional: allow setting value on command line up front
-- Cycle behaviour: pop up to confirm, silently pass if set, or make optional
+- Will display a text prompt, and allow the user to enter (or select) a value.
+- Types - text, bool, number or multiple choice (select from list)
+  - Select from list - populate data programatically. Specify command to populate list? Would be first instance of a param specifying a command, rather than vice versa...
+- Prompt can be either at the start of a flow, or immediately before the command is executed
+  - Flag on Command? Will probably need to be, to not need special handling in cycles
+- Not included in validation, as not a command line param
+- Option to set on command line up front?
+  - What behaviour if on a Cycle Command - pop up to confirm value if set, silently pass if value is set, or make optional?
+
+Should be params with special features, or another structure entirely?
 
 **Critical analysis:**
 
@@ -75,6 +79,8 @@ Should user input params be:
 - Regular params with additional properties (e.g., `PARAM_PROMPT`, `PARAM_PROMPT_TIMING`)?
 - A separate structure entirely (e.g., `INPUT_PROMPTS` at command level)?
 - A hybrid approach where params define what can be prompted and commands control when?
+
+**Answer:** See [Further Consideration 2: Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved) - Option A (param-level approach) has been selected.
 
 [↑ Back to top](#table-of-contents)
 
@@ -148,6 +154,8 @@ What should the user input mechanism look like?
 - Multiple choice: Display numbered list and accept number input?
 - Error handling: Retry on invalid input, abort, or use default?
 
+**Answer:** See [Further Consideration 1: Design Pattern Research](#1-design-pattern-research---resolved) - Use Python's built-in `input()` function with appropriate type conversion and validation.
+
 [↑ Back to top](#table-of-contents)
 
 ---
@@ -173,52 +181,49 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ## Further Considerations
 
-### 1. Design Pattern Research - PENDING REVIEW
+### 1. Design Pattern Research - RESOLVED
 
 ([#issuecomment-3587229872](https://github.com/minouris/spafw37/issues/15#issuecomment-3587229872))
 
 **Question:** How do other CLI frameworks handle interactive user input?
 
-**Research findings:**
-- Python `argparse` - No built-in interactive prompts
-- Click (Python) - Has `click.prompt()` and `click.confirm()` functions as separate API calls
-- Inquirer (Python) - Dedicated interactive prompt library with rich features
-- Commander.js (Node) - No built-in prompts, relies on separate libraries
+**Answer:** Simplest approach - display a prompt for the user using `print()` statements, and capture input using `input()`.
 
-**Rationale:** Understanding existing patterns will inform architecture decisions and avoid reinventing solved problems.
+**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. No need to complicate with external libraries.
 
-**Implementation:** Design should consider whether to follow Click's approach (separate prompt functions) or integrate more deeply into the param/command system.
+**Implementation:** Use `input()` for capturing user responses with appropriate type conversion and validation.
+
+**Resolves:** Q7 (User Input Mechanism)
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### 2. Architecture Approach Trade-offs - PENDING REVIEW
+### 2. Architecture Approach Trade-offs - RESOLVED
 
 ([#issuecomment-3587239999](https://github.com/minouris/spafw37/issues/15#issuecomment-3587239999))
 
 **Question:** What are the pros and cons of each architecture approach?
 
-**Answer:** Three potential approaches identified:
+**Answer:** Option A - Param-level approach.
 
-**Option A: Param-level approach** (Add `PARAM_PROMPT` property to existing param definitions)
-- **Pros:** Integrates with existing param system, validation, and type handling
-- **Cons:** Params become more complex, unclear interaction with CLI args
-- **Breaking changes:** Low (new optional properties)
+**Implementation details:**
+- Add `PARAM_PROMPT` property to param definitions (e.g., `{PARAM_PROMPT: "What is the air-speed velocity of an unladen swallow?"}`)
+- Use existing `PARAM_TYPE` to determine input handling:
+  - `TEXT` - accepts any text input
+  - `NUMBER` - validates numeric input
+  - `TOGGLE` - accepts boolean values
+- Multiple choice automatically enabled when `PARAM_ALLOWED_VALUES` is present:
+  - Display numbered list of allowed values
+  - User can enter either the text value or the corresponding number
+  - List displayed automatically with assigned numbers
+- **Future consideration:** May expand to support lists with multiple choice (enter choices by number separated by spaces or commas) - provisional only
 
-**Option B: Command-level approach** (Add `COMMAND_PROMPTS` to command definitions)
-- **Pros:** Clear timing (prompts before command action), separate from CLI params
-- **Cons:** Creates new structure, separate from param system, validation duplication
-- **Breaking changes:** None (entirely new feature)
+**Rationale:** Integrates with existing param system, validation, and type handling. Leverages existing properties where possible (`PARAM_TYPE`, `PARAM_ALLOWED_VALUES`).
 
-**Option C: Hybrid approach** (Params define what can be prompted, commands control when)
-- **Pros:** Leverages both systems, flexible timing control
-- **Cons:** Most complex, potential for configuration conflicts
-- **Breaking changes:** Low to medium (depends on implementation)
+**Breaking changes:** Low (new optional properties only).
 
-**Rationale:** Each approach has different complexity, maintainability, and user experience implications.
-
-**Implementation:** Depends on Q1 answer from user.
+**Resolves:** Q1 (Architecture Approach)
 
 [↑ Back to top](#table-of-contents)
 

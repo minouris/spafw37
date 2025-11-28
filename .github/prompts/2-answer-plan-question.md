@@ -1,152 +1,207 @@
 # Prompt: Answer Plan Question
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
-You are answering design question #{QUESTION_NUMBER} for issue #{ISSUE_NUMBER}. This prompt helps coordinate answers between the plan document and GitHub issue comments.
+You are posting answers from the plan document to GitHub issue comment threads. This prompt scans the plan document for all answers (both in Design Questions and Further Considerations) and posts them to their corresponding GitHub comment threads if not already posted.
 
 ## Parameters
 
 - `{ISSUE_NUMBER}` - The GitHub issue number
-- `{QUESTION_NUMBER}` - The question number (Q1, Q2, Q3, etc.)
 
 ## Usage
 
 ```bash
-# Answer question Q1 for issue #15
-@2-answer-plan-question 15 Q1
+# Post all answered questions for issue #15
+@2-answer-plan-question 15
 ```
 
 ## Process
 
 ### Step 1: Read the Plan Document
 
-Locate the plan document at `features/{FEATURE_NAME}.md` and find the question section for Q{QUESTION_NUMBER}.
+Locate the plan document at `features/{FEATURE_NAME}.md` and scan for:
 
-Extract:
-- The question text
-- The GitHub comment ID (from the link in the question header)
-- Any existing answer in the plan document
-
-### Step 2: Check for Answer in Plan Document
-
-Look for an answer section under the question. Answers may be formatted as:
-
+1. **Design Questions sections** with format:
 ```markdown
-**Q1: [Category]** ([#issuecomment-XXXXXX](...))
+**Q{N}: [Category]** ([#issuecomment-XXXXXX](...))
 [Question text]
 
 **Answer:** [Answer text]
+```
+
+2. **Further Considerations sections** with format:
+```markdown
+### N. [Consideration name] - RESOLVED
+
+([#issuecomment-XXXXXX](...))
+
+**Question:** [Question text]
+
+**Answer:** [Answer text]
+
+**Rationale:** [Explanation]
+```
+
+Extract for each answered question/consideration:
+- Question number (Q1, Q2, etc. or FC1, FC2, etc.)
+- Question text
+- Answer text
+- GitHub comment ID (from the link)
+- Status (RESOLVED vs PENDING REVIEW)
+
+### Step 2: Check Which Answers Have Been Posted
+
+For each comment ID found in Step 1, check if an answer has already been posted:
+
+```bash
+# Get all comments on the issue and check if answer exists
+gh api /repos/minouris/spafw37/issues/{ISSUE_NUMBER}/comments/{COMMENT_ID} \
+  --jq '.body' | grep -q "^**Answer:**"
+```
+
+Or check replies to the specific comment:
+
+```bash
+# Check if there are replies to this comment that contain "**Answer:**"
+gh api "/repos/minouris/spafw37/issues/15/comments" --paginate | \
+  python3 -c "
+import sys, json
+comments = json.load(sys.stdin)
+# Look for comments that quote or reference the original comment
+for c in comments:
+    if '**Answer:**' in c['body']:
+        print(c['id'])
+"
+```
+
+Build a list of comment IDs that need answers posted.
+
+### Step 3: Post Answers to GitHub
+
+For each unanswered question/consideration:
+
+1. **Get the original comment body:**
+
+```bash
+ORIGINAL_BODY=$(gh api /repos/minouris/spafw37/issues/comments/{COMMENT_ID} --jq '.body')
+```
+
+2. **Append the answer** to the original comment body:
+
+```bash
+cat > /tmp/answer_q{N}.md << EOF
+${ORIGINAL_BODY}
+
+---
+
+**Answer:**
+
+[Answer text from plan document]
+
+[Additional context like Rationale or Implementation notes if present]
+EOF
+```
+
+**Example result:**
+```markdown
+**Q1: Architecture Approach**
+
+Should user input params be:
+- Regular params with additional properties (e.g., `PARAM_PROMPT`, `PARAM_PROMPT_TIMING`)?
+- A separate structure entirely (e.g., `INPUT_PROMPTS` at command level)?
+- A hybrid approach where params define what can be prompted and commands control when?
+
+---
+
+**Answer:**
+
+Option A - Param-level approach has been selected.
+
+[Full answer details...]
+```
+
+3. **Update the original comment:**
+
+```bash
+gh api --method PATCH /repos/minouris/spafw37/issues/comments/{COMMENT_ID} -f body="$(cat /tmp/answer_q{N}.md)"
+```
+
+This appends the answer directly to the original question comment, keeping everything together in one place.
+
+4. **Capture the response** to confirm update
+
+### Step 4: Cross-Reference Answers
+
+After posting answers, scan the plan document to identify if any answers address questions in other sections:
+
+**Example scenarios:**
+- Further Consideration 2 (Architecture Approach) resolves Q1 (Architecture Approach)
+- Further Consideration 4 (User Experience) addresses Q8 (Silent/Batch Mode)
+
+For each cross-reference found:
+
+1. **Update the related question section** to reference the answer:
+
+```markdown
+**Q1: Architecture Approach** ([#issuecomment-XXXXXX](...))
+
+Should user input params be:
+- Regular params with additional properties (e.g., `PARAM_PROMPT`, `PARAM_PROMPT_TIMING`)?
+- A separate structure entirely (e.g., `INPUT_PROMPTS` at command level)?
+- A hybrid approach where params define what can be prompted and commands control when?
+
+**Answer:** See [Further Consideration 2: Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved) - Option A (param-level approach) has been selected.
 
 [↑ Back to top](#table-of-contents)
 ```
 
-Or under "Further Considerations" with:
+2. **Or update Further Consideration** to note it resolves a design question:
 
 ```markdown
-### N. [Consideration name] - RESOLVED
+### 2. Architecture Approach Trade-offs - RESOLVED
 
-**Question:** [Question text]
+([#issuecomment-XXXXXX](...))
 
-**Answer:** [Answer text]
+**Question:** What are the pros and cons of each architecture approach?
 
-**Rationale:** [Explanation]
+**Answer:** Option A - Param-level approach.
+
+[Implementation details...]
+
+**Resolves:** Q1 (Architecture Approach)
 ```
 
-### Step 3: Post Answer to GitHub
+### Step 5: Update Status Markers
 
-If an answer exists in the plan document:
+Ensure all answered questions/considerations have correct status:
+- Change "PENDING REVIEW" to "RESOLVED" when answer is present
+- Verify GitHub comment links are present for all items
 
-1. **Extract the answer text** from the plan document
-2. **Get the comment ID** from the question link
-3. **Post a reply** to that specific comment using `gh` CLI:
+### Step 6: Report Results
 
-```bash
-cat > /tmp/answer.md << 'EOF'
-**Answer:**
-
-[Answer text from plan document]
-EOF
-
-# Reply to the specific comment thread
-gh api \
-  --method POST \
-  -H "Accept: application/vnd.github+json" \
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  /repos/{owner}/{repo}/issues/comments/{comment_id}/replies \
-  -f body="$(cat /tmp/answer.md)"
+Provide a summary:
 ```
+Posted answers to GitHub:
+✅ Q1 (Architecture Approach) - Comment #issuecomment-XXXXXX
+✅ FC2 (Architecture Approach Trade-offs) - Comment #issuecomment-XXXXXX
 
-**Alternative method using gh issue comment with proper formatting:**
+Cross-references updated:
+✅ Q1 now references FC2
+✅ FC2 notes it resolves Q1
 
-```bash
-# Get the original comment URL
-COMMENT_URL="https://github.com/{owner}/{repo}/issues/{issue_number}#issuecomment-{comment_id}"
+Status updates:
+✅ FC1: PENDING REVIEW → RESOLVED
+✅ FC2: PENDING REVIEW → RESOLVED
 
-# Create reply that references the question
-cat > /tmp/answer.md << 'EOF'
-> **Q{N}: [Category]**
+Not posted (already answered on GitHub):
+- Q2, Q3, Q4
 
-**Answer:**
-
-[Answer text from plan document]
-EOF
-
-# Post as regular comment (GitHub will thread it appropriately if done via web UI)
-gh issue comment {ISSUE_NUMBER} --body-file /tmp/answer.md
+Still pending answers:
+- Q5, Q6, Q7, Q8
+- FC3, FC4, FC5, FC6, FC7
 ```
-
-### Step 4: Update Plan Document Status
-
-If the question was marked "PENDING REVIEW" in Further Considerations, update it to "RESOLVED":
-
-```markdown
-### N. [Consideration name] - RESOLVED
-
-**Question:** [Question text]
-
-**Answer:** [Answer text from plan document]
-
-**Rationale:** [Explanation]
-
-**Implementation:** [Impact on implementation]
-```
-
-### Step 5: Confirm Completion
-
-Report back to the user:
-- Question number answered
-- GitHub comment ID where answer was posted
-- Link to the comment thread
-- Whether plan document was updated
-
-## If No Answer Exists
-
-If no answer is found in the plan document:
-
-1. **State that no answer exists**
-2. **Ask the user to provide an answer**
-3. **Explain where the answer should be added in the plan document**
-
-Example:
-```
-No answer found for Q{N} in the plan document.
-
-Please provide an answer, and I can:
-1. Add it to the plan document under the question
-2. Post it as a reply to the GitHub comment
-3. Update the "Further Considerations" section if applicable
-
-The question is: [question text]
-GitHub comment: [link]
-```
-
-## Output Requirements
-
-When complete, provide:
-- ✅ Confirmation that answer was posted to GitHub
-- ✅ Link to the comment thread
-- ✅ Confirmation that plan document was updated (if applicable)
-- ✅ Summary of what was answered
 
 ## UK English
 

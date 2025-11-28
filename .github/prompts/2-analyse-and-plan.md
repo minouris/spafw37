@@ -1,5 +1,7 @@
 # Prompt 2: Analyse Issue and Create Implementation Plan
 
+**IMPORTANT:** Do NOT commit or push changes without explicit user permission.
+
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 2 of 6: analysing the issue and creating the implementation breakdown.
@@ -225,12 +227,43 @@ Create a new internal function `_set_param_default()` in `param.py` that sets th
 
 ## Step 2.4: Create Further Considerations Section
 
-Replace PLACEHOLDER in Further Considerations with initial design questions:
+Replace PLACEHOLDER in Further Considerations with initial design questions.
 
-**Format for each consideration:**
+**Post EACH consideration as an INDIVIDUAL GitHub comment** (allows threaded responses):
+
+```bash
+# Consideration 1
+cat > /tmp/consideration.md << 'EOF'
+**Further Consideration: [Consideration name]**
+
+**Question:** [What design decision needs to be made?]
+
+**Analysis:** [Your analysis or "TO BE DETERMINED - requires investigation"]
+
+**Trade-offs:** [What factors need evaluation]
+
+**Impact:** [How it affects the implementation]
+EOF
+gh issue comment {ISSUE_NUMBER} --body-file /tmp/consideration.md
+# Capture URL: https://github.com/owner/repo/issues/N#issuecomment-XXXXXX
+
+# Consideration 2
+cat > /tmp/consideration.md << 'EOF'
+**Further Consideration: [Next consideration name]**
+...
+EOF
+gh issue comment {ISSUE_NUMBER} --body-file /tmp/consideration.md
+# Capture URL: https://github.com/owner/repo/issues/N#issuecomment-YYYYYY
+
+# Repeat for EACH consideration...
+```
+
+**Format EACH consideration in plan document with its own comment ID:**
 
 ```markdown
 ### 1. [Consideration name] - PENDING REVIEW
+
+([#issuecomment-XXXXXX](https://github.com/owner/repo/issues/N#issuecomment-XXXXXX))
 
 **Question:** [What design decision needs to be made?]
 
@@ -241,9 +274,29 @@ Replace PLACEHOLDER in Further Considerations with initial design questions:
 **Implementation:** [How it affects the implementation, or "Depends on resolution"]
 
 [↑ Back to top](#table-of-contents)
+
+---
+
+### 2. [Next consideration name] - PENDING REVIEW
+
+([#issuecomment-YYYYYY](https://github.com/owner/repo/issues/N#issuecomment-YYYYYY))
+
+**Question:** [Next design decision]
+
+...
+
+[↑ Back to top](#table-of-contents)
+
+---
 ```
 
 **Mark all considerations as "PENDING REVIEW" - never mark as "RESOLVED" without explicit user confirmation.**
+
+**This ensures:**
+- EVERY consideration has its own discussion thread on GitHub
+- Each design analysis can be discussed and refined independently
+- All decisions are documented with direct links to specific comment threads
+- Users can provide feedback on individual considerations without mixing topics
 
 ## Output Requirements
 
