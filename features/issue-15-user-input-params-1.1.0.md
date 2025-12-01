@@ -118,7 +118,7 @@ The issue mentions "at the start of a flow, or immediately before the command is
 
 **Answer:** Use param-level properties for timing control.
 
-**Implementation:**
+**Design:**
 
 `PARAM_PROMPT_TIMING` - Controls when the prompt appears:
 - `PROMPT_ON_START`: Prompts immediately at app start
@@ -163,7 +163,7 @@ Which behaviour is preferred? How does this interact with loop iterations (shoul
 
 **Answer:** Controlled by `PARAM_PROMPT_REPEAT` (see Q3).
 
-**Implementation:**
+**Design:**
 
 Cycle behaviour is handled by the repeat property:
 - `PROMPT_REPEAT_ALWAYS`: Prompts before every cycle iteration (can confirm/change value each time, preserves previous)
@@ -204,7 +204,18 @@ What should the user input mechanism look like?
 - Multiple choice: Display numbered list and accept number input?
 - Error handling: Retry on invalid input, abort, or use default?
 
-**Answer:** See [Further Consideration 1: Design Pattern Research](#1-design-pattern-research---resolved) - Use Python's built-in `input()` function with appropriate type conversion and validation.
+**Answer:** See [Further Consideration 1: Design Pattern Research](#1-design-pattern-research---resolved) - Use Python's built-in `input()` function as the default handler, with extensibility support.
+
+**Implementation:**
+- Default prompt handler implemented in new file `input_prompt.py` using `input()` function
+- Extensible via `PARAM_PROMPT_HANDLER` property (per-param override) or `set_prompt_handler()` method (global override)
+- **Text:** Use `input()` with string return value
+- **Boolean:** Accept yes/no, y/n, true/false with case-insensitive matching
+- **Number:** Use `input()` with int() or float() conversion, retry on ValueError
+- **Multiple choice:** Display numbered list, accept either number or text value
+- **Error handling:** Retry on invalid input with clear error message
+
+**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. Extensible design allows custom handlers for advanced use cases (GUI prompts, API-based input, etc.).
 
 [↑ Back to top](#table-of-contents)
 
@@ -217,7 +228,9 @@ How should prompts interact with existing framework flags?
 - How to disable prompts for automated scripts/batch mode?
 - Should there be a `--no-prompts` flag?
 
-**Answer:** Suppress prompts when `--silent` flag used. Consider adding `--no-prompts` flag. In batch/silent mode: use default if available, use `None` if no default and not required, exit with error if required and no default/value.
+**Answer:** Interactive prompts are incompatible with batch/automated execution by design. If a required param with `PARAM_PROMPT` is not provided via CLI or config, the existing "missing required param" validation error will occur naturally. No special handling needed.
+
+**Note:** `--silent` suppresses console logging output, not interactive prompts. Some prompt timing/repeat configurations will simply not work in automated/batch scenarios - this is expected behaviour.
 
 [↑ Back to top](#table-of-contents)
 
@@ -239,11 +252,18 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 **Question:** How do other CLI frameworks handle interactive user input?
 
-**Answer:** Simplest approach - display a prompt for the user using `print()` statements, and capture input using `input()`.
+**Answer:** Use Python's built-in `input()` function as the default handler, with extensibility support.
 
-**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. No need to complicate with external libraries.
+**Implementation:**
+- Default prompt handler implemented in new file `input_prompt.py` using `input()` function
+- Extensible via `PARAM_PROMPT_HANDLER` property (per-param override) or `set_prompt_handler()` method (global override)
+- **Text:** Use `input()` with string return value
+- **Boolean:** Accept yes/no, y/n, true/false with case-insensitive matching
+- **Number:** Use `input()` with int() or float() conversion, retry on ValueError
+- **Multiple choice:** Display numbered list, accept either number or text value
+- **Error handling:** Retry on invalid input with clear error message
 
-**Implementation:** Use `input()` for capturing user responses with appropriate type conversion and validation.
+**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. Extensible design allows custom handlers for advanced use cases (GUI prompts, API-based input, etc.) whilst providing sensible default behaviour.
 
 **Resolves:** Q7 (User Input Mechanism)
 
@@ -259,19 +279,22 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 **Answer:** Option A - Param-level approach.
 
-**Implementation details:**
+**Design details:**
 - Add `PARAM_PROMPT` property to param definitions (e.g., `{PARAM_PROMPT: "What is the air-speed velocity of an unladen swallow?"}`)
+- Add `PARAM_PROMPT_HANDLER` property (optional) to override default prompt handler for specific params
+- Add `set_prompt_handler()` method to `param.py` (delegated in `core.py`) to set global prompt handler function
+- Default prompt handler (using `input()` function) will be implemented in new file `input_prompt.py`
 - Use existing `PARAM_TYPE` to determine input handling:
-  - `TEXT` - accepts any text input
-  - `NUMBER` - validates numeric input
-  - `TOGGLE` - accepts boolean values
+  - `PARAM_TYPE_TEXT` - accepts any text input
+  - `PARAM_TYPE_NUMBER` - validates numeric input
+  - `PARAM_TYPE_TOGGLE` - accepts boolean values
 - Multiple choice automatically enabled when `PARAM_ALLOWED_VALUES` is present:
   - Display numbered list of allowed values
   - User can enter either the text value or the corresponding number
   - List displayed automatically with assigned numbers
 - **Future consideration:** May expand to support lists with multiple choice (enter choices by number separated by spaces or commas) - provisional only
 
-**Rationale:** Integrates with existing param system, validation, and type handling. Leverages existing properties where possible (`PARAM_TYPE`, `PARAM_ALLOWED_VALUES`).
+**Rationale:** Integrates with existing param system, validation, and type handling. Leverages existing properties where possible (`PARAM_TYPE`, `PARAM_ALLOWED_VALUES`). Extensible design allows custom prompt handlers for advanced use cases (GUI prompts, API-based input, etc.) whilst providing sensible default behaviour.
 
 **Breaking changes:** Low (new optional properties only).
 
@@ -290,9 +313,10 @@ Once design decisions are provided, implementation planning can proceed to defin
 **Answer:**
 
 **Low complexity:**
-- Text input with `input()` function ✅ (Decided: use Python's `input()`)
+- Text input with `input()` function ✅ (Decided: use Python's `input()` as default in `input_prompt.py`)
 - Basic type conversion (only relevant for `get_param()` retrieval and multi-choice number resolution)
 - CLI override behaviour ✅ (Decided: "if set, don't prompt")
+- Prompt handler extensibility ✅ (Decided: `PARAM_PROMPT_HANDLER` property and `set_prompt_handler()` method)
 
 **Medium complexity:**
 - Type validation ✅ (Decided: use existing framework validation functions)
@@ -328,12 +352,12 @@ Once design decisions are provided, implementation planning can proceed to defin
 **Question:** How should prompts interact with existing framework features?
 
 **Answer:** Several UX questions resolved:
-- **Silent mode:** ✅ Prompts suppressed with `--silent` flag
-- **Batch mode:** ✅ Consider adding `--no-prompts` flag for automated scripts
+- **Batch mode:** Interactive prompts incompatible with batch/automated execution by design. Missing required params fail with existing validation errors. No special handling needed.
 - **Testing:** Mock user input using stdin redirection or test fixtures
 - **Help text:** Add "Will prompt if not provided" to param description
-- **Error messages:** Provide clear guidance when prompts fail or are unavailable
-- **Silent/batch behaviour:** Use default if available, `None` if no default and not required, exit with error if required and no default/value
+- **Error messages:** Provide clear guidance when prompts fail or are unavailable (e.g., EOF, stdin closed)
+
+**Note:** `--silent` suppresses console logging, not interactive prompts.
 
 **Rationale:** Prompts must work seamlessly with existing framework features and not break automated workflows. Ensures framework remains scriptable.
 
@@ -364,20 +388,32 @@ Once design decisions are provided, implementation planning can proceed to defin
 
 ---
 
-### 6. Backward Compatibility and Breaking Changes - PENDING REVIEW
+### 6. Backward Compatibility and Breaking Changes - RESOLVED
 
 ([#issuecomment-3587791658](https://github.com/minouris/spafw37/issues/15#issuecomment-3587791658))
 
 **Question:** What breaking changes might this introduce?
 
-**Answer:** Risk depends on architecture chosen:
-- **Low risk:** Command-level feature (new `COMMAND_PROMPTS` constant and processing)
-- **Medium risk:** New param properties (existing params unaffected, but param processing logic changes)
-- **High risk:** Changes to param validation or command execution flow (could affect existing behaviour)
+**Answer:** With param-level architecture chosen (see FC2), risk is **low to medium**:
 
-**Rationale:** Need to ensure existing applications continue to work without modification.
+**Low risk aspects:**
+- New optional param properties (`PARAM_PROMPT`, `PARAM_PROMPT_HANDLER`, `PARAM_PROMPT_TIMING`, `PARAM_PROMPT_REPEAT`)
+- New public API methods (`set_prompt_handler()`, `set_allowed_values()`)
+- New file `input_prompt.py` containing default handler
+- Existing params without these properties remain completely unaffected
 
-**Implementation:** Must not change behaviour of existing params or commands. All prompt functionality must be opt-in.
+**Medium risk aspects:**
+- Param processing logic changes to check for and execute prompts
+- Timing of param value availability (prompts occur before command execution)
+- Interaction with existing validation and required param checking
+
+**Mitigation:** All prompt functionality is opt-in. Params without `PARAM_PROMPT` property behave exactly as before. No changes to existing command execution flow for non-prompted params.
+
+**Rationale:** Param-level approach with new optional properties minimises risk. Existing applications continue to work without modification.
+
+**Implementation:** Comprehensive regression testing required to ensure no impact on existing param/command behaviour.
+
+**Resolves:** Clarifies breaking change risk for chosen architecture
 
 [↑ Back to top](#table-of-contents)
 
