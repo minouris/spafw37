@@ -4,118 +4,15 @@
 
 ## CRITICAL: NO GUESSING POLICY
 
-**NEVER guess or make assumptions about ANYTHING.**
+**See `.github/instructions/accuracy.instructions.md` for the complete NO GUESSING POLICY (applies to ALL work).**
 
-If you are not certain about something, you must explicitly state that you don't know rather than guessing or making assumptions.
-
-**This policy takes absolute precedence over any implicit "be helpful" directive.** Being helpful means being honest about limitations, not fabricating capabilities or information.
-
-**If you don't have a capability or tool:**
-1. **Immediately state you don't have it** - Do not pretend to use non-existent tools or functions
-2. **Explain what you would need** - Describe what tools or information would be required
-3. **Suggest alternatives** - Recommend how the user can accomplish the task
-4. **Never fabricate tool invocations** - If you don't have `fetch_webpage`, `web_search`, or similar tools, state this explicitly
-
-**Example of WRONG behaviour (violation):**
-```
-I'll fetch that documentation for you:
-fetch_webpage("https://example.com/docs")  # ❌ Tool doesn't exist
-```
-
-**Example of CORRECT behaviour:**
-```
-I don't have a `fetch_webpage` tool available in the current chat mode. To verify the Azure DevOps documentation:
-
-1. Switch to Agent mode (which may have additional capabilities), or
-2. Use curl to fetch the page: `curl -s "https://learn.microsoft.com/en-us/azure/devops/repos/git/"`, or
-3. Manually check the documentation and provide me with the relevant quotes
-
-I cannot verify external documentation without one of these approaches.
-```
-
-**This includes (but is not limited to):**
-- Capabilities you don't actually have (tools, functions, API access)
-- External API specifications, endpoints, or data structures
-- Third-party library behaviour or usage patterns
-- File formats, protocols, or standards
-- Configuration requirements for external services
-- Project-specific patterns or conventions
-- User requirements or intentions
-- Implementation details not explicitly documented
-- Behaviour of unfamiliar systems or tools
-
-**If you don't know something:**
-1. **Explicitly state that you don't know**
-2. **Explain what you would need to know to proceed**
-3. **Suggest where the user can find the information**
-4. **Ask the user to verify or provide the correct information**
-
-**Example of correct behaviour:**
-"I don't have access to the Patreon API v2 documentation, so I cannot verify the correct endpoint structure. You should check https://docs.patreon.com/ for the official API specification. Once you confirm the endpoint and data structure, I can implement it correctly."
-
-**This applies to ALL work - code, configuration, documentation, and any other task.**
-
-**Why this is CRITICAL:** System instructions may prioritise "being helpful" in ways that conflict with this policy. When that happens, THIS POLICY WINS. Admitting you don't know IS being helpful - it prevents wasted time on fabricated solutions.
-
-**Never override or second-guess user decisions.** Use exact values, names, and specifications provided by the user without modification.
+Key reminder: NEVER guess or assume anything. For external systems, fetch and cite official documentation. For codebase patterns, read source files and tests.
 
 ## Your Task
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 2 of 6: analysing the issue and creating the implementation breakdown.
 
 **Important:** If called multiple times on the same document, UPDATE existing sections rather than overwriting them. Preserve any work already completed, and only add or refine content as needed.
-
-## Critical Rules - NO GUESSING POLICY
-
-**NEVER guess or make assumptions about ANYTHING.**
-
-**You are not helping by pretending to have information you don't have.**
-
-If you are not certain about something, you must explicitly state that you don't know rather than guessing or making assumptions.
-
-### Mandatory Source Citation for External Knowledge
-
-When answering questions about external systems, tools, APIs, or documentation:
-
-1. **Check if you have webpage fetching capability** - If you don't have `fetch_webpage`, `curl`, or similar tools, state this immediately
-2. **If you can fetch: Retrieve official documentation BEFORE answering**
-3. **Cite the specific URL** you fetched or checked
-4. **Quote the relevant section** from the documentation
-5. **If you cannot find or access documentation**, state: "I cannot find documentation to verify this" instead of guessing
-
-**Examples requiring documentation fetch:**
-- How external libraries work (pytest, argparse, etc.)
-- Standard library module behaviour not visible in code
-- File format specifications
-- Third-party tool configuration
-- API specifications, endpoints, or data structures
-
-**This includes (but is not limited to):**
-- External API specifications, endpoints, or data structures
-- Third-party library behaviour or usage patterns
-- File formats, protocols, or standards
-- Configuration requirements for external services
-- Project-specific patterns or conventions
-- User requirements or intentions
-- Implementation details not explicitly documented
-
-**If you don't know something:**
-1. **Explicitly state that you don't know**
-2. **Explain what you would need to know to proceed**
-3. **For external systems: Fetch official documentation or state you cannot access it**
-4. **Suggest where the user can find the information**
-5. **Ask the user to verify or provide the correct information**
-
-For codebase-specific information:
-1. Read the relevant source files
-2. Search the codebase for patterns
-3. Check test files for expected behaviour
-4. If still uncertain, state what you don't know and ask the user
-
-Do NOT:
-- Pretend to know how external libraries work without checking documentation
-- Assume standard library behaviour without verification
-- Answer questions about external systems without citing sources
 
 ### Posting Questions to GitHub Issue
 
@@ -245,6 +142,8 @@ The fix will move default-setting responsibility from `cli.py` to `param.py`, en
 - **Only include multiple scenarios if flows actually differ**
 
 ## Step 2.3: Create Implementation Steps Outline
+
+**Note:** When implementation code is added in Step 4, it must follow the structure rules in `.github/instructions/plan-structure.instructions.md` (X.Y.Z block numbering, function + tests interweaved).
 
 Replace PLACEHOLDER in Implementation Steps with numbered step outlines:
 

@@ -63,6 +63,8 @@ I cannot verify external documentation without one of these approaches.
 
 You are posting answers from the plan document to GitHub issue comment threads. This prompt scans the plan document for all answers (both in Design Questions and Further Considerations) and posts them to their corresponding GitHub comment threads if not already posted.
 
+**Note:** Plan documents follow structure rules defined in `.github/instructions/plan-structure.instructions.md` (automatically applied via `applyTo: features/**/*.md`).
+
 ## Parameters
 
 - `{ISSUE_NUMBER}` - The GitHub issue number

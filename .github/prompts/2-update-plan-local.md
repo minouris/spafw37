@@ -65,6 +65,8 @@ I cannot verify external documentation without one of these approaches.
 
 You are updating the plan document (`features/{FEATURE_NAME}.md`) with answers, decisions, and analysis provided by the user. This is a LOCAL-ONLY operation - you must NOT post anything to GitHub issue comments.
 
+**Note:** Plan documents follow structure rules defined in `.github/instructions/plan-structure.instructions.md` (automatically applied via `applyTo: features/**/*.md`).
+
 ## Parameters
 
 - `{ISSUE_NUMBER}` - The GitHub issue number (used to locate the plan document)

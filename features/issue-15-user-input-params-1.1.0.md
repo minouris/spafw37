@@ -54,7 +54,8 @@ The solution provides an extensible design with a default handler using Python's
 
 - **Architecture approach:** Param-level properties (`PARAM_PROMPT`, `PARAM_PROMPT_HANDLER`, `PARAM_PROMPT_TIMING`, `PARAM_PROMPT_REPEAT`) extend existing param system rather than creating separate structure
 - **Extensibility:** Default handler in `input_prompt.py` using `input()` function; customisable via per-param `PARAM_PROMPT_HANDLER` property or global `set_prompt_handler()` method
-- **Timing control:** Param properties control when prompts appear (`PROMPT_ON_START` or `PROMPT_ON_COMMANDS`) with auto-population from `COMMAND_REQUIRED_PARAMS`
+- **Timing control:** `PARAM_PROMPT_TIMING` property controls when prompts appear (`PROMPT_ON_START` or `PROMPT_ON_COMMAND`); `PROMPT_ON_COMMANDS` property stores list of command names when using `PROMPT_ON_COMMAND` timing; auto-population of `PROMPT_ON_COMMANDS` property from `COMMAND_REQUIRED_PARAMS`; reciprocal `COMMAND_PROMPT_PARAMS` list built automatically on commands for O(1) lookup
+- **Inline definitions:** Commands can define prompt params inline in `COMMAND_PROMPT_PARAMS` using dictionary definitions, consistent with `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields (see `examples/inline_definitions_basic.py`)
 - **CLI integration:** Prompts skipped entirely if param value already set via CLI; no confirmation needed
 - **Cycle behaviour:** Unified timing/repeat mechanism using `PARAM_PROMPT_REPEAT` handles both regular commands and cycles
 - **Validation:** Uses existing framework validation functions; validates immediately after entry with retry logic and max retry limit
@@ -105,13 +106,13 @@ Parameters can optionally solicit interactive user input at runtime. Prompts int
 5. Command execution → Commands run with param values (prompted or CLI)
 6. Result: Users prompted for missing values after CLI parsing; CLI values prevent prompting
 
-**With PROMPT_ON_COMMANDS timing:**
+**With PROMPT_ON_COMMAND timing:**
 1. Application starts → `run_cli()` called in `core.py`
 2. CLI parsing → `_parse_command_line()` in `cli.py`
 3. Param validation → Framework validates required params exist
 4. Command execution begins
 5. **NEW:** Before each command execution:
-   - Check if command name in param's `PROMPT_ON_COMMANDS` list
+   - Check if command name in param's `PROMPT_ON_COMMANDS` property (list)
    - Check param's `PARAM_PROMPT_REPEAT` setting:
      - `PROMPT_REPEAT_ALWAYS`: Prompt every time (preserves previous value)
      - `PROMPT_REPEAT_IF_BLANK`: Prompt only if value is blank
@@ -181,26 +182,43 @@ The issue mentions "at the start of a flow, or immediately before the command is
 - What exactly does "immediately before command execution" mean in the context of command queues, dependencies, and phases?
 - Should there be a flag on the command (as suggested in the issue)?
 
-**Answer:** Use param-level properties for timing control.
+**Answer:** Use param-level properties for timing control, with reciprocal lists on commands for efficient lookup.
 
 **Design:**
 
+**Param-side constants:**
+
 `PARAM_PROMPT_TIMING` - Controls when the prompt appears:
 - `PROMPT_ON_START`: Prompts immediately after CLI parsing (before command execution)
-- `PROMPT_ON_COMMANDS`: List of command names. Auto-populates with commands that have this param in `COMMAND_REQUIRED_PARAMS`. Will prompt before any command on this list.
+- `PROMPT_ON_COMMAND`: Prompts before commands (command list specified in `PROMPT_ON_COMMANDS` property)
 
-`PARAM_PROMPT_REPEAT` - Controls repeat behaviour (works with `PROMPT_ON_COMMANDS`):
-- `PROMPT_REPEAT_ALWAYS`: Repeats before every command in `PROMPT_ON_COMMANDS`. Preserves previous value.
-- `PROMPT_REPEAT_IF_BLANK`: Repeats before commands in `PROMPT_ON_COMMANDS` if the value is blank
+`PROMPT_ON_COMMANDS` - Property containing list of commands (only used when `PARAM_PROMPT_TIMING` is `PROMPT_ON_COMMAND`):
+- List of command name strings: `['deploy', 'delete']`
+- Inline command definitions: `[{COMMAND_NAME: 'deploy', ...}]`
+- Mixed string/inline: `['deploy', {COMMAND_NAME: 'delete', ...}]`
+- Auto-populates from `COMMAND_REQUIRED_PARAMS` if not explicitly set
+
+`PARAM_PROMPT_REPEAT` - Controls repeat behaviour (works with `PROMPT_ON_COMMAND` timing):
+- `PROMPT_REPEAT_ALWAYS`: Repeats before every command in `PROMPT_ON_COMMANDS` list. Preserves previous value.
+- `PROMPT_REPEAT_IF_BLANK`: Repeats before commands in `PROMPT_ON_COMMANDS` list if the value is blank
 - `PROMPT_REPEAT_NEVER`: Never repeat after the first prompt
+
+**Command-side constant:**
+
+`COMMAND_PROMPT_PARAMS` - List of param names that prompt before this command (built automatically during registration):
+- Enables O(1) lookup: "which params need prompting before this command executes?"
+- Populated from params that have this command in their `PROMPT_ON_COMMANDS` list
+- Can be explicitly set with param names (string references) or inline param definitions (dictionaries)
+- Inline definitions follow same pattern as `COMMAND_REQUIRED_PARAMS` for API consistency
 
 **Reciprocal list auto-population:**
 - When a param is added with `PROMPT_ON_COMMANDS`, those command names are stored on the param
 - When a command is added with `COMMAND_REQUIRED_PARAMS`, framework auto-populates `PROMPT_ON_COMMANDS` for matching params (if they have `PARAM_PROMPT` and `PROMPT_ON_COMMANDS` is not explicitly set)
-- Commands will have a reciprocal list of params that prompt before them, built at registration time
+- When a command is added with `COMMAND_PROMPT_PARAMS`, framework processes inline definitions and establishes reciprocal relationships
+- Commands build their `COMMAND_PROMPT_PARAMS` list at registration time from params that prompt before them
 - This allows efficient lookup: "which params need prompting before this command executes?"
 
-**Rationale:** Param-level approach provides fine-grained control whilst integrating with existing `COMMAND_REQUIRED_PARAMS` structure. Auto-population from `COMMAND_REQUIRED_PARAMS` reduces configuration burden. Reciprocal lists enable efficient command-side lookup without scanning all params.
+**Rationale:** Param-level approach provides fine-grained control whilst integrating with existing `COMMAND_REQUIRED_PARAMS` structure. Auto-population from `COMMAND_REQUIRED_PARAMS` reduces configuration burden. Reciprocal lists enable efficient command-side lookup without scanning all params. Inline definition support in `COMMAND_PROMPT_PARAMS` maintains API consistency with existing framework patterns.
 
 **Breaking changes:** None (new optional properties only).
 
@@ -241,7 +259,7 @@ Cycle behaviour is handled by the repeat property:
 - `PROMPT_REPEAT_IF_BLANK`: Prompts on first iteration if blank, then uses same value for remaining iterations
 - `PROMPT_REPEAT_NEVER`: Prompts once before cycle starts, uses same value for all iterations
 
-Combined with `PROMPT_ON_COMMANDS` listing the cycle command name, this provides full control over cycle prompt behaviour.
+Combined with the `PROMPT_ON_COMMANDS` property listing the cycle command name, this provides full control over cycle prompt behaviour.
 
 **Rationale:** Unified timing/repeat mechanism handles both regular commands and cycles without special-case logic.
 
@@ -313,43 +331,31 @@ Now that all design decisions are resolved, implementation follows a test-driven
 
 #### Phase 1: Core Infrastructure
 
-**Step 1a: Add prompt constants**
+**Step 1: Add prompt constants**
 
 **Files:** `src/spafw37/constants/param.py`, `src/spafw37/constants/command.py`
 
-Add new constants for prompt configuration:
+Add new constants for prompt configuration in param.py and command.py modules.
 
-**In `param.py`:**
-- `PARAM_PROMPT` - prompt text
-- `PARAM_PROMPT_HANDLER` - custom handler function
-- `PARAM_PROMPT_TIMING` - timing constant
-- `PARAM_PROMPT_REPEAT` - repeat behaviour constant
-- `PROMPT_ON_START` - timing: prompt after CLI parsing
-- `PROMPT_ON_COMMANDS` - timing: list of command names
-- `PROMPT_REPEAT_ALWAYS` - repeat every time
-- `PROMPT_REPEAT_IF_BLANK` - repeat if blank
-- `PROMPT_REPEAT_NEVER` - never repeat after first
+**Implementation order:**
 
-**In `command.py`:**
-- `COMMAND_PROMPT_PARAMS` - internal list of params that prompt before this command
+1. Add param-level prompt property constants to `param.py`
+2. Add timing control constants to `param.py`
+3. Add repeat behaviour constants to `param.py`
+4. Add command reciprocal list constant to `command.py`
+5. Verify no constant value collisions within each module
 
-[Detailed implementation will be added in Step 4]
+**Code 1.1.1: Param prompt property constants**
 
-[↑ Back to top](#table-of-contents)
+```python
+# Block 1.1.1: Add to src/spafw37/constants/param.py
+PARAM_PROMPT = 'prompt'  # Prompt text to display to user
+PARAM_PROMPT_HANDLER = 'prompt-handler'  # Custom handler function for this param
+PARAM_PROMPT_TIMING = 'prompt-timing'  # When to display prompt (constant or list)
+PARAM_PROMPT_REPEAT = 'prompt-repeat'  # Repeat behaviour for cycles/multiple commands
+```
 
----
-
-**Step 1b: Test constants**
-
-**File:** `tests/test_constants.py` (extend existing)
-
-**Tests:** Verify all new prompt-related constants are defined with correct types and values.
-
-This step validates the foundation of the prompt system by ensuring all required constants exist with proper values. Constants are critical because they're used throughout the codebase for property lookups and comparisons. These tests catch typos, missing definitions, and value collisions that would cause runtime errors.
-
-**Test 1.1.1: test_param_prompt_constants_exist**
-
-This test verifies that all four param-level prompt property constants are defined and accessible. These constants (`PARAM_PROMPT`, `PARAM_PROMPT_HANDLER`, `PARAM_PROMPT_TIMING`, `PARAM_PROMPT_REPEAT`) form the core vocabulary for configuring interactive prompts on parameters. The test ensures each constant is a string (required for dictionary keys in param definitions) and that all values are unique to prevent ambiguous property lookups.
+**Test 1.1.2: Tests for param prompt constants definition**
 
 ```gherkin
 Scenario: All PARAM_PROMPT* constants are defined in param constants module
@@ -362,26 +368,97 @@ Scenario: All PARAM_PROMPT* constants are defined in param constants module
   # Validates: All param-level prompt properties have corresponding constants
 ```
 
-**Test 1.1.2: test_prompt_timing_constants_exist**
+```python
+# Test 1.1.2: Add to tests/test_constants.py
+def test_param_prompt_constants_exist():
+    """Test that all PARAM_PROMPT* constants required for prompt configuration are defined.
+    
+    This test verifies that PARAM_PROMPT, PARAM_PROMPT_HANDLER, PARAM_PROMPT_TIMING,
+    and PARAM_PROMPT_REPEAT constants exist as strings with unique values.
+    This behaviour is expected because these constants form the core vocabulary for
+    configuring interactive prompts on parameters and must be available for param definitions."""
+    # Block 1.1.2.1: Import param constants module
+    from spafw37.constants import param
+    
+    # Block 1.1.2.2: Check all four prompt property constants exist
+    assert hasattr(param, 'PARAM_PROMPT'), "PARAM_PROMPT constant missing"
+    assert hasattr(param, 'PARAM_PROMPT_HANDLER'), "PARAM_PROMPT_HANDLER constant missing"
+    assert hasattr(param, 'PARAM_PROMPT_TIMING'), "PARAM_PROMPT_TIMING constant missing"
+    assert hasattr(param, 'PARAM_PROMPT_REPEAT'), "PARAM_PROMPT_REPEAT constant missing"
+    
+    # Block 1.1.2.3: Verify all are strings (required for dict keys)
+    assert isinstance(param.PARAM_PROMPT, str), "PARAM_PROMPT must be string"
+    assert isinstance(param.PARAM_PROMPT_HANDLER, str), "PARAM_PROMPT_HANDLER must be string"
+    assert isinstance(param.PARAM_PROMPT_TIMING, str), "PARAM_PROMPT_TIMING must be string"
+    assert isinstance(param.PARAM_PROMPT_REPEAT, str), "PARAM_PROMPT_REPEAT must be string"
+    
+    # Block 1.1.2.4: Verify all values are unique
+    constant_values = [
+        param.PARAM_PROMPT,
+        param.PARAM_PROMPT_HANDLER,
+        param.PARAM_PROMPT_TIMING,
+        param.PARAM_PROMPT_REPEAT
+    ]
+    assert len(constant_values) == len(set(constant_values)), "Constant values must be unique"
+```
 
-This test validates the timing control constants that determine when prompts appear during application execution. `PROMPT_ON_START` indicates prompts should run immediately after CLI parsing (before any commands execute), whilst `PROMPT_ON_COMMANDS` signals that prompts are tied to specific command executions. The test ensures both constants exist, are strings (for consistent comparison logic), and have distinct values to enable unambiguous timing checks throughout the codebase.
+**Code 1.2.1: Timing control constants**
+
+```python
+# Block 1.2.1: Add to src/spafw37/constants/param.py
+PROMPT_ON_START = 'on-start'  # Prompt after CLI parsing, before command execution
+PROMPT_ON_COMMAND = 'on-command'  # Prompt before commands (list in PROMPT_ON_COMMANDS property)
+```
+
+**Test 1.2.2: Tests for timing control constants**
 
 ```gherkin
 Scenario: All PROMPT_* timing constants are defined with correct values
   Given the param constants module is imported
-  When checking for PROMPT_ON_START and PROMPT_ON_COMMANDS
+  When checking for PROMPT_ON_START and PROMPT_ON_COMMAND
   Then both constants are defined
   And PROMPT_ON_START is a string constant
-  And PROMPT_ON_COMMANDS is a string constant
+  And PROMPT_ON_COMMAND is a string constant
   And values are distinct from each other
   
   # Tests: Timing constant definition
   # Validates: Timing options have proper constant values for comparison logic
 ```
 
-**Test 1.1.3: test_prompt_repeat_constants_exist**
+```python
+# Test 1.2.2: Add to tests/test_constants.py
+def test_prompt_timing_constants_exist():
+    """Test that timing control constants PROMPT_ON_START and PROMPT_ON_COMMAND are defined.
+    
+    This test verifies both constants exist as strings with distinct values for use in
+    PARAM_PROMPT_TIMING configurations.
+    This behaviour is expected because timing options require proper constants for comparison
+    logic throughout the codebase to determine when prompts should appear."""
+    # Block 1.2.2.1: Import param constants module
+    from spafw37.constants import param
+    
+    # Block 1.2.2.2: Check both timing constants exist
+    assert hasattr(param, 'PROMPT_ON_START'), "PROMPT_ON_START constant missing"
+    assert hasattr(param, 'PROMPT_ON_COMMAND'), "PROMPT_ON_COMMAND constant missing"
+    
+    # Block 1.2.2.3: Verify both are strings
+    assert isinstance(param.PROMPT_ON_START, str), "PROMPT_ON_START must be string"
+    assert isinstance(param.PROMPT_ON_COMMAND, str), "PROMPT_ON_COMMAND must be string"
+    
+    # Block 1.2.2.4: Verify values are distinct
+    assert param.PROMPT_ON_START != param.PROMPT_ON_COMMAND, "Timing constants must have distinct values"
+```
 
-This test verifies the three repeat behaviour constants that control how prompts behave in cycles and repeated command executions. `PROMPT_REPEAT_ALWAYS` forces prompts on every iteration (useful for confirmation workflows), `PROMPT_REPEAT_IF_BLANK` only re-prompts when the value is empty (efficient for optional updates), and `PROMPT_REPEAT_NEVER` ensures single-prompt behaviour (standard for initialization values). The test confirms all three exist, are strings, and have unique values to prevent logic errors in cycle handling.
+**Code 1.3.1: Repeat behaviour constants**
+
+```python
+# Block 1.3.1: Add to src/spafw37/constants/param.py
+PROMPT_REPEAT_ALWAYS = 'always'  # Prompt every time, preserve previous value
+PROMPT_REPEAT_IF_BLANK = 'if-blank'  # Prompt only if value is blank
+PROMPT_REPEAT_NEVER = 'never'  # Never repeat after first prompt
+```
+
+**Test 1.3.2: Tests for repeat behaviour constants**
 
 ```gherkin
 Scenario: All PROMPT_REPEAT_* constants are defined with distinct values
@@ -395,9 +472,45 @@ Scenario: All PROMPT_REPEAT_* constants are defined with distinct values
   # Validates: All repeat options have proper constants for cycle control logic
 ```
 
-**Test 1.1.4: test_command_prompt_params_constant_exists**
+```python
+# Test 1.3.2: Add to tests/test_constants.py
+def test_prompt_repeat_constants_exist():
+    """Test that all PROMPT_REPEAT_* constants controlling cycle behaviour are defined.
+    
+    This test verifies PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, and PROMPT_REPEAT_NEVER
+    constants exist as strings with unique values.
+    This behaviour is expected because repeat options must have proper constants for cycle
+    control logic to determine whether prompts should repeat on subsequent iterations."""
+    # Block 1.3.2.1: Import param constants module
+    from spafw37.constants import param
+    
+    # Block 1.3.2.2: Check all three repeat constants exist
+    assert hasattr(param, 'PROMPT_REPEAT_ALWAYS'), "PROMPT_REPEAT_ALWAYS constant missing"
+    assert hasattr(param, 'PROMPT_REPEAT_IF_BLANK'), "PROMPT_REPEAT_IF_BLANK constant missing"
+    assert hasattr(param, 'PROMPT_REPEAT_NEVER'), "PROMPT_REPEAT_NEVER constant missing"
+    
+    # Block 1.3.2.3: Verify all are strings
+    assert isinstance(param.PROMPT_REPEAT_ALWAYS, str), "PROMPT_REPEAT_ALWAYS must be string"
+    assert isinstance(param.PROMPT_REPEAT_IF_BLANK, str), "PROMPT_REPEAT_IF_BLANK must be string"
+    assert isinstance(param.PROMPT_REPEAT_NEVER, str), "PROMPT_REPEAT_NEVER must be string"
+    
+    # Block 1.3.2.4: Verify all three values are unique
+    repeat_values = [
+        param.PROMPT_REPEAT_ALWAYS,
+        param.PROMPT_REPEAT_IF_BLANK,
+        param.PROMPT_REPEAT_NEVER
+    ]
+    assert len(repeat_values) == len(set(repeat_values)), "Repeat constant values must be unique"
+```
 
-This test validates the reciprocal list constant on the command side. `COMMAND_PROMPT_PARAMS` stores the list of parameter names that should prompt before a command executes, enabling O(1) lookup during command execution without scanning all parameters. The test ensures the constant is defined in the command module as a string key with a unique value, establishing the infrastructure for efficient prompt-command coordination.
+**Code 1.4.1: Command reciprocal list constant**
+
+```python
+# Block 1.4.1: Add to src/spafw37/constants/command.py
+COMMAND_PROMPT_PARAMS = 'prompt-params'  # List of param names that prompt before this command
+```
+
+**Test 1.4.2: Tests for command prompt params constant**
 
 ```gherkin
 Scenario: COMMAND_PROMPT_PARAMS constant defined in command constants module
@@ -410,40 +523,157 @@ Scenario: COMMAND_PROMPT_PARAMS constant defined in command constants module
   # Validates: Commands can store list of params that prompt before them
 ```
 
+```python
+# Test 1.4.2: Add to tests/test_constants.py
+def test_command_prompt_params_constant_exists():
+    """Test that COMMAND_PROMPT_PARAMS constant is defined in the command constants module.
+    
+    This test verifies the constant exists as a string key suitable for use as a dictionary
+    property on command definitions.
+    This behaviour is expected because commands need to store lists of parameter names that
+    should prompt before execution, enabling O(1) lookup during command execution."""
+    # Block 1.4.2.1: Import command constants module
+    from spafw37.constants import command
+    
+    # Block 1.4.2.2: Check constant exists
+    assert hasattr(command, 'COMMAND_PROMPT_PARAMS'), "COMMAND_PROMPT_PARAMS constant missing"
+    
+    # Block 1.4.2.3: Verify it's a string (required for dict key)
+    assert isinstance(command.COMMAND_PROMPT_PARAMS, str), "COMMAND_PROMPT_PARAMS must be string"
+```
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 2a: Create default input handler module**
+**Step 2: Create default input handler module**
 
 **File:** `src/spafw37/input_prompt.py`
 
-Implement default prompt handler using Python's `input()` function:
-- `prompt_for_value(param_def)` - main handler function
-- Handle text input (return string)
-- Handle number input (convert with int/float)
-- Handle toggle input (accept y/n, yes/no, true/false)
-- Handle multiple choice (display numbered list, accept number or text)
-- Display default value in prompt (bash convention: `[default: value]`)
-- Return user input or default if blank entered
+Implement default prompt handler using Python's `input()` function with support for text, number, toggle, and multiple choice inputs.
 
-[Detailed implementation will be added in Step 4]
+**Implementation order:**
 
-[↑ Back to top](#table-of-contents)
+1. Import required constants from `constants/param.py`
+2. Implement prompt text formatting with default value display
+3. Implement text input handler (simplest case)
+4. Implement number input handler with int/float conversion
+5. Implement toggle input handler with multiple accepted formats
+6. Implement multiple choice handler with numbered list display
+7. Add EOF handling for non-interactive environments
 
----
+**Code 2.1.1: Module docstring and imports**
 
-**Step 2b: Test default input handler**
+```python
+# Block 2.1.1: Create new file src/spafw37/input_prompt.py
+"""Default interactive prompt handler using Python's built-in input() function.
 
-**File:** `tests/test_input_prompt.py`
+This module provides the default implementation for soliciting user input
+at runtime for params configured with PARAM_PROMPT. The handler supports
+text, number, toggle, and multiple choice inputs with proper type conversion
+and default value handling.
+"""
 
-**Tests:** Unit tests for default handler in isolation using `monkeypatch` and `StringIO` for stdin mocking.
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_DEFAULT,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_TYPE_TOGGLE,
+    PARAM_ALLOWED_VALUES
+)
+```
 
-This step validates the default input handler (`input_prompt.py`) in complete isolation before integration with the parameter system. By mocking stdin with `StringIO`, tests can simulate user input without actual keyboard interaction, enabling automated testing of all input types, validation, error handling, and edge cases. These tests ensure the handler correctly processes text, numbers, toggles, and multiple choice inputs whilst properly displaying defaults and handling EOF conditions.
+**Code 2.2.1: Format prompt text with default**
 
-**Test 2.2.1: test_prompt_text_input_returns_string**
+```python
+# Block 2.2.1: Add to src/spafw37/input_prompt.py
+def _format_prompt_text(param_def):
+    """Format prompt text with default value in bash convention.
+    
+    Args:
+        param_def: Parameter definition dictionary.
+        
+    Returns:
+        Formatted prompt string with [default: value] if default exists.
+    """
+    # Block 2.2.1.1: Get prompt text from param definition
+    prompt_text = param_def.get(PARAM_PROMPT, 'Enter value')
+    
+    # Block 2.2.1.2: Add default value indicator if present
+    default_value = param_def.get(PARAM_DEFAULT)
+    if default_value is not None:
+        prompt_text = "{0} [default: {1}]".format(prompt_text, default_value)
+    
+    # Block 2.2.1.3: Add trailing space for user input
+    return "{0}: ".format(prompt_text)
+```
 
-This test validates the most basic functionality: capturing plain text input from the user. Text parameters are the simplest type—no conversion, no validation beyond framework rules. The test mocks stdin with a sample string and verifies the handler returns exactly what the user typed. This establishes the foundation for all other input types and confirms the `input()` function integration works correctly.
+**Test 2.2.2: Tests for prompt text formatting with default value**
+
+```gherkin
+Scenario: Default value shown in prompt text using bash convention
+  Given a param with PARAM_DEFAULT "example_default"
+  When prompt text is formatted
+  Then prompt includes "[default: example_default]"
+  And format follows bash convention style
+  
+  # Tests: Default value display formatting
+  # Validates: Users see what default will be used if they press enter
+```
+
+```python
+# Test 2.2.2: Add to tests/test_input_prompt.py
+def test_format_prompt_text_with_default():
+    """Test that prompt text formatting includes default values using bash convention.
+    
+    This test verifies that when a parameter has PARAM_DEFAULT set, the formatted prompt
+    displays "[default: value]" following standard bash/Unix prompt conventions.
+    This behaviour is expected because users need clear indication of what value will be
+    used if they press Enter without typing, matching familiar command-line tool patterns."""
+    # Block 2.2.2.1: Import required modules
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_DEFAULT, PARAM_PROMPT
+    
+    # Block 2.2.2.2: Create param with default value
+    param_def = {
+        PARAM_DEFAULT: 'example_default',
+        PARAM_PROMPT: 'Enter text'
+    }
+    
+    # Block 2.2.2.3: Format prompt text
+    formatted_text = input_prompt._format_prompt_text(param_def)
+    
+    # Block 2.2.2.4: Verify bash convention format
+    assert '[default: example_default]' in formatted_text, "Default value not displayed"
+    assert formatted_text == 'Enter text [default: example_default]: ', "Format incorrect"
+```
+
+**Code 2.3.1: Handle text input**
+
+```python
+# Block 2.3.1: Add to src/spafw37/input_prompt.py
+def _handle_text_input(param_def, user_input):
+    """Handle text input type (no conversion needed).
+    
+    Args:
+        param_def: Parameter definition dictionary.
+        user_input: Raw user input string.
+        
+    Returns:
+        User input string or default value if blank.
+    """
+    # Block 2.3.1.1: Return user input if not blank
+    if user_input.strip():
+        return user_input.strip()
+    
+    # Block 2.3.1.2: Return default if blank input
+    return param_def.get(PARAM_DEFAULT)
+```
+
+**Test 2.3.2: Tests for text input handling**
 
 ```gherkin
 Scenario: Text input handler returns user-entered string
@@ -451,15 +681,43 @@ Scenario: Text input handler returns user-entered string
   And stdin is mocked with StringIO("test value\n")
   When prompt_for_value() is called
   Then the function returns "test value"
-  And the param value is set to "test value"
   
   # Tests: Basic text input handling with input() function
   # Validates: String input is captured and returned correctly
 ```
 
-**Test 2.2.2: test_prompt_text_with_default_blank_input**
+```python
+# Test 2.3.2: Add to tests/test_input_prompt.py
+def test_prompt_text_input_returns_string(monkeypatch):
+    """Test that the default prompt handler captures plain text input from users.
+    
+    This test verifies that when stdin is mocked with StringIO containing "test value",
+    the prompt_for_value() function returns exactly that string without modification.
+    This behaviour is expected because text parameters are the simplest type and should
+    return user input verbatim, establishing the foundation for all other input types."""
+    # Block 2.3.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_NAME
+    
+    # Block 2.3.2.2: Create param definition for text input
+    param_def = {
+        PARAM_NAME: 'test_param',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.3.2.3: Mock stdin with test input
+    mock_stdin = StringIO("test value\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.2.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.2.5: Verify returned value
+    assert user_value == "test value", "Expected 'test value', got '{0}'".format(user_value)
+```
 
-This test validates the default value mechanism using the bash convention of displaying `[default: value]` in the prompt. When a user presses Enter without typing anything (blank input), the system should use the default value automatically. This behaviour mirrors standard Unix/Linux command-line tools and provides a familiar user experience. The test confirms both the display format and the default selection logic work correctly.
+**Test 2.3.3: Tests for blank input with default value**
 
 ```gherkin
 Scenario: Blank input with default value returns the default
@@ -467,15 +725,74 @@ Scenario: Blank input with default value returns the default
   And stdin is mocked with StringIO("\n")
   When prompt_for_value() is called
   Then the function returns "default_value"
-  And the prompt text displayed "[default: default_value]"
   
   # Tests: Default value handling for text input
   # Validates: Blank input selects default using bash convention
 ```
 
-**Test 2.2.3: test_prompt_number_integer_valid**
+```python
+# Test 2.3.3: Add to tests/test_input_prompt.py
+def test_prompt_text_with_default_blank_input(monkeypatch):
+    """Test that pressing Enter without typing selects the default value automatically.
+    
+    This test verifies that when stdin is mocked with just a newline character and
+    PARAM_DEFAULT is set, the function returns the default value.
+    This behaviour is expected because the bash convention of showing "[default: value]"
+    implies that blank input (just pressing Enter) will use that default value."""
+    # Block 2.3.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_DEFAULT
+    
+    # Block 2.3.3.2: Create param with default value
+    param_def = {
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'default_value'
+    }
+    
+    # Block 2.3.3.3: Mock stdin with blank input (just newline)
+    mock_stdin = StringIO("\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.3.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.3.5: Verify default value returned
+    assert user_value == 'default_value', "Expected 'default_value', got '{0}'".format(user_value)
+```
 
-This test validates integer conversion for numeric parameters. When a user types "42", the handler must convert the string to an actual integer (42) for proper numeric operations downstream. The test confirms the handler correctly identifies integer input (no decimal point) and performs `int()` conversion without errors. This is essential for parameters used in mathematical operations, counters, or array indices.
+**Code 2.4.1: Handle number input**
+
+```python
+# Block 2.4.1: Add to src/spafw37/input_prompt.py
+def _handle_number_input(param_def, user_input):
+    """Handle number input with int/float conversion.
+    
+    Args:
+        param_def: Parameter definition dictionary.
+        user_input: Raw user input string.
+        
+    Returns:
+        Converted number (int or float) or default value if blank.
+        
+    Raises:
+        ValueError: If input cannot be converted to number.
+    """
+    # Block 2.4.1.1: Return default if blank input
+    if not user_input.strip():
+        return param_def.get(PARAM_DEFAULT)
+    
+    # Block 2.4.1.2: Try integer conversion first
+    try:
+        return int(user_input)
+    except ValueError:
+        pass
+    
+    # Block 2.4.1.3: Fall back to float conversion
+    return float(user_input)
+```
+
+**Test 2.4.2: Tests for number integer input conversion**
 
 ```gherkin
 Scenario: Valid integer input converted correctly
@@ -489,9 +806,39 @@ Scenario: Valid integer input converted correctly
   # Validates: Integer strings converted to int type
 ```
 
-**Test 2.2.4: test_prompt_number_float_valid**
+```python
+# Test 2.4.2: Add to tests/test_input_prompt.py
+def test_prompt_number_integer_valid(monkeypatch):
+    """Test that integer input is correctly converted to int type for numeric parameters.
+    
+    This test verifies that when a user enters "42" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the integer 42 (not string or float).
+    This behaviour is expected because integer input (no decimal point) should be
+    converted using int() for proper numeric operations, counters, and array indices."""
+    # Block 2.4.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.2.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.2.3: Mock stdin with integer input
+    mock_stdin = StringIO("42\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.2.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.2.5: Verify integer type and value
+    assert isinstance(result_value, int), "Expected int type, got {0}".format(type(result_value))
+    assert result_value == 42, "Expected 42, got {0}".format(result_value)
+```
 
-This test validates floating-point conversion for numeric parameters requiring decimal precision. When a user types "3.14", the handler must convert it to a float (3.14) rather than an integer. The test confirms the handler correctly identifies float input (contains decimal point) and performs `float()` conversion. This ensures parameters can represent precise measurements, percentages, or scientific values.
+**Test 2.4.3: Tests for number float input conversion**
 
 ```gherkin
 Scenario: Valid float input converted correctly
@@ -505,9 +852,122 @@ Scenario: Valid float input converted correctly
   # Validates: Float strings converted to float type
 ```
 
-**Test 2.2.5: test_prompt_toggle_yes_variations**
+```python
+# Test 2.4.3: Add to tests/test_input_prompt.py
+def test_prompt_number_float_valid(monkeypatch):
+    """Test that floating-point input is correctly converted to float type for numeric parameters.
+    
+    This test verifies that when a user enters "3.14" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the float 3.14 (not string or integer).
+    This behaviour is expected because float input (contains decimal point) should be
+    converted using float() for precise measurements, percentages, and scientific values."""
+    # Block 2.4.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.3.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.3.3: Mock stdin with float input
+    mock_stdin = StringIO("3.14\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.3.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.3.5: Verify float type and value
+    assert isinstance(result_value, float), "Expected float type, got {0}".format(type(result_value))
+    assert result_value == 3.14, "Expected 3.14, got {0}".format(result_value)
+```
 
-This test validates that toggle (boolean) parameters accept multiple affirmative formats with case-insensitive matching. Users might type "y", "Y", "yes", "YES", "true", or "True" to indicate affirmative—all should be recognized as True. This provides a flexible, user-friendly interface rather than forcing exact input. The test confirms all common affirmative variations work correctly and return the Python boolean `True`.
+**Test 2.4.4: Tests for number invalid input validation**
+
+```gherkin
+Scenario: Invalid number input raises ValueError
+  Given a param with PARAM_TYPE_NUMBER
+  And stdin is mocked with StringIO("not_a_number\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates conversion failure
+  
+  # Tests: Number input validation
+  # Validates: Non-numeric input rejected with clear error
+```
+
+```python
+# Test 2.4.4: Add to tests/test_input_prompt.py
+def test_prompt_number_invalid_raises_error(monkeypatch):
+    """Test that non-numeric input raises ValueError for numeric parameters.
+    
+    This test verifies that when a user enters "not_a_number" for a PARAM_TYPE_NUMBER parameter,
+    the handler raises ValueError rather than returning invalid data.
+    This behaviour is expected because type conversion failures must be caught and reported
+    clearly, enabling retry logic at higher levels to prompt the user again."""
+    # Block 2.4.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.4.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("not_a_number\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.4.4: Verify ValueError raised
+    with pytest.raises(ValueError):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Code 2.5.1: Handle toggle input**
+
+```python
+# Block 2.5.1: Add to src/spafw37/input_prompt.py
+def _handle_toggle_input(param_def, user_input):
+    """Handle toggle (boolean) input with multiple accepted formats.
+    
+    Accepts: y/yes/true (case-insensitive) for True
+             n/no/false (case-insensitive) for False
+    
+    Args:
+        param_def: Parameter definition dictionary.
+        user_input: Raw user input string.
+        
+    Returns:
+        Boolean value or default value if blank.
+        
+    Raises:
+        ValueError: If input is not a recognized boolean format.
+    """
+    # Block 2.5.1.1: Return default if blank input
+    if not user_input.strip():
+        return param_def.get(PARAM_DEFAULT)
+    
+    # Block 2.5.1.2: Normalize input to lowercase for comparison
+    normalized_input = user_input.strip().lower()
+    
+    # Block 2.5.1.3: Check affirmative values
+    if normalized_input in ('y', 'yes', 'true'):
+        return True
+    
+    # Block 2.5.1.4: Check negative values
+    if normalized_input in ('n', 'no', 'false'):
+        return False
+    
+    # Block 2.5.1.5: Raise error for unrecognized format
+    raise ValueError("Expected y/yes/true or n/no/false")
+```
+
+**Test 2.5.2: Tests for toggle affirmative input variations**
 
 ```gherkin
 Scenario: Toggle input accepts multiple affirmative formats
@@ -521,9 +981,36 @@ Scenario: Toggle input accepts multiple affirmative formats
   # Validates: Multiple formats accepted for true/yes values
 ```
 
-**Test 2.2.6: test_prompt_toggle_no_variations**
+```python
+# Test 2.5.2: Add to tests/test_input_prompt.py
+def test_prompt_toggle_yes_variations(monkeypatch):
+    """Test that toggle parameters accept multiple affirmative formats with case-insensitive matching.
+    
+    This test verifies that inputs "y", "Y", "yes", "YES", "true", and "True" all return
+    the Python boolean True for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because providing flexible, user-friendly input options
+    improves usability rather than forcing users to remember exact format requirements."""
+    # Block 2.5.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.2.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.2.3: Test all affirmative variations
+    affirmative_inputs = ['y', 'Y', 'yes', 'YES', 'true', 'True']
+    for test_input in affirmative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is True, "Input '{0}' should return True".format(test_input)
+```
 
-This test validates that toggle parameters accept multiple negative formats with case-insensitive matching. Users might type "n", "N", "no", "NO", "false", or "False" to indicate negative—all should be recognized as False. Complementing the affirmative test, this ensures comprehensive toggle support. The test confirms all common negative variations work correctly and return the Python boolean `False`.
+**Test 2.5.3: Tests for toggle negative input variations**
 
 ```gherkin
 Scenario: Toggle input accepts multiple negative formats
@@ -537,9 +1024,134 @@ Scenario: Toggle input accepts multiple negative formats
   # Validates: Multiple formats accepted for false/no values
 ```
 
-**Test 2.2.7: test_prompt_multiple_choice_by_number**
+```python
+# Test 2.5.3: Add to tests/test_input_prompt.py
+def test_prompt_toggle_no_variations(monkeypatch):
+    """Test that toggle parameters accept multiple negative formats with case-insensitive matching.
+    
+    This test verifies that inputs "n", "N", "no", "NO", "false", and "False" all return
+    the Python boolean False for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because comprehensive support for common negative variations
+    provides a complete and intuitive toggle input experience."""
+    # Block 2.5.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.3.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.3.3: Test all negative variations
+    negative_inputs = ['n', 'N', 'no', 'NO', 'false', 'False']
+    for test_input in negative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is False, "Input '{0}' should return False".format(test_input)
+```
 
-This test validates selection from a list of choices using numeric indices. When `PARAM_ALLOWED_VALUES` contains multiple options, the handler should display them as a numbered list (1, 2, 3...) and allow users to select by typing the number. This provides an efficient selection interface—users can type "2" instead of "option2". The test confirms the numbered display format and the index-to-value mapping work correctly.
+**Test 2.5.4: Tests for toggle invalid input validation**
+
+```gherkin
+Scenario: Invalid toggle input raises ValueError
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin is mocked with StringIO("maybe\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates expected formats
+  
+  # Tests: Toggle input validation
+  # Validates: Unrecognized input rejected with helpful error
+```
+
+```python
+# Test 2.5.4: Add to tests/test_input_prompt.py
+def test_prompt_toggle_invalid_raises_error(monkeypatch):
+    """Test that unrecognized input raises ValueError for toggle parameters.
+    
+    This test verifies that when a user enters "maybe" for a PARAM_TYPE_TOGGLE parameter,
+    the handler raises ValueError with a clear message about expected formats.
+    This behaviour is expected because ambiguous or invalid input must be rejected,
+    enabling retry logic to prompt the user again with guidance on valid options."""
+    # Block 2.5.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.4.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("maybe\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.5.4.4: Verify ValueError raised with helpful message
+    with pytest.raises(ValueError, match="Expected y/yes/true or n/no/false"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Code 2.6.1: Handle multiple choice input**
+
+```python
+# Block 2.6.1: Add to src/spafw37/input_prompt.py
+def _handle_multiple_choice_input(param_def, user_input, allowed_values):
+    """Handle multiple choice input with numeric or text selection.
+    
+    Args:
+        param_def: Parameter definition dictionary.
+        user_input: Raw user input string.
+        allowed_values: List of allowed string values.
+        
+    Returns:
+        Selected value from allowed_values or default if blank.
+        
+    Raises:
+        ValueError: If input is not valid selection (number or text).
+    """
+    # Block 2.6.1.1: Return default if blank input
+    if not user_input.strip():
+        return param_def.get(PARAM_DEFAULT)
+    
+    # Block 2.6.1.2: Try numeric selection first (1-indexed)
+    try:
+        selection_index = int(user_input) - 1
+        if 0 <= selection_index < len(allowed_values):
+            return allowed_values[selection_index]
+    except ValueError:
+        pass
+    
+    # Block 2.6.1.3: Try exact text match
+    user_input_stripped = user_input.strip()
+    if user_input_stripped in allowed_values:
+        return user_input_stripped
+    
+    # Block 2.6.1.4: Raise error for invalid selection
+    raise ValueError("Invalid selection. Enter number or exact text value")
+```
+
+**Code 2.7.1: Display multiple choice options**
+
+```python
+# Block 2.7.1: Add to src/spafw37/input_prompt.py
+def _display_multiple_choice_options(allowed_values):
+    """Display numbered list of multiple choice options.
+    
+    Args:
+        allowed_values: List of allowed string values to display.
+    """
+    # Block 2.7.1.1: Display each option with 1-indexed number
+    for option_index, option_value in enumerate(allowed_values, start=1):
+        print("{0}. {1}".format(option_index, option_value))
+```
+
+**Test 2.6.2: Tests for multiple choice selection by number**
 
 ```gherkin
 Scenario: Multiple choice selection by number works correctly
@@ -553,9 +1165,44 @@ Scenario: Multiple choice selection by number works correctly
   # Validates: Users can select by entering list number
 ```
 
-**Test 2.2.8: test_prompt_multiple_choice_by_text**
+```python
+# Test 2.6.2: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_number(monkeypatch, capsys):
+    """Test that users can select from multiple choice options by entering the numeric index.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "2", the handler returns "green" (the second option).
+    This behaviour is expected because numbered selection provides an efficient interface
+    where users can type a single digit instead of the full option text."""
+    # Block 2.6.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.2.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select option',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.2.3: Mock stdin with numeric selection
+    mock_stdin = StringIO("2\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.2.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.2.5: Verify correct option selected
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+    
+    # Block 2.6.2.6: Verify numbered list was displayed
+    captured_output = capsys.readouterr()
+    assert '1. red' in captured_output.out, "Option 1 not displayed"
+    assert '2. green' in captured_output.out, "Option 2 not displayed"
+    assert '3. blue' in captured_output.out, "Option 3 not displayed"
+```
 
-This test validates selection from a list of choices by typing the exact text value. Some users prefer typing the full option name rather than remembering its number in the list. The handler should accept either approach—numeric index or exact text match. The test confirms that typing "green" when ["red", "green", "blue"] is displayed returns "green" correctly.
+**Test 2.6.3: Tests for multiple choice selection by exact text**
 
 ```gherkin
 Scenario: Multiple choice selection by exact text works correctly
@@ -569,9 +1216,131 @@ Scenario: Multiple choice selection by exact text works correctly
   # Validates: Users can select by entering the text value directly
 ```
 
-**Test 2.2.9: test_prompt_eof_raises_error**
+```python
+# Test 2.6.3: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_text(monkeypatch):
+    """Test that users can select from multiple choice options by entering the exact text value.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "green", the handler returns "green" directly.
+    This behaviour is expected because some users prefer typing the full option name
+    rather than remembering numeric indices, providing flexible selection methods."""
+    # Block 2.6.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.3.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.3.3: Mock stdin with text selection
+    mock_stdin = StringIO("green\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.3.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.3.5: Verify correct text match
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+```
 
-This test validates proper handling of EOF (End Of File) conditions, which occur when stdin closes unexpectedly or reaches its end without providing input. This happens in automated scripts with empty stdin, when users press Ctrl+D (Unix) or Ctrl+Z (Windows), or when piped input ends. The handler must detect this condition and raise `EOFError` rather than failing silently or entering an infinite loop. Proper EOF handling ensures the application fails predictably in non-interactive environments.
+**Test 2.6.4: Tests for multiple choice invalid selection validation**
+
+```gherkin
+Scenario: Invalid multiple choice selection raises ValueError
+  Given a param with PARAM_ALLOWED_VALUES ["red", "green", "blue"]
+  And stdin is mocked with StringIO("yellow\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates invalid selection
+  
+  # Tests: Multiple choice validation
+  # Validates: Invalid selections rejected with clear error
+```
+
+```python
+# Test 2.6.4: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_invalid_selection(monkeypatch):
+    """Test that invalid selections raise ValueError for multiple choice parameters.
+    
+    This test verifies that when the user enters "yellow" for options ["red", "green", "blue"],
+    the handler raises ValueError with a message about valid selection methods.
+    This behaviour is expected because only values in PARAM_ALLOWED_VALUES or their indices
+    are valid, and invalid selections must be rejected to enable retry logic."""
+    # Block 2.6.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.4.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.4.3: Mock stdin with invalid selection
+    mock_stdin = StringIO("yellow\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.4.4: Verify ValueError raised
+    with pytest.raises(ValueError, match="Invalid selection"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Code 2.8.1: Main prompt handler function**
+
+```python
+# Block 2.8.1: Add to src/spafw37/input_prompt.py
+def prompt_for_value(param_def):
+    """Main prompt handler using Python's built-in input() function.
+    
+    Prompts user for input based on param type and configuration.
+    Handles text, number, toggle, and multiple choice inputs.
+    
+    Args:
+        param_def: Parameter definition dictionary containing:
+            - PARAM_PROMPT: Prompt text to display
+            - PARAM_TYPE: Type of input (text/number/toggle)
+            - PARAM_DEFAULT: Optional default value
+            - PARAM_ALLOWED_VALUES: Optional list for multiple choice
+    
+    Returns:
+        User input value converted to appropriate type.
+        
+    Raises:
+        EOFError: If stdin reaches EOF (non-interactive environment).
+        ValueError: If input cannot be converted to required type.
+    """
+    # Block 2.8.1.1: Get allowed values for multiple choice
+    allowed_values = param_def.get(PARAM_ALLOWED_VALUES)
+    if allowed_values:
+        _display_multiple_choice_options(allowed_values)
+    
+    # Block 2.8.1.2: Format and display prompt text
+    prompt_text = _format_prompt_text(param_def)
+    user_input = input(prompt_text)
+    
+    # Block 2.8.1.3: Handle multiple choice if allowed values present
+    if allowed_values:
+        return _handle_multiple_choice_input(param_def, user_input, allowed_values)
+    
+    # Block 2.8.1.4: Get param type with text as default
+    param_type = param_def.get(PARAM_TYPE, PARAM_TYPE_TEXT)
+    
+    # Block 2.8.1.5: Route to appropriate handler based on type
+    if param_type == PARAM_TYPE_NUMBER:
+        return _handle_number_input(param_def, user_input)
+    elif param_type == PARAM_TYPE_TOGGLE:
+        return _handle_toggle_input(param_def, user_input)
+    else:
+        return _handle_text_input(param_def, user_input)
+```
+
+**Test 2.8.2: Tests for EOF handling in non-interactive environment**
 
 ```gherkin
 Scenario: EOF on stdin raises EOFError
@@ -585,139 +1354,1193 @@ Scenario: EOF on stdin raises EOFError
   # Validates: Framework detects and reports EOF condition properly
 ```
 
-**Test 2.2.10: test_prompt_default_displayed_in_text**
-
-This test validates the user-facing display format for default values. When a parameter has a default, the prompt should clearly show what value will be used if the user presses Enter without typing. The bash convention `[default: value]` is widely recognized and unambiguous. The test confirms the prompt text formatting includes this indicator correctly, ensuring users always know what will happen when they select the default.
-
-```gherkin
-Scenario: Default value shown in prompt text using bash convention
-  Given a param with PARAM_DEFAULT "example_default"
-  When prompt text is formatted
-  Then prompt includes "[default: example_default]"
-  And format follows bash convention style
-  
-  # Tests: Default value display formatting
-  # Validates: Users see what default will be used if they press enter
+```python
+# Test 2.8.2: Add to tests/test_input_prompt.py
+def test_prompt_eof_raises_error(monkeypatch):
+    """Test that EOF condition raises EOFError when stdin closes unexpectedly.
+    
+    This test verifies that when stdin is empty (EOF condition from Ctrl+D, closed pipe,
+    or automated scripts), the handler raises EOFError rather than failing silently.
+    This behaviour is expected because EOF must be detected and reported clearly,
+    ensuring the application fails predictably in non-interactive environments."""
+    # Block 2.8.2.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_PROMPT
+    
+    # Block 2.8.2.2: Create param definition
+    param_def = {
+        PARAM_PROMPT: 'Enter value',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.8.2.3: Mock stdin with empty stream (EOF)
+    mock_stdin = StringIO("")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.8.2.4: Verify EOFError raised
+    with pytest.raises(EOFError):
+        input_prompt.prompt_for_value(param_def)
 ```
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 3a: Add param registration logic**
+**Step 2b: Test constants**
+
+```gherkin
+Scenario: Text input handler returns user-entered string
+  Given a param with PARAM_TYPE_TEXT and no default value
+  And stdin is mocked with StringIO("test value\n")
+  When prompt_for_value() is called
+  Then the function returns "test value"
+  
+  # Tests: Basic text input handling with input() function
+  # Validates: String input is captured and returned correctly
+```
+
+```python
+# Test 2.3.2: Add to tests/test_input_prompt.py
+def test_prompt_text_input_returns_string(monkeypatch):
+    """Test that the default prompt handler captures plain text input from users.
+    
+    This test verifies that when stdin is mocked with StringIO containing "test value",
+    the prompt_for_value() function returns exactly that string without modification.
+    This behaviour is expected because text parameters are the simplest type and should
+    return user input verbatim, establishing the foundation for all other input types."""
+    # Block 2.3.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_NAME
+    
+    # Block 2.3.2.2: Create param definition for text input
+    param_def = {
+        PARAM_NAME: 'test_param',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.3.2.3: Mock stdin with test input
+    mock_stdin = StringIO("test value\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.2.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.2.5: Verify returned value
+    assert user_value == "test value", "Expected 'test value', got '{0}'".format(user_value)
+```
+
+**Test 2.3.3: Tests for blank input with default value**
+
+```gherkin
+Scenario: Blank input with default value returns the default
+  Given a param with PARAM_TYPE_TEXT and PARAM_DEFAULT "default_value"
+  And stdin is mocked with StringIO("\n")
+  When prompt_for_value() is called
+  Then the function returns "default_value"
+  
+  # Tests: Default value handling for text input
+  # Validates: Blank input selects default using bash convention
+```
+
+```python
+# Test 2.3.3: Add to tests/test_input_prompt.py
+def test_prompt_text_with_default_blank_input(monkeypatch):
+    """Test that pressing Enter without typing selects the default value automatically.
+    
+    This test verifies that when stdin is mocked with just a newline character and
+    PARAM_DEFAULT is set, the function returns the default value.
+    This behaviour is expected because the bash convention of showing "[default: value]"
+    implies that blank input (just pressing Enter) will use that default value."""
+    # Block 2.3.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_DEFAULT
+    
+    # Block 2.3.3.2: Create param with default value
+    param_def = {
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'default_value'
+    }
+    
+    # Block 2.3.3.3: Mock stdin with blank input (just newline)
+    mock_stdin = StringIO("\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.3.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.3.5: Verify default value returned
+    assert user_value == 'default_value', "Expected 'default_value', got '{0}'".format(user_value)
+```
+
+**Test 2.4.2: Tests for number integer input conversion**
+
+```gherkin
+Scenario: Valid integer input converted correctly
+  Given a param with PARAM_TYPE_NUMBER
+  And stdin is mocked with StringIO("42\n")
+  When prompt_for_value() is called
+  Then the function returns 42 as integer
+  And no conversion errors occur
+  
+  # Tests: Number input with integer conversion
+  # Validates: Integer strings converted to int type
+```
+
+```python
+# Test 2.4.2: Add to tests/test_input_prompt.py
+def test_prompt_number_integer_valid(monkeypatch):
+    """Test that integer input is correctly converted to int type for numeric parameters.
+    
+    This test verifies that when a user enters "42" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the integer 42 (not string or float).
+    This behaviour is expected because integer input (no decimal point) should be
+    converted using int() for proper numeric operations, counters, and array indices."""
+    # Block 2.4.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.2.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.2.3: Mock stdin with integer input
+    mock_stdin = StringIO("42\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.2.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.2.5: Verify integer type and value
+    assert isinstance(result_value, int), "Expected int type, got {0}".format(type(result_value))
+    assert result_value == 42, "Expected 42, got {0}".format(result_value)
+```
+
+**Test 2.4.3: Tests for number float input conversion**
+
+```gherkin
+Scenario: Valid float input converted correctly
+  Given a param with PARAM_TYPE_NUMBER  
+  And stdin is mocked with StringIO("3.14\n")
+  When prompt_for_value() is called
+  Then the function returns 3.14 as float
+  And no conversion errors occur
+  
+  # Tests: Number input with float conversion
+  # Validates: Float strings converted to float type
+```
+
+```python
+# Test 2.4.3: Add to tests/test_input_prompt.py
+def test_prompt_number_float_valid(monkeypatch):
+    """Test that floating-point input is correctly converted to float type for numeric parameters.
+    
+    This test verifies that when a user enters "3.14" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the float 3.14 (not string or integer).
+    This behaviour is expected because float input (contains decimal point) should be
+    converted using float() for precise measurements, percentages, and scientific values."""
+    # Block 2.4.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.3.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.3.3: Mock stdin with float input
+    mock_stdin = StringIO("3.14\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.3.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.3.5: Verify float type and value
+    assert isinstance(result_value, float), "Expected float type, got {0}".format(type(result_value))
+    assert result_value == 3.14, "Expected 3.14, got {0}".format(result_value)
+```
+
+**Test 2.4.4: Tests for number invalid input validation**
+
+```gherkin
+Scenario: Invalid number input raises ValueError
+  Given a param with PARAM_TYPE_NUMBER
+  And stdin is mocked with StringIO("not_a_number\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates conversion failure
+  
+  # Tests: Number input validation
+  # Validates: Non-numeric input rejected with clear error
+```
+
+```python
+# Test 2.4.4: Add to tests/test_input_prompt.py
+def test_prompt_number_invalid_raises_error(monkeypatch):
+    """Test that non-numeric input raises ValueError for numeric parameters.
+    
+    This test verifies that when a user enters "not_a_number" for a PARAM_TYPE_NUMBER parameter,
+    the handler raises ValueError rather than returning invalid data.
+    This behaviour is expected because type conversion failures must be caught and reported
+    clearly, enabling retry logic at higher levels to prompt the user again."""
+    # Block 2.4.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.4.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("not_a_number\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.4.4: Verify ValueError raised
+    with pytest.raises(ValueError):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.5.2: Tests for toggle affirmative input variations**
+
+```gherkin
+Scenario: Toggle input accepts multiple affirmative formats
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin provides "y", "Y", "yes", "YES", "true", "True" in sequence
+  When prompt_for_value() is called for each input
+  Then all return True boolean value
+  And case-insensitive matching works correctly
+  
+  # Tests: Toggle input affirmative value recognition
+  # Validates: Multiple formats accepted for true/yes values
+```
+
+```python
+# Test 2.5.2: Add to tests/test_input_prompt.py
+def test_prompt_toggle_yes_variations(monkeypatch):
+    """Test that toggle parameters accept multiple affirmative formats with case-insensitive matching.
+    
+    This test verifies that inputs "y", "Y", "yes", "YES", "true", and "True" all return
+    the Python boolean True for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because providing flexible, user-friendly input options
+    improves usability rather than forcing users to remember exact format requirements."""
+    # Block 2.5.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.2.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.2.3: Test all affirmative variations
+    affirmative_inputs = ['y', 'Y', 'yes', 'YES', 'true', 'True']
+    for test_input in affirmative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is True, "Input '{0}' should return True".format(test_input)
+```
+
+**Test 2.5.3: Tests for toggle negative input variations**
+
+```gherkin
+Scenario: Toggle input accepts multiple negative formats
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin provides "n", "N", "no", "NO", "false", "False" in sequence  
+  When prompt_for_value() is called for each input
+  Then all return False boolean value
+  And case-insensitive matching works correctly
+  
+  # Tests: Toggle input negative value recognition
+  # Validates: Multiple formats accepted for false/no values
+```
+
+```python
+# Test 2.5.3: Add to tests/test_input_prompt.py
+def test_prompt_toggle_no_variations(monkeypatch):
+    """Test that toggle parameters accept multiple negative formats with case-insensitive matching.
+    
+    This test verifies that inputs "n", "N", "no", "NO", "false", and "False" all return
+    the Python boolean False for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because comprehensive support for common negative variations
+    provides a complete and intuitive toggle input experience."""
+    # Block 2.5.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.3.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.3.3: Test all negative variations
+    negative_inputs = ['n', 'N', 'no', 'NO', 'false', 'False']
+    for test_input in negative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is False, "Input '{0}' should return False".format(test_input)
+```
+
+**Test 2.5.4: Tests for toggle invalid input validation**
+
+```gherkin
+Scenario: Invalid toggle input raises ValueError
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin is mocked with StringIO("maybe\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates expected formats
+  
+  # Tests: Toggle input validation
+  # Validates: Unrecognized input rejected with helpful error
+```
+
+```python
+# Test 2.5.4: Add to tests/test_input_prompt.py
+def test_prompt_toggle_invalid_raises_error(monkeypatch):
+    """Test that unrecognized input raises ValueError for toggle parameters.
+    
+    This test verifies that when a user enters "maybe" for a PARAM_TYPE_TOGGLE parameter,
+    the handler raises ValueError with a clear message about expected formats.
+    This behaviour is expected because ambiguous or invalid input must be rejected,
+    enabling retry logic to prompt the user again with guidance on valid options."""
+    # Block 2.5.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.4.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("maybe\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.5.4.4: Verify ValueError raised with helpful message
+    with pytest.raises(ValueError, match="Expected y/yes/true or n/no/false"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.6.2: Tests for multiple choice selection by number**
+
+```gherkin
+Scenario: Multiple choice selection by number works correctly
+  Given a param with PARAM_ALLOWED_VALUES ["option1", "option2", "option3"]
+  And stdin is mocked with StringIO("2\n")
+  When prompt_for_value() is called
+  Then numbered list displayed: "1. option1\n2. option2\n3. option3"
+  And the function returns "option2"
+  
+  # Tests: Multiple choice selection by index number
+  # Validates: Users can select by entering list number
+```
+
+```python
+# Test 2.6.2: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_number(monkeypatch, capsys):
+    """Test that users can select from multiple choice options by entering the numeric index.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "2", the handler returns "green" (the second option).
+    This behaviour is expected because numbered selection provides an efficient interface
+    where users can type a single digit instead of the full option text."""
+    # Block 2.6.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.2.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select option',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.2.3: Mock stdin with numeric selection
+    mock_stdin = StringIO("2\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.2.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.2.5: Verify correct option selected
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+    
+    # Block 2.6.2.6: Verify numbered list was displayed
+    captured_output = capsys.readouterr()
+    assert '1. red' in captured_output.out, "Option 1 not displayed"
+    assert '2. green' in captured_output.out, "Option 2 not displayed"
+    assert '3. blue' in captured_output.out, "Option 3 not displayed"
+```
+
+**Test 2.6.3: Tests for multiple choice selection by exact text**
+
+```gherkin
+Scenario: Multiple choice selection by exact text works correctly
+  Given a param with PARAM_ALLOWED_VALUES ["red", "green", "blue"]
+  And stdin is mocked with StringIO("green\n")
+  When prompt_for_value() is called
+  Then the function returns "green"
+  And selection matches exact text from allowed values
+  
+  # Tests: Multiple choice selection by typing exact value
+  # Validates: Users can select by entering the text value directly
+```
+
+```python
+# Test 2.6.3: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_text(monkeypatch):
+    """Test that users can select from multiple choice options by entering the exact text value.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "green", the handler returns "green" directly.
+    This behaviour is expected because some users prefer typing the full option name
+    rather than remembering numeric indices, providing flexible selection methods."""
+    # Block 2.6.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.3.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.3.3: Mock stdin with text selection
+    mock_stdin = StringIO("green\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.3.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.3.5: Verify correct text match
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+```
+
+**Test 2.6.4: Tests for multiple choice invalid selection validation**
+
+```gherkin
+Scenario: Invalid multiple choice selection raises ValueError
+  Given a param with PARAM_ALLOWED_VALUES ["red", "green", "blue"]
+  And stdin is mocked with StringIO("yellow\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates invalid selection
+  
+  # Tests: Multiple choice validation
+  # Validates: Invalid selections rejected with clear error
+```
+
+```python
+# Test 2.6.4: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_invalid_selection(monkeypatch):
+    """Test that invalid selections raise ValueError for multiple choice parameters.
+    
+    This test verifies that when the user enters "yellow" for options ["red", "green", "blue"],
+    the handler raises ValueError with a message about valid selection methods.
+    This behaviour is expected because only values in PARAM_ALLOWED_VALUES or their indices
+    are valid, and invalid selections must be rejected to enable retry logic."""
+    # Block 2.6.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.4.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.4.3: Mock stdin with invalid selection
+    mock_stdin = StringIO("yellow\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.4.4: Verify ValueError raised
+    with pytest.raises(ValueError, match="Invalid selection"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.7.2: Tests for EOF handling in non-interactive environment**
+
+```gherkin
+Scenario: EOF on stdin raises EOFError
+  Given a param with PARAM_TYPE_TEXT
+  And stdin is mocked with StringIO("") (empty)
+  When prompt_for_value() is called
+  Then EOFError is raised
+  And no value is returned
+  
+  # Tests: EOF handling when stdin closes unexpectedly
+  # Validates: Framework detects and reports EOF condition properly
+```
+
+```python
+# Test 2.7.2: Add to tests/test_input_prompt.py
+def test_prompt_eof_raises_error(monkeypatch):
+    """Test that EOF condition raises EOFError when stdin closes unexpectedly.
+    
+    This test verifies that when stdin is empty (EOF condition from Ctrl+D, closed pipe,
+    or automated scripts), the handler raises EOFError rather than failing silently.
+    This behaviour is expected because EOF must be detected and reported clearly,
+    ensuring the application fails predictably in non-interactive environments."""
+    # Block 2.7.2.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_PROMPT
+    
+    # Block 2.7.2.2: Create param definition
+    param_def = {
+        PARAM_PROMPT: 'Enter value',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.7.2.3: Mock stdin with empty stream (EOF)
+    mock_stdin = StringIO("")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.7.2.4: Verify EOFError raised
+    with pytest.raises(EOFError):
+        input_prompt.prompt_for_value(param_def)
+```
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+**Step 3: Add param registration logic**
 
 **File:** `src/spafw37/param.py`
 
-**Add internal state:**
-- `_global_prompt_handler = None` - global handler storage
-- `_prompted_params = set()` - track which params have been prompted (for PROMPT_REPEAT_NEVER)
+Add internal state for prompt handling, extend parameter registration to validate and store prompt properties, and provide public APIs for dynamic configuration.
 
-**Extend `add_param()` function:**
-- Store `PROMPT_ON_COMMANDS` list on param definition (if present)
-- If `PARAM_PROMPT` exists but `PROMPT_ON_COMMANDS` not explicitly set, mark param with special flag for auto-population
-- Validate prompt properties (e.g., timing must be valid constant)
+**Implementation order:**
 
-**Add public API:**
-- `set_prompt_handler(handler)` - set global prompt handler (delegated through `core.py`)
-- `set_allowed_values(param_name, values)` - update `PARAM_ALLOWED_VALUES` at runtime
+1. Add module-level storage for global prompt handler and prompted params tracking
+2. Import new prompt constants from constants/param.py module
+3. Create validation helper to check prompt timing values are valid
+4. Create validation helper to check prompt repeat values are valid
+5. Add prompt property validation to parameter registration flow
+6. Implement public API function to set global prompt handler
+7. Implement public API function to update allowed values dynamically
+8. Add unit tests for validation helpers
+9. Add unit tests for prompt property storage during registration
+10. Add unit tests for public API functions
 
-[Detailed implementation will be added in Step 4]
+**Code 3.1.1: Module-level prompt state**
 
-[↑ Back to top](#table-of-contents)
+```python
+# Block 3.1.1: Add after _SWITCH_REGISTER constant in src/spafw37/param.py
+# Global prompt handler storage (None = use default handler)
+_global_prompt_handler = None
 
----
+# Tracked params that have been prompted (for PROMPT_REPEAT_NEVER)
+_prompted_params = set()
 
-**Step 3b: Test param registration**
-
-**File:** `tests/test_param_prompts.py`
-
-**Tests:** Test param registration with prompt properties and public API functions.
-
-This step validates that the parameter registration system correctly stores and preserves all prompt-related properties. Registration is the first point of integration between user-defined parameters and the framework's internal structures. These tests ensure prompt properties survive the registration process intact, timing/repeat constants are stored correctly, auto-population flags work, and the public API functions (`set_prompt_handler()`, `set_allowed_values()`) operate as designed.
-
-**Test 3.3.1: test_param_with_prompt_property_registered**
-
-This test validates the most fundamental integration point: registering a parameter with the new `PARAM_PROMPT` property. The registration system must accept this new property without errors and store it correctly in the internal `_params` dictionary. This test confirms that prompt-enabled parameters are treated as first-class citizens in the framework, establishing the foundation for all subsequent prompt functionality.
-
-```gherkin
-Scenario: Param with PARAM_PROMPT property registers successfully  
-  Given a param definition with PARAM_PROMPT "Enter value:"
-  When add_param() is called
-  Then param is stored in _params dictionary
-  And PARAM_PROMPT property is preserved on param definition
-  And param can be retrieved by name
-  
-  # Tests: Basic registration with prompt property
-  # Validates: Params with PARAM_PROMPT are accepted and stored correctly
+# Auto-population flag marker (internal use only)
+_PROMPT_AUTO_POPULATE = '_prompt_auto_populate'
 ```
 
-**Test 3.3.2: test_prompt_on_start_timing_stored**
-
-This test validates storage of the `PROMPT_ON_START` timing constant. When a parameter specifies this timing, the framework must preserve the exact constant value (not convert it to a string, boolean, or other type). This is critical because timing checks throughout the codebase use identity comparison (`timing == PROMPT_ON_START`). The test confirms the constant survives registration without mutation, ensuring timing logic will work correctly at runtime.
+**Test 3.1.2: Tests for module-level state initialisation**
 
 ```gherkin
-Scenario: PROMPT_ON_START timing value stored correctly
-  Given a param with PARAM_PROMPT_TIMING set to PROMPT_ON_START constant
-  When add_param() is called
-  Then param stored with PARAM_PROMPT_TIMING property
-  And property value equals PROMPT_ON_START constant
+Scenario: Module-level prompt state initialises correctly
+  Given the param module is imported
+  When checking module-level variables
+  Then _global_prompt_handler is None
+  And _prompted_params is an empty set
+  And _PROMPT_AUTO_POPULATE constant is defined
   
-  # Tests: PROMPT_ON_START timing storage
-  # Validates: Timing constant preserved for runtime checking
+  # Tests: Module-level state initialisation
+  # Validates: Prompt state starts in clean initial state
 ```
 
-**Test 3.3.3: test_prompt_on_commands_list_stored**
-
-This test validates storage of command name lists when using `PROMPT_ON_COMMANDS` timing. Unlike `PROMPT_ON_START` (a constant), `PROMPT_ON_COMMANDS` can be a list of specific command names like `["cmd1", "cmd2"]`. The registration system must store this list correctly without converting it to a string or losing elements. The test confirms list storage works correctly, enabling command-specific prompt timing at runtime.
-
-```gherkin
-Scenario: PROMPT_ON_COMMANDS list stored correctly
-  Given a param with PARAM_PROMPT_TIMING set to list ["cmd1", "cmd2"]
-  When add_param() is called
-  Then param stored with PARAM_PROMPT_TIMING property
-  And property value is ["cmd1", "cmd2"]
-  And list is stored not copied (references same object)
-  
-  # Tests: PROMPT_ON_COMMANDS list storage
-  # Validates: Command name list preserved for lookup during command execution
+```python
+# Test 3.1.2: Add to tests/test_param_prompts.py
+def test_module_level_prompt_state_initialised():
+    """Test that module-level prompt state variables are initialised correctly.
+    
+    This test verifies _global_prompt_handler starts as None (no custom handler),
+    _prompted_params starts as empty set (no prompts executed yet), and the
+    _PROMPT_AUTO_POPULATE flag constant is defined for marking params during registration.
+    This behaviour is expected because clean initial state ensures no leftover configuration
+    from previous test runs or imports affects prompt behaviour."""
+    # Block 3.1.2.1: Import param module
+    from spafw37 import param
+    
+    # Block 3.1.2.2: Verify global handler starts as None
+    assert param._global_prompt_handler is None, "Global handler should start as None"
+    
+    # Block 3.1.2.3: Verify prompted params tracking starts empty
+    assert isinstance(param._prompted_params, set), "Prompted params must be a set"
+    assert len(param._prompted_params) == 0, "Prompted params should start empty"
+    
+    # Block 3.1.2.4: Verify auto-populate flag constant exists
+    assert hasattr(param, '_PROMPT_AUTO_POPULATE'), "Auto-populate flag constant missing"
+    assert isinstance(param._PROMPT_AUTO_POPULATE, str), "Flag must be string key"
 ```
 
-**Test 3.3.4: test_prompt_repeat_always_constant_stored**
+**Code 3.2.1: Import prompt constants**
 
-This test validates storage of the `PROMPT_REPEAT_ALWAYS` constant, which controls prompt behaviour in cycles. Like timing constants, repeat constants must be preserved exactly as provided—no type conversion or mutation. This constant tells the framework to prompt on every cycle iteration, and the test confirms this directive is stored correctly for cycle logic to reference at runtime.
-
-```gherkin
-Scenario: PROMPT_REPEAT_ALWAYS constant stored correctly
-  Given a param with PARAM_PROMPT_REPEAT set to PROMPT_REPEAT_ALWAYS
-  When add_param() is called
-  Then param stored with PARAM_PROMPT_REPEAT property
-  And property value equals PROMPT_REPEAT_ALWAYS constant
-  
-  # Tests: PROMPT_REPEAT_ALWAYS storage
-  # Validates: Repeat behaviour constant preserved for cycle logic
+```python
+# Block 3.2.1: Add to imports section after existing PARAM_* imports
+from spafw37.constants.param import (
+    # ... existing imports ...
+    PARAM_PROMPT,
+    PARAM_PROMPT_HANDLER,
+    PARAM_PROMPT_TIMING,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_ON_START,
+    PROMPT_ON_COMMAND,
+    PROMPT_REPEAT_ALWAYS,
+    PROMPT_REPEAT_IF_BLANK,
+    PROMPT_REPEAT_NEVER,
+)
 ```
 
-**Test 3.3.5: test_auto_population_flag_set**
+**Code 3.3.1: Validate prompt timing value**
 
-This test validates the auto-population mechanism that reduces configuration burden. When a parameter has `PARAM_PROMPT` but doesn't explicitly specify `PARAM_PROMPT_TIMING`, the framework should mark it for auto-population from `COMMAND_REQUIRED_PARAMS`. This allows commands to automatically trigger prompts for their required params without duplicate configuration. The test confirms the auto-population flag is set correctly during registration, enabling the reciprocal registration logic to work in Step 4.
+```python
+# Block 3.3.1: Add before add_param() function
+def _validate_prompt_timing(timing_value):
+    """Validate PARAM_PROMPT_TIMING value is a recognised constant.
+    
+    Args:
+        timing_value: Value from PARAM_PROMPT_TIMING property.
+        
+    Raises:
+        ValueError: If timing value is not valid.
+    """
+    # Block 3.3.1.1: Accept PROMPT_ON_START constant
+    if timing_value == PROMPT_ON_START:
+        return
+    
+    # Block 3.3.1.2: Accept PROMPT_ON_COMMAND constant
+    if timing_value == PROMPT_ON_COMMAND:
+        return
+    
+    # Block 3.3.1.3: Reject all other values
+    raise ValueError(
+        "PARAM_PROMPT_TIMING must be PROMPT_ON_START or PROMPT_ON_COMMAND constant"
+    )
+```
+
+**Test 3.3.2: Tests for prompt timing validation with valid constant**
 
 ```gherkin
-Scenario: Param without explicit PROMPT_ON_COMMANDS marked for auto-population
+Scenario: PROMPT_ON_START constant passes validation
+  Given timing value set to PROMPT_ON_START constant
+  When _validate_prompt_timing() is called
+  Then no exception is raised
+  And validation passes successfully
+  
+  # Tests: Valid timing constant acceptance
+  # Validates: PROMPT_ON_START recognised as valid timing value
+```
+
+```python
+# Test 3.3.2: Add to tests/test_param_prompts.py
+def test_validate_prompt_timing_with_on_start():
+    """Test that PROMPT_ON_START constant passes timing validation successfully.
+    
+    This test verifies _validate_prompt_timing() accepts the PROMPT_ON_START constant
+    without raising exceptions, as this is one of the two valid timing modes.
+    This behaviour is expected because PROMPT_ON_START indicates prompts should run
+    immediately after CLI parsing, before command execution, which is a core timing option."""
+    # Block 3.3.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PROMPT_ON_START
+    
+    # Block 3.3.2.2: Call validation with PROMPT_ON_START
+    try:
+        param._validate_prompt_timing(PROMPT_ON_START)
+        validation_passed = True
+    except ValueError:
+        validation_passed = False
+    
+    # Block 3.3.2.3: Verify validation passed
+    assert validation_passed, "PROMPT_ON_START should pass validation"
+```
+
+**Test 3.3.3: Tests for prompt timing validation with PROMPT_ON_COMMAND constant**
+
+```gherkin
+Scenario: PROMPT_ON_COMMAND constant passes validation
+  Given timing value set to PROMPT_ON_COMMAND constant
+  When _validate_prompt_timing() is called
+  Then no exception is raised
+  And validation passes successfully
+  
+  # Tests: Valid timing constant acceptance
+  # Validates: PROMPT_ON_COMMAND recognised as valid timing value
+```
+
+```python
+# Test 3.3.3: Add to tests/test_param_prompts.py
+def test_validate_prompt_timing_with_on_command():
+    """Test that PROMPT_ON_COMMAND constant passes timing validation successfully.
+    
+    This test verifies _validate_prompt_timing() accepts the PROMPT_ON_COMMAND constant
+    without raising exceptions, as this indicates prompts should run before specific commands.
+    This behaviour is expected because PROMPT_ON_COMMAND tells the framework to check the
+    PROMPT_ON_COMMANDS property for the list of commands to prompt before."""
+    # Block 3.3.3.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PROMPT_ON_COMMAND
+    
+    # Block 3.3.3.2: Call validation with PROMPT_ON_COMMAND
+    try:
+        param._validate_prompt_timing(PROMPT_ON_COMMAND)
+        validation_passed = True
+    except ValueError:
+        validation_passed = False
+    
+    # Block 3.3.3.3: Verify validation passed
+    assert validation_passed, "PROMPT_ON_COMMAND should pass validation"
+```
+
+**Test 3.3.4: Tests for prompt timing validation rejection of invalid values**
+
+```gherkin
+Scenario: Invalid timing value raises ValueError
+  Given timing value set to "invalid_constant" or a list
+  When _validate_prompt_timing() is called
+  Then ValueError is raised
+  And error message indicates valid options (PROMPT_ON_START or PROMPT_ON_COMMAND)
+  
+  # Tests: Invalid timing value rejection
+  # Validates: Only PROMPT_ON_START or PROMPT_ON_COMMAND constants accepted
+```
+
+```python
+# Test 3.3.4: Add to tests/test_param_prompts.py
+def test_validate_prompt_timing_rejects_invalid_value():
+    """Test that invalid timing values raise ValueError during validation.
+    
+    This test verifies _validate_prompt_timing() rejects values that are neither
+    PROMPT_ON_START constant nor lists, such as arbitrary strings like "invalid".
+    This behaviour is expected because accepting invalid timing values would cause
+    subtle runtime errors when the framework tries to determine when to prompt."""
+    # Block 3.3.4.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.3.4.2: Attempt validation with invalid value
+    with pytest.raises(ValueError, match="PARAM_PROMPT_TIMING must be"):
+        param._validate_prompt_timing("invalid_constant")
+```
+
+**Code 3.4.1: Validate prompt repeat value**
+
+```python
+# Block 3.4.1: Add after _validate_prompt_timing() function
+def _validate_prompt_repeat(repeat_value):
+    """Validate PARAM_PROMPT_REPEAT value is a recognised constant.
+    
+    Args:
+        repeat_value: Value from PARAM_PROMPT_REPEAT property.
+        
+    Raises:
+        ValueError: If repeat value is not valid.
+    """
+    # Block 3.4.1.1: Check against all valid repeat constants
+    valid_repeats = (PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER)
+    if repeat_value not in valid_repeats:
+        raise ValueError(
+            "PARAM_PROMPT_REPEAT must be one of: PROMPT_REPEAT_ALWAYS, "
+            "PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER"
+        )
+```
+
+**Test 3.4.2: Tests for prompt repeat validation with valid constants**
+
+```gherkin
+Scenario: All three PROMPT_REPEAT_* constants pass validation
+  Given repeat values PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER
+  When _validate_prompt_repeat() is called for each
+  Then no exceptions are raised
+  And all three constants accepted
+  
+  # Tests: Valid repeat constant acceptance
+  # Validates: All repeat behaviour options recognised
+```
+
+```python
+# Test 3.4.2: Add to tests/test_param_prompts.py
+def test_validate_prompt_repeat_with_valid_constants():
+    """Test that all PROMPT_REPEAT_* constants pass repeat validation successfully.
+    
+    This test verifies _validate_prompt_repeat() accepts PROMPT_REPEAT_ALWAYS,
+    PROMPT_REPEAT_IF_BLANK, and PROMPT_REPEAT_NEVER without raising exceptions.
+    This behaviour is expected because these three constants represent the complete
+    set of valid repeat behaviours for prompts in cycle and multi-command scenarios."""
+    # Block 3.4.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import (
+        PROMPT_REPEAT_ALWAYS,
+        PROMPT_REPEAT_IF_BLANK,
+        PROMPT_REPEAT_NEVER
+    )
+    
+    # Block 3.4.2.2: Test each valid constant
+    valid_constants = [PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER]
+    for repeat_constant in valid_constants:
+        try:
+            param._validate_prompt_repeat(repeat_constant)
+            validation_passed = True
+        except ValueError:
+            validation_passed = False
+        
+        assert validation_passed, "Constant {0} should pass validation".format(repeat_constant)
+```
+
+**Test 3.4.3: Tests for prompt repeat validation rejection of invalid values**
+
+```gherkin
+Scenario: Invalid repeat value raises ValueError
+  Given repeat value set to "invalid_repeat"
+  When _validate_prompt_repeat() is called
+  Then ValueError is raised
+  And error message lists valid constants
+  
+  # Tests: Invalid repeat value rejection
+  # Validates: Only valid PROMPT_REPEAT_* constants accepted
+```
+
+```python
+# Test 3.4.3: Add to tests/test_param_prompts.py
+def test_validate_prompt_repeat_rejects_invalid_value():
+    """Test that invalid repeat values raise ValueError during validation.
+    
+    This test verifies _validate_prompt_repeat() rejects arbitrary values that are
+    not one of the three valid PROMPT_REPEAT_* constants.
+    This behaviour is expected because accepting invalid repeat values would cause
+    undefined behaviour in cycle logic where the framework checks repeat mode."""
+    # Block 3.4.3.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.4.3.2: Attempt validation with invalid value
+    with pytest.raises(ValueError, match="PARAM_PROMPT_REPEAT must be one of"):
+        param._validate_prompt_repeat("invalid_repeat")
+```
+
+**Code 3.5.1: Validate and process prompt properties in add_param**
+
+```python
+# Block 3.5.1: Add after _apply_runtime_only_constraint() call in add_param()
+def _validate_and_process_prompt_properties(_param):
+    """Validate and process prompt-related properties during parameter registration.
+    
+    Args:
+        _param: Parameter definition dictionary.
+        
+    Raises:
+        ValueError: If prompt properties are invalid or required fields missing.
+    """
+    # Block 3.5.1.1: Skip if param has no PARAM_PROMPT (not a prompt-enabled param)
+    if PARAM_PROMPT not in _param:
+        return
+    
+    # Block 3.5.1.2: Validate PARAM_PROMPT is a non-empty string
+    prompt_text = _param[PARAM_PROMPT]
+    if not isinstance(prompt_text, str) or not prompt_text.strip():
+        param_name = _param.get(PARAM_NAME, '<unknown>')
+        raise ValueError(
+            "PARAM_PROMPT must be a non-empty string for param '{0}'".format(param_name)
+        )
+    
+    # Block 3.5.1.3: Validate PARAM_TYPE exists (required for input handling)
+    if PARAM_TYPE not in _param:
+        param_name = _param.get(PARAM_NAME, '<unknown>')
+        raise ValueError(
+            "PARAM_TYPE is required for prompt-enabled param '{0}'".format(param_name)
+        )
+    
+    # Block 3.5.1.4: Validate timing if specified
+    if PARAM_PROMPT_TIMING in _param:
+        _validate_prompt_timing(_param[PARAM_PROMPT_TIMING])
+    else:
+        # Block 3.5.1.5: Mark for auto-population if no explicit timing
+        _param[_PROMPT_AUTO_POPULATE] = True
+    
+    # Block 3.5.1.6: Validate repeat behaviour if specified
+    if PARAM_PROMPT_REPEAT in _param:
+        _validate_prompt_repeat(_param[PARAM_PROMPT_REPEAT])
+```
+
+**Test 3.5.2: Tests for prompt property validation during registration**
+
+```gherkin
+Scenario: Param with PARAM_PROMPT and valid timing registers successfully
+  Given a param with PARAM_PROMPT and PARAM_PROMPT_TIMING set to PROMPT_ON_START
+  When add_param() is called
+  Then param is registered without errors
+  And PARAM_PROMPT_TIMING property is preserved
+  
+  # Tests: Successful registration with valid prompt properties
+  # Validates: Validation accepts valid prompt configurations
+```
+
+```python
+# Test 3.5.2: Add to tests/test_param_prompts.py
+def test_param_with_valid_prompt_properties_registers():
+    """Test that params with valid prompt properties register successfully without errors.
+    
+    This test verifies add_param() accepts parameters with PARAM_PROMPT and valid
+    PARAM_PROMPT_TIMING (PROMPT_ON_START), storing all properties correctly.
+    This behaviour is expected because properly configured prompt params are valid
+    and should integrate seamlessly with the registration system."""
+    # Block 3.5.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import (
+        PARAM_NAME,
+        PARAM_PROMPT,
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_START
+    )
+    
+    # Block 3.5.2.2: Clear any existing params
+    param._params = {}
+    
+    # Block 3.5.2.3: Create param with valid prompt properties
+    test_param = {
+        PARAM_NAME: 'test_prompt_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START
+    }
+    
+    # Block 3.5.2.4: Register param (should not raise)
+    param.add_param(test_param)
+    
+    # Block 3.5.2.5: Verify param was registered with properties intact
+    registered_param = param.get_param_by_name('test_prompt_param')
+    assert registered_param is not None, "Param should be registered"
+    assert registered_param[PARAM_PROMPT] == 'Enter value:', "PARAM_PROMPT not preserved"
+    assert registered_param[PARAM_PROMPT_TIMING] == PROMPT_ON_START, "Timing not preserved"
+```
+
+**Test 3.5.3: Tests for auto-population flag on params without explicit timing**
+
+```gherkin
+Scenario: Param with PARAM_PROMPT but no timing gets auto-populate flag
   Given a param with PARAM_PROMPT but no PARAM_PROMPT_TIMING
   When add_param() is called
-  Then param is marked with auto-population flag
+  Then param is registered with auto-populate flag set
   And flag indicates PROMPT_ON_COMMANDS should be populated from commands
   
   # Tests: Auto-population flag mechanism
-  # Validates: Framework can identify params needing command list population
+  # Validates: Params without explicit timing marked for command-driven population
 ```
 
-**Test 3.3.6: test_set_prompt_handler_global**
+```python
+# Test 3.5.3: Add to tests/test_param_prompts.py
+def test_param_without_timing_gets_auto_populate_flag():
+    """Test that params with PARAM_PROMPT but no explicit timing get auto-populate flag.
+    
+    This test verifies add_param() marks parameters with _PROMPT_AUTO_POPULATE flag
+    when they have PARAM_PROMPT but don't specify PARAM_PROMPT_TIMING.
+    This behaviour is expected because the auto-population mechanism allows commands
+    to automatically trigger prompts for their required params without duplicate configuration."""
+    # Block 3.5.3.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT
+    
+    # Block 3.5.3.2: Clear any existing params
+    param._params = {}
+    
+    # Block 3.5.3.3: Create param with PARAM_PROMPT but no timing
+    test_param = {
+        PARAM_NAME: 'auto_populate_param',
+        PARAM_PROMPT: 'Enter value:'
+    }
+    
+    # Block 3.5.3.4: Register param
+    param.add_param(test_param)
+    
+    # Block 3.5.3.5: Verify auto-populate flag is set
+    registered_param = param.get_param_by_name('auto_populate_param')
+    assert registered_param[param._PROMPT_AUTO_POPULATE] is True, "Auto-populate flag should be set"
+```
 
-This test validates the global prompt handler registration API. `set_prompt_handler()` allows applications to replace the default `input()` handler with custom logic (e.g., GUI prompts, API-based input). The test confirms the function stores the custom handler reference in `_global_prompt_handler` correctly, making it available for all subsequent prompts that don't have param-specific handlers. This establishes the foundation of the extensibility system.
+**Test 3.5.4: Tests for invalid prompt timing rejection during registration**
 
 ```gherkin
-Scenario: Global prompt handler set via set_prompt_handler()
+Scenario: Param with invalid PARAM_PROMPT_TIMING raises ValueError
+  Given a param with PARAM_PROMPT_TIMING set to "invalid_value"
+  When add_param() is called
+  Then ValueError is raised
+  And param is not registered
+  
+  # Tests: Invalid timing rejection at registration time
+  # Validates: Registration fails fast for invalid configurations
+```
+
+```python
+# Test 3.5.4: Add to tests/test_param_prompts.py
+def test_param_with_invalid_timing_raises_error_on_registration():
+    """Test that params with invalid PARAM_PROMPT_TIMING values are rejected during registration.
+    
+    This test verifies add_param() raises ValueError when a parameter specifies an
+    invalid PARAM_PROMPT_TIMING value (not PROMPT_ON_START or a list).
+    This behaviour is expected because failing fast during registration prevents subtle
+    runtime errors when the framework tries to determine prompt timing."""
+    # Block 3.5.4.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT, PARAM_PROMPT_TIMING
+    import pytest
+    
+    # Block 3.5.4.2: Clear any existing params
+    param._params = {}
+    
+    # Block 3.5.4.3: Create param with invalid timing
+    invalid_param = {
+        PARAM_NAME: 'invalid_timing_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_TIMING: 'invalid_value'
+    }
+    
+    # Block 3.5.4.4: Verify ValueError raised during registration
+    with pytest.raises(ValueError, match="PARAM_PROMPT_TIMING must be"):
+        param.add_param(invalid_param)
+```
+
+**Test 3.5.5: Tests for empty PARAM_PROMPT rejection during registration**
+
+```gherkin
+Scenario: Param with empty or whitespace-only PARAM_PROMPT raises ValueError
+  Given a param with PARAM_PROMPT set to empty string or "   "
+  When add_param() is called
+  Then ValueError is raised
+  And error message indicates PARAM_PROMPT must be non-empty string
+  
+  # Tests: PARAM_PROMPT field validation
+  # Validates: Prompt text must be meaningful (non-empty string)
+```
+
+```python
+# Test 3.5.5: Add to tests/test_param_prompts.py
+def test_param_with_empty_prompt_raises_error():
+    """Test that params with empty or whitespace-only PARAM_PROMPT are rejected.
+    
+    This test verifies add_param() raises ValueError when PARAM_PROMPT is an empty
+    string or contains only whitespace, as prompt text must be meaningful.
+    This behaviour is expected because empty prompts would confuse users and
+    indicate a configuration error."""
+    # Block 3.5.5.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT, PARAM_TYPE, PARAM_TYPE_TEXT
+    import pytest
+    
+    # Block 3.5.5.2: Clear any existing params
+    param._params = {}
+    
+    # Block 3.5.5.3: Test empty string
+    empty_param = {
+        PARAM_NAME: 'empty_prompt',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: ''
+    }
+    with pytest.raises(ValueError, match="PARAM_PROMPT must be a non-empty string"):
+        param.add_param(empty_param)
+    
+    # Block 3.5.5.4: Test whitespace-only string
+    param._params = {}
+    whitespace_param = {
+        PARAM_NAME: 'whitespace_prompt',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: '   '
+    }
+    with pytest.raises(ValueError, match="PARAM_PROMPT must be a non-empty string"):
+        param.add_param(whitespace_param)
+```
+
+**Test 3.5.6: Tests for missing PARAM_TYPE rejection for prompt params**
+
+```gherkin
+Scenario: Prompt param without PARAM_TYPE raises ValueError
+  Given a param with PARAM_PROMPT but no PARAM_TYPE
+  When add_param() is called
+  Then ValueError is raised
+  And error message indicates PARAM_TYPE required for prompt params
+  
+  # Tests: Required field validation for prompt params
+  # Validates: PARAM_TYPE needed to determine input handling
+```
+
+```python
+# Test 3.5.6: Add to tests/test_param_prompts.py
+def test_prompt_param_without_type_raises_error():
+    """Test that prompt-enabled params without PARAM_TYPE are rejected during registration.
+    
+    This test verifies add_param() raises ValueError when a parameter has PARAM_PROMPT
+    but doesn't specify PARAM_TYPE, which is needed to determine input handling.
+    This behaviour is expected because the framework needs PARAM_TYPE to know how to
+    parse and validate user input (text, number, toggle, etc.)."""
+    # Block 3.5.6.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT
+    import pytest
+    
+    # Block 3.5.6.2: Clear any existing params
+    param._params = {}
+    
+    # Block 3.5.6.3: Create prompt param without PARAM_TYPE
+    no_type_param = {
+        PARAM_NAME: 'no_type_prompt',
+        PARAM_PROMPT: 'Enter value:'
+    }
+    
+    # Block 3.5.6.4: Verify ValueError raised during registration
+    with pytest.raises(ValueError, match="PARAM_TYPE is required for prompt-enabled param"):
+        param.add_param(no_type_param)
+```
+
+**Code 3.6.1: Public API to set global prompt handler**
+
+```python
+# Block 3.6.1: Add after add_pre_parse_args() function
+def set_prompt_handler(handler):
+    """Set the global prompt handler function for all parameters.
+    
+    This handler will be used for any parameter prompts that don't have
+    a param-specific PARAM_PROMPT_HANDLER defined. Set to None to restore
+    the default handler (input_prompt.prompt_for_value).
+    
+    Args:
+        handler: Callable that accepts param_def dict and returns user input value.
+                 Signature: handler(param_def) -> value
+    """
+    global _global_prompt_handler
+    _global_prompt_handler = handler
+```
+
+**Test 3.6.2: Tests for set_prompt_handler storing custom handler**
+
+```gherkin
+Scenario: Custom prompt handler set via set_prompt_handler()
   Given a custom handler function custom_handler()
   When set_prompt_handler(custom_handler) is called
   Then _global_prompt_handler stores custom_handler reference
@@ -727,9 +2550,97 @@ Scenario: Global prompt handler set via set_prompt_handler()
   # Validates: Custom handlers can replace default input() behaviour globally
 ```
 
-**Test 3.3.7: test_set_allowed_values_updates_param**
+```python
+# Test 3.6.2: Add to tests/test_param_prompts.py
+def test_set_prompt_handler_stores_custom_handler():
+    """Test that set_prompt_handler() correctly stores custom handler reference globally.
+    
+    This test verifies set_prompt_handler() updates the module-level _global_prompt_handler
+    variable with the provided custom handler function reference.
+    This behaviour is expected because the global handler provides extensibility,
+    allowing applications to replace the default input() handler with GUI prompts,
+    API-based input, or other custom input mechanisms."""
+    # Block 3.6.2.1: Import required modules
+    from spafw37 import param
+    
+    # Block 3.6.2.2: Define a custom handler function
+    def custom_handler(param_def):
+        return "custom_value"
+    
+    # Block 3.6.2.3: Set the global handler
+    param.set_prompt_handler(custom_handler)
+    
+    # Block 3.6.2.4: Verify handler was stored
+    assert param._global_prompt_handler is custom_handler, "Custom handler should be stored"
+    
+    # Block 3.6.2.5: Clean up (restore None)
+    param.set_prompt_handler(None)
+```
 
-This test validates the dynamic allowed values API that enables runtime population of multiple choice lists. Commands can call `set_allowed_values("param_name", ["a", "b", "c"])` to populate choices after parameter registration, enabling data-driven menus without hardcoding options. The test confirms this function correctly updates the `PARAM_ALLOWED_VALUES` property on an existing parameter, enabling multiple choice prompting without requiring re-registration.
+**Test 3.6.3: Tests for set_prompt_handler restoring default with None**
+
+```gherkin
+Scenario: Passing None to set_prompt_handler restores default behaviour
+  Given _global_prompt_handler was set to a custom handler
+  When set_prompt_handler(None) is called
+  Then _global_prompt_handler is set to None
+  And default handler will be used for prompts
+  
+  # Tests: Handler restoration to default
+  # Validates: Applications can revert to default behaviour
+```
+
+```python
+# Test 3.6.3: Add to tests/test_param_prompts.py
+def test_set_prompt_handler_with_none_restores_default():
+    """Test that passing None to set_prompt_handler() restores default handler behaviour.
+    
+    This test verifies set_prompt_handler(None) clears the custom handler, setting
+    _global_prompt_handler back to None (which signals use of default handler).
+    This behaviour is expected because applications need a way to revert to default
+    behaviour after setting a custom handler, ensuring flexibility in testing and configuration."""
+    # Block 3.6.3.1: Import required modules
+    from spafw37 import param
+    
+    # Block 3.6.3.2: Set a custom handler first
+    def custom_handler(param_def):
+        return "custom"
+    param.set_prompt_handler(custom_handler)
+    
+    # Block 3.6.3.3: Restore default by passing None
+    param.set_prompt_handler(None)
+    
+    # Block 3.6.3.4: Verify handler is None
+    assert param._global_prompt_handler is None, "Handler should be None (default)"
+```
+
+**Code 3.7.1: Public API to set allowed values dynamically**
+
+```python
+# Block 3.7.1: Add after set_prompt_handler() function
+def set_allowed_values(param_name, values):
+    """Set or update PARAM_ALLOWED_VALUES for a parameter at runtime.
+    
+    This enables commands to populate multiple choice lists dynamically
+    without requiring parameter re-registration.
+    
+    Args:
+        param_name: Name of the parameter to update.
+        values: List of allowed values for multiple choice prompts.
+        
+    Raises:
+        ValueError: If parameter does not exist.
+    """
+    # Block 3.7.1.1: Get param definition (raises if not found)
+    param_def = get_param_by_name(param_name)
+    if param_def is None:
+        raise ValueError("Parameter '{0}' not found".format(param_name))
+    
+    # Block 3.7.1.2: Update allowed values on param definition
+    param_def[PARAM_ALLOWED_VALUES] = values
+```
+
+**Test 3.7.2: Tests for set_allowed_values updating existing param**
 
 ```gherkin
 Scenario: Dynamic allowed values updated via set_allowed_values()
@@ -743,19 +2654,65 @@ Scenario: Dynamic allowed values updated via set_allowed_values()
   # Validates: Commands can populate choice lists at runtime
 ```
 
-**Test 3.3.8: test_invalid_prompt_timing_raises_error**
+```python
+# Test 3.7.2: Add to tests/test_param_prompts.py
+def test_set_allowed_values_updates_param_definition():
+    """Test that set_allowed_values() dynamically updates PARAM_ALLOWED_VALUES on existing param.
+    
+    This test verifies set_allowed_values() successfully adds or updates the PARAM_ALLOWED_VALUES
+    property on a registered parameter, enabling multiple choice prompting at runtime.
+    This behaviour is expected because commands often need to populate choice lists dynamically
+    based on data queries or user context without re-registering parameters."""
+    # Block 3.7.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_ALLOWED_VALUES
+    
+    # Block 3.7.2.2: Clear and register a param without allowed values
+    param._params = {}
+    test_param = {PARAM_NAME: 'choice_param'}
+    param.add_param(test_param)
+    
+    # Block 3.7.2.3: Update allowed values dynamically
+    param.set_allowed_values('choice_param', ['option_a', 'option_b', 'option_c'])
+    
+    # Block 3.7.2.4: Verify param definition was updated
+    updated_param = param.get_param_by_name('choice_param')
+    assert PARAM_ALLOWED_VALUES in updated_param, "PARAM_ALLOWED_VALUES should be added"
+    assert updated_param[PARAM_ALLOWED_VALUES] == ['option_a', 'option_b', 'option_c'], "Values incorrect"
+```
 
-This test validates input validation during parameter registration. If a parameter specifies an invalid `PARAM_PROMPT_TIMING` value (not `PROMPT_ON_START`, not `PROMPT_ON_COMMANDS`, not a list), the framework must reject it immediately with a clear error message. This prevents subtle bugs from invalid configuration propagating through the system. The test confirms the validation logic catches invalid timing values and raises `ValueError` during registration, failing fast rather than at runtime.
+**Test 3.7.3: Tests for set_allowed_values with non-existent param**
 
 ```gherkin
-Scenario: Invalid prompt timing value raises validation error
-  Given a param with PARAM_PROMPT_TIMING "invalid_value"
-  When add_param() is called
+Scenario: set_allowed_values with non-existent param raises ValueError
+  Given no param named "nonexistent" is registered
+  When set_allowed_values("nonexistent", ["a", "b"]) is called
   Then ValueError is raised
-  And error message indicates invalid timing constant
+  And error message indicates parameter not found
   
-  # Tests: Prompt timing validation
-  # Validates: Only valid PROMPT_* constants accepted for timing
+  # Tests: Error handling for missing params
+  # Validates: API fails clearly when param doesn't exist
+```
+
+```python
+# Test 3.7.3: Add to tests/test_param_prompts.py
+def test_set_allowed_values_raises_error_for_nonexistent_param():
+    """Test that set_allowed_values() raises ValueError when parameter doesn't exist.
+    
+    This test verifies set_allowed_values() fails fast with clear error message when
+    called with a parameter name that hasn't been registered.
+    This behaviour is expected because updating allowed values on a non-existent parameter
+    is a programming error that should be caught immediately rather than silently ignored."""
+    # Block 3.7.3.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.7.3.2: Clear all params
+    param._params = {}
+    
+    # Block 3.7.3.3: Attempt to set allowed values on non-existent param
+    with pytest.raises(ValueError, match="Parameter 'nonexistent' not found"):
+        param.set_allowed_values('nonexistent', ['a', 'b'])
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -767,14 +2724,33 @@ Scenario: Invalid prompt timing value raises validation error
 **File:** `src/spafw37/command.py`
 
 **Extend `add_command()` function:**
-- Initialize `COMMAND_PROMPT_PARAMS` as empty list on command definition
-- For each param name in `COMMAND_REQUIRED_PARAMS`:
-  - Look up param definition from `param._params`
-  - If param has `PARAM_PROMPT` and auto-population flag set:
-    - Add this command name to param's `PROMPT_ON_COMMANDS` list
-  - If param has `PARAM_PROMPT` and this command in its `PROMPT_ON_COMMANDS`:
-    - Add param name to command's `COMMAND_PROMPT_PARAMS` list
-- Store `COMMAND_PROMPT_PARAMS` for O(1) runtime lookup
+
+1. **Process inline param definitions in `COMMAND_PROMPT_PARAMS`:**
+   - Like `COMMAND_REQUIRED_PARAMS`, commands can define prompt params inline
+   - For each entry in `COMMAND_PROMPT_PARAMS`:
+     - If dict (inline definition): call `param._register_inline_param()` to register
+     - If string: use param name directly
+     - Normalise list to contain only param name strings
+   - Store normalised list back in `COMMAND_PROMPT_PARAMS`
+
+2. **Build reciprocal registration for required params:**
+   - Initialize `COMMAND_PROMPT_PARAMS` as empty list on command definition (if not explicitly set)
+   - For each param name in `COMMAND_REQUIRED_PARAMS`:
+     - Look up param definition from `param._params`
+     - If param has `PARAM_PROMPT` and auto-population flag set:
+       - Add this command name to param's `PROMPT_ON_COMMANDS` list
+       - Clear auto-population flag after update
+     - If param has `PARAM_PROMPT` and this command in its `PROMPT_ON_COMMANDS`:
+       - Add param name to command's `COMMAND_PROMPT_PARAMS` list
+
+3. **Build reciprocal registration for explicit prompt params:**
+   - For each param name in `COMMAND_PROMPT_PARAMS` (after inline processing):
+     - Look up param definition from `param._params`
+     - If param has `PARAM_PROMPT` and `PROMPT_ON_COMMANDS` not set:
+       - Add this command name to param's `PROMPT_ON_COMMANDS` list
+     - Ensure param has `PARAM_PROMPT` (raise error if missing)
+
+4. **Store `COMMAND_PROMPT_PARAMS` for O(1) runtime lookup**
 
 [Detailed implementation will be added in Step 4]
 
@@ -788,7 +2764,9 @@ Scenario: Invalid prompt timing value raises validation error
 
 **Tests:** Test reciprocal list building between params and commands at registration time.
 
-This step validates the reciprocal registration mechanism that builds bidirectional relationships between parameters and commands. When params specify `PROMPT_ON_COMMANDS` or when commands list params in `COMMAND_REQUIRED_PARAMS`, the framework automatically creates reciprocal references enabling efficient O(1) lookup at runtime. These tests ensure auto-population works correctly, reciprocal lists are built accurately regardless of registration order, and the mechanism handles edge cases like multiple params/commands and missing prompt properties.
+This step validates the reciprocal registration mechanism that builds bidirectional relationships between parameters and commands. When params specify `PROMPT_ON_COMMANDS` or when commands list params in `COMMAND_REQUIRED_PARAMS` or `COMMAND_PROMPT_PARAMS`, the framework automatically creates reciprocal references enabling efficient O(1) lookup at runtime. These tests ensure auto-population works correctly, inline definitions are processed, reciprocal lists are built accurately regardless of registration order, and the mechanism handles edge cases like multiple params/commands and missing prompt properties.
+
+**Note:** Commands can define prompt params inline in `COMMAND_PROMPT_PARAMS`, consistent with inline definitions in `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields. This enables rapid prototyping without separately registering every param. Tests 4.4.7-4.4.9 specifically validate this inline definition support.
 
 **Test 4.4.1: test_auto_population_from_command_required_params**
 
@@ -891,6 +2869,60 @@ Scenario: Reciprocal registration works with both param-first and command-first 
   
   # Tests: Registration order independence
   # Validates: Reciprocal registration handles forward and backward references correctly
+```
+
+**Test 4.4.7: test_inline_param_definitions_in_command_prompt_params**
+
+This test validates that commands can define prompt params inline using dictionary definitions, consistent with inline definitions in `COMMAND_REQUIRED_PARAMS` and other fields. When a command includes inline param definitions in `COMMAND_PROMPT_PARAMS`, the framework should register those params automatically and establish the reciprocal relationship. This enables rapid prototyping without separately registering every prompt param.
+
+```gherkin
+Scenario: Command with inline param definitions in COMMAND_PROMPT_PARAMS
+  Given a command "deploy" with COMMAND_PROMPT_PARAMS containing inline definitions:
+    [{PARAM_NAME: "confirm", PARAM_TYPE: PARAM_TYPE_TOGGLE, PARAM_PROMPT: "Deploy? (y/n)"}]
+  When command "deploy" is registered
+  Then param "confirm" is automatically registered
+  And param "confirm" has PARAM_PROMPT property set
+  And param "confirm" has PROMPT_ON_COMMANDS ["deploy"]
+  And command "deploy" has COMMAND_PROMPT_PARAMS ["confirm"]
+  And reciprocal relationship established correctly
+  
+  # Tests: Inline param definitions in COMMAND_PROMPT_PARAMS
+  # Validates: Consistent inline definition support across API
+```
+
+**Test 4.4.8: test_mixed_inline_and_named_in_command_prompt_params**
+
+This test validates that commands can mix inline definitions and named references in `COMMAND_PROMPT_PARAMS`, consistent with the pattern used in `COMMAND_REQUIRED_PARAMS`. A command might reference some pre-registered params by name whilst defining others inline. The framework should handle both forms correctly in the same list, registering inline params and looking up named references.
+
+```gherkin
+Scenario: Command with mixed inline and named references in COMMAND_PROMPT_PARAMS
+  Given a pre-registered param "username" with PARAM_PROMPT
+  And a command "login" with COMMAND_PROMPT_PARAMS:
+    ["username", {PARAM_NAME: "password", PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_PROMPT: "Password:"}]
+  When command "login" is registered
+  Then param "password" is automatically registered from inline definition
+  And param "username" is referenced by name (already registered)
+  And both params have PROMPT_ON_COMMANDS ["login"]
+  And command "login" has COMMAND_PROMPT_PARAMS ["username", "password"]
+  
+  # Tests: Mixed inline/named references in COMMAND_PROMPT_PARAMS
+  # Validates: Framework handles both forms in same list
+```
+
+**Test 4.4.9: test_command_prompt_params_without_param_prompt_property**
+
+This test validates that the framework enforces the requirement that params in `COMMAND_PROMPT_PARAMS` must have `PARAM_PROMPT` property. If a command explicitly lists a param in `COMMAND_PROMPT_PARAMS` but that param doesn't have `PARAM_PROMPT`, this is a configuration error that should be caught during registration. The test confirms the framework raises `ValueError` for this invalid configuration.
+
+```gherkin
+Scenario: Command COMMAND_PROMPT_PARAMS entry without PARAM_PROMPT raises error
+  Given a param "config" registered without PARAM_PROMPT property
+  And a command "process" with COMMAND_PROMPT_PARAMS ["config"]
+  When command "process" is registered
+  Then ValueError is raised
+  And error message indicates param lacks PARAM_PROMPT property
+  
+  # Tests: Validation of COMMAND_PROMPT_PARAMS entries
+  # Validates: Framework catches configuration errors during registration
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -1319,7 +3351,7 @@ Scenario: Blank input with default value uses default in PROMPT_ON_START
 
 ---
 
-**Step 7a: Integrate PROMPT_ON_COMMANDS timing**
+**Step 7a: Integrate PROMPT_ON_COMMAND timing**
 
 **File:** `src/spafw37/command.py` or appropriate command execution module
 
@@ -1341,21 +3373,21 @@ Before each command action executes:
 
 ---
 
-**Step 7b: Test PROMPT_ON_COMMANDS integration**
+**Step 7b: Test PROMPT_ON_COMMAND timing integration**
 
 **File:** `tests/test_integration_prompts.py` (extend)
 
-**Tests:** Integration tests for PROMPT_ON_COMMANDS timing and all repeat behaviour options.
+**Tests:** Integration tests for PROMPT_ON_COMMAND timing and all repeat behaviour options.
 
-This step validates that PROMPT_ON_COMMANDS timing integrates correctly with command execution, enabling prompts immediately before specific commands run. These tests cover the complete repeat behaviour spectrum (ALWAYS, IF_BLANK, NEVER), ensuring prompts appear at the right moment, CLI overrides work, and the framework correctly tracks prompt state across multiple command executions. This is the most complex timing mode due to repeat behaviour interactions.
+This step validates that PROMPT_ON_COMMAND timing integrates correctly with command execution, enabling prompts immediately before specific commands run. These tests cover the complete repeat behaviour spectrum (ALWAYS, IF_BLANK, NEVER), ensuring prompts appear at the right moment, CLI overrides work, and the framework correctly tracks prompt state across multiple command executions. This is the most complex timing mode due to repeat behaviour interactions.
 
-**Test 7.7.1: test_prompt_on_commands_basic_execution**
+**Test 7.7.1: test_prompt_on_command_basic_execution**
 
-This test validates the fundamental PROMPT_ON_COMMANDS workflow: param prompts immediately before the specified command executes, user provides input, param value is set, command proceeds with the prompted value. This establishes the basic command-timing behaviour without repeat complexities. The test confirms prompts appear at the correct moment in the command execution pipeline.
+This test validates the fundamental PROMPT_ON_COMMAND workflow: param prompts immediately before the specified command executes, user provides input, param value is set, command proceeds with the prompted value. This establishes the basic command-timing behaviour without repeat complexities. The test confirms prompts appear at the correct moment in the command execution pipeline.
 
 ```gherkin
-Scenario: Param prompts immediately before specified command execution
-  Given a param "confirm" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["delete"]
+Scenario: Param with PROMPT_ON_COMMAND timing prompts before specified command execution
+  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete"]
   And commands "list" and "delete" registered
   And stdin mocked with StringIO("yes\n")
   When application runs with command line "list delete"
@@ -1365,17 +3397,17 @@ Scenario: Param prompts immediately before specified command execution
   And param "confirm" set to "yes"
   And command "delete" executes with confirm="yes"
   
-  # Tests: Basic PROMPT_ON_COMMANDS integration
-  # Validates: Command-timing prompts appear immediately before execution
+  # Tests: Basic PROMPT_ON_COMMAND integration
+  # Validates: Prompt appears immediately before command in execution pipeline
 ```
 
-**Test 7.7.2: test_prompt_on_commands_cli_override_skips_prompt**
+**Test 7.7.2: test_prompt_on_command_cli_override_skips_prompt**
 
-This test validates CLI override behaviour for PROMPT_ON_COMMANDS. When a param value is set via command-line arguments, prompts should be skipped even when the command is about to execute. This maintains the consistent "if set, don't prompt" policy across all timing modes. The test confirms CLI overrides work correctly with command-timing prompts.
+This test validates CLI override behaviour for PROMPT_ON_COMMAND timing. When a param value is set via command-line arguments, prompts should be skipped even when the command is about to execute. This maintains the consistent "if set, don't prompt" policy across all timing modes. The test confirms CLI overrides work correctly with command-timing prompts.
 
 ```gherkin
-Scenario: Param set via CLI skips PROMPT_ON_COMMANDS prompt before command
-  Given a param "confirm" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["delete"]
+Scenario: Param set via CLI skips PROMPT_ON_COMMAND prompt before command
+  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete"]
   And stdin mocked with StringIO("") (empty, should not be read)
   When application runs with command line "--confirm yes delete"
   Then CLI parsing sets confirm="yes"
@@ -1384,17 +3416,17 @@ Scenario: Param set via CLI skips PROMPT_ON_COMMANDS prompt before command
   And no stdin read occurs
   And command "delete" executes with confirm="yes"
   
-  # Tests: CLI override with PROMPT_ON_COMMANDS
-  # Validates: Command-line arguments prevent command-timing prompts
+  # Tests: CLI override with PROMPT_ON_COMMAND
+  # Validates: "If set, don't prompt" policy maintained with command timing
 ```
 
-**Test 7.7.3: test_prompt_on_commands_multiple_commands_listed**
+**Test 7.7.3: test_prompt_on_command_multiple_commands_in_list**
 
-This test validates that a param can prompt before multiple different commands when listed in PROMPT_ON_COMMANDS. Each command in the list should trigger a prompt check (subject to repeat behaviour). This enables shared params that need confirmation before several sensitive operations. The test confirms multi-command PROMPT_ON_COMMANDS lists work correctly.
+This test validates that a param can prompt before multiple different commands when listed in the `PROMPT_ON_COMMANDS` property. Each command in the list should trigger a prompt check (subject to repeat behaviour). This enables shared params that need confirmation before several sensitive operations. The test confirms multi-command lists work correctly.
 
 ```gherkin
-Scenario: Param with multiple commands in PROMPT_ON_COMMANDS prompts before each
-  Given a param "confirm" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["delete", "reset", "purge"]
+Scenario: Param with multiple commands in PROMPT_ON_COMMANDS property prompts before each
+  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete", "reset", "purge"]
   And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
   And stdin mocked with StringIO("yes\nyes\nyes\n")
   When application runs with command line "delete reset purge"
@@ -1403,8 +3435,8 @@ Scenario: Param with multiple commands in PROMPT_ON_COMMANDS prompts before each
   And before "purge", prompt appears again, input "yes" captured
   And all three commands execute with confirm="yes"
   
-  # Tests: Multiple commands in PROMPT_ON_COMMANDS
-  # Validates: Param can prompt before several different commands
+  # Tests: Multiple commands in PROMPT_ON_COMMANDS property
+  # Validates: Param can prompt before multiple different commands
 ```
 
 **Test 7.7.4: test_prompt_repeat_always_shows_previous_value**
@@ -1413,7 +3445,7 @@ This test validates PROMPT_REPEAT_ALWAYS behaviour. Every time a listed command 
 
 ```gherkin
 Scenario: PROMPT_REPEAT_ALWAYS prompts before every command execution with previous value
-  Given a param "action" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["step"]
+  Given a param "action" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["step"]
   And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
   And stdin mocked with StringIO("first\nsecond\nthird\n")
   When application runs with command line "step step step"
@@ -1432,7 +3464,7 @@ This test validates PROMPT_REPEAT_IF_BLANK behaviour. The first execution should
 
 ```gherkin
 Scenario: PROMPT_REPEAT_IF_BLANK prompts only when value is blank
-  Given a param "token" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["api_call"]
+  Given a param "token" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["api_call"]
   And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_IF_BLANK
   And stdin mocked with StringIO("abc123\n")
   When application runs with command line "api_call api_call api_call"
@@ -1451,7 +3483,7 @@ This test validates PROMPT_REPEAT_NEVER behaviour. Only the first execution of a
 
 ```gherkin
 Scenario: PROMPT_REPEAT_NEVER prompts once on first execution then never repeats
-  Given a param "config" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["process"]
+  Given a param "config" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["process"]
   And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_NEVER
   And stdin mocked with StringIO("settings.json\n")
   When application runs with command line "process process process"
@@ -1465,13 +3497,13 @@ Scenario: PROMPT_REPEAT_NEVER prompts once on first execution then never repeats
   # Validates: Single prompt with persistent value across executions
 ```
 
-**Test 7.7.7: test_prompt_on_commands_with_cycle_repeat_always**
+**Test 7.7.7: test_prompt_on_command_with_cycle_repeat_always**
 
-This test validates PROMPT_ON_COMMANDS behaviour in cycles with REPEAT_ALWAYS. Each cycle iteration should trigger a prompt before the command executes. This enables per-iteration confirmation or value changes in loops. The test confirms REPEAT_ALWAYS works correctly in cycle contexts, prompting on every iteration.
+This test validates PROMPT_ON_COMMAND behaviour in cycles with REPEAT_ALWAYS. Each cycle iteration should trigger a prompt before the command executes. This enables per-iteration confirmation or value changes in loops. The test confirms REPEAT_ALWAYS works correctly in cycle contexts, prompting on every iteration.
 
 ```gherkin
 Scenario: REPEAT_ALWAYS in cycle prompts on every iteration
-  Given a param "item" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["process_item"]
+  Given a param "item" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["process_item"]
   And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
   And a cycle command that runs "process_item" 3 times
   And stdin mocked with StringIO("item1\nitem2\nitem3\n")
@@ -1485,14 +3517,14 @@ Scenario: REPEAT_ALWAYS in cycle prompts on every iteration
   # Validates: Per-iteration prompting works correctly in loops
 ```
 
-**Test 7.7.8: test_prompt_on_commands_command_queue_dependencies**
+**Test 7.7.8: test_prompt_on_command_command_queue_dependencies**
 
 This test validates that prompts work correctly with command dependencies and sequencing. When commands have dependencies or specific execution orders, prompts should still appear at the right moment before each listed command executes. The test confirms prompt timing respects command orchestration logic and doesn't interfere with dependencies.
 
 ```gherkin
 Scenario: Prompts respect command queue order and dependencies
   Given commands "prepare", "validate", "execute" with dependencies
-  And param "mode" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["validate", "execute"]
+  And param "mode" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["validate", "execute"]
   And stdin mocked with StringIO("strict\n")
   When command queue processes with dependencies
   Then "prepare" executes first (no prompt, not in list)
@@ -1772,13 +3804,16 @@ Run full test suite to ensure no regressions:
 
 Add comprehensive documentation:
 - **New param properties:** Usage guide for all `PARAM_PROMPT*` properties
-- **Timing options:** Examples of `PROMPT_ON_START` vs `PROMPT_ON_COMMANDS`
+- **Timing options:** Examples of `PROMPT_ON_START` vs `PROMPT_ON_COMMAND` with `PROMPT_ON_COMMANDS` property
 - **Repeat behaviour:** Examples of each `PROMPT_REPEAT_*` option in cycles
 - **Custom handlers:** Guide for implementing and registering custom prompt handlers
 - **Multiple choice:** Dynamic population with `set_allowed_values()` examples
 - **CLI override:** Explain how CLI args prevent prompting
-- **Auto-population:** Document `PROMPT_ON_COMMANDS` auto-population from `COMMAND_REQUIRED_PARAMS`
+- **Auto-population:** Document `PROMPT_ON_COMMANDS` property auto-population from `COMMAND_REQUIRED_PARAMS`
+- **Inline definitions:** Document `COMMAND_PROMPT_PARAMS` inline definition support (see `examples/inline_definitions_basic.py` and `examples/inline_definitions_advanced.py` for pattern)
 - **Complete examples:** Working examples demonstrating common use cases
+
+**Note:** The `COMMAND_PROMPT_PARAMS` field supports inline parameter definitions, consistent with `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields. This allows commands to define prompt-enabled params directly within their definition without separate `add_param()` calls, enabling rapid prototyping whilst maintaining API consistency.
 
 [Detailed documentation plan will be added in Step 5]
 
@@ -1834,9 +3869,10 @@ Add comprehensive documentation:
   - Display numbered list of allowed values
   - User can enter either the text value or the corresponding number
   - List displayed automatically with assigned numbers
+- **Inline definition support:** Commands can define prompt-enabled params inline in `COMMAND_PROMPT_PARAMS` using dictionary definitions, consistent with inline definitions in `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields. This enables rapid prototyping without separately registering every param.
 - **Future consideration:** May expand to support lists with multiple choice (enter choices by number separated by spaces or commas) - provisional only
 
-**Rationale:** Integrates with existing param system, validation, and type handling. Leverages existing properties where possible (`PARAM_TYPE`, `PARAM_ALLOWED_VALUES`). Extensible design allows custom prompt handlers for advanced use cases (GUI prompts, API-based input, etc.) whilst providing sensible default behaviour.
+**Rationale:** Integrates with existing param system, validation, and type handling. Leverages existing properties where possible (`PARAM_TYPE`, `PARAM_ALLOWED_VALUES`). Extensible design allows custom prompt handlers for advanced use cases (GUI prompts, API-based input, etc.) whilst providing sensible default behaviour. Inline definition support maintains API consistency with existing framework patterns (see `examples/inline_definitions_basic.py` and `examples/inline_definitions_advanced.py`).
 
 **Breaking changes:** Low (new optional properties only).
 
@@ -1866,7 +3902,7 @@ Add comprehensive documentation:
 - Retry logic ✅ (Decided: re-prompt on error, max retry limit with required/optional behaviour)
 - Boolean/number parsing ✅ (Decided: use existing `INPUT_FILTER`, toggles use y/n with natural defaults)
 - Multiple choice with static lists ✅ (Decided: use `PARAM_ALLOWED_VALUES`)
-- Timing control ✅ (Decided: `PARAM_PROMPT_TIMING` with `PROMPT_ON_START` / `PROMPT_ON_COMMANDS`)
+- Timing control ✅ (Decided: `PARAM_PROMPT_TIMING` with `PROMPT_ON_START` / `PROMPT_ON_COMMAND`, command list in `PROMPT_ON_COMMANDS` property)
 - Cycle integration ✅ (Decided: `PARAM_PROMPT_REPEAT` with `PROMPT_REPEAT_ALWAYS` / `PROMPT_REPEAT_IF_BLANK` / `PROMPT_REPEAT_NEVER`)
 
 **High complexity:**
