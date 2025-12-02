@@ -61,6 +61,47 @@ Key requirements:
 
 **See the instruction file for complete details, examples, and rationale.**
 
+## CRITICAL: Module-Level Imports in Plan Documents
+
+**ALL imports MUST be shown at module level, NOT inside test functions.**
+
+**See `.github/instructions/plan-structure.instructions.md` § CRITICAL: Module-Level Imports in Plan Documents for complete details.**
+
+Key requirements:
+- Show a "Module-level imports" section at the start of each test file
+- List ALL imports that the test file will need
+- Test functions reference already-imported modules, NOT import them again
+- **Inline imports inside test functions are PROHIBITED** (see `python.instructions.md` § ANTI-PATTERN: Inline Imports)
+
+**Example - WRONG way (inline imports in tests):**
+```python
+def test_something():
+    """Test something."""
+    from spafw37 import param  # ❌ WRONG
+    param.add_param({})
+```
+
+**Example - CORRECT way (module-level imports):**
+```markdown
+**File:** `tests/test_param.py`
+
+Module-level imports:
+```python
+# Module-level imports for tests/test_param.py
+from spafw37 import param
+from spafw37.constants.param import PARAM_NAME
+import pytest
+```
+
+**Test 3.1.2:**
+
+```python
+def test_something():
+    """Test something."""
+    param.add_param({PARAM_NAME: 'test'})  # ✅ Correct - uses already-imported module
+```
+```
+
 ## Implementation Order Section
 
 **For each implementation step, add "Implementation order" subsection** as defined in `.github/instructions/plan-structure.instructions.md`. This shows the logical sequence for implementing the step.
@@ -121,6 +162,21 @@ Always update the Table of Contents at the end of any changes to the plan docume
 
 Use UK spelling: initialise, synchronise, optimise, behaviour, colour
 
+## CRITICAL: Regression Tests for Modified Functions
+
+**When any step modifies an existing function:**
+- Add regression tests immediately after the modification
+- Regression tests verify that existing behaviour is unchanged for code paths not related to the new feature
+- Test that parameters/inputs without new properties work identically to before
+- Test that return values and side effects remain unchanged for existing use cases
+
+**Example:** If modifying `add_param()` to handle new `PARAM_PROMPT` properties:
+- Add regression test verifying params **without** `PARAM_PROMPT` register identically to before
+- Add regression test verifying all existing param properties still work unchanged
+- Add regression test verifying existing validation behaviour is preserved
+
+**Rationale:** Modifications to existing functions risk breaking current functionality. Regression tests prove existing behaviour is preserved whilst new behaviour is added.
+
 ## Your Task for Each Implementation Step
 
 For EACH step in the plan:
@@ -136,6 +192,7 @@ For EACH step in the plan:
    - UK English in comments and docstrings
 3. **Follow naming standards** - no lazy placeholder names
 4. **Include helper functions** if needed (separate code blocks)
+5. **Add regression tests** if modifying existing functions (verify unchanged behaviour)
 
 ## Output Requirements
 
@@ -147,10 +204,28 @@ For EACH implementation step:
 5. ✅ Python 3.7 compatible code
 6. ✅ UK English spelling
 7. ✅ No lazy naming
+8. ✅ Regression tests if modifying existing functions
 
 After completing all steps, confirm:
 - Total number of code blocks added
 - Total lines of implementation code
 - Any concerns about complexity or implementation details
+
+## CRITICAL: Pre-Submission Verification
+
+**Before completing your response, verify ALL code against the mandatory checklist:**
+
+**See `.github/instructions/code-review-checklist.instructions.md` for the complete checklist.**
+
+Specifically verify:
+1. ✅ **NO inline imports** - all imports at module/file level
+2. ✅ **NO nesting beyond 2 levels** below function declaration
+3. ✅ **NO nested blocks exceeding 2 lines**
+4. ✅ **NO lazy naming** (`tmp`, `data`, `result`, `i`, `j`)
+5. ✅ **NO Step Xa/Xb structure** in plan documents
+6. ✅ **Each function immediately followed by its tests**
+7. ✅ **Regression tests included** if modifying existing functions
+
+**If any violations found, fix them before submitting your response.**
 
 Ask user to review implementation code before proceeding to Step 5 (documentation).

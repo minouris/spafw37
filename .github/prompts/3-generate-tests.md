@@ -188,4 +188,20 @@ After completing all steps, confirm:
 - Number of existing tests requiring updates
 - Coverage assessment (are all behaviours tested?)
 
+## CRITICAL: Pre-Submission Verification
+
+**Before completing your response, verify ALL test specifications against the mandatory checklist:**
+
+**See `.github/instructions/code-review-checklist.instructions.md` for the complete checklist.**
+
+Specifically verify:
+1. ✅ **Each test follows: Code → Test → Test pattern** (not Step Xa/Xb)
+2. ✅ **Test structure uses module-level functions** (not classes)
+3. ✅ **Each test has 3-sentence minimum docstring** (What, Outcome, Why)
+4. ✅ **One behaviour per test function**
+5. ✅ **Descriptive naming** (no `data`, `result`, `tmp`)
+6. ✅ **Gherkin + Python pairs** for each test
+
+**If any violations found, fix them before submitting your response.**
+
 Ask user to review test specifications before proceeding to Step 4 (implementation code).

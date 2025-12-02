@@ -99,6 +99,63 @@ def process_and_cache_record(record):
 
 **See `python.instructions.md` for complete rules and more examples.**
 
+## CRITICAL: Module-Level Imports in Plan Documents
+
+**ALL imports MUST be shown at module level, NOT inside test functions.**
+
+When writing test code blocks in plan documents:
+1. Show a "Module-level imports" section at the start of the test file
+2. List ALL imports that the test file will need
+3. Test functions reference already-imported modules, NOT import them again
+
+**Example - WRONG way (inline imports in tests):**
+```python
+# Test 3.1.2: Add to tests/test_param.py
+def test_param_registration():
+    """Test param registration works."""
+    # Block 3.1.2.1: Import required modules ❌ WRONG
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME
+    
+    # Block 3.1.2.2: Register param
+    param.add_param({PARAM_NAME: 'test'})
+```
+
+**Example - CORRECT way (module-level imports):**
+```markdown
+**Tests for Step 3: Param registration**
+
+**File:** `tests/test_param.py`
+
+Module-level imports:
+```python
+# Module-level imports for tests/test_param.py
+from spafw37 import param
+from spafw37.constants.param import PARAM_NAME, PARAM_TYPE
+import pytest
+```
+
+**Test 3.1.2: Test param registration**
+
+```python
+# Test 3.1.2: Add to tests/test_param.py
+def test_param_registration():
+    """Test param registration works."""
+    # Block 3.1.2.1: Clear existing params
+    param._params = {}
+    
+    # Block 3.1.2.2: Register param
+    param.add_param({PARAM_NAME: 'test'})
+```
+```
+
+**Why this matters:**
+- Violates Python coding standards (see `python.instructions.md` § ANTI-PATTERN: Inline Imports)
+- Makes final implementation incorrect
+- Tests are NOT exempt from import rules
+
+**See `python.instructions.md` § ANTI-PATTERN: Inline Imports (PROHIBITED) for complete details.**
+
 ## Hierarchical Block Numbering System
 
 ### Code Block Format

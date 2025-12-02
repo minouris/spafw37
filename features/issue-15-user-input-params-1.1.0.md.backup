@@ -705,20 +705,25 @@ def test_prompt_text_input_returns_string(monkeypatch):
     the prompt_for_value() function returns exactly that string without modification.
     This behaviour is expected because text parameters are the simplest type and should
     return user input verbatim, establishing the foundation for all other input types."""
-    # Block 2.3.2.1: Create param definition for text input
+    # Block 2.3.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_NAME
+    
+    # Block 2.3.2.2: Create param definition for text input
     param_def = {
         PARAM_NAME: 'test_param',
         PARAM_TYPE: PARAM_TYPE_TEXT
     }
     
-    # Block 2.3.2.2: Mock stdin with test input
+    # Block 2.3.2.3: Mock stdin with test input
     mock_stdin = StringIO("test value\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.3.2.3: Call prompt handler
+    # Block 2.3.2.4: Call prompt handler
     user_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.3.2.4: Verify returned value
+    # Block 2.3.2.5: Verify returned value
     assert user_value == "test value", "Expected 'test value', got '{0}'".format(user_value)
 ```
 
@@ -744,20 +749,25 @@ def test_prompt_text_with_default_blank_input(monkeypatch):
     PARAM_DEFAULT is set, the function returns the default value.
     This behaviour is expected because the bash convention of showing "[default: value]"
     implies that blank input (just pressing Enter) will use that default value."""
-    # Block 2.3.3.1: Create param with default value
+    # Block 2.3.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_DEFAULT
+    
+    # Block 2.3.3.2: Create param with default value
     param_def = {
         PARAM_TYPE: PARAM_TYPE_TEXT,
         PARAM_DEFAULT: 'default_value'
     }
     
-    # Block 2.3.3.2: Mock stdin with blank input (just newline)
+    # Block 2.3.3.3: Mock stdin with blank input (just newline)
     mock_stdin = StringIO("\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.3.3.3: Call prompt handler
+    # Block 2.3.3.4: Call prompt handler
     user_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.3.3.4: Verify default value returned
+    # Block 2.3.3.5: Verify default value returned
     assert user_value == 'default_value', "Expected 'default_value', got '{0}'".format(user_value)
 ```
 
@@ -815,20 +825,25 @@ def test_prompt_number_integer_valid(monkeypatch):
     the handler converts it to the integer 42 (not string or float).
     This behaviour is expected because integer input (no decimal point) should be
     converted using int() for proper numeric operations, counters, and array indices."""
-    # Block 2.4.2.1: Create param definition for number input
+    # Block 2.4.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.2.2: Create param definition for number input
     param_def = {
         PARAM_PROMPT: 'Enter number',
         PARAM_TYPE: PARAM_TYPE_NUMBER
     }
     
-    # Block 2.4.2.2: Mock stdin with integer input
+    # Block 2.4.2.3: Mock stdin with integer input
     mock_stdin = StringIO("42\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.4.2.3: Call prompt handler
+    # Block 2.4.2.4: Call prompt handler
     result_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.4.2.4: Verify integer type and value
+    # Block 2.4.2.5: Verify integer type and value
     assert isinstance(result_value, int), "Expected int type, got {0}".format(type(result_value))
     assert result_value == 42, "Expected 42, got {0}".format(result_value)
 ```
@@ -856,20 +871,25 @@ def test_prompt_number_float_valid(monkeypatch):
     the handler converts it to the float 3.14 (not string or integer).
     This behaviour is expected because float input (contains decimal point) should be
     converted using float() for precise measurements, percentages, and scientific values."""
-    # Block 2.4.3.1: Create param definition for number input
+    # Block 2.4.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.3.2: Create param definition for number input
     param_def = {
         PARAM_PROMPT: 'Enter number',
         PARAM_TYPE: PARAM_TYPE_NUMBER
     }
     
-    # Block 2.4.3.2: Mock stdin with float input
+    # Block 2.4.3.3: Mock stdin with float input
     mock_stdin = StringIO("3.14\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.4.3.3: Call prompt handler
+    # Block 2.4.3.4: Call prompt handler
     result_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.4.3.4: Verify float type and value
+    # Block 2.4.3.5: Verify float type and value
     assert isinstance(result_value, float), "Expected float type, got {0}".format(type(result_value))
     assert result_value == 3.14, "Expected 3.14, got {0}".format(result_value)
 ```
@@ -897,17 +917,23 @@ def test_prompt_number_invalid_raises_error(monkeypatch):
     the handler raises ValueError rather than returning invalid data.
     This behaviour is expected because type conversion failures must be caught and reported
     clearly, enabling retry logic at higher levels to prompt the user again."""
-    # Block 2.4.4.1: Create param definition for number input
+    # Block 2.4.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.4.2: Create param definition for number input
     param_def = {
         PARAM_PROMPT: 'Enter number',
         PARAM_TYPE: PARAM_TYPE_NUMBER
     }
     
-    # Block 2.4.4.2: Mock stdin with invalid input
+    # Block 2.4.4.3: Mock stdin with invalid input
     mock_stdin = StringIO("not_a_number\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.4.4.3: Verify ValueError raised
+    # Block 2.4.4.4: Verify ValueError raised
     with pytest.raises(ValueError):
         input_prompt.prompt_for_value(param_def)
 ```
@@ -974,13 +1000,18 @@ def test_prompt_toggle_yes_variations(monkeypatch):
     the Python boolean True for PARAM_TYPE_TOGGLE parameters.
     This behaviour is expected because providing flexible, user-friendly input options
     improves usability rather than forcing users to remember exact format requirements."""
-    # Block 2.5.2.1: Create param definition for toggle input
+    # Block 2.5.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.2.2: Create param definition for toggle input
     param_def = {
         PARAM_PROMPT: 'Confirm?',
         PARAM_TYPE: PARAM_TYPE_TOGGLE
     }
     
-    # Block 2.5.2.2: Test all affirmative variations
+    # Block 2.5.2.3: Test all affirmative variations
     affirmative_inputs = ['y', 'Y', 'yes', 'YES', 'true', 'True']
     for test_input in affirmative_inputs:
         mock_stdin = StringIO("{0}\n".format(test_input))
@@ -1012,13 +1043,18 @@ def test_prompt_toggle_no_variations(monkeypatch):
     the Python boolean False for PARAM_TYPE_TOGGLE parameters.
     This behaviour is expected because comprehensive support for common negative variations
     provides a complete and intuitive toggle input experience."""
-    # Block 2.5.3.1: Create param definition for toggle input
+    # Block 2.5.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.3.2: Create param definition for toggle input
     param_def = {
         PARAM_PROMPT: 'Confirm?',
         PARAM_TYPE: PARAM_TYPE_TOGGLE
     }
     
-    # Block 2.5.3.2: Test all negative variations
+    # Block 2.5.3.3: Test all negative variations
     negative_inputs = ['n', 'N', 'no', 'NO', 'false', 'False']
     for test_input in negative_inputs:
         mock_stdin = StringIO("{0}\n".format(test_input))
@@ -1050,17 +1086,23 @@ def test_prompt_toggle_invalid_raises_error(monkeypatch):
     the handler raises ValueError with a clear message about expected formats.
     This behaviour is expected because ambiguous or invalid input must be rejected,
     enabling retry logic to prompt the user again with guidance on valid options."""
-    # Block 2.5.4.1: Create param definition for toggle input
+    # Block 2.5.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.4.2: Create param definition for toggle input
     param_def = {
         PARAM_PROMPT: 'Confirm?',
         PARAM_TYPE: PARAM_TYPE_TOGGLE
     }
     
-    # Block 2.5.4.2: Mock stdin with invalid input
+    # Block 2.5.4.3: Mock stdin with invalid input
     mock_stdin = StringIO("maybe\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.5.4.3: Verify ValueError raised with helpful message
+    # Block 2.5.4.4: Verify ValueError raised with helpful message
     with pytest.raises(ValueError, match="Expected y/yes/true or n/no/false"):
         input_prompt.prompt_for_value(param_def)
 ```
@@ -1142,23 +1184,28 @@ def test_prompt_multiple_choice_by_number(monkeypatch, capsys):
     and the user enters "2", the handler returns "green" (the second option).
     This behaviour is expected because numbered selection provides an efficient interface
     where users can type a single digit instead of the full option text."""
-    # Block 2.6.2.1: Create param with allowed values
+    # Block 2.6.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.2.2: Create param with allowed values
     param_def = {
         PARAM_PROMPT: 'Select option',
         PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
     }
     
-    # Block 2.6.2.2: Mock stdin with numeric selection
+    # Block 2.6.2.3: Mock stdin with numeric selection
     mock_stdin = StringIO("2\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.6.2.3: Call prompt handler
+    # Block 2.6.2.4: Call prompt handler
     selected_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.6.2.4: Verify correct option selected
+    # Block 2.6.2.5: Verify correct option selected
     assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
     
-    # Block 2.6.2.5: Verify numbered list was displayed
+    # Block 2.6.2.6: Verify numbered list was displayed
     captured_output = capsys.readouterr()
     assert '1. red' in captured_output.out, "Option 1 not displayed"
     assert '2. green' in captured_output.out, "Option 2 not displayed"
@@ -1188,20 +1235,25 @@ def test_prompt_multiple_choice_by_text(monkeypatch):
     and the user enters "green", the handler returns "green" directly.
     This behaviour is expected because some users prefer typing the full option name
     rather than remembering numeric indices, providing flexible selection methods."""
-    # Block 2.6.3.1: Create param with allowed values
+    # Block 2.6.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.3.2: Create param with allowed values
     param_def = {
         PARAM_PROMPT: 'Select colour',
         PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
     }
     
-    # Block 2.6.3.2: Mock stdin with text selection
+    # Block 2.6.3.3: Mock stdin with text selection
     mock_stdin = StringIO("green\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.6.3.3: Call prompt handler
+    # Block 2.6.3.4: Call prompt handler
     selected_value = input_prompt.prompt_for_value(param_def)
     
-    # Block 2.6.3.4: Verify correct text match
+    # Block 2.6.3.5: Verify correct text match
     assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
 ```
 
@@ -1228,17 +1280,23 @@ def test_prompt_multiple_choice_invalid_selection(monkeypatch):
     the handler raises ValueError with a message about valid selection methods.
     This behaviour is expected because only values in PARAM_ALLOWED_VALUES or their indices
     are valid, and invalid selections must be rejected to enable retry logic."""
-    # Block 2.6.4.1: Create param with allowed values
+    # Block 2.6.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.4.2: Create param with allowed values
     param_def = {
         PARAM_PROMPT: 'Select colour',
         PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
     }
     
-    # Block 2.6.4.2: Mock stdin with invalid selection
+    # Block 2.6.4.3: Mock stdin with invalid selection
     mock_stdin = StringIO("yellow\n")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.6.4.3: Verify ValueError raised
+    # Block 2.6.4.4: Verify ValueError raised
     with pytest.raises(ValueError, match="Invalid selection"):
         input_prompt.prompt_for_value(param_def)
 ```
@@ -1315,23 +1373,570 @@ def test_prompt_eof_raises_error(monkeypatch):
     or automated scripts), the handler raises EOFError rather than failing silently.
     This behaviour is expected because EOF must be detected and reported clearly,
     ensuring the application fails predictably in non-interactive environments."""
-    # Block 2.8.2.1: Create param definition
+    # Block 2.8.2.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_PROMPT
+    
+    # Block 2.8.2.2: Create param definition
     param_def = {
         PARAM_PROMPT: 'Enter value',
         PARAM_TYPE: PARAM_TYPE_TEXT
     }
     
-    # Block 2.8.2.2: Mock stdin with empty stream (EOF)
+    # Block 2.8.2.3: Mock stdin with empty stream (EOF)
     mock_stdin = StringIO("")
     monkeypatch.setattr('sys.stdin', mock_stdin)
     
-    # Block 2.8.2.3: Verify EOFError raised
+    # Block 2.8.2.4: Verify EOFError raised
     with pytest.raises(EOFError):
         input_prompt.prompt_for_value(param_def)
 ```
 
 [↑ Back to top](#table-of-contents)
 
+---
+
+**Step 2b: Test constants**
+
+```gherkin
+Scenario: Text input handler returns user-entered string
+  Given a param with PARAM_TYPE_TEXT and no default value
+  And stdin is mocked with StringIO("test value\n")
+  When prompt_for_value() is called
+  Then the function returns "test value"
+  
+  # Tests: Basic text input handling with input() function
+  # Validates: String input is captured and returned correctly
+```
+
+```python
+# Test 2.3.2: Add to tests/test_input_prompt.py
+def test_prompt_text_input_returns_string(monkeypatch):
+    """Test that the default prompt handler captures plain text input from users.
+    
+    This test verifies that when stdin is mocked with StringIO containing "test value",
+    the prompt_for_value() function returns exactly that string without modification.
+    This behaviour is expected because text parameters are the simplest type and should
+    return user input verbatim, establishing the foundation for all other input types."""
+    # Block 2.3.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_NAME
+    
+    # Block 2.3.2.2: Create param definition for text input
+    param_def = {
+        PARAM_NAME: 'test_param',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.3.2.3: Mock stdin with test input
+    mock_stdin = StringIO("test value\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.2.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.2.5: Verify returned value
+    assert user_value == "test value", "Expected 'test value', got '{0}'".format(user_value)
+```
+
+**Test 2.3.3: Tests for blank input with default value**
+
+```gherkin
+Scenario: Blank input with default value returns the default
+  Given a param with PARAM_TYPE_TEXT and PARAM_DEFAULT "default_value"
+  And stdin is mocked with StringIO("\n")
+  When prompt_for_value() is called
+  Then the function returns "default_value"
+  
+  # Tests: Default value handling for text input
+  # Validates: Blank input selects default using bash convention
+```
+
+```python
+# Test 2.3.3: Add to tests/test_input_prompt.py
+def test_prompt_text_with_default_blank_input(monkeypatch):
+    """Test that pressing Enter without typing selects the default value automatically.
+    
+    This test verifies that when stdin is mocked with just a newline character and
+    PARAM_DEFAULT is set, the function returns the default value.
+    This behaviour is expected because the bash convention of showing "[default: value]"
+    implies that blank input (just pressing Enter) will use that default value."""
+    # Block 2.3.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_DEFAULT
+    
+    # Block 2.3.3.2: Create param with default value
+    param_def = {
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_DEFAULT: 'default_value'
+    }
+    
+    # Block 2.3.3.3: Mock stdin with blank input (just newline)
+    mock_stdin = StringIO("\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.3.3.4: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.3.5: Verify default value returned
+    assert user_value == 'default_value', "Expected 'default_value', got '{0}'".format(user_value)
+```
+
+**Test 2.4.2: Tests for number integer input conversion**
+
+```gherkin
+Scenario: Valid integer input converted correctly
+  Given a param with PARAM_TYPE_NUMBER
+  And stdin is mocked with StringIO("42\n")
+  When prompt_for_value() is called
+  Then the function returns 42 as integer
+  And no conversion errors occur
+  
+  # Tests: Number input with integer conversion
+  # Validates: Integer strings converted to int type
+```
+
+```python
+# Test 2.4.2: Add to tests/test_input_prompt.py
+def test_prompt_number_integer_valid(monkeypatch):
+    """Test that integer input is correctly converted to int type for numeric parameters.
+    
+    This test verifies that when a user enters "42" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the integer 42 (not string or float).
+    This behaviour is expected because integer input (no decimal point) should be
+    converted using int() for proper numeric operations, counters, and array indices."""
+    # Block 2.4.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.2.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.2.3: Mock stdin with integer input
+    mock_stdin = StringIO("42\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.2.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.2.5: Verify integer type and value
+    assert isinstance(result_value, int), "Expected int type, got {0}".format(type(result_value))
+    assert result_value == 42, "Expected 42, got {0}".format(result_value)
+```
+
+**Test 2.4.3: Tests for number float input conversion**
+
+```gherkin
+Scenario: Valid float input converted correctly
+  Given a param with PARAM_TYPE_NUMBER  
+  And stdin is mocked with StringIO("3.14\n")
+  When prompt_for_value() is called
+  Then the function returns 3.14 as float
+  And no conversion errors occur
+  
+  # Tests: Number input with float conversion
+  # Validates: Float strings converted to float type
+```
+
+```python
+# Test 2.4.3: Add to tests/test_input_prompt.py
+def test_prompt_number_float_valid(monkeypatch):
+    """Test that floating-point input is correctly converted to float type for numeric parameters.
+    
+    This test verifies that when a user enters "3.14" for a PARAM_TYPE_NUMBER parameter,
+    the handler converts it to the float 3.14 (not string or integer).
+    This behaviour is expected because float input (contains decimal point) should be
+    converted using float() for precise measurements, percentages, and scientific values."""
+    # Block 2.4.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.3.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.3.3: Mock stdin with float input
+    mock_stdin = StringIO("3.14\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.3.4: Call prompt handler
+    result_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.4.3.5: Verify float type and value
+    assert isinstance(result_value, float), "Expected float type, got {0}".format(type(result_value))
+    assert result_value == 3.14, "Expected 3.14, got {0}".format(result_value)
+```
+
+**Test 2.4.4: Tests for number invalid input validation**
+
+```gherkin
+Scenario: Invalid number input raises ValueError
+  Given a param with PARAM_TYPE_NUMBER
+  And stdin is mocked with StringIO("not_a_number\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates conversion failure
+  
+  # Tests: Number input validation
+  # Validates: Non-numeric input rejected with clear error
+```
+
+```python
+# Test 2.4.4: Add to tests/test_input_prompt.py
+def test_prompt_number_invalid_raises_error(monkeypatch):
+    """Test that non-numeric input raises ValueError for numeric parameters.
+    
+    This test verifies that when a user enters "not_a_number" for a PARAM_TYPE_NUMBER parameter,
+    the handler raises ValueError rather than returning invalid data.
+    This behaviour is expected because type conversion failures must be caught and reported
+    clearly, enabling retry logic at higher levels to prompt the user again."""
+    # Block 2.4.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_NUMBER, PARAM_PROMPT
+    
+    # Block 2.4.4.2: Create param definition for number input
+    param_def = {
+        PARAM_PROMPT: 'Enter number',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    }
+    
+    # Block 2.4.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("not_a_number\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.4.4.4: Verify ValueError raised
+    with pytest.raises(ValueError):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.5.2: Tests for toggle affirmative input variations**
+
+```gherkin
+Scenario: Toggle input accepts multiple affirmative formats
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin provides "y", "Y", "yes", "YES", "true", "True" in sequence
+  When prompt_for_value() is called for each input
+  Then all return True boolean value
+  And case-insensitive matching works correctly
+  
+  # Tests: Toggle input affirmative value recognition
+  # Validates: Multiple formats accepted for true/yes values
+```
+
+```python
+# Test 2.5.2: Add to tests/test_input_prompt.py
+def test_prompt_toggle_yes_variations(monkeypatch):
+    """Test that toggle parameters accept multiple affirmative formats with case-insensitive matching.
+    
+    This test verifies that inputs "y", "Y", "yes", "YES", "true", and "True" all return
+    the Python boolean True for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because providing flexible, user-friendly input options
+    improves usability rather than forcing users to remember exact format requirements."""
+    # Block 2.5.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.2.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.2.3: Test all affirmative variations
+    affirmative_inputs = ['y', 'Y', 'yes', 'YES', 'true', 'True']
+    for test_input in affirmative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is True, "Input '{0}' should return True".format(test_input)
+```
+
+**Test 2.5.3: Tests for toggle negative input variations**
+
+```gherkin
+Scenario: Toggle input accepts multiple negative formats
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin provides "n", "N", "no", "NO", "false", "False" in sequence  
+  When prompt_for_value() is called for each input
+  Then all return False boolean value
+  And case-insensitive matching works correctly
+  
+  # Tests: Toggle input negative value recognition
+  # Validates: Multiple formats accepted for false/no values
+```
+
+```python
+# Test 2.5.3: Add to tests/test_input_prompt.py
+def test_prompt_toggle_no_variations(monkeypatch):
+    """Test that toggle parameters accept multiple negative formats with case-insensitive matching.
+    
+    This test verifies that inputs "n", "N", "no", "NO", "false", and "False" all return
+    the Python boolean False for PARAM_TYPE_TOGGLE parameters.
+    This behaviour is expected because comprehensive support for common negative variations
+    provides a complete and intuitive toggle input experience."""
+    # Block 2.5.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.3.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.3.3: Test all negative variations
+    negative_inputs = ['n', 'N', 'no', 'NO', 'false', 'False']
+    for test_input in negative_inputs:
+        mock_stdin = StringIO("{0}\n".format(test_input))
+        monkeypatch.setattr('sys.stdin', mock_stdin)
+        result_value = input_prompt.prompt_for_value(param_def)
+        assert result_value is False, "Input '{0}' should return False".format(test_input)
+```
+
+**Test 2.5.4: Tests for toggle invalid input validation**
+
+```gherkin
+Scenario: Invalid toggle input raises ValueError
+  Given a param with PARAM_TYPE_TOGGLE
+  And stdin is mocked with StringIO("maybe\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates expected formats
+  
+  # Tests: Toggle input validation
+  # Validates: Unrecognized input rejected with helpful error
+```
+
+```python
+# Test 2.5.4: Add to tests/test_input_prompt.py
+def test_prompt_toggle_invalid_raises_error(monkeypatch):
+    """Test that unrecognized input raises ValueError for toggle parameters.
+    
+    This test verifies that when a user enters "maybe" for a PARAM_TYPE_TOGGLE parameter,
+    the handler raises ValueError with a clear message about expected formats.
+    This behaviour is expected because ambiguous or invalid input must be rejected,
+    enabling retry logic to prompt the user again with guidance on valid options."""
+    # Block 2.5.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TOGGLE, PARAM_PROMPT
+    
+    # Block 2.5.4.2: Create param definition for toggle input
+    param_def = {
+        PARAM_PROMPT: 'Confirm?',
+        PARAM_TYPE: PARAM_TYPE_TOGGLE
+    }
+    
+    # Block 2.5.4.3: Mock stdin with invalid input
+    mock_stdin = StringIO("maybe\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.5.4.4: Verify ValueError raised with helpful message
+    with pytest.raises(ValueError, match="Expected y/yes/true or n/no/false"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.6.2: Tests for multiple choice selection by number**
+
+```gherkin
+Scenario: Multiple choice selection by number works correctly
+  Given a param with PARAM_ALLOWED_VALUES ["option1", "option2", "option3"]
+  And stdin is mocked with StringIO("2\n")
+  When prompt_for_value() is called
+  Then numbered list displayed: "1. option1\n2. option2\n3. option3"
+  And the function returns "option2"
+  
+  # Tests: Multiple choice selection by index number
+  # Validates: Users can select by entering list number
+```
+
+```python
+# Test 2.6.2: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_number(monkeypatch, capsys):
+    """Test that users can select from multiple choice options by entering the numeric index.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "2", the handler returns "green" (the second option).
+    This behaviour is expected because numbered selection provides an efficient interface
+    where users can type a single digit instead of the full option text."""
+    # Block 2.6.2.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.2.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select option',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.2.3: Mock stdin with numeric selection
+    mock_stdin = StringIO("2\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.2.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.2.5: Verify correct option selected
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+    
+    # Block 2.6.2.6: Verify numbered list was displayed
+    captured_output = capsys.readouterr()
+    assert '1. red' in captured_output.out, "Option 1 not displayed"
+    assert '2. green' in captured_output.out, "Option 2 not displayed"
+    assert '3. blue' in captured_output.out, "Option 3 not displayed"
+```
+
+**Test 2.6.3: Tests for multiple choice selection by exact text**
+
+```gherkin
+Scenario: Multiple choice selection by exact text works correctly
+  Given a param with PARAM_ALLOWED_VALUES ["red", "green", "blue"]
+  And stdin is mocked with StringIO("green\n")
+  When prompt_for_value() is called
+  Then the function returns "green"
+  And selection matches exact text from allowed values
+  
+  # Tests: Multiple choice selection by typing exact value
+  # Validates: Users can select by entering the text value directly
+```
+
+```python
+# Test 2.6.3: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_by_text(monkeypatch):
+    """Test that users can select from multiple choice options by entering the exact text value.
+    
+    This test verifies that when PARAM_ALLOWED_VALUES contains ["red", "green", "blue"]
+    and the user enters "green", the handler returns "green" directly.
+    This behaviour is expected because some users prefer typing the full option name
+    rather than remembering numeric indices, providing flexible selection methods."""
+    # Block 2.6.3.1: Import required modules
+    from io import StringIO
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.3.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.3.3: Mock stdin with text selection
+    mock_stdin = StringIO("green\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.3.4: Call prompt handler
+    selected_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.6.3.5: Verify correct text match
+    assert selected_value == 'green', "Expected 'green', got '{0}'".format(selected_value)
+```
+
+**Test 2.6.4: Tests for multiple choice invalid selection validation**
+
+```gherkin
+Scenario: Invalid multiple choice selection raises ValueError
+  Given a param with PARAM_ALLOWED_VALUES ["red", "green", "blue"]
+  And stdin is mocked with StringIO("yellow\n")
+  When prompt_for_value() is called
+  Then ValueError is raised
+  And error message indicates invalid selection
+  
+  # Tests: Multiple choice validation
+  # Validates: Invalid selections rejected with clear error
+```
+
+```python
+# Test 2.6.4: Add to tests/test_input_prompt.py
+def test_prompt_multiple_choice_invalid_selection(monkeypatch):
+    """Test that invalid selections raise ValueError for multiple choice parameters.
+    
+    This test verifies that when the user enters "yellow" for options ["red", "green", "blue"],
+    the handler raises ValueError with a message about valid selection methods.
+    This behaviour is expected because only values in PARAM_ALLOWED_VALUES or their indices
+    are valid, and invalid selections must be rejected to enable retry logic."""
+    # Block 2.6.4.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_PROMPT, PARAM_ALLOWED_VALUES
+    
+    # Block 2.6.4.2: Create param with allowed values
+    param_def = {
+        PARAM_PROMPT: 'Select colour',
+        PARAM_ALLOWED_VALUES: ['red', 'green', 'blue']
+    }
+    
+    # Block 2.6.4.3: Mock stdin with invalid selection
+    mock_stdin = StringIO("yellow\n")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.6.4.4: Verify ValueError raised
+    with pytest.raises(ValueError, match="Invalid selection"):
+        input_prompt.prompt_for_value(param_def)
+```
+
+**Test 2.7.2: Tests for EOF handling in non-interactive environment**
+
+```gherkin
+Scenario: EOF on stdin raises EOFError
+  Given a param with PARAM_TYPE_TEXT
+  And stdin is mocked with StringIO("") (empty)
+  When prompt_for_value() is called
+  Then EOFError is raised
+  And no value is returned
+  
+  # Tests: EOF handling when stdin closes unexpectedly
+  # Validates: Framework detects and reports EOF condition properly
+```
+
+```python
+# Test 2.7.2: Add to tests/test_input_prompt.py
+def test_prompt_eof_raises_error(monkeypatch):
+    """Test that EOF condition raises EOFError when stdin closes unexpectedly.
+    
+    This test verifies that when stdin is empty (EOF condition from Ctrl+D, closed pipe,
+    or automated scripts), the handler raises EOFError rather than failing silently.
+    This behaviour is expected because EOF must be detected and reported clearly,
+    ensuring the application fails predictably in non-interactive environments."""
+    # Block 2.7.2.1: Import required modules
+    from io import StringIO
+    import pytest
+    from spafw37 import input_prompt
+    from spafw37.constants.param import PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_PROMPT
+    
+    # Block 2.7.2.2: Create param definition
+    param_def = {
+        PARAM_PROMPT: 'Enter value',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    # Block 2.7.2.3: Mock stdin with empty stream (EOF)
+    mock_stdin = StringIO("")
+    monkeypatch.setattr('sys.stdin', mock_stdin)
+    
+    # Block 2.7.2.4: Verify EOFError raised
+    with pytest.raises(EOFError):
+        input_prompt.prompt_for_value(param_def)
+```
+
+[↑ Back to top](#table-of-contents)
 
 ---
 
@@ -1368,23 +1973,6 @@ _prompted_params = set()
 _PROMPT_AUTO_POPULATE = '_prompt_auto_populate'
 ```
 
-Module-level imports for `tests/test_param_prompts.py`:
-```python
-# Module-level imports for tests/test_param_prompts.py
-from spafw37 import param
-from spafw37.constants.param import (
-    PARAM_NAME,
-    PARAM_PROMPT,
-    PARAM_PROMPT_TIMING,
-    PARAM_PROMPT_REPEAT,
-    PROMPT_ON_START,
-    PROMPT_ON_COMMAND,
-    PROMPT_REPEAT_ALWAYS,
-    PROMPT_REPEAT_IF_BLANK,
-    PROMPT_REPEAT_NEVER
-)
-```
-
 **Test 3.1.2: Tests for module-level state initialisation**
 
 ```gherkin
@@ -1409,14 +1997,17 @@ def test_module_level_prompt_state_initialised():
     _PROMPT_AUTO_POPULATE flag constant is defined for marking params during registration.
     This behaviour is expected because clean initial state ensures no leftover configuration
     from previous test runs or imports affects prompt behaviour."""
-    # Block 3.1.2.1: Verify global handler starts as None
+    # Block 3.1.2.1: Import param module
+    from spafw37 import param
+    
+    # Block 3.1.2.2: Verify global handler starts as None
     assert param._global_prompt_handler is None, "Global handler should start as None"
     
-    # Block 3.1.2.2: Verify prompted params tracking starts empty
+    # Block 3.1.2.3: Verify prompted params tracking starts empty
     assert isinstance(param._prompted_params, set), "Prompted params must be a set"
     assert len(param._prompted_params) == 0, "Prompted params should start empty"
     
-    # Block 3.1.2.3: Verify auto-populate flag constant exists
+    # Block 3.1.2.4: Verify auto-populate flag constant exists
     assert hasattr(param, '_PROMPT_AUTO_POPULATE'), "Auto-populate flag constant missing"
     assert isinstance(param._PROMPT_AUTO_POPULATE, str), "Flag must be string key"
 ```
@@ -1488,14 +2079,18 @@ def test_validate_prompt_timing_with_on_start():
     without raising exceptions, as this is one of the two valid timing modes.
     This behaviour is expected because PROMPT_ON_START indicates prompts should run
     immediately after CLI parsing, before command execution, which is a core timing option."""
-    # Block 3.3.2.1: Call validation with PROMPT_ON_START
+    # Block 3.3.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PROMPT_ON_START
+    
+    # Block 3.3.2.2: Call validation with PROMPT_ON_START
     try:
         param._validate_prompt_timing(PROMPT_ON_START)
         validation_passed = True
     except ValueError:
         validation_passed = False
     
-    # Block 3.3.2.2: Verify validation passed
+    # Block 3.3.2.3: Verify validation passed
     assert validation_passed, "PROMPT_ON_START should pass validation"
 ```
 
@@ -1521,14 +2116,18 @@ def test_validate_prompt_timing_with_on_command():
     without raising exceptions, as this indicates prompts should run before specific commands.
     This behaviour is expected because PROMPT_ON_COMMAND tells the framework to check the
     PROMPT_ON_COMMANDS property for the list of commands to prompt before."""
-    # Block 3.3.3.1: Call validation with PROMPT_ON_COMMAND
+    # Block 3.3.3.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PROMPT_ON_COMMAND
+    
+    # Block 3.3.3.2: Call validation with PROMPT_ON_COMMAND
     try:
         param._validate_prompt_timing(PROMPT_ON_COMMAND)
         validation_passed = True
     except ValueError:
         validation_passed = False
     
-    # Block 3.3.3.2: Verify validation passed
+    # Block 3.3.3.3: Verify validation passed
     assert validation_passed, "PROMPT_ON_COMMAND should pass validation"
 ```
 
@@ -1554,7 +2153,11 @@ def test_validate_prompt_timing_rejects_invalid_value():
     PROMPT_ON_START constant nor lists, such as arbitrary strings like "invalid".
     This behaviour is expected because accepting invalid timing values would cause
     subtle runtime errors when the framework tries to determine when to prompt."""
-    # Block 3.3.4.1: Attempt validation with invalid value
+    # Block 3.3.4.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.3.4.2: Attempt validation with invalid value
     with pytest.raises(ValueError, match="PARAM_PROMPT_TIMING must be"):
         param._validate_prompt_timing("invalid_constant")
 ```
@@ -1603,7 +2206,15 @@ def test_validate_prompt_repeat_with_valid_constants():
     PROMPT_REPEAT_IF_BLANK, and PROMPT_REPEAT_NEVER without raising exceptions.
     This behaviour is expected because these three constants represent the complete
     set of valid repeat behaviours for prompts in cycle and multi-command scenarios."""
-    # Block 3.4.2.1: Test each valid constant
+    # Block 3.4.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import (
+        PROMPT_REPEAT_ALWAYS,
+        PROMPT_REPEAT_IF_BLANK,
+        PROMPT_REPEAT_NEVER
+    )
+    
+    # Block 3.4.2.2: Test each valid constant
     valid_constants = [PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER]
     for repeat_constant in valid_constants:
         try:
@@ -1637,7 +2248,11 @@ def test_validate_prompt_repeat_rejects_invalid_value():
     not one of the three valid PROMPT_REPEAT_* constants.
     This behaviour is expected because accepting invalid repeat values would cause
     undefined behaviour in cycle logic where the framework checks repeat mode."""
-    # Block 3.4.3.1: Attempt validation with invalid value
+    # Block 3.4.3.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.4.3.2: Attempt validation with invalid value
     with pytest.raises(ValueError, match="PARAM_PROMPT_REPEAT must be one of"):
         param._validate_prompt_repeat("invalid_repeat")
 ```
@@ -1708,20 +2323,29 @@ def test_param_with_valid_prompt_properties_registers():
     PARAM_PROMPT_TIMING (PROMPT_ON_START), storing all properties correctly.
     This behaviour is expected because properly configured prompt params are valid
     and should integrate seamlessly with the registration system."""
-    # Block 3.5.2.1: Clear any existing params
+    # Block 3.5.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import (
+        PARAM_NAME,
+        PARAM_PROMPT,
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_START
+    )
+    
+    # Block 3.5.2.2: Clear any existing params
     param._params = {}
     
-    # Block 3.5.2.2: Create param with valid prompt properties
+    # Block 3.5.2.3: Create param with valid prompt properties
     test_param = {
         PARAM_NAME: 'test_prompt_param',
         PARAM_PROMPT: 'Enter value:',
         PARAM_PROMPT_TIMING: PROMPT_ON_START
     }
     
-    # Block 3.5.2.3: Register param (should not raise)
+    # Block 3.5.2.4: Register param (should not raise)
     param.add_param(test_param)
     
-    # Block 3.5.2.4: Verify param was registered with properties intact
+    # Block 3.5.2.5: Verify param was registered with properties intact
     registered_param = param.get_param_by_name('test_prompt_param')
     assert registered_param is not None, "Param should be registered"
     assert registered_param[PARAM_PROMPT] == 'Enter value:', "PARAM_PROMPT not preserved"
@@ -1750,19 +2374,23 @@ def test_param_without_timing_gets_auto_populate_flag():
     when they have PARAM_PROMPT but don't specify PARAM_PROMPT_TIMING.
     This behaviour is expected because the auto-population mechanism allows commands
     to automatically trigger prompts for their required params without duplicate configuration."""
-    # Block 3.5.3.1: Clear any existing params
+    # Block 3.5.3.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT
+    
+    # Block 3.5.3.2: Clear any existing params
     param._params = {}
     
-    # Block 3.5.3.2: Create param with PARAM_PROMPT but no timing
+    # Block 3.5.3.3: Create param with PARAM_PROMPT but no timing
     test_param = {
         PARAM_NAME: 'auto_populate_param',
         PARAM_PROMPT: 'Enter value:'
     }
     
-    # Block 3.5.3.3: Register param
+    # Block 3.5.3.4: Register param
     param.add_param(test_param)
     
-    # Block 3.5.3.4: Verify auto-populate flag is set
+    # Block 3.5.3.5: Verify auto-populate flag is set
     registered_param = param.get_param_by_name('auto_populate_param')
     assert registered_param[param._PROMPT_AUTO_POPULATE] is True, "Auto-populate flag should be set"
 ```
@@ -1789,17 +2417,22 @@ def test_param_with_invalid_timing_raises_error_on_registration():
     invalid PARAM_PROMPT_TIMING value (not PROMPT_ON_START or a list).
     This behaviour is expected because failing fast during registration prevents subtle
     runtime errors when the framework tries to determine prompt timing."""
-    # Block 3.5.4.1: Clear any existing params
+    # Block 3.5.4.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT, PARAM_PROMPT_TIMING
+    import pytest
+    
+    # Block 3.5.4.2: Clear any existing params
     param._params = {}
     
-    # Block 3.5.4.2: Create param with invalid timing
+    # Block 3.5.4.3: Create param with invalid timing
     invalid_param = {
         PARAM_NAME: 'invalid_timing_param',
         PARAM_PROMPT: 'Enter value:',
         PARAM_PROMPT_TIMING: 'invalid_value'
     }
     
-    # Block 3.5.4.3: Verify ValueError raised during registration
+    # Block 3.5.4.4: Verify ValueError raised during registration
     with pytest.raises(ValueError, match="PARAM_PROMPT_TIMING must be"):
         param.add_param(invalid_param)
 ```
@@ -1826,10 +2459,15 @@ def test_param_with_empty_prompt_raises_error():
     string or contains only whitespace, as prompt text must be meaningful.
     This behaviour is expected because empty prompts would confuse users and
     indicate a configuration error."""
-    # Block 3.5.5.1: Clear any existing params
+    # Block 3.5.5.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT, PARAM_TYPE, PARAM_TYPE_TEXT
+    import pytest
+    
+    # Block 3.5.5.2: Clear any existing params
     param._params = {}
     
-    # Block 3.5.5.2: Test empty string
+    # Block 3.5.5.3: Test empty string
     empty_param = {
         PARAM_NAME: 'empty_prompt',
         PARAM_TYPE: PARAM_TYPE_TEXT,
@@ -1838,7 +2476,7 @@ def test_param_with_empty_prompt_raises_error():
     with pytest.raises(ValueError, match="PARAM_PROMPT must be a non-empty string"):
         param.add_param(empty_param)
     
-    # Block 3.5.5.3: Test whitespace-only string
+    # Block 3.5.5.4: Test whitespace-only string
     param._params = {}
     whitespace_param = {
         PARAM_NAME: 'whitespace_prompt',
@@ -1871,16 +2509,21 @@ def test_prompt_param_without_type_raises_error():
     but doesn't specify PARAM_TYPE, which is needed to determine input handling.
     This behaviour is expected because the framework needs PARAM_TYPE to know how to
     parse and validate user input (text, number, toggle, etc.)."""
-    # Block 3.5.6.1: Clear any existing params
+    # Block 3.5.6.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_PROMPT
+    import pytest
+    
+    # Block 3.5.6.2: Clear any existing params
     param._params = {}
     
-    # Block 3.5.6.2: Create prompt param without PARAM_TYPE
+    # Block 3.5.6.3: Create prompt param without PARAM_TYPE
     no_type_param = {
         PARAM_NAME: 'no_type_prompt',
         PARAM_PROMPT: 'Enter value:'
     }
     
-    # Block 3.5.6.3: Verify ValueError raised during registration
+    # Block 3.5.6.4: Verify ValueError raised during registration
     with pytest.raises(ValueError, match="PARAM_TYPE is required for prompt-enabled param"):
         param.add_param(no_type_param)
 ```
@@ -1927,17 +2570,20 @@ def test_set_prompt_handler_stores_custom_handler():
     This behaviour is expected because the global handler provides extensibility,
     allowing applications to replace the default input() handler with GUI prompts,
     API-based input, or other custom input mechanisms."""
-    # Block 3.6.2.1: Define a custom handler function
+    # Block 3.6.2.1: Import required modules
+    from spafw37 import param
+    
+    # Block 3.6.2.2: Define a custom handler function
     def custom_handler(param_def):
         return "custom_value"
     
-    # Block 3.6.2.2: Set the global handler
+    # Block 3.6.2.3: Set the global handler
     param.set_prompt_handler(custom_handler)
     
-    # Block 3.6.2.3: Verify handler was stored
+    # Block 3.6.2.4: Verify handler was stored
     assert param._global_prompt_handler is custom_handler, "Custom handler should be stored"
     
-    # Block 3.6.2.4: Clean up (restore None)
+    # Block 3.6.2.5: Clean up (restore None)
     param.set_prompt_handler(None)
 ```
 
@@ -1963,15 +2609,18 @@ def test_set_prompt_handler_with_none_restores_default():
     _global_prompt_handler back to None (which signals use of default handler).
     This behaviour is expected because applications need a way to revert to default
     behaviour after setting a custom handler, ensuring flexibility in testing and configuration."""
-    # Block 3.6.3.1: Set a custom handler first
+    # Block 3.6.3.1: Import required modules
+    from spafw37 import param
+    
+    # Block 3.6.3.2: Set a custom handler first
     def custom_handler(param_def):
         return "custom"
     param.set_prompt_handler(custom_handler)
     
-    # Block 3.6.3.2: Restore default by passing None
+    # Block 3.6.3.3: Restore default by passing None
     param.set_prompt_handler(None)
     
-    # Block 3.6.3.3: Verify handler is None
+    # Block 3.6.3.4: Verify handler is None
     assert param._global_prompt_handler is None, "Handler should be None (default)"
 ```
 
@@ -2024,15 +2673,19 @@ def test_set_allowed_values_updates_param_definition():
     property on a registered parameter, enabling multiple choice prompting at runtime.
     This behaviour is expected because commands often need to populate choice lists dynamically
     based on data queries or user context without re-registering parameters."""
-    # Block 3.7.2.1: Clear and register a param without allowed values
+    # Block 3.7.2.1: Import required modules
+    from spafw37 import param
+    from spafw37.constants.param import PARAM_NAME, PARAM_ALLOWED_VALUES
+    
+    # Block 3.7.2.2: Clear and register a param without allowed values
     param._params = {}
     test_param = {PARAM_NAME: 'choice_param'}
     param.add_param(test_param)
     
-    # Block 3.7.2.2: Update allowed values dynamically
+    # Block 3.7.2.3: Update allowed values dynamically
     param.set_allowed_values('choice_param', ['option_a', 'option_b', 'option_c'])
     
-    # Block 3.7.2.3: Verify param definition was updated
+    # Block 3.7.2.4: Verify param definition was updated
     updated_param = param.get_param_by_name('choice_param')
     assert PARAM_ALLOWED_VALUES in updated_param, "PARAM_ALLOWED_VALUES should be added"
     assert updated_param[PARAM_ALLOWED_VALUES] == ['option_a', 'option_b', 'option_c'], "Values incorrect"
@@ -2060,10 +2713,14 @@ def test_set_allowed_values_raises_error_for_nonexistent_param():
     called with a parameter name that hasn't been registered.
     This behaviour is expected because updating allowed values on a non-existent parameter
     is a programming error that should be caught immediately rather than silently ignored."""
-    # Block 3.7.3.1: Clear all params
+    # Block 3.7.3.1: Import required modules
+    from spafw37 import param
+    import pytest
+    
+    # Block 3.7.3.2: Clear all params
     param._params = {}
     
-    # Block 3.7.3.2: Attempt to set allowed values on non-existent param
+    # Block 3.7.3.3: Attempt to set allowed values on non-existent param
     with pytest.raises(ValueError, match="Parameter 'nonexistent' not found"):
         param.set_allowed_values('nonexistent', ['a', 'b'])
 ```
@@ -3084,7 +3741,7 @@ Scenario: Prompts respect command queue order and dependencies
 
 ---
 
-**Step 8.1: Add cycle-specific tests**
+**Step 8a: Add cycle-specific tests**
 
 **File:** `tests/test_integration_prompts.py` (extend)
 
@@ -3195,7 +3852,7 @@ Scenario: CLI override prevents prompting across all cycle iterations
 
 ---
 
-**Step 8.2: Add extensibility tests**
+**Step 8b: Add extensibility tests**
 
 **File:** `tests/test_param_prompts.py` (extend)
 

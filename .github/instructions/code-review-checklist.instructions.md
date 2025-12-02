@@ -16,8 +16,14 @@ Before ANY code changes (implementation, tests, documentation, or plan documents
 
 **Red flags:**
 - `from X import Y` appearing inside a function
+- `import pytest` or any other import inside a test function
 - Function parameter named `*_module` or `*_class` (not `*_handler`, `*_callback`, or `*_function`)
 - Import statements after any executable code
+
+**For plan documents (`features/**/*.md`):**
+- Test code blocks should NOT contain import statements inside functions
+- If a test file needs imports, show them in a separate "Module-level imports" comment block at the start of the file
+- Each test function should reference already-imported modules, not import them again
 
 ## 2. Nesting and Complexity Verification  
 
