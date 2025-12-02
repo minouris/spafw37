@@ -4,10 +4,12 @@
 
 This project uses a modular instruction system. All general coding rules have been moved to domain-specific instruction files:
 
+- **`.github/instructions/code-review-checklist.instructions.md`** - **MANDATORY** pre-commit verification checklist (ALWAYS review before writing code)
 - **`.github/instructions/general.instructions.md`** - Universal rules for all files (NO GUESSING POLICY, UK English, communication style, Git Interaction policy)
-- **`.github/instructions/python.instructions.md`** - Python coding standards (all versions)
+- **`.github/instructions/python.instructions.md`** - Python coding standards (all versions) with anti-patterns
 - **`.github/instructions/python37.instructions.md`** - Python 3.7.0 compatibility requirements
 - **`.github/instructions/python-tests.instructions.md`** - Python test structure and standards
+- **`.github/instructions/plan-structure.instructions.md`** - Implementation plan document structure with anti-patterns
 - **`.github/instructions/documentation.instructions.md`** - Documentation standards for Markdown files
 - **`.github/instructions/planning.instructions.md`** - Issue planning and changelog documentation
 - **`.github/instructions/architecture.instructions.md`** - Architecture design documentation standards

@@ -2205,66 +2205,279 @@ def test_param_operations_unchanged_for_non_prompt_params():
 
 **File:** `src/spafw37/command.py`
 
-**TODO:** Add implementation code here following the pattern from `COMMAND_REQUIRED_PARAMS` inline processing.
+Following the established pattern from `COMMAND_REQUIRED_PARAMS` inline processing, implement support for inline param definitions in `COMMAND_PROMPT_PARAMS`. This maintains API consistency across the framework where commands can define params inline alongside named references.
 
-For each entry in `COMMAND_PROMPT_PARAMS`:
-- If dict (inline definition): call `param._register_inline_param()` to register
-- If string: use param name directly
-- Normalise list to contain only param name strings
-- Store normalised list back in `COMMAND_PROMPT_PARAMS`
+**Algorithm:**
 
-**Test 4.1.1: test_inline_param_definitions_in_command_prompt_params**
+1. Check if command has `COMMAND_PROMPT_PARAMS` property; if not present, return early
+2. Iterate through each entry in the `COMMAND_PROMPT_PARAMS` list
+3. For each entry:
+   - If entry is a string: add it directly to normalised list (references existing param)
+   - If entry is a dict: call `param._register_inline_param(entry)` to register the param, then extract and add the param name to normalised list
+   - If entry is neither string nor dict: raise `ValueError` indicating invalid entry type
+4. Replace the command's `COMMAND_PROMPT_PARAMS` property with the normalised list containing only param name strings
 
-This test validates that commands can define prompt params inline using dictionary definitions, consistent with inline definitions in `COMMAND_REQUIRED_PARAMS` and other fields. When a command includes inline param definitions in `COMMAND_PROMPT_PARAMS`, the framework should register those params automatically and establish the reciprocal relationship. This enables rapid prototyping without separately registering every prompt param.
+This enables commands to mix named references ("username") with inline definitions ({PARAM_NAME: "password", PARAM_PROMPT: "Password:", ...}) in the same list, providing flexibility for shared params and command-specific params.
 
-```gherkin
-Scenario: Command with inline param definitions in COMMAND_PROMPT_PARAMS
-  Given a command "deploy" with COMMAND_PROMPT_PARAMS containing inline definitions:
-    [{PARAM_NAME: "confirm", PARAM_TYPE: PARAM_TYPE_TOGGLE, PARAM_PROMPT: "Deploy? (y/n)"}]
-  When command "deploy" is registered
-  Then param "confirm" is automatically registered
-  And param "confirm" has PARAM_PROMPT property set
-  And param "confirm" has PROMPT_ON_COMMANDS ["deploy"]
-  And command "deploy" has COMMAND_PROMPT_PARAMS ["confirm"]
-  And reciprocal relationship established correctly
-  
-  # Tests: Inline param definitions in COMMAND_PROMPT_PARAMS
-  # Validates: Consistent inline definition support across API
+**Implementation order:**
+
+1. Create `_normalise_prompt_params(cmd)` helper function after `_register_inline_command()` helper
+2. Add call to helper in `add_command()` function after inline processing for `COMMAND_TRIGGER_PARAM`
+3. Add regression tests verifying existing command registration still works unchanged
+4. Add tests for string entries (named param references)
+5. Add tests for dict entries (inline param definitions)
+6. Add tests for mixed entries (strings and dicts together)
+7. Add tests for invalid entry types (raise ValueError)
+
+**Code 4.1.1: Helper function to normalise COMMAND_PROMPT_PARAMS**
+
+```python
+# Block 4.1.1: Add to src/spafw37/command.py after _register_inline_command() helper
+def _normalise_prompt_params(cmd):
+    """Normalise COMMAND_PROMPT_PARAMS by processing inline param definitions.
+    
+    Processes both string references and dict definitions in COMMAND_PROMPT_PARAMS,
+    registering inline params and building a normalised list of param names.
+    
+    Args:
+        cmd: Command definition dictionary
+    """
+    # Block 4.1.1.1: Get prompt params list
+    prompt_params = cmd.get(COMMAND_PROMPT_PARAMS, [])
+    if not prompt_params:
+        return
+    
+    # Block 4.1.1.2: Normalise each entry
+    normalised_params = []
+    for param_def in prompt_params:
+        param_name = param._register_inline_param(param_def)
+        normalised_params.append(param_name)
+    
+    # Block 4.1.1.3: Replace with normalised list
+    cmd[COMMAND_PROMPT_PARAMS] = normalised_params
 ```
 
-**Test 4.1.2: test_mixed_inline_and_named_in_command_prompt_params**
+**Code 4.1.2: Call normalisation helper from add_command()**
 
-This test validates that commands can mix inline definitions and named references in `COMMAND_PROMPT_PARAMS`, consistent with the pattern used in `COMMAND_REQUIRED_PARAMS`. A command might reference some pre-registered params by name whilst defining others inline. The framework should handle both forms correctly in the same list, registering inline params and looking up named references.
-
-```gherkin
-Scenario: Command with mixed inline and named references in COMMAND_PROMPT_PARAMS
-  Given a pre-registered param "username" with PARAM_PROMPT
-  And a command "login" with COMMAND_PROMPT_PARAMS:
-    ["username", {PARAM_NAME: "password", PARAM_TYPE: PARAM_TYPE_TEXT, PARAM_PROMPT: "Password:"}]
-  When command "login" is registered
-  Then param "password" is automatically registered from inline definition
-  And param "username" is referenced by name (already registered)
-  And both params have PROMPT_ON_COMMANDS ["login"]
-  And command "login" has COMMAND_PROMPT_PARAMS ["username", "password"]
-  
-  # Tests: Mixed inline/named references in COMMAND_PROMPT_PARAMS
-  # Validates: Framework handles both forms in same list
+```python
+# Block 4.1.2: Add to src/spafw37/command.py in add_command() after COMMAND_TRIGGER_PARAM processing
+# Process inline parameter definitions in COMMAND_PROMPT_PARAMS
+_normalise_prompt_params(cmd)
 ```
 
-**Test 4.1.3: test_command_prompt_params_without_param_prompt_property**
-
-This test validates that the framework enforces the requirement that params in `COMMAND_PROMPT_PARAMS` must have `PARAM_PROMPT` property. If a command explicitly lists a param in `COMMAND_PROMPT_PARAMS` but that param doesn't have `PARAM_PROMPT`, this is a configuration error that should be caught during registration. The test confirms the framework raises `ValueError` for this invalid configuration.
+**Test 4.1.3: Regression test for command registration without COMMAND_PROMPT_PARAMS**
 
 ```gherkin
-Scenario: Command COMMAND_PROMPT_PARAMS entry without PARAM_PROMPT raises error
-  Given a param "config" registered without PARAM_PROMPT property
-  And a command "process" with COMMAND_PROMPT_PARAMS ["config"]
-  When command "process" is registered
+Scenario: Command without COMMAND_PROMPT_PARAMS registers unchanged
+  Given a command definition without COMMAND_PROMPT_PARAMS property
+  When add_command() is called
+  Then command registers successfully
+  And no COMMAND_PROMPT_PARAMS property is added
+  
+  # Tests: Existing command registration behaviour unchanged
+  # Validates: Feature is opt-in; commands without prompt params work identically
+```
+
+```python
+# Test 4.1.3: Add to tests/test_command.py
+def test_command_registration_without_prompt_params_unchanged():
+    """Test that commands without COMMAND_PROMPT_PARAMS register identically to before.
+    
+    This regression test verifies that the new COMMAND_PROMPT_PARAMS processing does not
+    affect commands that do not use this feature, ensuring backward compatibility.
+    This behaviour is expected because prompt params are entirely opt-in."""
+    # Block 4.1.3.1: Clear existing commands
+    command._commands = {}
+    
+    # Block 4.1.3.2: Register command without COMMAND_PROMPT_PARAMS
+    command.add_command({
+        COMMAND_NAME: 'test_cmd',
+        COMMAND_ACTION: lambda: None
+    })
+    
+    # Block 4.1.3.3: Verify command registered successfully
+    assert 'test_cmd' in command._commands
+    
+    # Block 4.1.3.4: Verify COMMAND_PROMPT_PARAMS not added
+    registered_cmd = command._commands['test_cmd']
+    assert COMMAND_PROMPT_PARAMS not in registered_cmd
+```
+
+**Test 4.1.4: String entry references existing param**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with string entry references existing param
+  Given a registered param "username"
+  And a command with COMMAND_PROMPT_PARAMS containing "username"
+  When add_command() is called
+  Then COMMAND_PROMPT_PARAMS list contains "username" string unchanged
+  
+  # Tests: Named param reference processing
+  # Validates: String entries pass through unchanged
+```
+
+```python
+# Test 4.1.4: Add to tests/test_command.py
+def test_prompt_params_string_entry_references_existing_param():
+    """Test that COMMAND_PROMPT_PARAMS with string entry references an existing param.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS contains a string like "username",
+    the framework treats it as a reference to an already-registered param and leaves it unchanged.
+    This behaviour is expected because string entries are named references, consistent with
+    the pattern used in COMMAND_REQUIRED_PARAMS."""
+    # Block 4.1.4.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.1.4.2: Register param
+    param.add_param({
+        PARAM_NAME: 'username',
+        PARAM_PROMPT: 'Username:'
+    })
+    
+    # Block 4.1.4.3: Register command with string entry
+    command.add_command({
+        COMMAND_NAME: 'login',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PROMPT_PARAMS: ['username']
+    })
+    
+    # Block 4.1.4.4: Verify list contains string unchanged
+    registered_cmd = command._commands['login']
+    assert registered_cmd[COMMAND_PROMPT_PARAMS] == ['username']
+```
+
+**Test 4.1.5: Dict entry registers inline param**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with dict entry registers inline param
+  Given a command with COMMAND_PROMPT_PARAMS containing inline param dict
+  When add_command() is called
+  Then param is registered via _register_inline_param()
+  And COMMAND_PROMPT_PARAMS list contains extracted param name
+  
+  # Tests: Inline param definition processing
+  # Validates: Dict entries trigger param registration and name extraction
+```
+
+```python
+# Test 4.1.5: Add to tests/test_command.py
+def test_prompt_params_dict_entry_registers_inline_param():
+    """Test that COMMAND_PROMPT_PARAMS with dict entry registers an inline param definition.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS contains a dictionary like
+    {PARAM_NAME: 'password', PARAM_PROMPT: 'Password:'}, the framework calls
+    _register_inline_param() to register that param and extracts the name into the list.
+    This behaviour is expected because dict entries define params inline, consistent with
+    COMMAND_REQUIRED_PARAMS inline processing."""
+    # Block 4.1.5.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.1.5.2: Register command with inline dict entry
+    command.add_command({
+        COMMAND_NAME: 'secure_login',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PROMPT_PARAMS: [{
+            PARAM_NAME: 'password',
+            PARAM_PROMPT: 'Password:'
+        }]
+    })
+    
+    # Block 4.1.5.3: Verify param was registered
+    assert 'password' in param._params
+    
+    # Block 4.1.5.4: Verify list contains extracted name
+    registered_cmd = command._commands['secure_login']
+    assert registered_cmd[COMMAND_PROMPT_PARAMS] == ['password']
+```
+
+**Test 4.1.6: Mixed entries process correctly**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with mixed string and dict entries
+  Given a command with COMMAND_PROMPT_PARAMS containing both strings and dicts
+  When add_command() is called
+  Then string entries pass through unchanged
+  And dict entries register inline params
+  And list contains all param names in order
+  
+  # Tests: Mixed entry type processing
+  # Validates: Framework handles heterogeneous lists correctly
+```
+
+```python
+# Test 4.1.6: Add to tests/test_command.py
+def test_prompt_params_mixed_entries_process_correctly():
+    """Test that COMMAND_PROMPT_PARAMS with mixed string and dict entries processes correctly.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS contains both named references
+    (strings) and inline definitions (dicts), the framework processes each appropriately
+    and builds a normalised list containing all param names in the original order.
+    This behaviour is expected because the API allows flexibility to mix shared and
+    command-specific params."""
+    # Block 4.1.6.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.1.6.2: Register existing param
+    param.add_param({
+        PARAM_NAME: 'username',
+        PARAM_PROMPT: 'Username:'
+    })
+    
+    # Block 4.1.6.3: Register command with mixed entries
+    command.add_command({
+        COMMAND_NAME: 'mixed_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PROMPT_PARAMS: [
+            'username',
+            {PARAM_NAME: 'password', PARAM_PROMPT: 'Password:'},
+            {PARAM_NAME: 'token', PARAM_PROMPT: 'Token:'}
+        ]
+    })
+    
+    # Block 4.1.6.4: Verify all params in list
+    registered_cmd = command._commands['mixed_cmd']
+    expected_list = ['username', 'password', 'token']
+    assert registered_cmd[COMMAND_PROMPT_PARAMS] == expected_list
+```
+
+**Test 4.1.7: Invalid entry type raises ValueError**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with invalid entry type raises error
+  Given a command with COMMAND_PROMPT_PARAMS containing a number
+  When add_command() is called
   Then ValueError is raised
-  And error message indicates param lacks PARAM_PROMPT property
+  And error message indicates invalid entry type
   
-  # Tests: Validation of COMMAND_PROMPT_PARAMS entries
-  # Validates: Framework catches configuration errors during registration
+  # Tests: Invalid entry type validation
+  # Validates: Framework rejects non-string, non-dict entries
+```
+
+```python
+# Test 4.1.7: Add to tests/test_command.py
+def test_prompt_params_invalid_entry_type_raises_error():
+    """Test that COMMAND_PROMPT_PARAMS with invalid entry type raises ValueError.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS contains an entry that is neither
+    a string nor a dict (e.g., a number), the framework raises ValueError with a clear message.
+    This behaviour is expected because only strings (named references) and dicts (inline
+    definitions) are valid entry types in the param list API."""
+    # Block 4.1.7.1: Clear existing state
+    command._commands = {}
+    
+    # Block 4.1.7.2: Attempt to register command with invalid entry
+    with pytest.raises(ValueError) as exc_info:
+        command.add_command({
+            COMMAND_NAME: 'invalid_cmd',
+            COMMAND_ACTION: lambda: None,
+            COMMAND_PROMPT_PARAMS: [123]
+        })
+    
+    # Block 4.1.7.3: Verify error message
+    assert 'must be string or dict' in str(exc_info.value).lower()
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -2275,62 +2488,553 @@ Scenario: Command COMMAND_PROMPT_PARAMS entry without PARAM_PROMPT raises error
 
 **File:** `src/spafw37/command.py`
 
-**TODO:** Add implementation code here for auto-population mechanism.
+Implement the auto-population mechanism that reduces configuration burden. When a param has `PARAM_PROMPT` but no explicit `PARAM_PROMPT_TIMING` (marked with internal `_PROMPT_AUTO_POPULATE` flag during param registration), and a command lists that param in `COMMAND_REQUIRED_PARAMS`, automatically establish the relationship. This allows commands to trigger prompts for their required params without duplicate configuration whilst building reciprocal lists for O(1) lookup.
 
-Initialize `COMMAND_PROMPT_PARAMS` as empty list on command definition (if not explicitly set). For each param name in `COMMAND_REQUIRED_PARAMS`:
-- Look up param definition from `param._params`
-- If param has `PARAM_PROMPT` and auto-population flag set:
-  - Add this command name to param's `PROMPT_ON_COMMANDS` list
-  - Clear auto-population flag after update
-- If param has `PARAM_PROMPT` and this command in its `PROMPT_ON_COMMANDS`:
-  - Add param name to command's `COMMAND_PROMPT_PARAMS` list
+**Algorithm:**
 
-**Test 4.2.1: test_auto_population_from_command_required_params**
+1. Initialize `COMMAND_PROMPT_PARAMS` as empty list on command if not already set
+2. Check if command has `COMMAND_REQUIRED_PARAMS`; if not present, return early
+3. Get the command name from command definition
+4. For each param name in `COMMAND_REQUIRED_PARAMS`:
+   a. Look up param definition from `param._params` registry
+   b. If param not found or doesn't have `PARAM_PROMPT` property, skip to next param
+   c. Check if param has `_PROMPT_AUTO_POPULATE` flag set to True:
+      - If yes: Initialize `PROMPT_ON_COMMANDS` list on param if not set
+      - Add this command name to param's `PROMPT_ON_COMMANDS` list (if not already present)
+      - Clear the `_PROMPT_AUTO_POPULATE` flag (set to False)
+   d. Check if param has `PROMPT_ON_COMMANDS` list and this command name is in that list:
+      - If yes: Add param name to command's `COMMAND_PROMPT_PARAMS` list (if not already present)
 
-This test validates the auto-population mechanism that reduces configuration burden. When a param has `PARAM_PROMPT` but no explicit `PARAM_PROMPT_TIMING`, and a command lists that param in `COMMAND_REQUIRED_PARAMS`, the framework should automatically add the command name to the param's `PROMPT_ON_COMMANDS` list. This allows commands to trigger prompts for their required params without duplicate configuration. The test confirms auto-population works correctly during command registration.
+This establishes bidirectional relationships: params know which commands they prompt before (`PROMPT_ON_COMMANDS`), and commands know which params prompt before them (`COMMAND_PROMPT_PARAMS`).
 
-```gherkin
-Scenario: Param marked for auto-population gets command name added to PROMPT_ON_COMMANDS
-  Given a param "input_val" with PARAM_PROMPT but no PARAM_PROMPT_TIMING
-  And param is marked with auto-population flag during registration
-  When a command "process" is registered with COMMAND_REQUIRED_PARAMS ["input_val"]
-  Then param "input_val" has PROMPT_ON_COMMANDS updated to ["process"]
-  And auto-population flag is cleared after update
-  
-  # Tests: Auto-population mechanism during command registration
-  # Validates: Commands automatically trigger prompts for required params without explicit configuration
+**Implementation order:**
+
+1. Create leaf helper functions (no dependencies) with unit tests for each
+2. Create mid-level helper functions (depend on leaf helpers) with unit tests for each
+3. Create top-level helper function (entry point) with integration tests
+4. Add call to helper in `add_command()`
+
+**Code 4.2.1: Leaf helper to add param to command list**
+
+```python
+# Block 4.2.1: Add to src/spafw37/command.py after _normalise_prompt_params()
+def _add_param_to_command_list(cmd, param_name):
+    """Add param name to command's COMMAND_PROMPT_PARAMS list.
+    
+    Args:
+        cmd: Command definition dictionary
+        param_name: Parameter name string
+    """
+    # Block 4.2.1.1: Add param if not already present
+    if param_name not in cmd[COMMAND_PROMPT_PARAMS]:
+        cmd[COMMAND_PROMPT_PARAMS].append(param_name)
 ```
 
-**Test 4.2.2: test_reciprocal_list_built_on_command**
-
-This test validates that commands build their `COMMAND_PROMPT_PARAMS` list when registering. When a command's required params have `PARAM_PROMPT` with this command in their `PROMPT_ON_COMMANDS`, the framework should add those param names to the command's `COMMAND_PROMPT_PARAMS` list. This reciprocal list enables O(1) lookup during command execution—"which params need prompting before I run?"—without scanning all parameters. The test confirms the reciprocal list building works correctly.
+**Test 4.2.2: Unit test for adding param to command list**
 
 ```gherkin
-Scenario: Command builds COMMAND_PROMPT_PARAMS from params that prompt before it
-  Given a param "user_input" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["execute"]
-  When command "execute" is registered with COMMAND_REQUIRED_PARAMS ["user_input"]
-  Then command "execute" has COMMAND_PROMPT_PARAMS ["user_input"]
-  And reciprocal relationship established between param and command
+Scenario: Param added to command list when not already present
+  Given a command with initialized COMMAND_PROMPT_PARAMS list
+  And a param name not in the list
+  When _add_param_to_command_list() is called
+  Then param name is appended to list
+  And list contains only one entry for that param
   
-  # Tests: Reciprocal list building on command side
-  # Validates: Commands know which params will prompt before execution (O(1) lookup)
+  # Tests: Deduplication when adding param to command list
+  # Validates: Helper prevents duplicate entries
 ```
 
-**Test 4.2.3: test_multiple_params_all_added_to_command**
+```python
+# Test 4.2.2: Add to tests/test_command.py
+def test_add_param_to_command_list():
+    """Test that _add_param_to_command_list() adds param to command list without duplicates.
+    
+    This test verifies that the helper function correctly adds a param name to the
+    command's COMMAND_PROMPT_PARAMS list only if it's not already present.
+    This behaviour prevents duplicate entries in the list."""
+    # Block 4.2.2.1: Create command with empty list
+    cmd = {COMMAND_PROMPT_PARAMS: []}
+    
+    # Block 4.2.2.2: Add param first time
+    command._add_param_to_command_list(cmd, 'test_param')
+    assert cmd[COMMAND_PROMPT_PARAMS] == ['test_param']
+    
+    # Block 4.2.2.3: Add same param again
+    command._add_param_to_command_list(cmd, 'test_param')
+    assert cmd[COMMAND_PROMPT_PARAMS] == ['test_param']
+    
+    # Block 4.2.2.4: Add different param
+    command._add_param_to_command_list(cmd, 'other_param')
+    assert cmd[COMMAND_PROMPT_PARAMS] == ['test_param', 'other_param']
+```
 
-This test validates that commands correctly handle multiple prompt-enabled required params. When a command requires several params that all have `PARAM_PROMPT`, the command's `COMMAND_PROMPT_PARAMS` list should contain all of them. This ensures complex commands with multiple interactive inputs work correctly. The test confirms the reciprocal list building scales to multiple parameters without dropping any.
+**Code 4.2.3: Leaf helper to check if param prompts for command**
+
+```python
+# Block 4.2.3: Add to src/spafw37/command.py after _add_param_to_command_list()
+def _param_prompts_for_command(param_def, cmd_name):
+    """Check if param prompts before specified command.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        cmd_name: Command name string
+        
+    Returns:
+        True if param prompts before command, False otherwise
+    """
+    # Block 4.2.3.1: Check PROMPT_ON_COMMANDS list
+    prompt_commands = param_def.get(PROMPT_ON_COMMANDS, [])
+    return cmd_name in prompt_commands
+```
+
+**Test 4.2.4: Unit test for checking if param prompts for command**
 
 ```gherkin
-Scenario: Command with multiple required params builds complete COMMAND_PROMPT_PARAMS list
-  Given params "name", "age", "email" all with PARAM_PROMPT and auto-population flags
-  When command "register" registered with COMMAND_REQUIRED_PARAMS ["name", "age", "email"]
-  Then command "register" has COMMAND_PROMPT_PARAMS ["name", "age", "email"]
-  And all three params have PROMPT_ON_COMMANDS ["register"]
-  And all reciprocal relationships established correctly
+Scenario: Param check returns True when command in PROMPT_ON_COMMANDS
+  Given a param with PROMPT_ON_COMMANDS list containing command name
+  When _param_prompts_for_command() is called with that command name
+  Then function returns True
   
-  # Tests: Multiple param handling in reciprocal registration
-  # Validates: Commands with multiple prompt params build complete reciprocal lists
+  # Tests: PROMPT_ON_COMMANDS list membership check
+  # Validates: Helper correctly identifies prompt relationships
 ```
+
+```python
+# Test 4.2.4: Add to tests/test_command.py
+def test_param_prompts_for_command():
+    """Test that _param_prompts_for_command() correctly checks PROMPT_ON_COMMANDS list.
+    
+    This test verifies that the helper function returns True when the command name
+    is in the param's PROMPT_ON_COMMANDS list, and False otherwise.
+    This behaviour is essential for determining reciprocal relationships."""
+    # Block 4.2.4.1: Param with command in list
+    param_def = {PROMPT_ON_COMMANDS: ['cmd1', 'cmd2']}
+    assert command._param_prompts_for_command(param_def, 'cmd1') is True
+    assert command._param_prompts_for_command(param_def, 'cmd2') is True
+    
+    # Block 4.2.4.2: Param with command not in list
+    assert command._param_prompts_for_command(param_def, 'cmd3') is False
+    
+    # Block 4.2.4.3: Param without PROMPT_ON_COMMANDS
+    param_def_no_list = {}
+    assert command._param_prompts_for_command(param_def_no_list, 'cmd1') is False
+```
+
+**Code 4.2.5: Leaf helper to establish auto-populated relationship**
+
+```python
+# Block 4.2.5: Add to src/spafw37/command.py after _param_prompts_for_command()
+def _establish_auto_populated_relationship(param_def, cmd_name):
+    """Establish auto-populated relationship between param and command.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        cmd_name: Command name string
+    """
+    # Block 4.2.5.1: Initialize PROMPT_ON_COMMANDS list
+    if PROMPT_ON_COMMANDS not in param_def:
+        param_def[PROMPT_ON_COMMANDS] = []
+    
+    # Block 4.2.5.2: Add command to param's list
+    if cmd_name not in param_def[PROMPT_ON_COMMANDS]:
+        param_def[PROMPT_ON_COMMANDS].append(cmd_name)
+    
+    # Block 4.2.5.3: Clear auto-populate flag
+    param_def[param._PROMPT_AUTO_POPULATE] = False
+```
+
+**Test 4.2.6: Unit test for establishing auto-populated relationship**
+
+```gherkin
+Scenario: Auto-populated relationship established and flag cleared
+  Given a param with _PROMPT_AUTO_POPULATE flag set
+  When _establish_auto_populated_relationship() is called with command name
+  Then param's PROMPT_ON_COMMANDS contains command name
+  And _PROMPT_AUTO_POPULATE flag is set to False
+  
+  # Tests: Auto-populate mechanism for single param-command pair
+  # Validates: Flag cleared to prevent re-processing
+```
+
+```python
+# Test 4.2.6: Add to tests/test_command.py
+def test_establish_auto_populated_relationship():
+    """Test that _establish_auto_populated_relationship() creates bidirectional link and clears flag.
+    
+    This test verifies that the helper function initializes PROMPT_ON_COMMANDS if needed,
+    adds the command name without duplicates, and clears the _PROMPT_AUTO_POPULATE flag.
+    This behaviour ensures auto-population happens exactly once per param-command pair."""
+    # Block 4.2.6.1: Param without PROMPT_ON_COMMANDS
+    param_def = {param._PROMPT_AUTO_POPULATE: True}
+    command._establish_auto_populated_relationship(param_def, 'test_cmd')
+    assert param_def[PROMPT_ON_COMMANDS] == ['test_cmd']
+    assert param_def[param._PROMPT_AUTO_POPULATE] is False
+    
+    # Block 4.2.6.2: Param with existing PROMPT_ON_COMMANDS
+    param_def2 = {
+        PROMPT_ON_COMMANDS: ['other_cmd'],
+        param._PROMPT_AUTO_POPULATE: True
+    }
+    command._establish_auto_populated_relationship(param_def2, 'test_cmd')
+    assert 'test_cmd' in param_def2[PROMPT_ON_COMMANDS]
+    assert 'other_cmd' in param_def2[PROMPT_ON_COMMANDS]
+    assert param_def2[param._PROMPT_AUTO_POPULATE] is False
+    
+    # Block 4.2.6.3: Prevent duplicates
+    command._establish_auto_populated_relationship(param_def, 'test_cmd')
+    assert param_def[PROMPT_ON_COMMANDS].count('test_cmd') == 1
+```
+
+**Code 4.2.7: Mid-level helper to process single required param relationship**
+
+```python
+# Block 4.2.7: Add to src/spafw37/command.py after _establish_auto_populated_relationship()
+def _process_required_param_relationship(cmd, cmd_name, param_name):
+    """Process relationship between command and a single required param.
+    
+    Args:
+        cmd: Command definition dictionary
+        cmd_name: Command name string
+        param_name: Parameter name string
+    """
+    # Block 4.2.7.1: Look up param definition
+    param_def = param.get_param_by_name(param_name)
+    if not param_def or PARAM_PROMPT not in param_def:
+        return
+    
+    # Block 4.2.7.2: Handle auto-populate flag
+    if param_def.get(param._PROMPT_AUTO_POPULATE):
+        _establish_auto_populated_relationship(param_def, cmd_name)
+    
+    # Block 4.2.7.3: Add param to command list if relationship exists
+    if _param_prompts_for_command(param_def, cmd_name):
+        _add_param_to_command_list(cmd, param_name)
+```
+
+**Test 4.2.8: Unit test for processing single required param relationship**
+
+```gherkin
+Scenario: Required param without PARAM_PROMPT skipped
+  Given a param without PARAM_PROMPT property
+  When _process_required_param_relationship() is called
+  Then no relationship established
+  And command list unchanged
+  
+  # Tests: Non-prompt params skipped during processing
+  # Validates: Helper validates param has prompt capability
+```
+
+```python
+# Test 4.2.8: Add to tests/test_command.py
+def test_process_required_param_relationship_without_prompt():
+    """Test that _process_required_param_relationship() skips params without PARAM_PROMPT.
+    
+    This test verifies that when a required param doesn't have PARAM_PROMPT configured,
+    the helper function returns early without establishing any relationships.
+    This behaviour is expected because only prompt-enabled params participate."""
+    # Block 4.2.8.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.8.2: Register param without PARAM_PROMPT
+    param.add_param({
+        PARAM_NAME: 'config_file',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 4.2.8.3: Create command with empty list
+    cmd = {COMMAND_PROMPT_PARAMS: []}
+    
+    # Block 4.2.8.4: Process relationship
+    command._process_required_param_relationship(cmd, 'test_cmd', 'config_file')
+    
+    # Block 4.2.8.5: Verify no changes
+    assert cmd[COMMAND_PROMPT_PARAMS] == []
+    param_def = param._params['config_file']
+    assert PROMPT_ON_COMMANDS not in param_def
+```
+
+**Code 4.2.9: Top-level helper to build reciprocal registration for required params**
+
+```python
+# Block 4.2.9: Add to src/spafw37/command.py after _process_required_param_relationship()
+def _build_reciprocal_registration_for_required_params(cmd):
+    """Build reciprocal registration between commands and their required prompt params.
+    
+    Auto-populates PROMPT_ON_COMMANDS for params marked with _PROMPT_AUTO_POPULATE flag
+    when they appear in COMMAND_REQUIRED_PARAMS, establishing bidirectional relationships.
+    
+    Args:
+        cmd: Command definition dictionary
+    """
+    # Block 4.2.9.1: Initialize COMMAND_PROMPT_PARAMS if not set
+    if COMMAND_PROMPT_PARAMS not in cmd:
+        cmd[COMMAND_PROMPT_PARAMS] = []
+    
+    # Block 4.2.9.2: Check for required params
+    required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
+    if not required_params:
+        return
+    
+    # Block 4.2.9.3: Process each required param
+    cmd_name = cmd.get(COMMAND_NAME)
+    for param_name in required_params:
+        _process_required_param_relationship(cmd, cmd_name, param_name)
+```
+
+**Test 4.2.10: Integration test for command without required params**
+
+```gherkin
+Scenario: Command without COMMAND_REQUIRED_PARAMS unchanged
+  Given a command definition without COMMAND_REQUIRED_PARAMS property
+  When add_command() is called
+  Then COMMAND_PROMPT_PARAMS is empty list
+  And no param relationships established
+  
+  # Tests: Auto-population is opt-in via required params
+  # Validates: Commands without dependencies unaffected
+```
+
+```python
+# Test 4.2.10: Add to tests/test_command.py
+def test_reciprocal_registration_without_required_params():
+    """Test that commands without COMMAND_REQUIRED_PARAMS get empty COMMAND_PROMPT_PARAMS list.
+    
+    This regression test verifies that the auto-population mechanism initialises
+    COMMAND_PROMPT_PARAMS as an empty list even when there are no required params.
+    This behaviour is expected because the property should exist even if unused."""
+    # Block 4.2.10.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.10.2: Register command without required params
+    command.add_command({
+        COMMAND_NAME: 'standalone_cmd',
+        COMMAND_ACTION: lambda: None
+    })
+    
+    # Block 4.2.10.3: Verify COMMAND_PROMPT_PARAMS is empty list
+    registered_cmd = command._commands['standalone_cmd']
+    assert registered_cmd[COMMAND_PROMPT_PARAMS] == []
+```
+
+**Test 4.2.11: Integration test for required param without PARAM_PROMPT**
+
+```gherkin
+Scenario: Required param without PARAM_PROMPT is skipped
+  Given a param without PARAM_PROMPT property
+  And a command with that param in COMMAND_REQUIRED_PARAMS
+  When add_command() is called
+  Then param is not added to COMMAND_PROMPT_PARAMS
+  And no reciprocal relationship established
+  
+  # Tests: Auto-population only for prompt-enabled params
+  # Validates: Framework skips non-prompt params
+```
+
+```python
+# Test 4.2.11: Add to tests/test_command.py
+def test_required_param_without_prompt_skipped():
+    """Test that required params without PARAM_PROMPT are skipped during auto-population.
+    
+    This test verifies that when a command lists a param in COMMAND_REQUIRED_PARAMS,
+    but that param does not have PARAM_PROMPT configured, the framework skips it
+    during reciprocal registration. This behaviour is expected because only
+    prompt-enabled params participate in the auto-population mechanism."""
+    # Block 4.2.11.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.11.2: Register param without PARAM_PROMPT
+    param.add_param({
+        PARAM_NAME: 'config_file',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 4.2.11.3: Register command with required param
+    command.add_command({
+        COMMAND_NAME: 'process_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_REQUIRED_PARAMS: ['config_file']
+    })
+    
+    # Block 4.2.11.4: Verify param not in COMMAND_PROMPT_PARAMS
+    registered_cmd = command._commands['process_cmd']
+    assert 'config_file' not in registered_cmd[COMMAND_PROMPT_PARAMS]
+```
+
+
+**Test 4.2.12: Integration test for auto-populate flag establishing relationship**
+
+```gherkin
+Scenario: Param with _PROMPT_AUTO_POPULATE flag establishes relationship
+  Given a param with PARAM_PROMPT and _PROMPT_AUTO_POPULATE flag set
+  And a command with that param in COMMAND_REQUIRED_PARAMS
+  When add_command() is called
+  Then param's PROMPT_ON_COMMANDS contains command name
+  And command's COMMAND_PROMPT_PARAMS contains param name
+  And _PROMPT_AUTO_POPULATE flag is cleared
+  
+  # Tests: Auto-population mechanism for flagged params
+  # Validates: Bidirectional relationships established correctly
+```
+
+```python
+# Test 4.2.12: Add to tests/test_command.py
+def test_auto_populate_flag_establishes_bidirectional_relationship():
+    """Test that params with _PROMPT_AUTO_POPULATE flag establish bidirectional relationships.
+    
+    This test verifies that when a param has PARAM_PROMPT and _PROMPT_AUTO_POPULATE flag set,
+    and a command lists it in COMMAND_REQUIRED_PARAMS, the framework automatically establishes
+    the reciprocal relationship: param's PROMPT_ON_COMMANDS includes the command, and command's
+    COMMAND_PROMPT_PARAMS includes the param. The flag is then cleared to prevent re-processing.
+    This behaviour is expected because it reduces configuration burden for common use cases."""
+    # Block 4.2.12.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.12.2: Register param with auto-populate flag
+    param.add_param({
+        PARAM_NAME: 'username',
+        PARAM_PROMPT: 'Username:',
+        param._PROMPT_AUTO_POPULATE: True
+    })
+    
+    # Block 4.2.12.3: Register command with required param
+    command.add_command({
+        COMMAND_NAME: 'login_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_REQUIRED_PARAMS: ['username']
+    })
+    
+    # Block 4.2.12.4: Verify param's PROMPT_ON_COMMANDS
+    param_def = param._params['username']
+    assert 'login_cmd' in param_def[PROMPT_ON_COMMANDS]
+    
+    # Block 4.2.12.5: Verify command's COMMAND_PROMPT_PARAMS
+    registered_cmd = command._commands['login_cmd']
+    assert 'username' in registered_cmd[COMMAND_PROMPT_PARAMS]
+    
+    # Block 4.2.12.6: Verify flag cleared
+    assert param_def[param._PROMPT_AUTO_POPULATE] is False
+```
+
+**Test 4.2.13: Integration test for existing PROMPT_ON_COMMANDS relationship**
+
+```gherkin
+Scenario: Param with existing PROMPT_ON_COMMANDS adds to command list
+  Given a param with PARAM_PROMPT and PROMPT_ON_COMMANDS including command
+  And a command with that param in COMMAND_REQUIRED_PARAMS
+  When add_command() is called
+  Then command's COMMAND_PROMPT_PARAMS contains param name
+  And param's PROMPT_ON_COMMANDS unchanged
+  
+  # Tests: Explicit timing relationships honoured
+  # Validates: Framework respects pre-existing PROMPT_ON_COMMANDS
+```
+
+```python
+# Test 4.2.13: Add to tests/test_command.py
+def test_existing_prompt_on_commands_relationship_honoured():
+    """Test that params with existing PROMPT_ON_COMMANDS add themselves to command list.
+    
+    This test verifies that when a param already has PROMPT_ON_COMMANDS configured
+    (explicit timing, not auto-population), and a command lists it in COMMAND_REQUIRED_PARAMS,
+    the framework adds the param to the command's COMMAND_PROMPT_PARAMS list without
+    modifying the param's configuration. This behaviour is expected because explicit
+    relationships override auto-population."""
+    # Block 4.2.13.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.13.2: Register param with explicit timing
+    param.add_param({
+        PARAM_NAME: 'api_key',
+        PARAM_PROMPT: 'API Key:',
+        PROMPT_ON_COMMANDS: ['deploy_cmd']
+    })
+    
+    # Block 4.2.13.3: Register command with required param
+    command.add_command({
+        COMMAND_NAME: 'deploy_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_REQUIRED_PARAMS: ['api_key']
+    })
+    
+    # Block 4.2.13.4: Verify command list includes param
+    registered_cmd = command._commands['deploy_cmd']
+    assert 'api_key' in registered_cmd[COMMAND_PROMPT_PARAMS]
+    
+    # Block 4.2.13.5: Verify param list unchanged
+    param_def = param._params['api_key']
+    assert param_def[PROMPT_ON_COMMANDS] == ['deploy_cmd']
+```
+
+**Test 4.2.14: Integration test for multiple required params with mixed configurations**
+
+```gherkin
+Scenario: Command with multiple required params processes each correctly
+  Given multiple params with different prompt configurations
+  And a command requiring all of them
+  When add_command() is called
+  Then only prompt-enabled params added to COMMAND_PROMPT_PARAMS
+  And relationships established appropriately for each
+  
+  # Tests: Batch processing of required params
+  # Validates: Framework handles heterogeneous param configurations
+```
+
+```python
+# Test 4.2.14: Add to tests/test_command.py
+def test_multiple_required_params_with_mixed_configurations():
+    """Test that commands with multiple required params process each configuration correctly.
+    
+    This test verifies that when a command has multiple required params with different
+    configurations (some with prompts, some without; some auto-populate, some explicit),
+    the framework processes each appropriately and builds the correct COMMAND_PROMPT_PARAMS list.
+    This behaviour is expected because real applications mix different param types."""
+    # Block 4.2.14.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.2.14.2: Register params with different configs
+    param.add_param({
+        PARAM_NAME: 'username',
+        PARAM_PROMPT: 'Username:',
+        param._PROMPT_AUTO_POPULATE: True
+    })
+    param.add_param({
+        PARAM_NAME: 'password',
+        PARAM_PROMPT: 'Password:',
+        PROMPT_ON_COMMANDS: ['secure_cmd']
+    })
+    param.add_param({
+        PARAM_NAME: 'config_file',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 4.2.14.3: Register command requiring all params
+    command.add_command({
+        COMMAND_NAME: 'secure_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_REQUIRED_PARAMS: ['username', 'password', 'config_file']
+    })
+    
+    # Block 4.2.14.4: Verify only prompt params in list
+    registered_cmd = command._commands['secure_cmd']
+    assert 'username' in registered_cmd[COMMAND_PROMPT_PARAMS]
+    assert 'password' in registered_cmd[COMMAND_PROMPT_PARAMS]
+    assert 'config_file' not in registered_cmd[COMMAND_PROMPT_PARAMS]
+```
+
+**Code 4.2.15: Call reciprocal registration helper from add_command()**
+
+```python
+# Block 4.2.15: Add to src/spafw37/command.py in add_command() after inline command definitions processing
+# Build reciprocal registration for required params
+_build_reciprocal_registration_for_required_params(cmd)
+```
+
 
 [↑ Back to top](#table-of-contents)
 
@@ -2340,68 +3044,375 @@ Scenario: Command with multiple required params builds complete COMMAND_PROMPT_P
 
 **File:** `src/spafw37/command.py`
 
-**TODO:** Add implementation code here for explicit prompt param processing.
+Handle params explicitly listed in `COMMAND_PROMPT_PARAMS` that weren't processed via auto-population. When a command explicitly declares which params should prompt before it executes, ensure the reciprocal relationship is established on the param side. This handles cases where params are defined with explicit timing or where the command-param relationship isn't captured through `COMMAND_REQUIRED_PARAMS`.
 
-For each param name in `COMMAND_PROMPT_PARAMS` (after inline processing):
-- Look up param definition from `param._params`
-- If param has `PARAM_PROMPT` and `PROMPT_ON_COMMANDS` not set:
-  - Add this command name to param's `PROMPT_ON_COMMANDS` list
-- Ensure param has `PARAM_PROMPT` (raise error if missing)
+**Algorithm:**
 
-**Test 4.3.1: test_param_with_multiple_commands_in_prompt_on_commands**
+1. Check if command has `COMMAND_PROMPT_PARAMS` property (after inline processing has normalised it); if not present, return early
+2. Get the command name from command definition
+3. For each param name in the normalised `COMMAND_PROMPT_PARAMS` list:
+   a. Look up param definition from `param._params` registry
+   b. If param not found, raise `ValueError` indicating param must be registered before being referenced in `COMMAND_PROMPT_PARAMS`
+   c. Verify param has `PARAM_PROMPT` property; if not present, raise `ValueError` indicating all params in `COMMAND_PROMPT_PARAMS` must have `PARAM_PROMPT` configured
+   d. Check if param's `PROMPT_ON_COMMANDS` property is not set (is None or missing):
+      - If not set: Initialize `PROMPT_ON_COMMANDS` as empty list
+      - Add this command name to param's `PROMPT_ON_COMMANDS` list (if not already present)
+      - This establishes the reciprocal relationship for explicitly declared prompt params
+   e. If `PROMPT_ON_COMMANDS` was already set, verify this command name is in the list (consistency check)
 
-This test validates that params can explicitly list multiple commands in `PROMPT_ON_COMMANDS` and all reciprocal relationships are established. When a param specifies `PROMPT_ON_COMMANDS: ["cmd1", "cmd2", "cmd3"]`, all three commands should add this param to their `COMMAND_PROMPT_PARAMS` lists. This enables params to prompt before multiple different commands. The test confirms multi-command relationships work correctly.
+This ensures all params in `COMMAND_PROMPT_PARAMS` are valid prompt-enabled params with proper bidirectional relationships established.
 
-```gherkin
-Scenario: Param with explicit multi-command PROMPT_ON_COMMANDS creates multiple reciprocal links
-  Given a param "confirm" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["delete", "reset", "purge"]
-  When commands "delete", "reset", "purge" are registered
-  Then command "delete" has COMMAND_PROMPT_PARAMS including "confirm"
-  And command "reset" has COMMAND_PROMPT_PARAMS including "confirm"
-  And command "purge" has COMMAND_PROMPT_PARAMS including "confirm"
-  
-  # Tests: One-to-many param-command relationships
-  # Validates: Single param can prompt before multiple commands with correct reciprocal links
+**Implementation order:**
+
+1. Create `_build_reciprocal_registration_for_explicit_params(cmd)` helper function
+2. Add call to helper in `add_command()` after reciprocal registration for required params
+3. Add tests for param not found (raise ValueError)
+4. Add tests for param without PARAM_PROMPT (raise ValueError)
+5. Add tests for param without PROMPT_ON_COMMANDS (establish relationship)
+6. Add tests for param with existing PROMPT_ON_COMMANDS (consistency check)
+
+**Code 4.3.1: Leaf helper to ensure reciprocal link exists**
+
+```python
+# Block 4.3.1: Add to src/spafw37/command.py after _build_reciprocal_registration_for_required_params()
+def _ensure_reciprocal_link_exists(param_def, cmd_name):
+    """Ensure reciprocal link exists from param to command.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        cmd_name: Command name string
+    """
+    # Block 4.3.1.1: Initialize PROMPT_ON_COMMANDS if not set
+    if PROMPT_ON_COMMANDS not in param_def:
+        param_def[PROMPT_ON_COMMANDS] = []
+    
+    # Block 4.3.1.2: Add command to param's list
+    if cmd_name not in param_def[PROMPT_ON_COMMANDS]:
+        param_def[PROMPT_ON_COMMANDS].append(cmd_name)
 ```
 
-**Test 4.3.2: test_param_without_prompt_property_no_reciprocal_building**
-
-This test validates that the reciprocal registration mechanism only activates for prompt-enabled params. Params without `PARAM_PROMPT` should not trigger any reciprocal list building, even if they're in `COMMAND_REQUIRED_PARAMS`. This ensures the prompt system remains opt-in and doesn't affect non-interactive params. The test confirms params without `PARAM_PROMPT` are excluded from reciprocal registration.
+**Test 4.3.2: Unit test for ensuring reciprocal link**
 
 ```gherkin
-Scenario: Param without PARAM_PROMPT does not trigger reciprocal list building
-  Given a param "config_file" with no PARAM_PROMPT property
-  When command "process" registered with COMMAND_REQUIRED_PARAMS ["config_file"]
-  Then param "config_file" has no PROMPT_ON_COMMANDS list
-  And command "process" has empty COMMAND_PROMPT_PARAMS list
-  And no reciprocal relationship created
+Scenario: Reciprocal link established from param to command
+  Given a param definition
+  When _ensure_reciprocal_link_exists() is called with command name
+  Then param's PROMPT_ON_COMMANDS contains command name
+  And no duplicates created
   
-  # Tests: Opt-in nature of prompt system
-  # Validates: Only params with PARAM_PROMPT participate in reciprocal registration
+  # Tests: Reciprocal link creation without duplicates
+  # Validates: Helper initializes list if needed
 ```
 
-**Test 4.3.3: test_registration_order_independence**
+```python
+# Test 4.3.2: Add to tests/test_command.py
+def test_ensure_reciprocal_link_exists():
+    """Test that _ensure_reciprocal_link_exists() creates reciprocal link without duplicates.
+    
+    This test verifies that the helper function initializes PROMPT_ON_COMMANDS if needed,
+    adds the command name, and prevents duplicate entries.
+    This behaviour ensures clean bidirectional relationships."""
+    # Block 4.3.2.1: Param without PROMPT_ON_COMMANDS
+    param_def = {}
+    command._ensure_reciprocal_link_exists(param_def, 'test_cmd')
+    assert param_def[PROMPT_ON_COMMANDS] == ['test_cmd']
+    
+    # Block 4.3.2.2: Prevent duplicates
+    command._ensure_reciprocal_link_exists(param_def, 'test_cmd')
+    assert param_def[PROMPT_ON_COMMANDS] == ['test_cmd']
+    
+    # Block 4.3.2.3: Multiple commands
+    command._ensure_reciprocal_link_exists(param_def, 'other_cmd')
+    assert set(param_def[PROMPT_ON_COMMANDS]) == {'test_cmd', 'other_cmd'}
+```
 
-This test validates that reciprocal registration works correctly regardless of whether params or commands are registered first. The framework should handle both scenarios: params registered before commands (forward reference) and commands registered before params (backward reference). This order independence prevents fragile registration sequences. The test confirms reciprocal lists are built correctly in both registration orders.
+**Code 4.3.3: Mid-level helper to validate and link explicit param**
+
+```python
+# Block 4.3.3: Add to src/spafw37/command.py after _ensure_reciprocal_link_exists()
+def _validate_and_link_explicit_param(cmd_name, param_name):
+    """Validate and establish reciprocal link for explicitly declared prompt param.
+    
+    Args:
+        cmd_name: Command name string
+        param_name: Parameter name string
+        
+    Raises:
+        ValueError: If param not found or missing PARAM_PROMPT property
+    """
+    # Block 4.3.3.1: Look up param definition
+    param_def = param.get_param_by_name(param_name)
+    if not param_def:
+        raise ValueError(
+            f"Param '{param_name}' in COMMAND_PROMPT_PARAMS must be registered first"
+        )
+    
+    # Block 4.3.3.2: Verify PARAM_PROMPT exists
+    if PARAM_PROMPT not in param_def:
+        raise ValueError(
+            f"Param '{param_name}' in COMMAND_PROMPT_PARAMS must have PARAM_PROMPT configured"
+        )
+    
+    # Block 4.3.3.3: Establish or verify reciprocal link
+    _ensure_reciprocal_link_exists(param_def, cmd_name)
+```
+
+**Test 4.3.4: Unit test for validating and linking explicit param**
 
 ```gherkin
-Scenario: Reciprocal registration works with both param-first and command-first order
-  Given test runs twice with different registration orders
+Scenario: Validation catches missing param configuration
+  Given param name not registered
+  When _validate_and_link_explicit_param() is called
+  Then ValueError is raised with appropriate message
   
-  # Order 1: Param first, then command
-  When param "value" registered with PARAM_PROMPT and auto-population flag
-  And then command "calc" registered with COMMAND_REQUIRED_PARAMS ["value"]
-  Then reciprocal lists built correctly
+  # Tests: Validation logic for explicit params
+  # Validates: Helper enforces configuration requirements
+```
+
+```python
+# Test 4.3.4: Add to tests/test_command.py
+def test_validate_and_link_explicit_param_validation():
+    """Test that _validate_and_link_explicit_param() validates param configuration.
+    
+    This test verifies that the helper function raises ValueError when param
+    is not found or doesn't have PARAM_PROMPT configured.
+    This behaviour prevents invalid command-param relationships."""
+    # Block 4.3.4.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.3.4.2: Test param not found
+    with pytest.raises(ValueError) as exc_info:
+        command._validate_and_link_explicit_param('test_cmd', 'missing_param')
+    assert 'must be registered first' in str(exc_info.value)
+    
+    # Block 4.3.4.3: Register param without PARAM_PROMPT
+    param.add_param({
+        PARAM_NAME: 'no_prompt_param',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 4.3.4.4: Test param without PARAM_PROMPT
+    with pytest.raises(ValueError) as exc_info:
+        command._validate_and_link_explicit_param('test_cmd', 'no_prompt_param')
+    assert 'must have PARAM_PROMPT' in str(exc_info.value)
+    
+    # Block 4.3.4.5: Register valid param and verify link
+    param.add_param({
+        PARAM_NAME: 'valid_param',
+        PARAM_PROMPT: 'Value:'
+    })
+    command._validate_and_link_explicit_param('test_cmd', 'valid_param')
+    param_def = param._params['valid_param']
+    assert 'test_cmd' in param_def[PROMPT_ON_COMMANDS]
+```
+
+**Code 4.3.5: Top-level helper to build reciprocal registration for explicit params**
+
+```python
+# Block 4.3.5: Add to src/spafw37/command.py after _validate_and_link_explicit_param()
+def _build_reciprocal_registration_for_explicit_params(cmd):
+    """Build reciprocal registration for params explicitly listed in COMMAND_PROMPT_PARAMS.
+    
+    Validates all params in COMMAND_PROMPT_PARAMS and establishes reciprocal relationships
+    on the param side, ensuring bidirectional links exist.
+    
+    Args:
+        cmd: Command definition dictionary
+    """
+    # Block 4.3.5.1: Check for prompt params list
+    prompt_params = cmd.get(COMMAND_PROMPT_PARAMS, [])
+    if not prompt_params:
+        return
+    
+    # Block 4.3.5.2: Process each explicit param
+    cmd_name = cmd.get(COMMAND_NAME)
+    for param_name in prompt_params:
+        _validate_and_link_explicit_param(cmd_name, param_name)
+```
+
+**Test 4.3.6: Integration test for param not found**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with unregistered param raises error
+  Given a command with COMMAND_PROMPT_PARAMS referencing non-existent param
+  When add_command() is called
+  Then ValueError is raised
+  And error message indicates param must be registered first
   
-  # Order 2: Command first, then param
-  When command "calc" registered with COMMAND_REQUIRED_PARAMS ["value"]
-  And then param "value" registered with PARAM_PROMPT and auto-population flag
-  Then reciprocal lists built correctly (deferred until param registration)
+  # Tests: Validation of param existence
+  # Validates: Framework prevents dangling references
+```
+
+```python
+# Test 4.3.6: Add to tests/test_command.py
+def test_explicit_prompt_param_not_found_raises_error():
+    """Test that COMMAND_PROMPT_PARAMS with unregistered param raises ValueError.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS references a param that hasn't been
+    registered, the framework raises ValueError with a clear message. This behaviour is
+    expected because all params must be registered before being referenced in commands."""
+    # Block 4.3.5.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.3.5.2: Attempt to register command with unregistered param
+    with pytest.raises(ValueError) as exc_info:
+        command.add_command({
+            COMMAND_NAME: 'login_cmd',
+            COMMAND_ACTION: lambda: None,
+            COMMAND_PROMPT_PARAMS: ['nonexistent_param']
+        })
+    
+    # Block 4.3.5.3: Verify error message
+    assert 'must be registered first' in str(exc_info.value).lower()
+```
+
+**Test 4.3.7: Integration test for param without PARAM_PROMPT**
+
+```gherkin
+Scenario: COMMAND_PROMPT_PARAMS with non-prompt param raises error
+  Given a registered param without PARAM_PROMPT property
+  And a command with COMMAND_PROMPT_PARAMS containing that param
+  When add_command() is called
+  Then ValueError is raised
+  And error message indicates PARAM_PROMPT required
   
-  And both orders produce identical reciprocal relationship structures
+  # Tests: Validation of PARAM_PROMPT property
+  # Validates: Framework enforces prompt configuration requirement
+```
+
+```python
+# Test 4.3.7: Add to tests/test_command.py
+def test_explicit_prompt_param_without_prompt_property_raises_error():
+    """Test that COMMAND_PROMPT_PARAMS with non-prompt param raises ValueError.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS references a param that doesn't have
+    PARAM_PROMPT configured, the framework raises ValueError. This behaviour is expected
+    because only prompt-enabled params can be listed in COMMAND_PROMPT_PARAMS."""
+    # Block 4.3.6.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.3.6.2: Register param without PARAM_PROMPT
+    param.add_param({
+        PARAM_NAME: 'config_file',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 4.3.6.3: Attempt to register command
+    with pytest.raises(ValueError) as exc_info:
+        command.add_command({
+            COMMAND_NAME: 'process_cmd',
+            COMMAND_ACTION: lambda: None,
+            COMMAND_PROMPT_PARAMS: ['config_file']
+        })
+    
+    # Block 4.3.6.4: Verify error message
+    assert 'must have param_prompt configured' in str(exc_info.value).lower()
+```
+
+**Test 4.3.8: Integration test for param without PROMPT_ON_COMMANDS**
+
+```gherkin
+Scenario: Explicit param without PROMPT_ON_COMMANDS gets reciprocal link
+  Given a param with PARAM_PROMPT but no PROMPT_ON_COMMANDS
+  And a command with COMMAND_PROMPT_PARAMS containing that param
+  When add_command() is called
+  Then param's PROMPT_ON_COMMANDS is initialised
+  And command name is added to param's list
   
-  # Tests: Registration order independence
-  # Validates: Reciprocal registration handles forward and backward references correctly
+  # Tests: Reciprocal link establishment for new relationships
+  # Validates: Framework creates bidirectional relationship
+```
+
+```python
+# Test 4.3.8: Add to tests/test_command.py
+def test_explicit_param_without_prompt_on_commands_establishes_relationship():
+    """Test that explicit params without PROMPT_ON_COMMANDS get reciprocal link established.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS references a param that doesn't have
+    PROMPT_ON_COMMANDS configured, the framework initialises the property and adds the
+    command name. This behaviour is expected because explicit declarations establish
+    relationships even without auto-population."""
+    # Block 4.3.8.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.3.8.2: Register param without PROMPT_ON_COMMANDS
+    param.add_param({
+        PARAM_NAME: 'secret_key',
+        PARAM_PROMPT: 'Secret Key:'
+    })
+    
+    # Block 4.3.8.3: Register command with explicit param
+    command.add_command({
+        COMMAND_NAME: 'secure_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PROMPT_PARAMS: ['secret_key']
+    })
+    
+    # Block 4.3.8.4: Verify reciprocal link established
+    param_def = param._params['secret_key']
+    assert PROMPT_ON_COMMANDS in param_def
+    assert 'secure_cmd' in param_def[PROMPT_ON_COMMANDS]
+```
+
+**Test 4.3.9: Integration test for param with existing PROMPT_ON_COMMANDS**
+
+```gherkin
+Scenario: Explicit param with existing PROMPT_ON_COMMANDS verified consistent
+  Given a param with PARAM_PROMPT and PROMPT_ON_COMMANDS including command
+  And a command with COMMAND_PROMPT_PARAMS containing that param
+  When add_command() is called
+  Then command registers successfully
+  And param's PROMPT_ON_COMMANDS includes command (no change)
+  
+  # Tests: Consistency check for pre-existing relationships
+  # Validates: Framework verifies but doesn't duplicate
+```
+
+```python
+# Test 4.3.8: Add to tests/test_command.py
+def test_explicit_param_with_existing_prompt_on_commands_consistency():
+    """Test that explicit params with existing PROMPT_ON_COMMANDS maintain consistency.
+    
+    This test verifies that when COMMAND_PROMPT_PARAMS references a param that already has
+    PROMPT_ON_COMMANDS configured including this command, the framework verifies consistency
+    without duplicating the entry. This behaviour is expected because the relationship
+    may have been established earlier (e.g., via auto-population or prior explicit declaration)."""
+    # Block 4.3.8.1: Clear existing state
+    command._commands = {}
+    param._params = {}
+    
+    # Block 4.3.8.2: Register param with existing relationship
+    param.add_param({
+        PARAM_NAME: 'token',
+    # Block 4.3.9.2: Register param with existing relationship
+    param.add_param({
+        PARAM_NAME: 'token',
+        PARAM_PROMPT: 'Token:',
+        PROMPT_ON_COMMANDS: ['auth_cmd']
+    })
+    
+    # Block 4.3.9.3: Register command with explicit param
+    command.add_command({
+        COMMAND_NAME: 'auth_cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PROMPT_PARAMS: ['token']
+    })
+    
+    # Block 4.3.9.4: Verify no duplication
+    param_def = param._params['token']
+    assert param_def[PROMPT_ON_COMMANDS].count('auth_cmd') == 1
+```
+
+**Code 4.3.10: Call reciprocal registration helper from add_command()**
+
+```python
+# Block 4.3.10: Add to src/spafw37/command.py in add_command() after _build_reciprocal_registration_for_required_params()
+# Build reciprocal registration for explicit prompt params
+_build_reciprocal_registration_for_explicit_params(cmd)
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -2414,64 +3425,24 @@ Scenario: Reciprocal registration works with both param-first and command-first 
 
 **File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
 
-**TODO:** Add implementation code for `_get_prompt_handler(param_def)` function.
+Implement the three-tier handler resolution system that provides fine-grained control whilst maintaining sensible defaults. This enables per-param customisation (e.g., GUI prompt for sensitive data), application-wide replacement (e.g., automated testing), and default behaviour (terminal input) without configuration.
 
-Resolve handler in order of precedence:
-1. Param-level: Return `param_def[PARAM_PROMPT_HANDLER]` if set
-2. Global: Return `_global_prompt_handler` if set
-3. Default: Return `input_prompt.prompt_for_value`
+**Algorithm:**
 
-**Test 5.1.1: test_handler_resolution_param_level_precedence**
+1. Check if param definition has `PARAM_PROMPT_HANDLER` property set:
+   - If present and not None: return this handler (param-level override takes highest precedence)
+2. Check module-level `_global_prompt_handler` variable:
+   - If not None: return this handler (global override set via `set_prompt_handler()` API)
+3. Return default handler:
+   - Import and return `input_prompt.prompt_for_value` function (built-in terminal prompting)
 
-This test validates the handler resolution precedence order. When a param has `PARAM_PROMPT_HANDLER` set, that handler must take precedence over the global handler (set via `set_prompt_handler()`) and the default handler (`input_prompt.py`). This three-tier precedence system (param-level → global → default) enables fine-grained control whilst providing sensible defaults. The test confirms param-level handlers override all others.
+**Precedence order:** Param-specific → Global → Default
 
-```gherkin
-Scenario: Param-level handler takes precedence over global and default handlers
-  Given a param with PARAM_PROMPT_HANDLER set to custom_param_handler
-  And global handler set to custom_global_handler via set_prompt_handler()
-  And default handler is input_prompt.prompt_for_value
-  When _get_prompt_handler(param_def) is called
-  Then function returns custom_param_handler
-  And global handler not used
-  And default handler not used
-  
-  # Tests: Handler resolution precedence (param > global > default)
-  # Validates: Param-specific handlers override global configuration
-```
+This design allows:
+- Individual params to use custom handlers (e.g., file picker, password masking)
+- Applications to replace all prompts globally (e.g., GUI wrapper, test automation)
+- Zero-configuration usage with sensible terminal input defaults
 
-**Test 5.1.2: test_handler_resolution_global_precedence**
-
-This test validates that the global handler takes precedence over the default handler when no param-level handler is set. Applications can call `set_prompt_handler()` to replace the default `input()` behaviour globally without modifying every param. The test confirms this middle tier of precedence works correctly, enabling application-wide handler customization whilst respecting param-specific overrides.
-
-```gherkin
-Scenario: Global handler takes precedence over default when no param-level handler
-  Given a param with no PARAM_PROMPT_HANDLER property
-  And global handler set to custom_global_handler via set_prompt_handler()
-  And default handler is input_prompt.prompt_for_value
-  When _get_prompt_handler(param_def) is called
-  Then function returns custom_global_handler
-  And default handler not used
-  
-  # Tests: Handler resolution precedence (global > default)
-  # Validates: Global handler customization works without param-level overrides
-```
-
-**Test 5.1.3: test_handler_resolution_default_fallback**
-
-This test validates the default handler fallback when neither param-level nor global handlers are set. The default handler (`input_prompt.prompt_for_value`) should always be available as the final fallback, ensuring prompts work out-of-the-box without configuration. The test confirms the resolution logic correctly falls through to the default when no customization is present.
-
-```gherkin
-Scenario: Default handler used when no param-level or global handler configured
-  Given a param with no PARAM_PROMPT_HANDLER property
-  And no global handler set (_global_prompt_handler is None)
-  And default handler is input_prompt.prompt_for_value
-  When _get_prompt_handler(param_def) is called
-  Then function returns input_prompt.prompt_for_value
-  And default handler provides out-of-box functionality
-  
-  # Tests: Default handler fallback
-  # Validates: Prompts work without configuration using built-in handler
-```
 
 [↑ Back to top](#table-of-contents)
 
@@ -2481,93 +3452,29 @@ Scenario: Default handler used when no param-level or global handler configured
 
 **File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
 
-**TODO:** Add implementation code for `_should_prompt_param(param_def, command_name=None, check_value=True)` function.
+Implement the decision logic that determines whether a param should prompt in the current context. This consolidates all timing, repeat, and override checks into a single helper that enforces the architectural decisions: CLI values prevent prompting, timing controls when prompts appear, repeat behaviour controls frequency.
 
-Determine if prompting needed:
-- Check if param has value (CLI override)
-- Check `PARAM_PROMPT_TIMING` matches context (PROMPT_ON_START vs PROMPT_ON_COMMANDS)
-- Check `PARAM_PROMPT_REPEAT` tracking in `_prompted_params` set
-- Return True if prompt should execute, False otherwise
+**Algorithm:**
 
-**Test 5.2.1: test_should_prompt_timing_on_start**
+1. Check if `check_value` parameter is True (default):
+   - Get current param value from param registry
+   - If value is set (not None and not empty): return False (CLI override - skip prompt)
+2. Check param's `PARAM_PROMPT_TIMING` property:
+   - If `PROMPT_ON_START`:
+     - If `command_name` parameter is None (calling from start-of-execution context): return True
+     - If `command_name` is provided (calling from command execution context): return False (wrong timing)
+   - If `PROMPT_ON_COMMAND`:
+     - If `command_name` parameter is None: return False (need command context)
+     - Check if `command_name` is in param's `PROMPT_ON_COMMANDS` list:
+       - If not in list: return False (prompt not configured for this command)
+       - If in list: proceed to repeat behaviour check
+3. Check param's `PARAM_PROMPT_REPEAT` property (only relevant for `PROMPT_ON_COMMAND` timing):
+   - If `PROMPT_REPEAT_ALWAYS`: return True (always prompt, regardless of previous prompts)
+   - If `PROMPT_REPEAT_IF_BLANK`: check current param value; return True if blank, False if set
+   - If `PROMPT_REPEAT_NEVER`: check if param name in module-level `_prompted_params` set; return False if already prompted, True if first time
+4. Default: return True (prompt should execute)
 
-This test validates the timing check for `PROMPT_ON_START`. When a param has `PARAM_PROMPT_TIMING == PROMPT_ON_START`, the `_should_prompt_param()` function should return true (assuming param has no value and other conditions are met). This enables prompts immediately after CLI parsing. The test confirms the timing check correctly identifies start-timing prompts.
-
-```gherkin
-Scenario: Should prompt returns true for PROMPT_ON_START timing without command context
-  Given a param with PARAM_PROMPT_TIMING == PROMPT_ON_START
-  And param has no current value
-  When _should_prompt_param(param_def, command_name=None) is called
-  Then function returns True
-  And prompt should execute at application start
-  
-  # Tests: Timing check for PROMPT_ON_START
-  # Validates: Framework identifies params that prompt after CLI parsing
-```
-
-**Test 5.2.2: test_should_prompt_timing_on_commands_match**
-
-This test validates the timing check for `PROMPT_ON_COMMANDS` when the current command name matches. When a param has `PROMPT_ON_COMMANDS` containing the executing command's name, `_should_prompt_param()` should return true. This enables command-specific prompts. The test confirms the timing check correctly matches command names against the param's list.
-
-```gherkin
-Scenario: Should prompt returns true when command name in PROMPT_ON_COMMANDS list
-  Given a param with PROMPT_ON_COMMANDS ["process", "execute"]
-  And param has no current value
-  When _should_prompt_param(param_def, command_name="execute") is called
-  Then function returns True
-  And prompt should execute before "execute" command
-  
-  # Tests: Timing check for PROMPT_ON_COMMANDS with matching command
-  # Validates: Framework identifies params that prompt before specific commands
-```
-
-**Test 5.2.3: test_should_prompt_timing_on_commands_no_match**
-
-This test validates that `_should_prompt_param()` returns false when the command name doesn't match any in `PROMPT_ON_COMMANDS`. Prompts should only appear before the commands explicitly listed, not all commands. The test confirms the timing check correctly excludes commands not in the list.
-
-```gherkin
-Scenario: Should prompt returns false when command name not in PROMPT_ON_COMMANDS
-  Given a param with PROMPT_ON_COMMANDS ["process", "execute"]
-  And param has no current value
-  When _should_prompt_param(param_def, command_name="other") is called
-  Then function returns False
-  And prompt should not execute before "other" command
-  
-  # Tests: Timing check exclusion for unlisted commands
-  # Validates: Prompts only appear before explicitly listed commands
-```
-
-**Test 5.2.4: test_should_prompt_value_already_set**
-
-This test validates the CLI override behaviour. When a param already has a value (set via CLI arguments), `_should_prompt_param()` should return false regardless of timing configuration. This implements the "if set, don't prompt" policy that prevents unnecessary prompts when users provide values upfront. The test confirms value checks short-circuit prompt execution.
-
-```gherkin
-Scenario: Should prompt returns false when param value already set via CLI
-  Given a param with PARAM_PROMPT_TIMING == PROMPT_ON_START
-  And param has current value "cli_value" (set via CLI)
-  When _should_prompt_param(param_def, check_value=True) is called
-  Then function returns False
-  And prompt should not execute (CLI override in effect)
-  
-  # Tests: CLI override behaviour
-  # Validates: Params set via CLI don't prompt (no confirmation needed)
-```
-
-**Test 5.2.5: test_should_prompt_repeat_never_second_call**
-
-This test validates the `PROMPT_REPEAT_NEVER` behaviour. After a param has been prompted once (tracked in `_prompted_params` set), subsequent calls to `_should_prompt_param()` should return false. This ensures single-prompt behaviour for initialization values. The test confirms the tracking mechanism correctly prevents repeat prompts.
-
-```gherkin
-Scenario: Should prompt returns false on second call for PROMPT_REPEAT_NEVER
-  Given a param with PARAM_PROMPT_REPEAT == PROMPT_REPEAT_NEVER
-  And param name in _prompted_params set (already prompted once)
-  When _should_prompt_param(param_def) is called
-  Then function returns False
-  And prompt should not repeat
-  
-  # Tests: PROMPT_REPEAT_NEVER tracking
-  # Validates: Params marked as prompted once don't re-prompt
-```
+This function is called from two contexts: start-of-execution (command_name=None) and before-command-execution (command_name="cmd").
 
 [↑ Back to top](#table-of-contents)
 
@@ -2577,94 +3484,35 @@ Scenario: Should prompt returns false on second call for PROMPT_REPEAT_NEVER
 
 **File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
 
-**TODO:** Add implementation code for `_execute_prompt_with_validation(param_def, handler)` function.
+Implement the core prompt execution loop with validation and retry logic. This integrates prompts with the existing framework validation system, ensuring user input is validated immediately using the same rules as CLI arguments. The retry mechanism provides user-friendly error recovery whilst preventing infinite loops.
 
-Run handler, validate, retry on error:
-- Call handler function with param definition
-- Validate result using framework validation functions
-- On validation failure: show error, retry (up to max_retry limit)
-- On max retry:
-  - If required param: exit application with error
-  - If optional param: set value to None and continue
+**Algorithm:**
+
+1. Define maximum retry attempts (e.g., `max_retries = 3`)
+2. Initialize retry counter to 0
+3. Start retry loop (while retry counter < max_retries):
+   a. Call the handler function with param definition: `user_value = handler(param_def)`
+   b. Attempt validation:
+      - Call existing framework validation function(s) for the param type
+      - Check `PARAM_ALLOWED_VALUES` if present (multiple choice validation)
+      - Apply any custom validation from param definition
+   c. If validation succeeds:
+      - Add param name to module-level `_prompted_params` set (track that prompt occurred)
+      - Return the validated user value
+   d. If validation fails:
+      - Display clear error message to user indicating what was wrong
+      - Increment retry counter
+      - If retry counter < max_retries: continue loop (prompt again)
+4. If loop exits (max retries exceeded):
+   - Check if param is required (via `PARAM_REQUIRED` or presence in any command's `COMMAND_REQUIRED_PARAMS`):
+     - If required: log error and exit application with non-zero status
+     - If optional: log warning, return None (param remains unset)
+
+**Error handling considerations:**
+- Handler may raise `EOFError` (stdin closed, non-interactive environment): propagate immediately, don't retry
+- Handler may raise `KeyboardInterrupt` (Ctrl+C): propagate immediately, allow user to abort
+- Validation errors are expected and trigger retry; other exceptions propagate
 - Set param value on success
-
-**Test 5.3.1: test_execute_prompt_with_validation_success**
-
-This test validates the happy path: user enters valid input, validation passes, param value is set. The `_execute_prompt_with_validation()` function should call the handler, validate the result using framework validation functions, and set the param value if validation succeeds. The test confirms successful prompt execution with valid input.
-
-```gherkin
-Scenario: Valid input accepted, validated, and param value set correctly
-  Given a param with PARAM_TYPE_NUMBER and validation rules
-  And stdin mocked with StringIO("42\n")
-  And handler is default input_prompt.prompt_for_value
-  When _execute_prompt_with_validation(param_def, handler) is called
-  Then handler called once
-  And validation functions called with "42"
-  And validation passes
-  And param value set to 42
-  And function returns successfully
-  
-  # Tests: Successful prompt execution with validation
-  # Validates: Valid input flows through handler → validation → param value
-```
-
-**Test 5.3.2: test_execute_prompt_with_validation_retry**
-
-This test validates the retry logic when validation fails. After invalid input, the function should display an error message, call the handler again, and continue until valid input is received (up to max retry limit). The test confirms retry logic works correctly, allowing users to correct mistakes without restarting the application.
-
-```gherkin
-Scenario: Invalid input triggers retry, eventually accepts valid input
-  Given a param with PARAM_TYPE_NUMBER
-  And stdin mocked with StringIO("invalid\n42\n")
-  And handler is default input_prompt.prompt_for_value
-  And max retry limit is 3
-  When _execute_prompt_with_validation(param_def, handler) is called
-  Then handler called twice (once for "invalid", once for "42")
-  And validation fails on first attempt with clear error message
-  And validation passes on second attempt
-  And param value set to 42
-  
-  # Tests: Validation retry logic
-  # Validates: Users can correct invalid input without restarting
-```
-
-**Test 5.3.3: test_execute_prompt_max_retry_required_param**
-
-This test validates the max retry behaviour for required params. When a required param fails validation max_retry times, the framework should exit the application with a clear error message. This prevents infinite retry loops whilst ensuring required values are always provided or the application fails predictably. The test confirms the exit behaviour for required params after max retries.
-
-```gherkin
-Scenario: Required param exits application after max retry limit reached
-  Given a param with PARAM_REQUIRED == True
-  And stdin mocked with StringIO("invalid1\ninvalid2\ninvalid3\n")
-  And max retry limit is 3
-  When _execute_prompt_with_validation(param_def, handler) is called
-  Then handler called 3 times (max retries)
-  And all three inputs fail validation
-  And application exits with error message indicating max retries exceeded
-  And param value not set
-  
-  # Tests: Max retry behaviour for required params
-  # Validates: Required params force application exit after max retry failures
-```
-
-**Test 5.3.4: test_execute_prompt_max_retry_optional_param**
-
-This test validates the max retry behaviour for optional params. When an optional param fails validation max_retry times, the framework should set the param value to `None` and continue execution. This allows applications to proceed with missing optional values without forcing exit. The test confirms optional params set to `None` after max retries rather than exiting.
-
-```gherkin
-Scenario: Optional param sets None and continues after max retry limit
-  Given a param with PARAM_REQUIRED == False (optional)
-  And stdin mocked with StringIO("invalid1\ninvalid2\ninvalid3\n")
-  And max retry limit is 3
-  When _execute_prompt_with_validation(param_def, handler) is called
-  Then handler called 3 times (max retries)
-  And all three inputs fail validation
-  And param value set to None
-  And function returns without exiting application
-  
-  # Tests: Max retry behaviour for optional params
-  # Validates: Optional params set None after max retries (graceful degradation)
-```
 
 [↑ Back to top](#table-of-contents)
 
@@ -2674,45 +3522,25 @@ Scenario: Optional param sets None and continues after max retry limit
 
 **File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
 
-**TODO:** Add implementation code for `_format_prompt_text(param_def)` function.
+Implement prompt text formatting following bash/Unix conventions for default value display. This provides users with clear indication of what will happen if they press Enter without typing, following familiar patterns from standard command-line tools.
 
-Build prompt string with default value:
-- Start with `PARAM_PROMPT` text
-- If `PARAM_DEFAULT` exists, append `[default: {value}]`
-- Add trailing space for cursor positioning
-- Return formatted string
+**Algorithm:**
 
-**Test 5.4.1: test_format_prompt_text_with_default**
+1. Get base prompt text from param definition's `PARAM_PROMPT` property
+2. Check if param has `PARAM_DEFAULT` property set:
+   - If present and not None:
+     - Append " [default: {value}]" to prompt text (bash convention format)
+     - Use the actual default value in the message
+   - If not present: leave prompt text unchanged
+3. Append ": " (colon and space) to prompt text for cursor positioning
+4. Return formatted string
 
-This test validates the prompt text formatting function when a default value exists. The formatted prompt should include the bash convention `[default: value]` to clearly indicate what will happen if the user presses Enter. The test confirms the formatting function produces correct output with default values displayed.
+**Example outputs:**
+- Without default: "Enter username: "
+- With default: "Enter username [default: admin]: "
+- Toggle with default: "Confirm deletion? (y/n) [default: n]: "
 
-```gherkin
-Scenario: Prompt text includes default value in bash convention format
-  Given a param with PARAM_PROMPT "Enter name:" and PARAM_DEFAULT "John"
-  When _format_prompt_text(param_def) is called
-  Then function returns "Enter name: [default: John] "
-  And format follows bash convention
-  And trailing space included for cursor positioning
-  
-  # Tests: Prompt text formatting with defaults
-  # Validates: Users see clear indication of default value behaviour
-```
-
-**Test 5.4.2: test_format_prompt_text_without_default**
-
-This test validates the prompt text formatting when no default value exists. The formatted prompt should display just the prompt text without the `[default: ...]` indicator. The test confirms the formatting function handles missing defaults correctly.
-
-```gherkin
-Scenario: Prompt text without default value shows only prompt message
-  Given a param with PARAM_PROMPT "Enter value:" and no PARAM_DEFAULT
-  When _format_prompt_text(param_def) is called
-  Then function returns "Enter value: "
-  And no default indicator shown
-  And trailing space included for cursor positioning
-  
-  # Tests: Prompt text formatting without defaults
-  # Validates: Prompts without defaults display cleanly without extra brackets
-```
+This formatting is used by the default `input_prompt.py` handler. Custom handlers may format differently.
 
 [↑ Back to top](#table-of-contents)
 
@@ -2722,130 +3550,30 @@ Scenario: Prompt text without default value shows only prompt message
 
 **File:** `src/spafw37/cli.py` or appropriate orchestration module
 
-**TODO:** Add implementation code for PROMPT_ON_START integration.
+Integrate start-timing prompts into the CLI execution flow. This adds a new phase between command-line parsing and command execution where params with `PROMPT_ON_START` timing are processed. The integration point is carefully chosen to respect CLI overrides (already parsed) whilst occurring before command validation (which needs prompt values).
 
-After CLI parsing completes, before command execution:
-- Iterate `param._params` dictionary
-- For each param with `PARAM_PROMPT_TIMING == PROMPT_ON_START`:
-  - Check if param has value (CLI didn't set it)
-  - If no value, call `_execute_prompt_with_validation()`
-  - Set param value from prompt result
+**Algorithm:**
 
-**Integration point:** After `_parse_command_line()` returns, before command queue processing
+1. Locate the integration point in `run_cli()` function:
+   - After `_parse_command_line()` has completed
+   - Before command queue processing begins
+   - Before required param validation occurs
+2. Iterate through all params in `param._params` registry:
+   - For each param:
+     - Check if param has `PARAM_PROMPT` property; if not, skip
+     - Check if param has `PARAM_PROMPT_TIMING == PROMPT_ON_START`; if not, skip
+     - Call `_should_prompt_param(param_def, command_name=None)` to check if prompting needed
+     - If returns False (CLI override or already set), skip to next param
+     - If returns True:
+       - Resolve handler via `_get_prompt_handler(param_def)`
+       - Execute prompt with `_execute_prompt_with_validation(param_def, handler)`
+       - Set param value to returned result (or None if optional and max retries exceeded)
 
-**Test 6.1.1: test_prompt_on_start_basic_execution**
-
-This test validates the fundamental PROMPT_ON_START workflow: param prompts after CLI parsing, user provides input, param value is set, command executes with the prompted value. This is the happy path for start-timing prompts. The test confirms the complete flow from prompt to command execution works correctly without any special conditions or edge cases.
-
-```gherkin
-Scenario: Param with PROMPT_ON_START prompts after CLI parsing before command execution
-  Given a param "username" with PARAM_PROMPT and PROMPT_ON_START timing
-  And a command "greet" that uses param "username"
-  And stdin mocked with StringIO("Alice\n")
-  When application runs with command line "greet"
-  Then CLI parsing completes first
-  And prompt appears with "Enter username:"
-  And user input "Alice" captured and validated
-  And param "username" value set to "Alice"
-  And command "greet" executes with username="Alice"
-  
-  # Tests: Basic PROMPT_ON_START integration
-  # Validates: Start-timing prompts work in complete CLI workflow
-```
-
-**Test 6.1.2: test_prompt_on_start_cli_override_skips_prompt**
-
-This test validates the CLI override behaviour for PROMPT_ON_START. When a user provides a param value via command-line arguments, the prompt should be skipped entirely—no confirmation, no display. This implements the "if set, don't prompt" policy. The test confirms CLI values prevent prompts from appearing, ensuring predictable behaviour and respecting explicit user input.
-
-```gherkin
-Scenario: Param set via CLI skips PROMPT_ON_START prompt entirely
-  Given a param "username" with PARAM_PROMPT and PROMPT_ON_START timing
-  And a command "greet" that uses param "username"
-  When application runs with command line "--username Bob greet"
-  Then CLI parsing sets username="Bob"
-  And prompt phase checks param has value
-  And prompt skipped (CLI override in effect)
-  And no stdin read occurs
-  And command "greet" executes with username="Bob"
-  
-  # Tests: CLI override behaviour for PROMPT_ON_START
-  # Validates: Command-line arguments prevent prompts (no confirmation needed)
-```
-
-**Test 6.1.3: test_prompt_on_start_multiple_params_sequential**
-
-This test validates that multiple PROMPT_ON_START params prompt sequentially in a predictable order. When several params need prompting at start, users should see them one at a time, provide input for each, and the application should continue only after all prompts complete. The test confirms multiple start-timing prompts work correctly without interfering with each other.
-
-```gherkin
-Scenario: Multiple PROMPT_ON_START params prompt sequentially in order
-  Given params "name", "age", "city" all with PARAM_PROMPT and PROMPT_ON_START
-  And stdin mocked with StringIO("Alice\n30\nLondon\n")
-  When application runs with command line "process"
-  Then prompt 1 appears for "name", input "Alice" captured
-  And prompt 2 appears for "age", input "30" captured
-  And prompt 3 appears for "city", input "London" captured
-  And all three params have values set
-  And command "process" executes with all three values
-  
-  # Tests: Multiple PROMPT_ON_START params
-  # Validates: Sequential prompting works without interference
-```
-
-**Test 6.1.4: test_prompt_on_start_required_validation_failure**
-
-This test validates the required param validation integration. When a required param with PROMPT_ON_START fails validation after max retries, the framework should exit with a clear error message rather than proceeding with invalid/missing data. This ensures data integrity for required params. The test confirms the framework enforces required param constraints even with interactive prompts.
-
-```gherkin
-Scenario: Required param with PROMPT_ON_START exits after max retry validation failures
-  Given a param "port" with PARAM_PROMPT, PROMPT_ON_START, PARAM_REQUIRED=True
-  And param has validation rules (must be integer 1-65535)
-  And stdin mocked with StringIO("invalid\nbad\nwrong\n")
-  And max retry limit is 3
-  When application runs
-  Then three prompts occur, all inputs fail validation
-  And application exits with error "Max retries exceeded for required param 'port'"
-  And command execution does not occur
-  
-  # Tests: Required param validation with PROMPT_ON_START
-  # Validates: Framework enforces required param constraints with prompts
-```
-
-**Test 6.1.5: test_prompt_on_start_optional_continues_after_failure**
-
-This test validates graceful degradation for optional params. When an optional param with PROMPT_ON_START fails validation after max retries, the framework should set the param to None and continue execution. This allows applications to handle missing optional values without forcing exit. The test confirms optional params enable graceful degradation whilst still attempting to collect user input.
-
-```gherkin
-Scenario: Optional param with PROMPT_ON_START sets None after max retries and continues
-  Given a param "theme" with PARAM_PROMPT, PROMPT_ON_START, PARAM_REQUIRED=False
-  And stdin mocked with StringIO("invalid\nbad\nwrong\n")
-  And max retry limit is 3
-  When application runs with command "start"
-  Then three prompts occur, all inputs fail validation
-  And param "theme" set to None
-  And application continues without exit
-  And command "start" executes with theme=None
-  
-  # Tests: Optional param graceful degradation
-  # Validates: Applications can continue with missing optional values
-```
-
-**Test 6.1.6: test_prompt_on_start_default_value_handling**
-
-This test validates default value behaviour in PROMPT_ON_START prompts. When a param has a default value and the user presses Enter without typing, the default should be used automatically. The prompt should display the default using bash convention `[default: value]` so users know what will happen. The test confirms default value handling works correctly in the integrated workflow.
-
-```gherkin
-Scenario: Blank input with default value uses default in PROMPT_ON_START
-  Given a param "language" with PARAM_PROMPT, PROMPT_ON_START, PARAM_DEFAULT="en"
-  And stdin mocked with StringIO("\n")
-  When application runs with command "configure"
-  Then prompt displays "Enter language: [default: en]"
-  And user presses Enter (blank input)
-  And param "language" set to "en" (default)
-  And command "configure" executes with language="en"
-  
-  # Tests: Default value handling in PROMPT_ON_START
-  # Validates: Bash convention defaults work in integrated workflow
-```
+**Integration considerations:**
+- This phase runs once per application execution, not per command
+- Multiple params may prompt in sequence (order determined by param registration order)
+- CLI values from `--param value` arguments prevent prompts (already handled by `_should_prompt_param`)
+- Errors in required params will cause application exit (handled by `_execute_prompt_with_validation`)
 
 [↑ Back to top](#table-of-contents)
 
@@ -2855,230 +3583,75 @@ Scenario: Blank input with default value uses default in PROMPT_ON_START
 
 **File:** `src/spafw37/command.py` or appropriate command execution module
 
-**TODO:** Add implementation code for PROMPT_ON_COMMAND integration.
+Integrate command-timing prompts into the command execution pipeline. This adds prompting immediately before individual commands execute, using the reciprocal `COMMAND_PROMPT_PARAMS` list for O(1) lookup of which params need prompting. The repeat behaviour controls whether prompts repeat in cycles or multi-command sequences.
 
-Before each command action executes:
-- Look up `COMMAND_PROMPT_PARAMS` on command definition (O(1))
-- For each param in list:
-  - Check `PARAM_PROMPT_REPEAT` setting and current value
-  - If should prompt, call `_execute_prompt_with_validation()`
-  - Update param value from prompt result
+**Algorithm:**
 
-**Repeat behaviour implementation:**
-- `PROMPT_REPEAT_ALWAYS`: Always prompt, show previous value as default
-- `PROMPT_REPEAT_IF_BLANK`: Only prompt if value is None/empty
-- `PROMPT_REPEAT_NEVER`: Check `_prompted_params` set, skip if already prompted
+1. Locate the command execution loop (where individual commands are executed):
+   - In `run_cli()` or command execution orchestration function
+   - Immediately before each command's action function is called
+   - After command dependencies are resolved
+2. Before each command executes:
+   a. Check if command has `COMMAND_PROMPT_PARAMS` property; if not or empty, skip prompting
+   b. Get command name from command definition
+   c. For each param name in `COMMAND_PROMPT_PARAMS` list:
+      - Look up param definition from `param._params` registry
+      - Call `_should_prompt_param(param_def, command_name=command_name)` to check if prompting needed
+        - This checks CLI override, timing match, and repeat behaviour based on `PARAM_PROMPT_REPEAT`
+      - If returns False, skip to next param
+      - If returns True:
+        - Resolve handler via `_get_prompt_handler(param_def)`
+        - Execute prompt with `_execute_prompt_with_validation(param_def, handler)`
+        - Set param value to returned result
+        - Note: `_execute_prompt_with_validation` adds param to `_prompted_params` set for `PROMPT_REPEAT_NEVER` tracking
 
-**Test 7.1.1: test_prompt_on_command_basic_execution**
+**Repeat behaviour handling (via `_should_prompt_param`):**
+- `PROMPT_REPEAT_ALWAYS`: Always prompts, previous value shown as default by handler
+- `PROMPT_REPEAT_IF_BLANK`: Only prompts if param value is None/empty (checked by `_should_prompt_param`)
+- `PROMPT_REPEAT_NEVER`: Only prompts if param name not in `_prompted_params` set (checked by `_should_prompt_param`)
 
-This test validates the fundamental PROMPT_ON_COMMAND workflow: param prompts immediately before the specified command executes, user provides input, param value is set, command proceeds with the prompted value. This establishes the basic command-timing behaviour without repeat complexities. The test confirms prompts appear at the correct moment in the command execution pipeline.
-
-```gherkin
-Scenario: Param with PROMPT_ON_COMMAND timing prompts before specified command execution
-  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete"]
-  And commands "list" and "delete" registered
-  And stdin mocked with StringIO("yes\n")
-  When application runs with command line "list delete"
-  Then command "list" executes first without prompting
-  And before "delete" executes, prompt appears "Enter confirm:"
-  And user input "yes" captured and validated
-  And param "confirm" set to "yes"
-  And command "delete" executes with confirm="yes"
-  
-  # Tests: Basic PROMPT_ON_COMMAND integration
-  # Validates: Prompt appears immediately before command in execution pipeline
-```
-
-**Test 7.1.2: test_prompt_on_command_cli_override_skips_prompt**
-
-This test validates CLI override behaviour for PROMPT_ON_COMMAND timing. When a param value is set via command-line arguments, prompts should be skipped even when the command is about to execute. This maintains the consistent "if set, don't prompt" policy across all timing modes. The test confirms CLI overrides work correctly with command-timing prompts.
-
-```gherkin
-Scenario: Param set via CLI skips PROMPT_ON_COMMAND prompt before command
-  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete"]
-  And stdin mocked with StringIO("") (empty, should not be read)
-  When application runs with command line "--confirm yes delete"
-  Then CLI parsing sets confirm="yes"
-  And before "delete" executes, prompt check occurs
-  And prompt skipped because value already set
-  And no stdin read occurs
-  And command "delete" executes with confirm="yes"
-  
-  # Tests: CLI override with PROMPT_ON_COMMAND
-  # Validates: "If set, don't prompt" policy maintained with command timing
-```
-
-**Test 7.1.3: test_prompt_on_command_multiple_commands_in_list**
-
-This test validates that a param can prompt before multiple different commands when listed in the `PROMPT_ON_COMMANDS` property. Each command in the list should trigger a prompt check (subject to repeat behaviour). This enables shared params that need confirmation before several sensitive operations. The test confirms multi-command lists work correctly.
-
-```gherkin
-Scenario: Param with multiple commands in PROMPT_ON_COMMANDS property prompts before each
-  Given a param "confirm" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, and PROMPT_ON_COMMANDS=["delete", "reset", "purge"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
-  And stdin mocked with StringIO("yes\nyes\nyes\n")
-  When application runs with command line "delete reset purge"
-  Then before "delete", prompt appears, input "yes" captured
-  And before "reset", prompt appears again, input "yes" captured
-  And before "purge", prompt appears again, input "yes" captured
-  And all three commands execute with confirm="yes"
-  
-  # Tests: Multiple commands in PROMPT_ON_COMMANDS property
-  # Validates: Param can prompt before multiple different commands
-```
+**Cycle integration:**
+- This mechanism works naturally with cycles - if a command is in a cycle, prompting occurs before each cycle iteration
+- The repeat behaviour controls whether users are re-prompted on subsequent iterations
+- No special cycle-specific code needed; repeat behaviour handles all cases
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 7.2: Implement PROMPT_REPEAT_ALWAYS behaviour**
+**Steps 7.2-7.4: Repeat behaviour implementation**
 
-**File:** `src/spafw37/command.py` or appropriate command execution module
+**Note:** The repeat behaviour for `PROMPT_REPEAT_ALWAYS`, `PROMPT_REPEAT_IF_BLANK`, and `PROMPT_REPEAT_NEVER` is implemented within the `_should_prompt_param()` helper function (Step 5.2) and does not require separate implementation steps.
 
-**TODO:** Add implementation code for PROMPT_REPEAT_ALWAYS.
+The algorithm in Step 5.2 handles all three modes:
+- **PROMPT_REPEAT_ALWAYS:** `_should_prompt_param` always returns True for the command context, causing prompts every time
+- **PROMPT_REPEAT_IF_BLANK:** `_should_prompt_param` checks current param value and returns True only if blank
+- **PROMPT_REPEAT_NEVER:** `_should_prompt_param` checks `_prompted_params` set and returns False if param was already prompted
 
-Every time a listed command executes:
-- Prompt always appears
-- Display previous value as default
-- User can confirm or change value
-
-**Test 7.2.1: test_prompt_repeat_always_shows_previous_value**
-
-This test validates PROMPT_REPEAT_ALWAYS behaviour. Every time a listed command executes, the prompt should appear and display the previous value as the default. This enables users to confirm or change the value on each execution. The test confirms REPEAT_ALWAYS prompts every time and preserves the previous value as the default.
-
-```gherkin
-Scenario: PROMPT_REPEAT_ALWAYS prompts before every command execution with previous value
-  Given a param "action" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["step"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
-  And stdin mocked with StringIO("first\nsecond\nthird\n")
-  When application runs with command line "step step step"
-  Then iteration 1: prompt appears, input "first", action="first"
-  And iteration 2: prompt shows [default: first], input "second", action="second"
-  And iteration 3: prompt shows [default: second], input "third", action="third"
-  And all three executions complete with different values
-  
-  # Tests: PROMPT_REPEAT_ALWAYS behaviour
-  # Validates: Every execution prompts, previous value shown as default
-```
-
-**Test 7.2.2: test_prompt_on_command_with_cycle_repeat_always**
-
-This test validates PROMPT_ON_COMMAND behaviour in cycles with REPEAT_ALWAYS. Each cycle iteration should trigger a prompt before the command executes. This enables per-iteration confirmation or value changes in loops. The test confirms REPEAT_ALWAYS works correctly in cycle contexts, prompting on every iteration.
-
-```gherkin
-Scenario: REPEAT_ALWAYS in cycle prompts on every iteration
-  Given a param "item" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["process_item"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
-  And a cycle command that runs "process_item" 3 times
-  And stdin mocked with StringIO("item1\nitem2\nitem3\n")
-  When cycle executes
-  Then cycle iteration 1: prompt appears, input "item1"
-  And cycle iteration 2: prompt appears, input "item2"
-  And cycle iteration 3: prompt appears, input "item3"
-  And each iteration processes different value
-  
-  # Tests: REPEAT_ALWAYS in cycles
-  # Validates: Per-iteration prompting works correctly in loops
-```
+All repeat logic is centralised in the timing check helper, avoiding code duplication across command execution contexts.
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 7.3: Implement PROMPT_REPEAT_IF_BLANK behaviour**
+**Step 7.5: Add end-to-end integration tests**
 
-**File:** `src/spafw37/command.py` or appropriate command execution module
+**File:** `tests/test_integration_prompts.py` (new file)
 
-**TODO:** Add implementation code for PROMPT_REPEAT_IF_BLANK.
+Create comprehensive integration tests covering complete workflows from CLI invocation through prompt execution to command completion. These tests validate the entire prompt system working together: timing modes, repeat behaviour, CLI overrides, validation retry logic, custom handlers, and auto-population mechanisms.
 
-Before command execution:
-- Check if param value is None or empty
-- If blank: prompt appears
-- If set: skip prompt and reuse value
+**Test coverage areas:**
+- PROMPT_ON_START with CLI override preventing prompts
+- PROMPT_ON_COMMAND with multiple commands in sequence
+- All three repeat modes (ALWAYS, IF_BLANK, NEVER) in cycles
+- Mixed prompt timings in same application
+- Validation failures with retry logic and max retry handling
+- Custom handlers (param-level and global)
+- Auto-population from COMMAND_REQUIRED_PARAMS
+- Inline param definitions in COMMAND_PROMPT_PARAMS
+- Error handling (EOFError, KeyboardInterrupt, validation errors)
 
-**Test 7.3.1: test_prompt_repeat_if_blank_prompts_when_blank_only**
-
-This test validates PROMPT_REPEAT_IF_BLANK behaviour. The first execution should prompt (value is blank), subsequent executions should skip prompting if the value is still set. This enables efficient re-use of values whilst allowing re-prompting if the value gets cleared. The test confirms REPEAT_IF_BLANK only prompts when necessary.
-
-```gherkin
-Scenario: PROMPT_REPEAT_IF_BLANK prompts only when value is blank
-  Given a param "token" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["api_call"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_IF_BLANK
-  And stdin mocked with StringIO("abc123\n")
-  When application runs with command line "api_call api_call api_call"
-  Then iteration 1: value blank, prompt appears, input "abc123" captured
-  And iteration 2: value still "abc123", prompt skipped
-  And iteration 3: value still "abc123", prompt skipped
-  And all three executions use token="abc123"
-  
-  # Tests: PROMPT_REPEAT_IF_BLANK behaviour
-  # Validates: Prompts only when value is blank, reuses set values
-```
-
-[↑ Back to top](#table-of-contents)
-
----
-
-**Step 7.4: Implement PROMPT_REPEAT_NEVER behaviour**
-
-**File:** `src/spafw37/command.py` or appropriate command execution module
-
-**TODO:** Add implementation code for PROMPT_REPEAT_NEVER.
-
-Before command execution:
-- Check `_prompted_params` tracking set
-- If param name in set: skip prompt
-- If not in set: prompt appears, add to tracking set
-
-**Test 7.4.1: test_prompt_repeat_never_prompts_once_then_stops**
-
-This test validates PROMPT_REPEAT_NEVER behaviour. Only the first execution of a listed command should prompt; all subsequent executions should skip prompting entirely. This enables one-time initialization values. The test confirms REPEAT_NEVER prompts exactly once and tracks prompt state correctly across multiple executions.
-
-```gherkin
-Scenario: PROMPT_REPEAT_NEVER prompts once on first execution then never repeats
-  Given a param "config" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["process"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_NEVER
-  And stdin mocked with StringIO("settings.json\n")
-  When application runs with command line "process process process"
-  Then iteration 1: prompt appears, input "settings.json" captured
-  And param "config" added to _prompted_params tracking set
-  And iteration 2: prompt skipped (already prompted), config="settings.json"
-  And iteration 3: prompt skipped (already prompted), config="settings.json"
-  And all three executions use same value
-  
-  # Tests: PROMPT_REPEAT_NEVER behaviour
-  # Validates: Single prompt with persistent value across executions
-```
-
-[↑ Back to top](#table-of-contents)
-
----
-
-**Step 7.5: Test command dependencies with prompts**
-
-**File:** `tests/test_integration_prompts.py` (extend)
-
-**TODO:** Add integration test code here.
-
-**Test 7.5.1: test_prompt_on_command_command_queue_dependencies**
-
-This test validates that prompts work correctly with command dependencies and sequencing. When commands have dependencies or specific execution orders, prompts should still appear at the right moment before each listed command executes. The test confirms prompt timing respects command orchestration logic and doesn't interfere with dependencies.
-
-```gherkin
-Scenario: Prompts respect command queue order and dependencies
-  Given commands "prepare", "validate", "execute" with dependencies
-  And param "mode" with PARAM_PROMPT, PARAM_PROMPT_TIMING=PROMPT_ON_COMMAND, PROMPT_ON_COMMANDS=["validate", "execute"]
-  And stdin mocked with StringIO("strict\n")
-  When command queue processes with dependencies
-  Then "prepare" executes first (no prompt, not in list)
-  And before "validate", prompt appears, input "strict" captured
-  And "validate" executes with mode="strict"
-  And before "execute", prompt check occurs (REPEAT_NEVER, already prompted)
-  And "execute" executes with mode="strict" (same value)
-  
-  # Tests: Prompts with command dependencies
-  # Validates: Prompt timing respects command orchestration
-```
+**Detailed implementation and tests will be added in Steps 3-4**
 
 [↑ Back to top](#table-of-contents)
 

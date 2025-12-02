@@ -1,10 +1,30 @@
-# Prompt: Generate Implementation
+# Prompt: Generate Implementation Code Blocks for Plan Document
+
+# ⚠️ WARNING: YOU ARE EDITING A PLAN DOCUMENT, NOT SOURCE CODE FILES ⚠️
+
+**DO NOT modify files in `src/`, `tests/`, or any Python source files.**
+**YOU ARE ONLY EDITING: `features/{FEATURE_NAME}.md`**
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
 ## Your Task
 
+**CRITICAL: You are ONLY editing the plan document.**
+
+- **File to edit:** `features/{FEATURE_NAME}.md`
+- **Files NOT to edit:** Any files in `src/`, `tests/`, or other directories
+- **Your job:** Add detailed code specifications to the plan document
+- **You are NOT implementing the feature** - you are documenting HOW to implement it
+
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 4 of 6: generating detailed implementation code with proper block numbering.
+
+## Before You Start - Verify Understanding
+
+Before making any changes, confirm:
+- [ ] I am editing ONLY the plan document at `features/{FEATURE_NAME}.md`
+- [ ] I am NOT touching any files in `src/` or `tests/`
+- [ ] I am adding code block specifications to the plan
+- [ ] The code I write goes IN THE MARKDOWN, not in separate Python files
 
 ## CRITICAL: NO GUESSING POLICY
 
@@ -100,7 +120,10 @@ def test_something():
     """Test something."""
     param.add_param({PARAM_NAME: 'test'})  # ✅ Correct - uses already-imported module
 ```
-```
+
+## Algorithm
+
+if there is not an Algorithm section here, add one. If there is, do not remove it. This contains developer details for maintenance.
 
 ## Implementation Order Section
 
