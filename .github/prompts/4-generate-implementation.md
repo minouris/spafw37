@@ -173,7 +173,14 @@ For each implementation step, follow this pattern:
 - Failing tests demonstrate that the implementation genuinely relies on the helper functions
 - Tests should be written immediately after each function to document expected behaviour
 - All tests should pass once the complete implementation (main + all helpers) is in place
-- **CRITICAL: If a main function that requires helper extraction (due to violating nesting depth >2 levels or nested block size >2 lines) passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
+- **CRITICAL: If a main function that requires helper extraction passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
+
+**Criteria for when a function requires helper extraction:**
+- **Nesting depth:** More than 2 levels of nesting below the function declaration (see `python.instructions.md` § Nesting Depth and Block Size Limits)
+- **Nested block size:** Any nested block (inside `if`, `for`, `while`, `with`, `try`) exceeds 2 lines
+- **Multiple responsibilities:** Function performs more than one distinct logical operation (violates Single Responsibility Principle)
+- **Lines per operation:** Individual logical operations within the function exceed 3-5 lines
+- **Complex logic:** Function contains complex conditional logic, data transformations, or algorithmic operations that obscure the main flow
 
 ### Module-Level Setup (Exception to Pattern)
 
