@@ -120,6 +120,7 @@ def test_something():
     """Test something."""
     param.add_param({PARAM_NAME: 'test'})  # ✅ Correct - uses already-imported module
 ```
+```
 
 ## Algorithm
 
