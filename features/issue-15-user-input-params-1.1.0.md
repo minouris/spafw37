@@ -510,6 +510,38 @@ def test_prompt_repeat_constants_exist():
     assert len(repeat_values) == len(set(repeat_values)), "Repeat constant values must be unique"
 ```
 
+**Code 1.3.3: Param-level retry count constant**
+
+```python
+# Block 1.3.3: Add to src/spafw37/constants/param.py after PROMPT_REPEAT constants
+PARAM_PROMPT_RETRIES = 'prompt-retries'  # Per-param retry count override
+```
+
+**Test 1.3.4: Test for PARAM_PROMPT_RETRIES constant**
+
+```gherkin
+Scenario: PARAM_PROMPT_RETRIES constant is defined
+  Given the param constants module
+  When checking for PARAM_PROMPT_RETRIES
+  Then the constant is defined as a string
+  And the value is 'prompt-retries'
+  
+  # Tests: Constant definition
+  # Validates: Param-level retry count configuration available
+```
+
+```python
+# Test 1.3.4: Add to tests/test_constants.py
+def test_param_prompt_retries_constant():
+    """Test that PARAM_PROMPT_RETRIES constant is defined correctly.
+    
+    This test verifies the constant exists as a string for use in param definitions.
+    This behaviour is expected because params need to override global retry configuration
+    on a per-param basis for sensitive or critical parameters."""
+    from spafw37.constants.param import PARAM_PROMPT_RETRIES
+    assert PARAM_PROMPT_RETRIES == 'prompt-retries'
+```
+
 **Code 1.4.1: Command reciprocal list constant**
 
 ```python
@@ -597,21 +629,27 @@ from spafw37.constants.param import (
 def _format_prompt_text(param_def):
     """Format prompt text with default value in bash convention.
     
+    Sensitive params (PARAM_SENSITIVE=True) do not display default values
+    to prevent credential leakage in terminal history or screen capture.
+    
     Args:
         param_def: Parameter definition dictionary.
         
     Returns:
-        Formatted prompt string with [default: value] if default exists.
+        Formatted prompt string with [default: value] if default exists and not sensitive.
     """
     # Block 2.2.1.1: Get prompt text from param definition
     prompt_text = param_def.get(PARAM_PROMPT, 'Enter value')
     
-    # Block 2.2.1.2: Add default value indicator if present
+    # Block 2.2.1.2: Check if param is sensitive (security)
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    
+    # Block 2.2.1.3: Add default value indicator if present and not sensitive
     default_value = param_def.get(PARAM_DEFAULT)
-    if default_value is not None:
+    if default_value is not None and not is_sensitive:
         prompt_text = "{0} [default: {1}]".format(prompt_text, default_value)
     
-    # Block 2.2.1.3: Add trailing space for user input
+    # Block 2.2.1.4: Add trailing space for user input
     return "{0}: ".format(prompt_text)
 ```
 
@@ -668,6 +706,46 @@ def test_format_prompt_text_with_default():
     # Block 2.2.2.3: Verify bash convention format
     assert '[default: example_default]' in formatted_text, "Default value not displayed"
     assert formatted_text == 'Enter text [default: example_default]: ', "Format incorrect"
+```
+
+**Test 2.2.3: Tests for sensitive param without default display**
+
+```gherkin
+Scenario: Sensitive param does not display default value
+  Given a param with PARAM_SENSITIVE=True and PARAM_DEFAULT set
+  When prompt text is formatted
+  Then prompt does NOT include "[default: ...]"
+  And only shows prompt text with colon and space
+  
+  # Tests: Security - prevent credential leakage via default display
+  # Validates: Sensitive params hide defaults from terminal output
+```
+
+```python
+# Test 2.2.3: Add to tests/test_input_prompt.py
+def test_format_prompt_text_sensitive_hides_default():
+    """Test that sensitive params do not display default values in prompt text.
+    
+    This test verifies that when a parameter has PARAM_SENSITIVE=True, the formatted
+    prompt does not include "[default: value]" even if PARAM_DEFAULT is set.
+    This behaviour is expected because displaying default values for passwords, API keys,
+    or other sensitive data in terminal output creates security risks (screen capture,
+    terminal history, shoulder surfing). The default will still be used if user presses
+    Enter, but it won't be visible."""
+    # Block 2.2.3.1: Create sensitive param with default value
+    param_def = {
+        PARAM_PROMPT: 'API Key',
+        PARAM_DEFAULT: 'secret_key_123',
+        PARAM_SENSITIVE: True
+    }
+    
+    # Block 2.2.3.2: Format prompt text
+    formatted_text = input_prompt._format_prompt_text(param_def)
+    
+    # Block 2.2.3.3: Verify default not displayed
+    assert '[default:' not in formatted_text, "Default should not be displayed for sensitive param"
+    assert 'secret_key_123' not in formatted_text, "Sensitive value should not appear in prompt"
+    assert formatted_text == 'API Key: ', "Format should be prompt text with colon only"
 ```
 
 **Code 2.3.1: Handle text input**
@@ -3559,7 +3637,7 @@ _build_reciprocal_registration_for_explicit_params(cmd)
 
 **Step 5.1: Implement handler resolution helper**
 
-**File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
+**File:** `src/spafw37/param.py`
 
 Implement the three-tier handler resolution system that provides fine-grained control whilst maintaining sensible defaults. This enables per-param customisation (e.g., GUI prompt for sensitive data), application-wide replacement (e.g., automated testing), and default behaviour (terminal input) without configuration.
 
@@ -3579,6 +3657,248 @@ This design allows:
 - Applications to replace all prompts globally (e.g., GUI wrapper, test automation)
 - Zero-configuration usage with sensible terminal input defaults
 
+**Implementation order:**
+
+1. Add module-level `_global_prompt_handler` variable to `param.py`
+2. Add public `set_prompt_handler()` API function
+3. Create `_get_prompt_handler()` helper function
+4. Add regression test for default behaviour without handlers
+5. Add test for param-level handler override
+6. Add test for global handler override
+7. Add test for precedence (param-level overrides global)
+
+**Module-level imports for tests/test_param_prompts.py:**
+
+```python
+# Module-level imports for tests/test_param_prompts.py
+from spafw37 import param
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_HANDLER,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT
+)
+import pytest
+```
+
+**Code 5.1.1: Module-level global handler variable**
+
+```python
+# Block 5.1.1: Add to src/spafw37/param.py after _params registry
+_global_prompt_handler = None
+```
+
+**Code 5.1.2: Public API to set global prompt handler**
+
+```python
+# Block 5.1.2: Add to src/spafw37/param.py after module-level variables
+def set_prompt_handler(handler):
+    """Set global prompt handler for all params.
+    
+    This function allows applications to replace the default terminal-based
+    prompt handler with a custom implementation (e.g., GUI dialogue, automated
+    testing stub, API-based input source).
+    
+    Args:
+        handler: Callable taking param definition dict, returning string value.
+                 Set to None to restore default behaviour.
+    """
+    # Block 5.1.2.1: Update global handler variable
+    global _global_prompt_handler
+    _global_prompt_handler = handler
+```
+
+**Test 5.1.3: Regression test for default handler without overrides**
+
+```gherkin
+Scenario: Default handler used when no overrides configured
+  Given no global handler set
+  And a param without PARAM_PROMPT_HANDLER property
+  When _get_prompt_handler() is called
+  Then the default input_prompt.prompt_for_value handler is returned
+  
+  # Tests: Default behaviour without configuration
+  # Validates: Framework provides sensible defaults
+```
+
+```python
+# Test 5.1.3: Add to tests/test_param_prompts.py
+def test_default_handler_without_overrides():
+    """Test that _get_prompt_handler() returns default handler when no overrides configured.
+    
+    This regression test verifies that when neither param-level nor global handlers are set,
+    the framework returns the built-in input_prompt.prompt_for_value function.
+    This behaviour is expected because the framework must provide default terminal-based
+    prompting without requiring configuration."""
+    # Block 5.1.3.1: Clear global handler
+    param._global_prompt_handler = None
+    
+    # Block 5.1.3.2: Create param without handler override
+    param_def = {PARAM_NAME: 'test_param', PARAM_PROMPT: 'Enter value:'}
+    
+    # Block 5.1.3.3: Get handler
+    handler = param._get_prompt_handler(param_def)
+    
+    # Block 5.1.3.4: Verify default handler returned
+    from spafw37 import input_prompt
+    assert handler == input_prompt.prompt_for_value
+```
+
+**Code 5.1.4: Handler resolution helper**
+
+```python
+# Block 5.1.4: Add to src/spafw37/param.py after set_prompt_handler()
+def _get_prompt_handler(param_def):
+    """Resolve prompt handler for param using three-tier precedence.
+    
+    Resolution order: param-level → global → default
+    
+    Args:
+        param_def: Parameter definition dictionary
+        
+    Returns:
+        Callable prompt handler function
+    """
+    # Block 5.1.4.1: Check param-level handler
+    if PARAM_PROMPT_HANDLER in param_def and param_def[PARAM_PROMPT_HANDLER] is not None:
+        return param_def[PARAM_PROMPT_HANDLER]
+    
+    # Block 5.1.4.2: Check global handler
+    if _global_prompt_handler is not None:
+        return _global_prompt_handler
+    
+    # Block 5.1.4.3: Return default handler
+    from spafw37 import input_prompt
+    return input_prompt.prompt_for_value
+```
+
+**Test 5.1.5: Param-level handler override**
+
+```gherkin
+Scenario: Param-level handler overrides default
+  Given no global handler set
+  And a param with custom PARAM_PROMPT_HANDLER
+  When _get_prompt_handler() is called
+  Then the param-specific handler is returned
+  
+  # Tests: Param-level customisation
+  # Validates: Individual params can use custom handlers
+```
+
+```python
+# Test 5.1.5: Add to tests/test_param_prompts.py
+def test_param_level_handler_override():
+    """Test that _get_prompt_handler() returns param-level handler when configured.
+    
+    This test verifies that when a param has PARAM_PROMPT_HANDLER property set,
+    that custom handler is returned instead of the default.
+    This behaviour is expected because params may need specialised input methods
+    (e.g., file picker dialogue, password masking)."""
+    # Block 5.1.5.1: Clear global handler
+    param._global_prompt_handler = None
+    
+    # Block 5.1.5.2: Define custom handler
+    def custom_handler(param_def):
+        return 'custom_value'
+    
+    # Block 5.1.5.3: Create param with handler
+    param_def = {
+        PARAM_NAME: 'test_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_HANDLER: custom_handler
+    }
+    
+    # Block 5.1.5.4: Verify custom handler returned
+    handler = param._get_prompt_handler(param_def)
+    assert handler == custom_handler
+```
+
+**Test 5.1.6: Global handler override**
+
+```gherkin
+Scenario: Global handler overrides default for all params
+  Given a global handler set via set_prompt_handler()
+  And a param without PARAM_PROMPT_HANDLER property
+  When _get_prompt_handler() is called
+  Then the global handler is returned
+  
+  # Tests: Application-wide handler replacement
+  # Validates: All prompts can use custom handler
+```
+
+```python
+# Test 5.1.6: Add to tests/test_param_prompts.py
+def test_global_handler_override():
+    """Test that _get_prompt_handler() returns global handler when set.
+    
+    This test verifies that set_prompt_handler() affects handler resolution for all params
+    that don't have param-level overrides.
+    This behaviour is expected because applications may need to replace all prompts
+    (e.g., GUI wrapper, automated testing)."""
+    # Block 5.1.6.1: Define and set global handler
+    def global_handler(param_def):
+        return 'global_value'
+    
+    param.set_prompt_handler(global_handler)
+    
+    # Block 5.1.6.2: Create param without handler override
+    param_def = {PARAM_NAME: 'test_param', PARAM_PROMPT: 'Enter value:'}
+    
+    # Block 5.1.6.3: Verify global handler returned
+    handler = param._get_prompt_handler(param_def)
+    assert handler == global_handler
+    
+    # Block 5.1.6.4: Clean up
+    param.set_prompt_handler(None)
+```
+
+**Test 5.1.7: Param-level handler takes precedence over global**
+
+```gherkin
+Scenario: Param-level handler overrides global handler
+  Given a global handler set via set_prompt_handler()
+  And a param with custom PARAM_PROMPT_HANDLER
+  When _get_prompt_handler() is called
+  Then the param-specific handler is returned (not global)
+  
+  # Tests: Precedence order enforcement
+  # Validates: Param-level customisation wins over global
+```
+
+```python
+# Test 5.1.7: Add to tests/test_param_prompts.py
+def test_param_handler_precedence_over_global():
+    """Test that param-level handler takes precedence over global handler.
+    
+    This test verifies the three-tier precedence system: when both param-level and
+    global handlers are set, the param-level handler is used.
+    This behaviour is expected because param-specific customisation must be able to
+    override application-wide settings for special cases."""
+    # Block 5.1.7.1: Define handlers
+    def global_handler(param_def):
+        return 'global_value'
+    
+    def param_handler(param_def):
+        return 'param_value'
+    
+    # Block 5.1.7.2: Set global handler
+    param.set_prompt_handler(global_handler)
+    
+    # Block 5.1.7.3: Create param with handler
+    param_def = {
+        PARAM_NAME: 'test_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_HANDLER: param_handler
+    }
+    
+    # Block 5.1.7.4: Verify param handler takes precedence
+    handler = param._get_prompt_handler(param_def)
+    assert handler == param_handler
+    
+    # Block 5.1.7.5: Clean up
+    param.set_prompt_handler(None)
+```
 
 [↑ Back to top](#table-of-contents)
 
@@ -3586,7 +3906,7 @@ This design allows:
 
 **Step 5.2: Implement prompt timing check helper**
 
-**File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
+**File:** `src/spafw37/param.py`
 
 Implement the decision logic that determines whether a param should prompt in the current context. This consolidates all timing, repeat, and override checks into a single helper that enforces the architectural decisions: CLI values prevent prompting, timing controls when prompts appear, repeat behaviour controls frequency.
 
@@ -3612,163 +3932,2585 @@ Implement the decision logic that determines whether a param should prompt in th
 
 This function is called from two contexts: start-of-execution (command_name=None) and before-command-execution (command_name="cmd").
 
+**Implementation order:**
+
+1. Add module-level `_prompted_params` set to track prompts
+2. Create leaf helper to check if value is set (CLI override check)
+3. Create leaf helper to check timing match
+4. Create leaf helper to check repeat behaviour
+5. Create top-level `_should_prompt_param()` orchestration function
+6. Add tests for CLI override preventing prompts
+7. Add tests for PROMPT_ON_START timing
+8. Add tests for PROMPT_ON_COMMAND timing
+9. Add tests for all three repeat modes
+10. Add tests for wrong timing context
+
+**Module-level imports for tests/test_param_prompts.py (Step 5.2):**
+
+```python
+# Additional module-level imports for Step 5.2 tests in tests/test_param_prompts.py
+from spafw37.constants.param import (
+    PARAM_PROMPT_TIMING,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_ON_START,
+    PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS,
+    PROMPT_REPEAT_ALWAYS,
+    PROMPT_REPEAT_IF_BLANK,
+    PROMPT_REPEAT_NEVER,
+    PARAM_REQUIRED
+)
+```
+
+**Code 5.2.1: Module-level prompted params tracking set**
+
+```python
+# Block 5.2.1: Add to src/spafw37/param.py after _global_prompt_handler
+_prompted_params = set()
+```
+
+**Code 5.2.2: Leaf helper to check if param value is set**
+
+```python
+# Block 5.2.2: Add to src/spafw37/param.py after _get_prompt_handler()
+def _param_value_is_set(param_name):
+    """Check if param has a value set (CLI override or previous prompt).
+    
+    Args:
+        param_name: Parameter name string
+        
+    Returns:
+        True if value is set (not None and not empty), False otherwise
+    """
+    # Block 5.2.2.1: Get param value
+    param_value = get_param_value(param_name)
+    
+    # Block 5.2.2.2: Check if set
+    return param_value is not None and param_value != ''
+```
+
+**Test 5.2.3: Unit test for param value set returns True**
+
+```gherkin
+Scenario: Param with value set returns True
+  Given a param with a non-empty value
+  When _param_value_is_set() is called
+  Then returns True
+  
+  # Tests: Value detection for set params
+  # Validates: Framework detects CLI-provided values
+```
+
+```python
+# Test 5.2.3: Add to tests/test_param_prompts.py
+def test_param_value_is_set_returns_true():
+    """Test that _param_value_is_set() returns True when param has a value.
+    
+    This test verifies the helper correctly identifies params with values set.
+    This behaviour is essential for CLI override logic - prompts should skip when
+    user already provided a value via command line."""
+    # Block 5.2.3.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.3.2: Register param and set value
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.set_param_value('test_param', 'some_value')
+    
+    # Block 5.2.3.3: Verify returns True
+    assert param._param_value_is_set('test_param') is True
+```
+
+**Test 5.2.4: Unit test for param value set returns False for None**
+
+```gherkin
+Scenario: Param with None value returns False
+  Given a param with None value
+  When _param_value_is_set() is called
+  Then returns False
+  
+  # Tests: Value detection for unset params (None)
+  # Validates: Framework treats None as unset
+```
+
+```python
+# Test 5.2.4: Add to tests/test_param_prompts.py
+def test_param_value_is_set_returns_false_for_none():
+    """Test that _param_value_is_set() returns False when param value is None.
+    
+    This test verifies the helper correctly identifies params without values.
+    This behaviour is expected because None indicates no value was provided."""
+    # Block 5.2.4.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.4.2: Register param with None value
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.set_param_value('test_param', None)
+    
+    # Block 5.2.4.3: Verify returns False
+    assert param._param_value_is_set('test_param') is False
+```
+
+**Test 5.2.5: Unit test for param value set returns False for empty string**
+
+```gherkin
+Scenario: Param with empty string returns False
+  Given a param with empty string value
+  When _param_value_is_set() is called
+  Then returns False
+  
+  # Tests: Value detection for empty strings
+  # Validates: Framework treats empty string as unset
+```
+
+```python
+# Test 5.2.5: Add to tests/test_param_prompts.py
+def test_param_value_is_set_returns_false_for_empty_string():
+    """Test that _param_value_is_set() returns False when param value is empty string.
+    
+    This test verifies the helper treats empty strings as unset values.
+    This behaviour is expected because empty string indicates no meaningful value."""
+    # Block 5.2.5.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.5.2: Register param with empty string
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.set_param_value('test_param', '')
+    
+    # Block 5.2.5.3: Verify returns False
+    assert param._param_value_is_set('test_param') is False
+```
+
+**Code 5.2.4: Leaf helper to check timing context match**
+
+```python
+# Block 5.2.4: Add to src/spafw37/param.py after _param_value_is_set()
+def _timing_matches_context(param_def, command_name):
+    """Check if param's timing configuration matches execution context.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        command_name: Command name string or None for start-of-execution context
+        
+    Returns:
+        True if timing matches context, False otherwise
+    """
+    # Block 5.2.4.1: Get timing mode
+    timing = param_def.get(PARAM_PROMPT_TIMING, PROMPT_ON_START)
+    
+    # Block 5.2.4.2: Check PROMPT_ON_START timing
+    if timing == PROMPT_ON_START:
+        return command_name is None
+    
+    # Block 5.2.4.3: Check PROMPT_ON_COMMAND timing
+    if timing == PROMPT_ON_COMMAND:
+        if command_name is None:
+            return False
+        prompt_commands = param_def.get(PROMPT_ON_COMMANDS, [])
+        return command_name in prompt_commands
+    
+    # Block 5.2.4.4: Unknown timing mode
+    return False
+```
+
+**Test 5.2.6: Unit test for PROMPT_ON_START matches None context**
+
+```gherkin
+Scenario: PROMPT_ON_START matches None context
+  Given a param with PROMPT_ON_START timing
+  When _timing_matches_context() is called with None context
+  Then returns True
+  
+  # Tests: Start timing matches start context
+  # Validates: Framework identifies start-timing prompts
+```
+
+```python
+# Test 5.2.6: Add to tests/test_param_prompts.py
+def test_timing_matches_context_start_with_none():
+    """Test that _timing_matches_context() returns True for PROMPT_ON_START with None context.
+    
+    This test verifies PROMPT_ON_START timing matches the start-of-execution context.
+    This behaviour ensures start-timing prompts appear at application startup."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START
+    
+    # Block 5.2.6.1: Create param with PROMPT_ON_START
+    param_def = {PARAM_PROMPT_TIMING: PROMPT_ON_START}
+    
+    # Block 5.2.6.2: Verify matches None context
+    assert param._timing_matches_context(param_def, None) is True
+```
+
+**Test 5.2.7: Unit test for PROMPT_ON_START does not match command context**
+
+```gherkin
+Scenario: PROMPT_ON_START does not match command context
+  Given a param with PROMPT_ON_START timing
+  When _timing_matches_context() is called with command name
+  Then returns False
+  
+  # Tests: Start timing rejects command context
+  # Validates: Framework prevents start prompts during command execution
+```
+
+```python
+# Test 5.2.7: Add to tests/test_param_prompts.py
+def test_timing_matches_context_start_with_command():
+    """Test that _timing_matches_context() returns False for PROMPT_ON_START with command context.
+    
+    This test verifies PROMPT_ON_START timing does not match command execution context.
+    This behaviour ensures start-timing prompts don't appear during command execution."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START
+    
+    # Block 5.2.7.1: Create param with PROMPT_ON_START
+    param_def = {PARAM_PROMPT_TIMING: PROMPT_ON_START}
+    
+    # Block 5.2.7.2: Verify rejects command context
+    assert param._timing_matches_context(param_def, 'some_cmd') is False
+```
+
+**Test 5.2.8: Unit test for PROMPT_ON_COMMAND does not match None context**
+
+```gherkin
+Scenario: PROMPT_ON_COMMAND does not match None context
+  Given a param with PROMPT_ON_COMMAND timing
+  When _timing_matches_context() is called with None context
+  Then returns False
+  
+  # Tests: Command timing rejects start context
+  # Validates: Framework prevents command prompts at startup
+```
+
+```python
+# Test 5.2.8: Add to tests/test_param_prompts.py
+def test_timing_matches_context_command_with_none():
+    """Test that _timing_matches_context() returns False for PROMPT_ON_COMMAND with None context.
+    
+    This test verifies PROMPT_ON_COMMAND timing does not match start-of-execution context.
+    This behaviour ensures command-timing prompts don't appear at application startup."""
+    from spafw37.constants.param import (
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS
+    )
+    
+    # Block 5.2.8.1: Create param with PROMPT_ON_COMMAND
+    param_def = {
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['cmd1', 'cmd2']
+    }
+    
+    # Block 5.2.8.2: Verify rejects None context
+    assert param._timing_matches_context(param_def, None) is False
+```
+
+**Test 5.2.9: Unit test for PROMPT_ON_COMMAND matches configured command**
+
+```gherkin
+Scenario: PROMPT_ON_COMMAND matches configured command
+  Given a param with PROMPT_ON_COMMAND timing for specific commands
+  When _timing_matches_context() is called with matching command
+  Then returns True
+  
+  # Tests: Command timing matches configured command
+  # Validates: Framework identifies command-timing prompts
+```
+
+```python
+# Test 5.2.9: Add to tests/test_param_prompts.py
+def test_timing_matches_context_command_with_matching():
+    """Test that _timing_matches_context() returns True for PROMPT_ON_COMMAND with matching command.
+    
+    This test verifies PROMPT_ON_COMMAND timing matches when command is in PROMPT_ON_COMMANDS list.
+    This behaviour ensures command-timing prompts appear before configured commands."""
+    from spafw37.constants.param import (
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS
+    )
+    
+    # Block 5.2.9.1: Create param with PROMPT_ON_COMMAND
+    param_def = {
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['cmd1', 'cmd2']
+    }
+    
+    # Block 5.2.9.2: Verify matches configured command
+    assert param._timing_matches_context(param_def, 'cmd1') is True
+```
+
+**Test 5.2.10: Unit test for PROMPT_ON_COMMAND does not match non-configured command**
+
+```gherkin
+Scenario: PROMPT_ON_COMMAND does not match non-configured command
+  Given a param with PROMPT_ON_COMMAND timing for specific commands
+  When _timing_matches_context() is called with non-matching command
+  Then returns False
+  
+  # Tests: Command timing rejects non-configured command
+  # Validates: Framework only prompts for configured commands
+```
+
+```python
+# Test 5.2.10: Add to tests/test_param_prompts.py
+def test_timing_matches_context_command_with_non_matching():
+    """Test that _timing_matches_context() returns False for PROMPT_ON_COMMAND with non-matching command.
+    
+    This test verifies PROMPT_ON_COMMAND timing rejects commands not in PROMPT_ON_COMMANDS list.
+    This behaviour ensures command-timing prompts only appear for configured commands."""
+    from spafw37.constants.param import (
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS
+    )
+    
+    # Block 5.2.10.1: Create param with PROMPT_ON_COMMAND
+    param_def = {
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['cmd1', 'cmd2']
+    }
+    
+    # Block 5.2.10.2: Verify rejects non-configured command
+    assert param._timing_matches_context(param_def, 'cmd3') is False
+```
+
+**Code 5.2.6: Leaf helper to check repeat behaviour**
+
+```python
+# Block 5.2.6: Add to src/spafw37/param.py after _timing_matches_context()
+def _should_repeat_prompt(param_def, param_name):
+    """Check if param should repeat prompt based on repeat behaviour configuration.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        param_name: Parameter name string
+        
+    Returns:
+        True if should prompt again, False otherwise
+    """
+    # Block 5.2.6.1: Get repeat mode
+    repeat_mode = param_def.get(PARAM_PROMPT_REPEAT, PROMPT_REPEAT_ALWAYS)
+    
+    # Block 5.2.6.2: PROMPT_REPEAT_ALWAYS
+    if repeat_mode == PROMPT_REPEAT_ALWAYS:
+        return True
+    
+    # Block 5.2.6.3: PROMPT_REPEAT_IF_BLANK
+    if repeat_mode == PROMPT_REPEAT_IF_BLANK:
+        return not _param_value_is_set(param_name)
+    
+    # Block 5.2.6.4: PROMPT_REPEAT_NEVER
+    if repeat_mode == PROMPT_REPEAT_NEVER:
+        return param_name not in _prompted_params
+    
+    # Block 5.2.6.5: Unknown repeat mode
+    return True
+```
+
+**Test 5.2.11: Unit test for PROMPT_REPEAT_ALWAYS**
+
+```gherkin
+Scenario: PROMPT_REPEAT_ALWAYS returns True
+  Given a param with PROMPT_REPEAT_ALWAYS
+  When _should_repeat_prompt() is called
+  Then returns True
+  
+  # Tests: Always repeat mode
+  # Validates: Framework always repeats prompts
+```
+
+```python
+# Test 5.2.11: Add to tests/test_param_prompts.py
+def test_should_repeat_prompt_always():
+    """Test that _should_repeat_prompt() returns True for PROMPT_REPEAT_ALWAYS.
+    
+    This test verifies PROMPT_REPEAT_ALWAYS mode always allows prompt repetition.
+    This behaviour enables prompts to repeat every time for cycle scenarios."""
+    from spafw37.constants.param import PARAM_PROMPT_REPEAT, PROMPT_REPEAT_ALWAYS
+    
+    # Block 5.2.11.1: Create param with PROMPT_REPEAT_ALWAYS
+    param_def = {PARAM_PROMPT_REPEAT: PROMPT_REPEAT_ALWAYS}
+    
+    # Block 5.2.11.2: Verify returns True
+    assert param._should_repeat_prompt(param_def, 'test_param') is True
+```
+
+**Test 5.2.12: Unit test for PROMPT_REPEAT_IF_BLANK with value**
+
+```gherkin
+Scenario: PROMPT_REPEAT_IF_BLANK returns False when value set
+  Given a param with PROMPT_REPEAT_IF_BLANK and value set
+  When _should_repeat_prompt() is called
+  Then returns False
+  
+  # Tests: If-blank mode with value
+  # Validates: Framework skips prompts when value exists
+```
+
+```python
+# Test 5.2.12: Add to tests/test_param_prompts.py
+def test_should_repeat_prompt_if_blank_with_value():
+    """Test that _should_repeat_prompt() returns False for PROMPT_REPEAT_IF_BLANK when value set.
+    
+    This test verifies PROMPT_REPEAT_IF_BLANK mode prevents repetition when param has value.
+    This behaviour allows prompts to skip when user has already provided a value."""
+    from spafw37.constants.param import PARAM_PROMPT_REPEAT, PROMPT_REPEAT_IF_BLANK
+    
+    # Block 5.2.12.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.12.2: Register param with value
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.set_param_value('test_param', 'value')
+    
+    # Block 5.2.12.3: Verify returns False
+    param_def = {PARAM_PROMPT_REPEAT: PROMPT_REPEAT_IF_BLANK}
+    assert param._should_repeat_prompt(param_def, 'test_param') is False
+```
+
+**Test 5.2.13: Unit test for PROMPT_REPEAT_IF_BLANK without value**
+
+```gherkin
+Scenario: PROMPT_REPEAT_IF_BLANK returns True when value blank
+  Given a param with PROMPT_REPEAT_IF_BLANK and no value
+  When _should_repeat_prompt() is called
+  Then returns True
+  
+  # Tests: If-blank mode without value
+  # Validates: Framework prompts when value is blank
+```
+
+```python
+# Test 5.2.13: Add to tests/test_param_prompts.py
+def test_should_repeat_prompt_if_blank_without_value():
+    """Test that _should_repeat_prompt() returns True for PROMPT_REPEAT_IF_BLANK when value blank.
+    
+    This test verifies PROMPT_REPEAT_IF_BLANK mode allows repetition when param has no value.
+    This behaviour enables prompts to repeat until user provides a value."""
+    from spafw37.constants.param import PARAM_PROMPT_REPEAT, PROMPT_REPEAT_IF_BLANK
+    
+    # Block 5.2.13.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.13.2: Register param without value
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.set_param_value('test_param', None)
+    
+    # Block 5.2.13.3: Verify returns True
+    param_def = {PARAM_PROMPT_REPEAT: PROMPT_REPEAT_IF_BLANK}
+    assert param._should_repeat_prompt(param_def, 'test_param') is True
+```
+
+**Test 5.2.14: Unit test for PROMPT_REPEAT_NEVER first time**
+
+```gherkin
+Scenario: PROMPT_REPEAT_NEVER returns True for first prompt
+  Given a param with PROMPT_REPEAT_NEVER not yet prompted
+  When _should_repeat_prompt() is called
+  Then returns True
+  
+  # Tests: Never repeat mode first time
+  # Validates: Framework allows first prompt
+```
+
+```python
+# Test 5.2.14: Add to tests/test_param_prompts.py
+def test_should_repeat_prompt_never_first_time():
+    """Test that _should_repeat_prompt() returns True for PROMPT_REPEAT_NEVER on first call.
+    
+    This test verifies PROMPT_REPEAT_NEVER mode allows the first prompt.
+    This behaviour enables one-time prompts that don't repeat."""
+    from spafw37.constants.param import PARAM_PROMPT_REPEAT, PROMPT_REPEAT_NEVER
+    
+    # Block 5.2.14.1: Clear state
+    param._prompted_params = set()
+    
+    # Block 5.2.14.2: Verify returns True first time
+    param_def = {PARAM_PROMPT_REPEAT: PROMPT_REPEAT_NEVER}
+    assert param._should_repeat_prompt(param_def, 'test_param') is True
+```
+
+**Test 5.2.15: Unit test for PROMPT_REPEAT_NEVER after prompt**
+
+```gherkin
+Scenario: PROMPT_REPEAT_NEVER returns False after prompt
+  Given a param with PROMPT_REPEAT_NEVER already prompted
+  When _should_repeat_prompt() is called
+  Then returns False
+  
+  # Tests: Never repeat mode subsequent call
+  # Validates: Framework prevents repeat prompts
+```
+
+```python
+# Test 5.2.15: Add to tests/test_param_prompts.py
+def test_should_repeat_prompt_never_after_prompt():
+    """Test that _should_repeat_prompt() returns False for PROMPT_REPEAT_NEVER after prompting.
+    
+    This test verifies PROMPT_REPEAT_NEVER mode prevents repetition after first prompt.
+    This behaviour ensures prompts never repeat once executed."""
+    from spafw37.constants.param import PARAM_PROMPT_REPEAT, PROMPT_REPEAT_NEVER
+    
+    # Block 5.2.15.1: Clear state and add to prompted set
+    param._prompted_params = set()
+    param._prompted_params.add('test_param')
+    
+    # Block 5.2.15.2: Verify returns False
+    param_def = {PARAM_PROMPT_REPEAT: PROMPT_REPEAT_NEVER}
+    assert param._should_repeat_prompt(param_def, 'test_param') is False
+```
+
+**Code 5.2.8: Top-level prompt timing check orchestration**
+
+```python
+# Block 5.2.8: Add to src/spafw37/param.py after _should_repeat_prompt()
+def _should_prompt_param(param_def, command_name=None, check_value=True):
+    """Determine whether param should prompt in current context.
+    
+    Consolidates CLI override, timing, and repeat behaviour checks.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        command_name: Command name for command-timing context, None for start-timing
+        check_value: If True, skip prompt if param already has value (CLI override)
+        
+    Returns:
+        True if prompt should execute, False otherwise
+    """
+    # Block 5.2.8.1: Check CLI override
+    param_name = param_def.get(PARAM_NAME)
+    if check_value and _param_value_is_set(param_name):
+        return False
+    
+    # Block 5.2.8.2: Check timing matches context
+    if not _timing_matches_context(param_def, command_name):
+        return False
+    
+    # Block 5.2.8.3: Check repeat behaviour
+    return _should_repeat_prompt(param_def, param_name)
+```
+
+**Test 5.2.16: Integration test for CLI override preventing prompt**
+
+```gherkin
+Scenario: CLI-provided value prevents prompting
+  Given a param with PARAM_PROMPT configured
+  And param value set via CLI argument
+  When _should_prompt_param() is called
+  Then returns False (skip prompt)
+  
+  # Tests: CLI override mechanism
+  # Validates: Command-line arguments take precedence
+```
+
+```python
+# Test 5.2.16: Add to tests/test_param_prompts.py
+def test_cli_override_prevents_prompt():
+    """Test that _should_prompt_param() returns False when param value already set.
+    
+    This integration test verifies that CLI-provided values prevent prompting,
+    regardless of timing or repeat configuration.
+    This behaviour is expected because command-line arguments must take precedence
+    over interactive prompts."""
+    from spafw37.constants.param import PROMPT_ON_START
+    
+    # Block 5.2.16.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.16.2: Register param with value
+    param.add_param({
+        PARAM_NAME: 'username',
+        PARAM_PROMPT: 'Username:',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    param.set_param_value('username', 'cli_user')
+    
+    # Block 5.2.16.3: Verify prompt skipped
+    param_def = param._params['username']
+    assert param._should_prompt_param(param_def, None) is False
+```
+
+**Test 5.2.17: Integration test for PROMPT_ON_START timing**
+
+```gherkin
+Scenario: PROMPT_ON_START param prompts at start, not during commands
+  Given a param with PROMPT_ON_START timing
+  When _should_prompt_param() is called with command_name=None
+  Then returns True
+  When called with command_name="some_cmd"
+  Then returns False
+  
+  # Tests: Start timing enforcement
+  # Validates: Prompts appear at correct phase
+```
+
+```python
+# Test 5.2.17: Add to tests/test_param_prompts.py
+def test_prompt_on_start_timing():
+    """Test that _should_prompt_param() enforces PROMPT_ON_START timing.
+    
+    This integration test verifies params with PROMPT_ON_START timing prompt when
+    called from start context (command_name=None) but not from command context.
+    This behaviour ensures prompts appear at the correct execution phase."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START
+    
+    # Block 5.2.17.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.17.2: Register param with PROMPT_ON_START
+    param.add_param({
+        PARAM_NAME: 'api_key',
+        PARAM_PROMPT: 'API Key:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 5.2.17.3: Verify prompts at start
+    param_def = param._params['api_key']
+    assert param._should_prompt_param(param_def, None, check_value=False) is True
+    
+    # Block 5.2.17.4: Verify skipped during commands
+    assert param._should_prompt_param(param_def, 'deploy', check_value=False) is False
+```
+
+**Test 5.2.18: Integration test for PROMPT_ON_COMMAND timing**
+
+```gherkin
+Scenario: PROMPT_ON_COMMAND param prompts before specified commands only
+  Given a param with PROMPT_ON_COMMAND timing for specific commands
+  When _should_prompt_param() is called with matching command
+  Then returns True
+  When called with non-matching command
+  Then returns False
+  
+  # Tests: Command timing enforcement
+  # Validates: Prompts appear before correct commands
+```
+
+```python
+# Test 5.2.18: Add to tests/test_param_prompts.py
+def test_prompt_on_command_timing():
+    """Test that _should_prompt_param() enforces PROMPT_ON_COMMAND timing.
+    
+    This integration test verifies params with PROMPT_ON_COMMAND timing prompt only
+    before commands listed in PROMPT_ON_COMMANDS.
+    This behaviour ensures prompts appear before the correct commands."""
+    from spafw37.constants.param import (
+        PARAM_PROMPT_TIMING,
+        PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS
+    )
+    
+    # Block 5.2.18.1: Clear state
+    param._params = {}
+    
+    # Block 5.2.18.2: Register param with PROMPT_ON_COMMAND
+    param.add_param({
+        PARAM_NAME: 'password',
+        PARAM_PROMPT: 'Password:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['login', 'secure_op'],
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    # Block 5.2.18.3: Verify skipped at start
+    param_def = param._params['password']
+    assert param._should_prompt_param(param_def, None, check_value=False) is False
+    
+    # Block 5.2.18.4: Verify prompts for matching commands
+    assert param._should_prompt_param(param_def, 'login', check_value=False) is True
+    assert param._should_prompt_param(param_def, 'secure_op', check_value=False) is True
+    
+    # Block 5.2.18.5: Verify skipped for other commands
+    assert param._should_prompt_param(param_def, 'other_cmd', check_value=False) is False
+```
+
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 5.3: Implement prompt execution with validation helper**
+## Step 5.3: Implement Prompt Execution with Retry Logic
 
-**File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
+**File:** `src/spafw37/param.py`
 
-Implement the core prompt execution loop with validation and retry logic. This integrates prompts with the existing framework validation system, ensuring user input is validated immediately using the same rules as CLI arguments. The retry mechanism provides user-friendly error recovery whilst preventing infinite loops.
+Implement prompt execution with validation retry logic. This step creates four helper functions with clear single responsibilities: retry decision logic, error display, error stop handling, and the main prompt orchestration. The architecture eliminates deep nesting by extracting each concern into its own testable function. Validation happens via `set_param_value()` which naturally integrates with existing framework validation.
 
-**Algorithm:**
+**Architecture:**
+- `_should_continue_after_prompt_error()`: Pure retry decision logic (no side effects)
+- `_display_prompt_validation_error()`: User error feedback (logging + output)
+- `_handle_prompt_error_stop()`: Required vs optional param handling
+- `_execute_prompt()`: Main orchestration (max 2 nesting levels)
 
-1. Define maximum retry attempts (e.g., `max_retries = 3`)
+**Algorithm for `_execute_prompt()`:**
+
+1. Get retry limit from `PARAM_PROMPT_RETRIES` (param-level) or `_max_prompt_retries` (global default)
 2. Initialize retry counter to 0
-3. Start retry loop (while retry counter < max_retries):
-   a. Call the handler function with param definition: `user_value = handler(param_def)`
-   b. Attempt validation:
-      - Call existing framework validation function(s) for the param type
-      - Check `PARAM_ALLOWED_VALUES` if present (multiple choice validation)
-      - Apply any custom validation from param definition
-   c. If validation succeeds:
-      - Add param name to module-level `_prompted_params` set (track that prompt occurred)
-      - Return the validated user value
-   d. If validation fails:
-      - Display clear error message to user indicating what was wrong
-      - Increment retry counter
-      - If retry counter < max_retries: continue loop (prompt again)
-4. If loop exits (max retries exceeded):
-   - Check if param is required (via `PARAM_REQUIRED` or presence in any command's `COMMAND_REQUIRED_PARAMS`):
-     - If required: log error and exit application with non-zero status
-     - If optional: log warning, return None (param remains unset)
+3. Start infinite loop (break via return/raise):
+   a. Call handler to get user input
+   b. Call `set_param_value()` to validate and set (may raise ValueError/TypeError)
+   c. If successful: return (value already set)
+   d. If EOFError or KeyboardInterrupt: propagate immediately
+   e. If validation error:
+      - Call `_should_continue_after_prompt_error()` to check if should retry
+      - If should not continue: call `_handle_prompt_error_stop()` then return
+      - If should continue: call `_display_prompt_validation_error()` and loop
 
-**Error handling considerations:**
-- Handler may raise `EOFError` (stdin closed, non-interactive environment): propagate immediately, don't retry
-- Handler may raise `KeyboardInterrupt` (Ctrl+C): propagate immediately, allow user to abort
-- Validation errors are expected and trigger retry; other exceptions propagate
-- Set param value on success
+**Implementation order:**
+
+1. Add module-level `_max_prompt_retries` variable and `set_max_prompt_retries()` API
+2. Create `_should_continue_after_prompt_error()` pure logic function
+3. Create `_display_prompt_validation_error()` display function
+4. Create `_handle_prompt_error_stop()` error stop function
+5. Create `_execute_prompt()` orchestration function
+6. Add tests for each function
+
+**Module-level imports for tests/test_param_prompts.py (Step 5.3):**
+
+```python
+# Module-level imports for Step 5.3 tests in tests/test_param_prompts.py
+import pytest
+from spafw37 import param, logging
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_ALLOWED_VALUES,
+    PARAM_PROMPT_RETRIES,
+    PARAM_REQUIRED,
+    PARAM_SENSITIVE,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT
+)
+```
+
+**Code 5.3.1: Module-level retry and output configuration**
+
+```python
+# Block 5.3.1: Add to src/spafw37/param.py after _prompted_params
+_max_prompt_retries = 3
+_output_handler = None
+```
+
+**Code 5.3.2: Public API to set output handler**
+
+```python
+# Block 5.3.2: Add to src/spafw37/param.py after module-level variables
+def set_output_handler(handler):
+    """Set output handler for user-facing error messages during prompts.
+    
+    This allows param module to display error messages without depending on core.
+    If not set, defaults to print().
+    
+    Args:
+        handler: Callable that takes a message string and displays it to user.
+                 Typically set to core.output by the framework during initialization.
+    """
+    global _output_handler
+    _output_handler = handler
+```
+
+**Test 5.3.3: Set output handler**
+
+```gherkin
+Scenario: set_output_handler() configures user message display
+  Given custom output handler function
+  When set_output_handler(custom_handler) is called
+  Then _output_handler is custom_handler
+  
+  # Tests: Output handler configuration
+  # Validates: Framework can inject output mechanism
+```
+
+```python
+# Test 5.3.3: Add to tests/test_param_prompts.py
+def test_set_output_handler():
+    """Test that set_output_handler() configures output handler."""
+    def custom_handler(message):
+        pass
+    
+    param.set_output_handler(custom_handler)
+    assert param._output_handler == custom_handler
+```
+
+**Code 5.3.4: Public API to set global max retries**
+
+```python
+# Block 5.3.4: Add to src/spafw37/param.py after set_output_handler()
+def set_max_prompt_retries(count):
+    """Set global maximum retry count for validation failures.
+    
+    This configures the default retry behaviour for all params. Individual params
+    can override this using PARAM_PROMPT_RETRIES property.
+    
+    Args:
+        count: Maximum retries. -1 for infinite, 0 for no retries, N for N retries.
+    """
+    global _max_prompt_retries
+    _max_prompt_retries = count
+```
+
+**Test 5.3.5: Set global max retries**
+
+```gherkin
+Scenario: set_max_prompt_retries() updates global retry limit
+  Given _max_prompt_retries initially 3
+  When set_max_prompt_retries(5) is called
+  Then _max_prompt_retries is 5
+  
+  # Tests: Global retry configuration
+  # Validates: Applications can configure default retry behaviour
+```
+
+```python
+# Test 5.3.5: Add to tests/test_param_prompts.py
+def test_set_max_prompt_retries():
+    """Test that set_max_prompt_retries() updates global retry limit."""
+    param.set_max_prompt_retries(5)
+    assert param._max_prompt_retries == 5
+    param.set_max_prompt_retries(3)
+```
+
+**Code 5.3.6: Sensitive-aware logging helper**
+
+```python
+# Block 5.3.6: Add to src/spafw37/param.py after set_max_prompt_retries()
+# Note: Requires module-level import: from spafw37 import logging
+def log_param(level, message, param_def):
+    """Log message with PARAM_SENSITIVE awareness.
+    
+    For sensitive params, redacts detailed error information to prevent
+    credential leakage in logs.
+    
+    Args:
+        level: Log level (logging.ERROR, logging.INFO, etc.)
+        message: Full message to log (may contain sensitive data)
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+    """
+    param_name = param_def.get(PARAM_NAME, 'unknown')
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    
+    if is_sensitive:
+        sanitized_message = f"Invalid value for sensitive param '{param_name}'"
+    else:
+        sanitized_message = message
+    
+    logging.log(_level=level, _message=sanitized_message)
+```
+
+**Test 5.3.7: Log param sanitizes sensitive param errors**
+
+```gherkin
+Scenario: log_param() redacts error details for sensitive params
+  Given param_def with PARAM_SENSITIVE=True and PARAM_NAME='api_key'
+  And message = "Invalid value for 'api_key': secret123 is not valid"
+  When log_param(logging.ERROR, message, param_def) is called
+  Then logging.log() called with ERROR level and sanitized message
+  And original error details not logged
+  
+  # Tests: Sensitive data redaction in logs
+  # Validates: Credentials not leaked to log files
+```
+
+```python
+# Test 5.3.7: Add to tests/test_param_prompts.py
+def test_log_param_sanitizes_sensitive(mocker):
+    """Test log_param() redacts error details for sensitive params."""
+    mock_log = mocker.patch('spafw37.logging.log')
+    
+    param_def = {
+        param.PARAM_NAME: 'api_key',
+        param.PARAM_SENSITIVE: True
+    }
+    message = "Invalid value for 'api_key': secret123 is not valid"
+    
+    param.log_param(logging.ERROR, message, param_def)
+    
+    mock_log.assert_called_once_with(
+        _level=logging.ERROR,
+        _message="Invalid value for sensitive param 'api_key'"
+    )
+```
+
+**Test 5.3.8: Log param logs full message for non-sensitive params**
+
+```gherkin
+Scenario: log_param() logs full message for non-sensitive params
+  Given param_def with PARAM_SENSITIVE=False and PARAM_NAME='count'
+  And message = "Invalid value for 'count': 'abc' is not a number"
+  When log_param(logging.ERROR, message, param_def) is called
+  Then logging.log() called with ERROR level and full message
+  And error details preserved
+  
+  # Tests: Normal logging for non-sensitive params
+  # Validates: Useful error details available in logs
+```
+
+```python
+# Test 5.3.8: Add to tests/test_param_prompts.py
+def test_log_param_preserves_nonsensitive(mocker):
+    """Test log_param() preserves full message for non-sensitive params."""
+    mock_log = mocker.patch('spafw37.logging.log')
+    
+    param_def = {
+        param.PARAM_NAME: 'count',
+        param.PARAM_SENSITIVE: False
+    }
+    message = "Invalid value for 'count': 'abc' is not a number"
+    
+    param.log_param(logging.ERROR, message, param_def)
+    
+    mock_log.assert_called_once_with(
+        _level=logging.ERROR,
+        _message=message
+    )
+```
+
+**Code 5.3.9: Generic sensitive-aware exception raising**
+
+```python
+# Block 5.3.9: Add to src/spafw37/param.py after log_param()
+def raise_param_error(error, param_def):
+    """Raise exception with PARAM_SENSITIVE awareness.
+    
+    For sensitive params, raises new exception with sanitized message to prevent
+    credential leakage in exception traces, monitoring tools, and error logs.
+    For non-sensitive params, raises original error with full details.
+    
+    Args:
+        error: The exception to raise (ValueError, TypeError, etc.)
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+        
+    Raises:
+        Exception of same type as error parameter
+    """
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    if is_sensitive:
+        param_name = param_def.get(PARAM_NAME, 'unknown')
+        sanitized_error = type(error)(
+            f"Invalid value for sensitive param '{param_name}'"
+        )
+        raise sanitized_error
+    else:
+        raise error
+```
+
+**Test 5.3.9: Raise param error sanitizes for sensitive params**
+
+```gherkin
+Scenario: raise_param_error() creates sanitized exception for sensitive param
+  Given param_def with PARAM_SENSITIVE=True and PARAM_NAME='password'
+  And error = ValueError("'secret123' is too short")
+  When raise_param_error(error, param_def) is called
+  Then raises ValueError with message "Invalid value for sensitive param 'password'"
+  And 'secret123' not in error message
+  
+  # Tests: Exception sanitization for sensitive params
+  # Validates: Credentials not leaked via exception traces
+```
+
+```python
+# Test 5.3.9: Add to tests/test_param_prompts.py
+def test_raise_param_error_sanitizes_sensitive():
+    """Test raise_param_error() sanitizes exception for sensitive params."""
+    param_def = {
+        PARAM_NAME: 'password',
+        PARAM_SENSITIVE: True
+    }
+    error = ValueError("'secret123' is too short")
+    
+    with pytest.raises(ValueError) as exc_info:
+        param.raise_param_error(error, param_def)
+    
+    error_message = str(exc_info.value)
+    assert "sensitive param 'password'" in error_message
+    assert "secret123" not in error_message
+```
+
+**Test 5.3.10: Raise param error preserves original for non-sensitive**
+
+```gherkin
+Scenario: raise_param_error() raises original error for non-sensitive param
+  Given param_def with PARAM_SENSITIVE=False
+  And error = ValueError("'abc' is not a number")
+  When raise_param_error(error, param_def) is called
+  Then raises original ValueError
+  And full error message preserved
+  
+  # Tests: Normal exception handling for non-sensitive params
+  # Validates: Detailed errors available for debugging
+```
+
+```python
+# Test 5.3.10: Add to tests/test_param_prompts.py
+def test_raise_param_error_preserves_nonsensitive():
+    """Test raise_param_error() raises original error for non-sensitive params."""
+    param_def = {
+        param.PARAM_NAME: 'count',
+        param.PARAM_SENSITIVE: False
+    }
+    error = ValueError("'abc' is not a number")
+    
+    with pytest.raises(ValueError) as exc_info:
+        param.raise_param_error(error, param_def)
+    
+    assert str(exc_info.value) == "'abc' is not a number"
+```
+
+**Test 5.3.11: Raise param error preserves exception type**
+
+```gherkin
+Scenario: raise_param_error() preserves exception type
+  Given sensitive param_def
+  And error = TypeError("expected str, got int")
+  When raise_param_error(error, param_def) is called
+  Then raises TypeError (not ValueError)
+  And message is sanitized
+  
+  # Tests: Exception type preservation
+  # Validates: Callers can catch specific exception types
+```
+
+```python
+# Test 5.3.11: Add to tests/test_param_prompts.py
+def test_raise_param_error_preserves_type():
+    """Test raise_param_error() preserves exception type."""
+    param_def = {
+        param.PARAM_NAME: 'api_key',
+        param.PARAM_SENSITIVE: True
+    }
+    error = TypeError("expected str, got int")
+    
+    with pytest.raises(TypeError) as exc_info:
+        param.raise_param_error(error, param_def)
+    
+    error_message = str(exc_info.value)
+    assert "sensitive param 'api_key'" in error_message
+    assert "int" not in error_message
+```
+
+**Code 5.3.12: Pure retry decision logic**
+
+```python
+# Block 5.3.12: Add to src/spafw37/param.py after raise_param_error()
+def _should_continue_after_prompt_error(max_retries, retry_count):
+    """Determine if prompt should continue after validation error.
+    
+    Pure logic function with no side effects. Returns decision based solely on
+    retry configuration and current count.
+    
+    Args:
+        max_retries: Maximum retry count (-1 infinite, 0 none, N finite)
+        retry_count: Current retry attempt count
+        
+    Returns:
+        Tuple of (should_continue: bool, updated_retry_count: int)
+    """
+    if max_retries == -1:
+        return (True, retry_count)
+    if max_retries == 0:
+        return (False, retry_count)
+    
+    retry_count += 1
+    should_continue = retry_count < max_retries
+    return (should_continue, retry_count)
+```
+
+**Test 5.3.13: Retry decision with infinite retries**
+
+```gherkin
+Scenario: Infinite retries always continues
+  Given max_retries = -1
+  When _should_continue_after_prompt_error(-1, 100) is called
+  Then returns (True, 100)
+  
+  # Tests: Infinite retry mode
+  # Validates: Count not incremented, always continues
+```
+
+```python
+# Test 5.3.13: Add to tests/test_param_prompts.py
+def test_retry_decision_infinite():
+    """Test _should_continue_after_prompt_error() with infinite retries."""
+    should_continue, count = param._should_continue_after_prompt_error(-1, 100)
+    assert should_continue is True
+    assert count == 100
+```
+
+**Test 5.3.14: Retry decision with zero retries**
+
+```gherkin
+Scenario: Zero retries stops immediately
+  Given max_retries = 0
+  When _should_continue_after_prompt_error(0, 0) is called
+  Then returns (False, 0)
+  
+  # Tests: No retry mode
+  # Validates: First error stops immediately
+```
+
+```python
+# Test 5.3.14: Add to tests/test_param_prompts.py
+def test_retry_decision_zero():
+    """Test _should_continue_after_prompt_error() with zero retries."""
+    should_continue, count = param._should_continue_after_prompt_error(0, 0)
+    assert should_continue is False
+    assert count == 0
+```
+
+**Test 5.3.15: Retry decision with finite retries continues**
+
+```gherkin
+Scenario: Finite retries continues when under limit
+  Given max_retries = 3
+  And retry_count = 0
+  When _should_continue_after_prompt_error(3, 0) called
+  Then returns (True, 1)
+  
+  # Tests: Finite retry counting - continues
+  # Validates: Increments count, continues when under limit
+```
+
+```python
+# Test 5.3.15: Add to tests/test_param_prompts.py
+def test_retry_decision_finite_continues():
+    """Test _should_continue_after_prompt_error() continues when under limit."""
+    should_continue, count = param._should_continue_after_prompt_error(3, 0)
+    assert should_continue is True
+    assert count == 1
+```
+
+**Test 5.3.16: Retry decision with finite retries stops**
+
+```gherkin
+Scenario: Finite retries stops when at limit
+  Given max_retries = 3
+  And retry_count = 2
+  When _should_continue_after_prompt_error(3, 2) called
+  Then returns (False, 3)
+  
+  # Tests: Finite retry counting - stops
+  # Validates: Increments count, stops at limit
+```
+
+```python
+# Test 5.3.16: Add to tests/test_param_prompts.py
+def test_retry_decision_finite_stops():
+    """Test _should_continue_after_prompt_error() stops when at limit."""
+    should_continue, count = param._should_continue_after_prompt_error(3, 2)
+    assert should_continue is False
+    assert count == 3
+```
+
+**Code 5.3.17: Display validation error to user**
+
+```python
+# Block 5.3.17: Add to src/spafw37/param.py after _should_continue_after_prompt_error()
+def _display_prompt_validation_error(param_def, error):
+    """Display validation error to user during prompt.
+    
+    Uses both logging (for audit trail) and injected output handler (for user feedback).
+    Redacts sensitive param details from logs via log_param helper.
+    If no output handler configured, defaults to print().
+    
+    Args:
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+        error: The validation error exception
+    """
+    param_name = param_def.get(PARAM_NAME, 'unknown')
+    log_message = f"Invalid value for '{param_name}': {error}"
+    log_param(logging.ERROR, log_message, param_def)
+    
+    message = f"Invalid value: {error}. Please try again."
+    if _output_handler is not None:
+        _output_handler(message)
+    else:
+        print(message)
+```
+
+**Test 5.3.18: Display error uses log_param and output handler**
+
+```gherkin
+Scenario: Display function logs and outputs error via handler
+  Given param_def with PARAM_NAME='test_param' and PARAM_SENSITIVE=False
+  And error = ValueError("must be positive")
+  And output handler configured
+  When _display_prompt_validation_error(param_def, error) is called
+  Then log_param called with error message and param_def
+  And output handler called with "Invalid value: must be positive. Please try again."
+  
+  # Tests: Error display channels
+  # Validates: Both logging and injected output used
+```
+
+```python
+# Test 5.3.18: Add to tests/test_param_prompts.py
+def test_display_validation_error_with_handler(mocker):
+    """Test _display_prompt_validation_error() uses log_param and output handler."""
+    mock_log_param = mocker.patch('spafw37.param.log_param')
+    mock_output = mocker.Mock()
+    param._output_handler = mock_output
+    
+    param_def = {
+        param.PARAM_NAME: 'test_param',
+        param.PARAM_SENSITIVE: False
+    }
+    error = ValueError("must be positive")
+    param._display_prompt_validation_error(param_def, error)
+    
+    mock_log_param.assert_called_once()
+    assert 'test_param' in str(mock_log_param.call_args)
+    assert 'must be positive' in str(mock_log_param.call_args)
+    
+    mock_output.assert_called_once()
+    assert 'must be positive' in str(mock_output.call_args)
+```
+
+**Test 5.3.19: Display error defaults to print without handler**
+
+```gherkin
+Scenario: Display function falls back to print() without handler
+  Given no output handler configured
+  And param_def with PARAM_NAME='test_param'
+  And error = ValueError("invalid")
+  When _display_prompt_validation_error(param_def, error) is called
+  Then print() called with error message
+  And log_param still called
+  
+  # Tests: Default output fallback
+  # Validates: Works without core dependency
+```
+
+```python
+# Test 5.3.19: Add to tests/test_param_prompts.py
+def test_display_validation_error_defaults_to_print(mocker):
+    """Test _display_prompt_validation_error() defaults to print() without handler."""
+    mock_log_param = mocker.patch('spafw37.param.log_param')
+    mock_print = mocker.patch('builtins.print')
+    param._output_handler = None
+    
+    param_def = {
+        param.PARAM_NAME: 'test_param',
+        param.PARAM_SENSITIVE: False
+    }
+    error = ValueError("invalid")
+    param._display_prompt_validation_error(param_def, error)
+    
+    mock_log_param.assert_called_once()
+    mock_print.assert_called_once()
+    assert 'invalid' in str(mock_print.call_args)
+```
+
+**Code 5.3.20: Handle max retries exceeded**
+
+```python
+# Block 5.3.20: Add to src/spafw37/param.py after _display_prompt_validation_error()
+def _handle_prompt_error_stop(param_def, validation_error):
+    """Handle stopping prompt execution due to max retries exceeded.
+    
+    For required params: uses raise_param_error() for sensitive-aware exception raising.
+    For optional params: returns silently (param remains unset).
+    
+    Args:
+        param_def: Parameter definition dictionary
+        validation_error: The validation exception to potentially raise
+        
+    Raises:
+        ValueError or TypeError: If param is required (sanitized for sensitive params)
+    """
+    is_required = param_def.get(PARAM_REQUIRED, False)
+    if is_required:
+        raise_param_error(validation_error, param_def)
+```
+
+**Test 5.3.21: Stop handler raises for required non-sensitive param**
+
+```gherkin
+Scenario: Stop handler raises original error for required non-sensitive param
+  Given required non-sensitive param definition
+  And validation_error = ValueError("'abc' is not a number")
+  When _handle_prompt_error_stop(param_def, validation_error) is called
+  Then raises ValueError with original message
+  
+  # Tests: Required param error propagation
+  # Validates: Detailed errors for non-sensitive params
+```
+
+```python
+# Test 5.3.21: Add to tests/test_param_prompts.py
+def test_handle_stop_required_nonsensitive_raises():
+    """Test _handle_prompt_error_stop() raises original error for non-sensitive params."""
+    param_def = {
+        PARAM_NAME: 'count',
+        PARAM_REQUIRED: True,
+        PARAM_SENSITIVE: False
+    }
+    error = ValueError("'abc' is not a number")
+    
+    with pytest.raises(ValueError) as exc_info:
+        param._handle_prompt_error_stop(param_def, error)
+    assert "'abc' is not a number" in str(exc_info.value)
+```
+
+**Test 5.3.22: Stop handler sanitizes error for required sensitive param**
+
+```gherkin
+Scenario: Stop handler sanitizes error message for required sensitive param
+  Given required sensitive param definition
+  And validation_error = ValueError("'secret123' is not valid")
+  When _handle_prompt_error_stop(param_def, validation_error) is called
+  Then raises ValueError with sanitized message
+  And 'secret123' not in error message
+  And error message is "Invalid value for sensitive param 'api_key'"
+  
+  # Tests: Sensitive param error sanitization
+  # Validates: Credentials not leaked via exceptions
+```
+
+```python
+# Test 5.3.22: Add to tests/test_param_prompts.py
+def test_handle_stop_required_sensitive_sanitizes():
+    """Test _handle_prompt_error_stop() sanitizes error for sensitive params."""
+    param_def = {
+        PARAM_NAME: 'api_key',
+        PARAM_REQUIRED: True,
+        PARAM_SENSITIVE: True
+    }
+    error = ValueError("'secret123' is not valid")
+    
+    with pytest.raises(ValueError) as exc_info:
+        param._handle_prompt_error_stop(param_def, error)
+    
+    error_message = str(exc_info.value)
+    assert "sensitive param 'api_key'" in error_message
+    assert "secret123" not in error_message
+```
+
+**Test 5.3.23: Stop handler returns silently for optional param**
+
+```gherkin
+Scenario: Stop handler returns for optional param
+  Given optional param definition
+  And validation_error = ValueError("invalid")
+  When _handle_prompt_error_stop(param_def, validation_error) is called
+  Then returns None without raising
+  
+  # Tests: Optional param graceful failure
+  # Validates: Optional params can remain unset
+```
+
+```python
+# Test 5.3.23: Add to tests/test_param_prompts.py
+def test_handle_stop_optional_returns():
+    """Test _handle_prompt_error_stop() returns silently for optional params."""
+    param_def = {PARAM_NAME: 'optional_param'}
+    error = ValueError("invalid")
+    
+    result = param._handle_prompt_error_stop(param_def, error)
+    assert result is None
+```
+
+**Code 5.3.24: Prompt execution orchestration**
+
+```python
+# Block 5.3.24: Add to src/spafw37/param.py after _handle_prompt_error_stop()
+def _execute_prompt(param_def, handler):
+    """Execute prompt with validation retry loop.
+    
+    Calls handler to get user input, validates via set_param_value(), and retries
+    on validation failure based on configured max retries (param-level or global).
+    
+    Retry behaviour:
+    - -1: Infinite retries (always display error and retry)
+    - 0: No retries (first validation error propagates immediately)
+    - N: Retry up to N times
+    
+    Precedence: PARAM_PROMPT_RETRIES → _max_prompt_retries (global default)
+    
+    Args:
+        param_def: Parameter definition dictionary
+        handler: Callable that prompts user and returns input string
+        
+    Raises:
+        EOFError: If stdin closed (non-interactive environment)
+        KeyboardInterrupt: If user presses Ctrl+C
+        ValueError: If required param and max retries exceeded
+    """
+    param_name = param_def.get(PARAM_NAME)
+    max_retries = param_def.get(PARAM_PROMPT_RETRIES, _max_prompt_retries)
+    retry_count = 0
+    
+    while True:
+        try:
+            user_value = handler(param_def)
+            set_param_value(param_name, user_value)
+            return
+            
+        except (EOFError, KeyboardInterrupt):
+            raise
+            
+        except (ValueError, TypeError) as validation_error:
+            should_continue, retry_count = _should_continue_after_prompt_error(
+                max_retries, retry_count
+            )
+            if should_continue:
+                _display_prompt_validation_error(param_def, validation_error)
+                continue
+            _handle_prompt_error_stop(param_def, validation_error)
+            return
+```
+
+**Test 5.3.25: Successful prompt sets value**
+
+```gherkin
+Scenario: Successful prompt sets param value
+  Given param 'test_param' registered
+  And handler returns 'valid_value'
+  When _execute_prompt(param_def, handler) is called
+  Then set_param_value('test_param', 'valid_value') called
+  And function returns without error
+  And param value is 'valid_value'
+  
+  # Tests: Happy path prompt execution
+  # Validates: Valid input sets param value
+```
+
+```python
+# Test 5.3.25: Add to tests/test_param_prompts.py
+def test_execute_prompt_success():
+    """Test _execute_prompt() sets value on successful prompt."""
+    param._params = {}
+    param.add_param({PARAM_NAME: 'test_param', PARAM_TYPE: PARAM_TYPE_TEXT})
+    
+    def mock_handler(param_def):
+        return 'valid_value'
+    
+    param_def = param._params['test_param']
+    param._execute_prompt(param_def, mock_handler)
+    
+    assert param.get_param_value('test_param') == 'valid_value'
+```
+
+**Test 5.3.26: Validation retry with finite retries**
+
+```gherkin
+Scenario: Validation failure retries then succeeds
+  Given param with PARAM_ALLOWED_VALUES = ['valid', 'other']
+  And handler returns 'invalid' then 'valid'
+  And max retries = 3 (default)
+  When _execute_prompt(param_def, handler) is called
+  Then first attempt: 'invalid' rejected, error displayed
+  And second attempt: 'valid' accepted
+  And param value set to 'valid'
+  
+  # Tests: Retry mechanism
+  # Validates: Users can correct mistakes
+```
+
+```python
+# Test 5.3.26: Add to tests/test_param_prompts.py
+def test_execute_prompt_retry_succeeds():
+    """Test _execute_prompt() retries after validation failure."""
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'test_param',
+        PARAM_ALLOWED_VALUES: ['valid', 'other'],
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    call_count = 0
+    def mock_handler(param_def):
+        nonlocal call_count
+        call_count += 1
+        return 'invalid' if call_count == 1 else 'valid'
+    
+    param_def = param._params['test_param']
+    param._execute_prompt(param_def, mock_handler)
+    
+    assert call_count == 2
+    assert param.get_param_value('test_param') == 'valid'
+```
+
+**Test 5.3.27: Max retries exceeded for required param**
+
+```gherkin
+Scenario: Max retries exceeded for required param raises error
+  Given required param
+  And handler always returns invalid value
+  And PARAM_PROMPT_RETRIES = 2
+  When _execute_prompt(param_def, handler) is called
+  Then attempts 1 and 2 fail with error displayed
+  And attempt 3 exceeds max
+  And ValueError raised
+  
+  # Tests: Required param max retries
+  # Validates: Required params must have valid value
+```
+
+```python
+# Test 5.3.27: Add to tests/test_param_prompts.py
+def test_execute_prompt_max_retries_required():
+    """Test _execute_prompt() raises ValueError for required param after max retries."""
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'required_param',
+        PARAM_REQUIRED: True,
+        PARAM_ALLOWED_VALUES: ['valid'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 2
+    })
+    
+    def mock_handler(param_def):
+        return 'always_invalid'
+    
+    param_def = param._params['required_param']
+    with pytest.raises(ValueError):
+        param._execute_prompt(param_def, mock_handler)
+```
+
+```python
+# Test 5.3.28: Add to tests/test_param_prompts.py
+def test_execute_prompt_max_retries_required_sanitizes():
+    """Test _execute_prompt() sanitizes error for required sensitive param after max retries."""
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'api_key',
+        PARAM_REQUIRED: True,
+        PARAM_SENSITIVE: True,
+        PARAM_ALLOWED_VALUES: ['valid_key'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 1
+    })
+    
+    def mock_handler(param_def):
+        return 'secret123'  # Always invalid
+    
+    param_def = param._params['api_key']
+    with pytest.raises(ValueError) as exc_info:
+        param._execute_prompt(param_def, mock_handler)
+    
+    error_message = str(exc_info.value)
+    assert "sensitive param 'api_key'" in error_message
+    assert "secret123" not in error_message
+```
+
+**Test 5.3.29: Max retries exceeded for optional param**
+
+```gherkin
+Scenario: Max retries exceeded for optional param returns silently
+  Given optional param
+  And handler always returns invalid value
+  And PARAM_PROMPT_RETRIES = 2
+  When _execute_prompt(param_def, handler) is called
+  Then attempts 1 and 2 fail with error displayed
+  And attempt 3 exceeds max
+  And function returns without raising
+  And param remains unset
+  
+  # Tests: Optional param max retries
+  # Validates: Optional params can remain unset
+```
+
+```python
+# Test 5.3.29: Add to tests/test_param_prompts.py
+def test_execute_prompt_max_retries_optional():
+    """Test _execute_prompt() returns silently for optional param after max retries."""
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'optional_param',
+        PARAM_ALLOWED_VALUES: ['valid'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 2
+    })
+    
+    def mock_handler(param_def):
+        return 'always_invalid'
+    
+    param_def = param._params['optional_param']
+    param._execute_prompt(param_def, mock_handler)
+    
+    assert param.get_param_value('optional_param') is None
+```
+
+**Test 5.3.30: Max retries respects param-level override**
+
+```gherkin
+Scenario: PARAM_PROMPT_RETRIES overrides global max retries
+  Given global _max_prompt_retries = 3
+  And param with PARAM_PROMPT_RETRIES = 1
+  And handler always returns invalid value
+  When _execute_prompt(param_def, handler) is called
+  Then only 2 attempts made (initial + 1 retry)
+  And not 4 attempts (initial + 3 retries from global)
+  
+  # Tests: Param-level retry configuration precedence
+  # Validates: Per-param override works
+```
+
+```python
+# Test 5.3.30: Add to tests/test_param_prompts.py
+def test_execute_prompt_param_level_retries(mocker):
+    """Test _execute_prompt() respects PARAM_PROMPT_RETRIES over global."""
+    param._max_prompt_retries = 3
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'test_param',
+        PARAM_REQUIRED: True,
+        PARAM_ALLOWED_VALUES: ['valid'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 1  # Override global
+    })
+    
+    call_count = 0
+    def mock_handler(param_def):
+        nonlocal call_count
+        call_count += 1
+        return 'invalid'
+    
+    param_def = param._params['test_param']
+    with pytest.raises(ValueError):
+        param._execute_prompt(param_def, mock_handler)
+    
+    assert call_count == 2  # Initial + 1 retry, not initial + 3
+```
+
+**Test 5.3.31: EOFError propagates immediately**
+
+```gherkin
+Scenario: EOFError from handler propagates without retry
+  Given handler raises EOFError
+  When _execute_prompt(param_def, handler) is called
+  Then EOFError propagates immediately
+  And no retry attempted
+  
+  # Tests: Non-interactive environment
+  # Validates: stdin closure detected
+```
+
+```python
+# Test 5.3.31: Add to tests/test_param_prompts.py
+def test_execute_prompt_eoferror():
+    """Test _execute_prompt() propagates EOFError immediately."""
+    def mock_handler(param_def):
+        raise EOFError("stdin closed")
+    
+    param_def = {PARAM_NAME: 'test_param'}
+    with pytest.raises(EOFError):
+        param._execute_prompt(param_def, mock_handler)
+```
+
+**Test 5.3.32: KeyboardInterrupt propagates immediately**
+
+```gherkin
+Scenario: KeyboardInterrupt from handler propagates without retry
+  Given handler raises KeyboardInterrupt
+  When _execute_prompt(param_def, handler) is called
+  Then KeyboardInterrupt propagates immediately
+  And no retry attempted
+  
+  # Tests: User abort (Ctrl+C)
+  # Validates: Immediate cancellation
+```
+
+```python
+# Test 5.3.32: Add to tests/test_param_prompts.py
+def test_execute_prompt_keyboard_interrupt():
+    """Test _execute_prompt() propagates KeyboardInterrupt immediately."""
+    def mock_handler(param_def):
+        raise KeyboardInterrupt()
+    
+    param_def = {PARAM_NAME: 'test_param'}
+    with pytest.raises(KeyboardInterrupt):
+        param._execute_prompt(param_def, mock_handler)
+```
+
+**Code 5.3.33: Migrate _set_param_default() to use log_param**
+
+```python
+# Block 5.3.33: Update existing function in src/spafw37/param.py
+# Change line ~1097 from:
+#   logging.log_trace(_message=f"Setting default for param '{param_name}' = {default_value}")
+# To:
+    log_param(logging.TRACE, f"Setting default for param '{param_name}' = {default_value}", _param)
+```
+
+**Module-level imports for tests/test_param.py (Step 5.3.33-35):**
+
+```python
+# Module-level imports for Step 5.3.33-35 tests in tests/test_param.py
+import pytest
+from spafw37 import param, logging
+from spafw37.constants.param import PARAM_NAME, PARAM_SENSITIVE, PARAM_TYPE, PARAM_TYPE_TEXT, PARAM_TYPE_NUMBER
+```
+
+**Test 5.3.33: Default setting sanitizes sensitive param values**
+
+```gherkin
+Scenario: _set_param_default() uses log_param for sensitive params
+  Given sensitive param with default value
+  When _set_param_default() sets default
+  Then logging.log() called with TRACE level and sanitized message
+  And default value not logged
+  
+  # Tests: Default value sanitization in trace logs
+  # Validates: Default credentials not leaked during initialization
+```
+
+```python
+# Test 5.3.33: Add to tests/test_param.py
+def test_set_param_default_sanitizes_sensitive(mocker):
+    """Test _set_param_default() sanitizes sensitive param defaults."""
+    mock_log = mocker.patch('spafw37.logging.log')
+    param._params = {}
+    
+    param_def = {
+        PARAM_NAME: 'api_key',
+        PARAM_SENSITIVE: True,
+        PARAM_DEFAULT: 'default_secret_key',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    }
+    
+    param._set_param_default(param_def)
+    
+    # Verify log_param was called (which calls logging.log)
+    mock_log.assert_called()
+    call_args = mock_log.call_args
+    assert call_args[1]['_level'] == logging.TRACE
+    logged_message = call_args[1]['_message']
+    assert "sensitive param 'api_key'" in logged_message
+    assert "default_secret_key" not in logged_message
+```
+
+**Code 5.3.34: Migrate set_param() to use log_param**
+
+```python
+# Block 5.3.34: Update existing function in src/spafw37/param.py
+# Change line ~1774 from:
+#   logging.log_debug(_message="Set param '{}' = {}".format(param_name_for_log, value))
+# To:
+    log_param(logging.DEBUG, f"Set param '{param_name_for_log}' = {value}", param_definition)
+```
+
+**Test 5.3.34: Parameter setting sanitizes sensitive param values**
+
+```gherkin
+Scenario: set_param() uses log_param for sensitive params
+  Given sensitive param registered
+  When set_param() sets value
+  Then logging.log() called with DEBUG level and sanitized message
+  And actual value not logged
+  
+  # Tests: CRITICAL - All param updates sanitized
+  # Validates: Runtime credentials not leaked to debug logs
+```
+
+```python
+# Test 5.3.34: Add to tests/test_param.py
+def test_set_param_sanitizes_sensitive(mocker):
+    """Test set_param() sanitizes sensitive param values in logs."""
+    mock_log = mocker.patch('spafw37.logging.log')
+    param._params = {}
+    
+    param.add_param({
+        PARAM_NAME: 'password',
+        PARAM_SENSITIVE: True,
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    param.set_param(param_name='password', value='user_secret_password')
+    
+    # Verify log_param was called (which calls logging.log)
+    mock_log.assert_called()
+    call_args = mock_log.call_args
+    assert call_args[1]['_level'] == logging.DEBUG
+    logged_message = call_args[1]['_message']
+    assert "sensitive param 'password'" in logged_message
+    assert "user_secret_password" not in logged_message
+```
+
+**Test 5.3.35: Non-sensitive params still log full details**
+
+```gherkin
+Scenario: set_param() logs full details for non-sensitive params
+  Given non-sensitive param registered
+  When set_param() sets value
+  Then logging.log() called with full value in message
+  And debugging information preserved
+  
+  # Tests: Normal debug logging unchanged
+  # Validates: Non-sensitive params still provide debugging info
+```
+
+```python
+# Test 5.3.35: Add to tests/test_param.py
+def test_set_param_preserves_nonsensitive_logging(mocker):
+    """Test set_param() logs full details for non-sensitive params."""
+    mock_log = mocker.patch('spafw37.logging.log')
+    param._params = {}
+    
+    param.add_param({
+        PARAM_NAME: 'count',
+        PARAM_TYPE: PARAM_TYPE_NUMBER
+    })
+    
+    param.set_param(param_name='count', value=42)
+    
+    mock_log.assert_called()
+    call_args = mock_log.call_args
+    assert call_args[1]['_level'] == logging.DEBUG
+    logged_message = call_args[1]['_message']
+    assert "count" in logged_message
+    assert "42" in logged_message
+```
+
+**Test 5.3.21: Param-level retries override global**
+
+```gherkin
+Scenario: PARAM_PROMPT_RETRIES overrides global _max_prompt_retries
+  Given global _max_prompt_retries = 3
+  And param with PARAM_PROMPT_RETRIES = 1
+  And handler always returns invalid value
+  When _execute_prompt(param_def, handler) is called
+  Then only 1 retry attempted (not 3)
+  And max retries exceeded after 1 retry
+  
+  # Tests: Retry precedence
+  # Validates: Param-level overrides global
+```
+
+```python
+# Test 5.3.24: Add to tests/test_param_prompts.py
+def test_execute_prompt_param_retries_override():
+    """Test PARAM_PROMPT_RETRIES overrides global _max_prompt_retries."""
+    param._max_prompt_retries = 3
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'override_param',
+        PARAM_ALLOWED_VALUES: ['valid'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 1
+    })
+    
+    call_count = 0
+    def mock_handler(param_def):
+        nonlocal call_count
+        call_count += 1
+        return 'invalid'
+    
+    param_def = param._params['override_param']
+    param._execute_prompt(param_def, mock_handler)
+    
+    assert call_count == 1
+```
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 5.4: Implement prompt text formatting helper**
+## Step 5.4: Implement Param Identification Functions
 
-**File:** `src/spafw37/param.py` (or new `src/spafw37/prompt.py`)
+**File:** `src/spafw37/param.py`
 
-Implement prompt text formatting following bash/Unix conventions for default value display. This provides users with clear indication of what will happen if they press Enter without typing, following familiar patterns from standard command-line tools.
+Implement functions that identify which params need prompting for a given timing context. These functions encapsulate the iteration and filtering logic, returning lists of params ready to prompt with their handlers pre-resolved. This separates the "what to prompt" concern from the "how to prompt" concern.
+
+**Architecture:**
+- `_get_params_to_prompt(timing)`: For PROMPT_ON_START timing (iterates all params)
+- `_get_params_for_command(command_def)`: For PROMPT_ON_COMMAND timing (uses COMMAND_PROMPT_PARAMS)
+
+Both functions filter params using `_should_prompt_param()` and resolve handlers via `_get_prompt_handler()`, returning a list of (param_name, param_def, handler) tuples.
+
+**Algorithm for `_get_params_to_prompt()`:**
+
+1. Initialize empty results list
+2. Iterate all params in `_params` registry
+3. For each param:
+   - Check if has `PARAM_PROMPT` property (skip if not)
+   - Check if timing matches (skip if not)
+   - Call `_should_prompt_param(param_def, None)` (skip if False)
+   - Resolve handler via `_get_prompt_handler(param_def)`
+   - Append (param_name, param_def, handler) to results
+4. Return results list
+
+**Algorithm for `_get_params_for_command()`:**
+
+1. Get `COMMAND_PROMPT_PARAMS` list from command definition (return empty if not present)
+2. Get command name from command definition
+3. Initialize empty results list
+4. For each param_name in COMMAND_PROMPT_PARAMS:
+   - Look up param_def from `_params` registry
+   - Call `_should_prompt_param(param_def, command_name)` (skip if False)
+   - Resolve handler via `_get_prompt_handler(param_def)`
+   - Append (param_name, param_def, handler) to results
+5. Return results list
+
+**Implementation order:**
+
+1. Create `_get_params_to_prompt()` for start timing
+2. Create `_get_params_for_command()` for command timing
+3. Add tests for both functions
+
+**Code 5.4.1: Get params for start timing**
+
+```python
+# Block 5.4.1: Add to src/spafw37/param.py after _execute_prompt()
+def _get_params_to_prompt(timing):
+    """Identify params that need prompting for given timing.
+    
+    Iterates all registered params, filters by timing and prompt need,
+    resolves handlers.
+    
+    Args:
+        timing: PROMPT_ON_START or PROMPT_ON_COMMAND constant
+        
+    Returns:
+        List of (param_name, param_def, handler) tuples
+    """
+    results = []
+    
+    for param_name, param_def in _params.items():
+        if PARAM_PROMPT not in param_def:
+            continue
+        if param_def.get(PARAM_PROMPT_TIMING) != timing:
+            continue
+        if not _should_prompt_param(param_def, None):
+            continue
+        
+        handler = _get_prompt_handler(param_def)
+        results.append((param_name, param_def, handler))
+    
+    return results
+```
+
+**Test 5.4.2: Get params filters by timing**
+
+```gherkin
+Scenario: _get_params_to_prompt() filters params by timing
+  Given param 'start1' with PROMPT_ON_START
+  And param 'start2' with PROMPT_ON_START
+  And param 'command1' with PROMPT_ON_COMMAND
+  And param 'no_prompt' without PARAM_PROMPT
+  When _get_params_to_prompt(PROMPT_ON_START) is called
+  Then returns list with 'start1' and 'start2'
+  And 'command1' and 'no_prompt' not included
+  
+  # Tests: Timing-based filtering
+  # Validates: Only matching timing params included
+```
+
+```python
+# Test 5.4.2: Add to tests/test_param_prompts.py
+def test_get_params_to_prompt_filters_timing():
+    """Test _get_params_to_prompt() filters params by timing."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START, PROMPT_ON_COMMAND
+    
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'start1',
+        PARAM_PROMPT: 'Enter start1:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START
+    })
+    param.add_param({
+        PARAM_NAME: 'start2',
+        PARAM_PROMPT: 'Enter start2:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START
+    })
+    param.add_param({
+        PARAM_NAME: 'command1',
+        PARAM_PROMPT: 'Enter command1:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND
+    })
+    
+    results = param._get_params_to_prompt(PROMPT_ON_START)
+    param_names = [name for name, _, _ in results]
+    
+    assert 'start1' in param_names
+    assert 'start2' in param_names
+    assert 'command1' not in param_names
+    assert len(param_names) == 2
+```
+
+**Test 5.4.3: Get params resolves handlers**
+
+```gherkin
+Scenario: _get_params_to_prompt() resolves handler for each param
+  Given param with PROMPT_ON_START and custom handler
+  When _get_params_to_prompt(PROMPT_ON_START) is called
+  Then returned tuple includes resolved handler
+  And handler is the custom handler (not default)
+  
+  # Tests: Handler resolution
+  # Validates: Handlers pre-resolved in results
+```
+
+```python
+# Test 5.4.3: Add to tests/test_param_prompts.py
+def test_get_params_to_prompt_resolves_handlers():
+    """Test _get_params_to_prompt() resolves handlers."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START
+    
+    def custom_handler(param_def):
+        return "custom"
+    
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'test_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        PARAM_PROMPT_HANDLER: custom_handler
+    })
+    
+    results = param._get_params_to_prompt(PROMPT_ON_START)
+    assert len(results) == 1
+    
+    name, param_def, handler = results[0]
+    assert name == 'test_param'
+    assert handler == custom_handler
+```
+
+**Code 5.4.4: Get params for command timing**
+
+```python
+# Block 5.4.4: Add to src/spafw37/param.py after _get_params_to_prompt()
+def _get_params_for_command(command_def):
+    """Identify params that need prompting for command execution.
+    
+    Uses COMMAND_PROMPT_PARAMS list for O(1) lookup of which params to check.
+    Filters by prompt need and resolves handlers.
+    
+    Args:
+        command_def: Command definition dictionary with COMMAND_PROMPT_PARAMS
+        
+    Returns:
+        List of (param_name, param_def, handler) tuples
+    """
+    from spafw37.constants.command import COMMAND_PROMPT_PARAMS, COMMAND_NAME
+    
+    prompt_params = command_def.get(COMMAND_PROMPT_PARAMS, [])
+    if not prompt_params:
+        return []
+    
+    command_name = command_def.get(COMMAND_NAME)
+    results = []
+    
+    for param_name in prompt_params:
+        param_def = _params.get(param_name)
+        if not param_def:
+            continue
+        if not _should_prompt_param(param_def, command_name):
+            continue
+        
+        handler = _get_prompt_handler(param_def)
+        results.append((param_name, param_def, handler))
+    
+    return results
+```
+
+**Test 5.4.5: Get params for command uses COMMAND_PROMPT_PARAMS**
+
+```gherkin
+Scenario: _get_params_for_command() uses COMMAND_PROMPT_PARAMS list
+  Given command with COMMAND_PROMPT_PARAMS = ['param1', 'param2']
+  And params 'param1' and 'param2' registered
+  When _get_params_for_command(command_def) is called
+  Then returns list with 'param1' and 'param2'
+  And both have handlers resolved
+  
+  # Tests: Command param list usage
+  # Validates: O(1) lookup via COMMAND_PROMPT_PARAMS
+```
+
+```python
+# Test 5.4.5: Add to tests/test_param_prompts.py
+def test_get_params_for_command_uses_list():
+    """Test _get_params_for_command() uses COMMAND_PROMPT_PARAMS list."""
+    from spafw37.constants.command import COMMAND_NAME, COMMAND_PROMPT_PARAMS
+    
+    param._params = {}
+    param.add_param({PARAM_NAME: 'param1', PARAM_PROMPT: 'Enter param1:'})
+    param.add_param({PARAM_NAME: 'param2', PARAM_PROMPT: 'Enter param2:'})
+    
+    command_def = {
+        COMMAND_NAME: 'test_command',
+        COMMAND_PROMPT_PARAMS: ['param1', 'param2']
+    }
+    
+    results = param._get_params_for_command(command_def)
+    param_names = [name for name, _, _ in results]
+    
+    assert 'param1' in param_names
+    assert 'param2' in param_names
+    assert len(param_names) == 2
+```
+
+**Test 5.4.6: Get params for command filters by should_prompt**
+
+```gherkin
+Scenario: _get_params_for_command() filters using _should_prompt_param
+  Given command with COMMAND_PROMPT_PARAMS = ['already_set', 'needs_prompt']
+  And param 'already_set' has CLI value (should not prompt)
+  And param 'needs_prompt' has no value (should prompt)
+  When _get_params_for_command(command_def) is called
+  Then returns list with only 'needs_prompt'
+  And 'already_set' filtered out
+  
+  # Tests: Filtering by prompt need
+  # Validates: CLI overrides respected
+```
+
+```python
+# Test 5.4.6: Add to tests/test_param_prompts.py
+def test_get_params_for_command_filters_by_should_prompt():
+    """Test _get_params_for_command() filters using _should_prompt_param()."""
+    from spafw37.constants.command import COMMAND_NAME, COMMAND_PROMPT_PARAMS
+    
+    param._params = {}
+    param.add_param({PARAM_NAME: 'already_set', PARAM_PROMPT: 'Enter:'})
+    param.add_param({PARAM_NAME: 'needs_prompt', PARAM_PROMPT: 'Enter:'})
+    
+    param.set_param_value('already_set', 'value')
+    
+    command_def = {
+        COMMAND_NAME: 'test_command',
+        COMMAND_PROMPT_PARAMS: ['already_set', 'needs_prompt']
+    }
+    
+    results = param._get_params_for_command(command_def)
+    param_names = [name for name, _, _ in results]
+    
+    assert 'needs_prompt' in param_names
+    assert 'already_set' not in param_names
+    assert len(param_names) == 1
+```
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+## Step 5.5: Implement Prompt Orchestration Function
+
+**File:** `src/spafw37/param.py`
+
+Implement the orchestration function that executes prompts for a list of params. This function iterates the list, calls `_execute_prompt()` for each param (which sets the value), and tracks successful prompts in `_prompted_params`. This is the bridge between identification (Step 5.4) and execution (Step 5.3).
 
 **Algorithm:**
 
-1. Get base prompt text from param definition's `PARAM_PROMPT` property
-2. Check if param has `PARAM_SENSITIVE` flag set to True:
-   - If True: skip default value display (security: prevent credential leakage)
-   - If False or not present: proceed to check for default
-3. Check if param has `PARAM_DEFAULT` property set (only if not sensitive):
-   - If present and not None:
-     - Append " [default: {value}]" to prompt text (bash convention format)
-     - Use the actual default value in the message
-   - If not present: leave prompt text unchanged
-4. Append ": " (colon and space) to prompt text for cursor positioning
-5. Return formatted string
+1. For each (param_name, param_def, handler) tuple in params list:
+   - Call `_execute_prompt(param_def, handler)` (sets value internally, may raise)
+   - If successful (no exception): add param_name to `_prompted_params` set
 
-**Example outputs:**
-- Without default: "Enter username: "
-- Sensitive param (no default shown): "API Key: "
-- With default: "Enter username [default: admin]: "
-- Toggle with default: "Confirm deletion? (y/n) [default: n]: "
+**Error handling:**
+- Errors from `_execute_prompt()` propagate to caller
+- For required params: ValueError propagates (caller handles application exit)
+- For optional params: function returns normally (value remains unset)
 
-This formatting is used by the default `input_prompt.py` handler. Custom handlers may format differently.
+**Implementation order:**
+
+1. Create `_execute_prompts()` orchestration function
+2. Add test for successful prompt tracking
+3. Add test for error propagation
+
+**Code 5.5.1: Prompt orchestration**
+
+```python
+# Block 5.5.1: Add to src/spafw37/param.py after _get_params_for_command()
+def _execute_prompts(params_to_prompt):
+    """Execute prompts for list of params.
+    
+    Orchestration function that iterates params, executes prompts, and tracks
+    successful prompts. Errors from required params propagate to caller.
+    
+    Args:
+        params_to_prompt: List of (param_name, param_def, handler) tuples
+    """
+    for param_name, param_def, handler in params_to_prompt:
+        _execute_prompt(param_def, handler)
+        _prompted_params.add(param_name)
+```
+
+**Test 5.5.2: Execute prompts tracks successful prompts**
+
+```gherkin
+Scenario: _execute_prompts() tracks each successful prompt
+  Given list with three params
+  And handlers return valid values
+  When _execute_prompts(params_list) is called
+  Then all three prompts execute
+  And all three param names added to _prompted_params
+  
+  # Tests: Prompt tracking
+  # Validates: Successful prompts tracked for REPEAT_NEVER
+```
+
+```python
+# Test 5.5.2: Add to tests/test_param_prompts.py
+def test_execute_prompts_tracks_success():
+    """Test _execute_prompts() tracks successful prompts."""
+    param._params = {}
+    param._prompted_params = set()
+    
+    param.add_param({PARAM_NAME: 'param1', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.add_param({PARAM_NAME: 'param2', PARAM_TYPE: PARAM_TYPE_TEXT})
+    param.add_param({PARAM_NAME: 'param3', PARAM_TYPE: PARAM_TYPE_TEXT})
+    
+    def mock_handler(param_def):
+        return 'value'
+    
+    params_list = [
+        ('param1', param._params['param1'], mock_handler),
+        ('param2', param._params['param2'], mock_handler),
+        ('param3', param._params['param3'], mock_handler)
+    ]
+    
+    param._execute_prompts(params_list)
+    
+    assert 'param1' in param._prompted_params
+    assert 'param2' in param._prompted_params
+    assert 'param3' in param._prompted_params
+```
+
+**Test 5.5.3: Execute prompts propagates required param errors**
+
+```gherkin
+Scenario: Error from required param propagates
+  Given list with required param that fails validation
+  When _execute_prompts(params_list) is called
+  Then ValueError propagates from _execute_prompt
+  And calling code can handle error appropriately
+  
+  # Tests: Error propagation
+  # Validates: Required param errors bubble up
+```
+
+```python
+# Test 5.5.3: Add to tests/test_param_prompts.py
+def test_execute_prompts_propagates_errors():
+    """Test _execute_prompts() propagates errors from required params."""
+    param._params = {}
+    param.add_param({
+        PARAM_NAME: 'required_param',
+        PARAM_REQUIRED: True,
+        PARAM_ALLOWED_VALUES: ['valid'],
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT_RETRIES: 1
+    })
+    
+    def mock_handler(param_def):
+        return 'invalid'
+    
+    params_list = [
+        ('required_param', param._params['required_param'], mock_handler)
+    ]
+    
+    with pytest.raises(ValueError):
+        param._execute_prompts(params_list)
+```
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 6.1: Integrate PROMPT_ON_START timing in CLI workflow**
+## Step 5.6: Implement Public API Functions
 
-**File:** `src/spafw37/cli.py` or appropriate orchestration module
+**File:** `src/spafw37/param.py`
 
-Integrate start-timing prompts into the CLI execution flow. This adds a new phase between command-line parsing and command execution where params with `PROMPT_ON_START` timing are processed. The integration point is carefully chosen to respect CLI overrides (already parsed) whilst occurring before command validation (which needs prompt values).
+Implement the public API functions that orchestrate the complete prompt flow. These functions are called by cli.py and command.py, encapsulating all prompting logic within the param module. Each function chains the identification and execution steps, providing a clean interface for integration.
+
+**Architecture:**
+- `prompt_params_for_start()`: Handle all PROMPT_ON_START prompts (called by cli.py)
+- `prompt_params_for_command(command_def)`: Handle all PROMPT_ON_COMMAND prompts (called by command.py)
+
+Both functions follow the pattern: identify params → execute prompts.
+
+**Algorithm for `prompt_params_for_start()`:**
+
+1. Call `_get_params_to_prompt(PROMPT_ON_START)` to identify params
+2. If list empty: return (no prompts needed)
+3. Call `_execute_prompts(params_list)` to execute prompts
+4. Errors from required params propagate to caller (cli.py handles exit)
+
+**Algorithm for `prompt_params_for_command()`:**
+
+1. Call `_get_params_for_command(command_def)` to identify params
+2. If list empty: return (no prompts needed)
+3. Call `_execute_prompts(params_list)` to execute prompts
+4. Errors from required params propagate to caller (command.py handles exit)
+
+**Implementation order:**
+
+1. Create `prompt_params_for_start()` public API
+2. Create `prompt_params_for_command()` public API
+3. Add tests for both functions
+
+**Code 5.6.1: Public API for start timing prompts**
+
+```python
+# Block 5.6.1: Add to src/spafw37/param.py after _execute_prompts()
+def prompt_params_for_start():
+    """Prompt all params with PROMPT_ON_START timing.
+    
+    Public API called by cli.py after command-line parsing. Identifies which
+    params need prompting, executes prompts with retry logic, and sets values.
+    
+    Raises:
+        ValueError: If required param fails validation after max retries
+    """
+    from spafw37.constants.param import PROMPT_ON_START
+    
+    params_to_prompt = _get_params_to_prompt(PROMPT_ON_START)
+    if not params_to_prompt:
+        return
+    
+    _execute_prompts(params_to_prompt)
+```
+
+**Test 5.6.2: Start prompts calls identification and execution**
+
+```gherkin
+Scenario: prompt_params_for_start() orchestrates complete flow
+  Given param with PROMPT_ON_START timing
+  When prompt_params_for_start() is called
+  Then _get_params_to_prompt(PROMPT_ON_START) called
+  And _execute_prompts called with results
+  And param value set and tracked
+  
+  # Tests: Public API orchestration
+  # Validates: Complete flow for start timing
+```
+
+```python
+# Test 5.6.2: Add to tests/test_param_prompts.py
+def test_prompt_params_for_start_orchestration():
+    """Test prompt_params_for_start() orchestrates identification and execution."""
+    from spafw37.constants.param import PARAM_PROMPT_TIMING, PROMPT_ON_START
+    
+    param._params = {}
+    param._prompted_params = set()
+    
+    param.add_param({
+        PARAM_NAME: 'start_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    def mock_handler(param_def):
+        return 'value'
+    
+    param._global_prompt_handler = mock_handler
+    
+    param.prompt_params_for_start()
+    
+    assert param.get_param_value('start_param') == 'value'
+    assert 'start_param' in param._prompted_params
+```
+
+**Test 5.6.3: Start prompts returns early if no params**
+
+```gherkin
+Scenario: prompt_params_for_start() returns early if no params to prompt
+  Given no params with PROMPT_ON_START timing
+  When prompt_params_for_start() is called
+  Then returns without executing any prompts
+  And no side effects
+  
+  # Tests: Early return optimization
+  # Validates: No work done when not needed
+```
+
+```python
+# Test 5.6.3: Add to tests/test_param_prompts.py
+def test_prompt_params_for_start_no_params():
+    """Test prompt_params_for_start() returns early with no params."""
+    param._params = {}
+    param._prompted_params = set()
+    
+    param.prompt_params_for_start()
+    
+    assert len(param._prompted_params) == 0
+```
+
+**Code 5.6.4: Public API for command timing prompts**
+
+```python
+# Block 5.6.4: Add to src/spafw37/param.py after prompt_params_for_start()
+def prompt_params_for_command(command_def):
+    """Prompt all params for command execution.
+    
+    Public API called by command.py before each command executes. Uses
+    COMMAND_PROMPT_PARAMS list for efficient lookup, executes prompts with
+    retry logic and repeat behaviour control.
+    
+    Args:
+        command_def: Command definition dict with COMMAND_PROMPT_PARAMS
+        
+    Raises:
+        ValueError: If required param fails validation after max retries
+    """
+    params_to_prompt = _get_params_for_command(command_def)
+    if not params_to_prompt:
+        return
+    
+    _execute_prompts(params_to_prompt)
+```
+
+**Test 5.6.5: Command prompts calls identification and execution**
+
+```gherkin
+Scenario: prompt_params_for_command() orchestrates complete flow
+  Given command with COMMAND_PROMPT_PARAMS = ['param1']
+  And param 'param1' registered
+  When prompt_params_for_command(command_def) is called
+  Then _get_params_for_command(command_def) called
+  And _execute_prompts called with results
+  And param value set and tracked
+  
+  # Tests: Public API orchestration for commands
+  # Validates: Complete flow for command timing
+```
+
+```python
+# Test 5.6.5: Add to tests/test_param_prompts.py
+def test_prompt_params_for_command_orchestration():
+    """Test prompt_params_for_command() orchestrates identification and execution."""
+    from spafw37.constants.command import COMMAND_NAME, COMMAND_PROMPT_PARAMS
+    
+    param._params = {}
+    param._prompted_params = set()
+    
+    param.add_param({
+        PARAM_NAME: 'command_param',
+        PARAM_PROMPT: 'Enter value:',
+        PARAM_TYPE: PARAM_TYPE_TEXT
+    })
+    
+    command_def = {
+        COMMAND_NAME: 'test_command',
+        COMMAND_PROMPT_PARAMS: ['command_param']
+    }
+    
+    def mock_handler(param_def):
+        return 'value'
+    
+    param._global_prompt_handler = mock_handler
+    
+    param.prompt_params_for_command(command_def)
+    
+    assert param.get_param_value('command_param') == 'value'
+    assert 'command_param' in param._prompted_params
+```
+
+**Test 5.6.6: Command prompts returns early if no params**
+
+```gherkin
+Scenario: prompt_params_for_command() returns early if no COMMAND_PROMPT_PARAMS
+  Given command without COMMAND_PROMPT_PARAMS property
+  When prompt_params_for_command(command_def) is called
+  Then returns without executing any prompts
+  And no side effects
+  
+  # Tests: Early return optimization
+  # Validates: No work done when not needed
+```
+
+```python
+# Test 5.6.6: Add to tests/test_param_prompts.py
+def test_prompt_params_for_command_no_params():
+    """Test prompt_params_for_command() returns early with no COMMAND_PROMPT_PARAMS."""
+    from spafw37.constants.command import COMMAND_NAME
+    
+    param._params = {}
+    param._prompted_params = set()
+    
+    command_def = {COMMAND_NAME: 'test_command'}
+    
+    param.prompt_params_for_command(command_def)
+    
+    assert len(param._prompted_params) == 0
+```
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+## Step 6: CLI Integration (Simplified)
+
+**Step 6.1: Integrate prompts in CLI workflow**
+
+**File:** `src/spafw37/cli.py`
+
+Integrate start-timing prompts into the CLI execution flow by calling the public param API. This adds a single function call between command-line parsing and command execution. All complexity (identification, filtering, retry logic) is handled by param.py.
+
+**Integration point:**
+- After `_parse_command_line()` has completed
+- Before command queue processing begins
+- Before required param validation occurs
 
 **Algorithm:**
 
-1. Locate the integration point in `run_cli()` function:
-   - After `_parse_command_line()` has completed
-   - Before command queue processing begins
-   - Before required param validation occurs
-2. Iterate through all params in `param._params` registry:
-   - For each param:
-     - Check if param has `PARAM_PROMPT` property; if not, skip
-     - Check if param has `PARAM_PROMPT_TIMING == PROMPT_ON_START`; if not, skip
-     - Call `_should_prompt_param(param_def, command_name=None)` to check if prompting needed
-     - If returns False (CLI override or already set), skip to next param
-     - If returns True:
-       - Resolve handler via `_get_prompt_handler(param_def)`
-       - Execute prompt with `_execute_prompt_with_validation(param_def, handler)`
-       - Set param value to returned result (or None if optional and max retries exceeded)
+1. Locate integration point in `run_cli()` function
+2. Add single line: `param.prompt_params_for_start()`
+3. Errors from required params propagate, CLI handles application exit
 
-**Integration considerations:**
-- This phase runs once per application execution, not per command
-- Multiple params may prompt in sequence (order determined by param registration order)
-- CLI values from `--param value` arguments prevent prompts (already handled by `_should_prompt_param`)
-- Errors in required params will cause application exit (handled by `_execute_prompt_with_validation`)
+**No tests needed in this step - integration is a single function call, tested via end-to-end tests in Step 7.5.**
+
+**Code 6.1.1: CLI integration**
+
+```python
+# Block 6.1.1: Add to src/spafw37/cli.py in run_cli() function
+# After: _parse_command_line() completion
+# Before: command queue processing
+
+from spafw37 import param
+param.prompt_params_for_start()
+```
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 7.1: Integrate PROMPT_ON_COMMAND timing in command execution**
+## Step 7: Command Integration (Simplified)
 
-**File:** `src/spafw37/command.py` or appropriate command execution module
+**Step 7.1: Integrate prompts in command execution**
 
-Integrate command-timing prompts into the command execution pipeline. This adds prompting immediately before individual commands execute, using the reciprocal `COMMAND_PROMPT_PARAMS` list for O(1) lookup of which params need prompting. The repeat behaviour controls whether prompts repeat in cycles or multi-command sequences.
+**File:** `src/spafw37/command.py` or command execution location
+
+Integrate command-timing prompts into the command execution pipeline by calling the public param API. This adds a single function call immediately before each command executes. All complexity (COMMAND_PROMPT_PARAMS lookup, repeat behaviour, retry logic) is handled by param.py.
+
+**Integration point:**
+- In command execution loop (where individual commands are executed)
+- Immediately before each command's action function is called
+- After command dependencies are resolved
 
 **Algorithm:**
 
-1. Locate the command execution loop (where individual commands are executed):
-   - In `run_cli()` or command execution orchestration function
-   - Immediately before each command's action function is called
-   - After command dependencies are resolved
-2. Before each command executes:
-   a. Check if command has `COMMAND_PROMPT_PARAMS` property; if not or empty, skip prompting
-   b. Get command name from command definition
-   c. For each param name in `COMMAND_PROMPT_PARAMS` list:
-      - Look up param definition from `param._params` registry
-      - Call `_should_prompt_param(param_def, command_name=command_name)` to check if prompting needed
-        - This checks CLI override, timing match, and repeat behaviour based on `PARAM_PROMPT_REPEAT`
-      - If returns False, skip to next param
-      - If returns True:
-        - Resolve handler via `_get_prompt_handler(param_def)`
-        - Execute prompt with `_execute_prompt_with_validation(param_def, handler)`
-        - Set param value to returned result
-        - Note: `_execute_prompt_with_validation` adds param to `_prompted_params` set for `PROMPT_REPEAT_NEVER` tracking
+1. Locate the command execution loop
+2. Before each command executes: `param.prompt_params_for_command(command_def)`
+3. Errors from required params propagate, command execution handles exit
 
-**Repeat behaviour handling (via `_should_prompt_param`):**
-- `PROMPT_REPEAT_ALWAYS`: Always prompts, previous value shown as default by handler
-- `PROMPT_REPEAT_IF_BLANK`: Only prompts if param value is None/empty (checked by `_should_prompt_param`)
-- `PROMPT_REPEAT_NEVER`: Only prompts if param name not in `_prompted_params` set (checked by `_should_prompt_param`)
+**Repeat behaviour:**
+- Automatically handled by `_should_prompt_param()` called within param.py
+- PROMPT_REPEAT_ALWAYS: Prompts every command execution
+- PROMPT_REPEAT_IF_BLANK: Prompts only if value blank
+- PROMPT_REPEAT_NEVER: Prompts only if not in `_prompted_params` set
 
-**Cycle integration:**
-- This mechanism works naturally with cycles - if a command is in a cycle, prompting occurs before each cycle iteration
-- The repeat behaviour controls whether users are re-prompted on subsequent iterations
-- No special cycle-specific code needed; repeat behaviour handles all cases
+**No tests needed in this step - integration is a single function call, tested via end-to-end tests in Step 7.5.**
 
-[↑ Back to top](#table-of-contents)
+**Code 7.1.1: Command integration**
 
----
+```python
+# Block 7.1.1: Add to src/spafw37/command.py or command execution location
+# Before: each command action execution
+
+from spafw37 import param
+param.prompt_params_for_command(command_def)
+```
 
 **Steps 7.2-7.4: Repeat behaviour implementation**
 
 **Note:** The repeat behaviour for `PROMPT_REPEAT_ALWAYS`, `PROMPT_REPEAT_IF_BLANK`, and `PROMPT_REPEAT_NEVER` is implemented within the `_should_prompt_param()` helper function (Step 5.2) and does not require separate implementation steps.
 
 The algorithm in Step 5.2 handles all three modes:
-- **PROMPT_REPEAT_ALWAYS:** `_should_prompt_param` always returns True for the command context, causing prompts every time
-- **PROMPT_REPEAT_IF_BLANK:** `_should_prompt_param` checks current param value and returns True only if blank
-- **PROMPT_REPEAT_NEVER:** `_should_prompt_param` checks `_prompted_params` set and returns False if param was already prompted
+- **PROMPT_REPEAT_ALWAYS:** `_should_prompt_param` always returns True for the command context
+- **PROMPT_REPEAT_IF_BLANK:** `_should_prompt_param` checks current param value
+- **PROMPT_REPEAT_NEVER:** `_should_prompt_param` checks `_prompted_params` set
 
-All repeat logic is centralised in the timing check helper, avoiding code duplication across command execution contexts.
+All repeat logic is centralised in the timing check helper, avoiding code duplication.
 
 [↑ Back to top](#table-of-contents)
 
