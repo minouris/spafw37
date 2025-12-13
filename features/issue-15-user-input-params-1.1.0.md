@@ -48,11 +48,11 @@ Currently, spafw37 requires all parameter values to be provided via command-line
 
 This feature adds interactive prompt support to the parameter system, allowing params to solicit user input at runtime. Prompts integrate with the existing parameter infrastructure, leveraging existing validation, type handling, and required param checking. The implementation uses a param-level architecture where new optional properties control prompt behaviour, keeping the feature opt-in and maintaining backward compatibility.
 
-The solution provides an extensible design with a default handler using Python's built-in `input()` function, whilst allowing custom handlers for advanced use cases such as GUI prompts or API-based input. Prompts can be configured to appear at application start or before specific commands, with fine-grained control over repeat behaviour in cycles.
+The solution provides an extensible design with a default handler using Python's built-in `input()` function for regular input and `getpass.getpass()` for sensitive data (passwords, API keys, tokens), whilst allowing custom handlers for advanced use cases such as GUI prompts or API-based input. Prompts can be configured to appear at application start or before specific commands, with fine-grained control over repeat behaviour in cycles. The `PARAM_SENSITIVE` property ensures sensitive values are not echoed to the terminal and default values are not displayed in prompts to prevent credential leakage.
 
 **Key architectural decisions (all resolved):**
 
-- **Architecture approach:** Param-level properties (`PARAM_PROMPT`, `PARAM_PROMPT_HANDLER`, `PARAM_PROMPT_TIMING`, `PARAM_PROMPT_REPEAT`) extend existing param system rather than creating separate structure
+- **Architecture approach:** Param-level properties (`PARAM_PROMPT`, `PARAM_PROMPT_HANDLER`, `PARAM_PROMPT_TIMING`, `PARAM_PROMPT_REPEAT`, `PARAM_SENSITIVE`) extend existing param system rather than creating separate structure
 - **Extensibility:** Default handler in `input_prompt.py` using `input()` function; customisable via per-param `PARAM_PROMPT_HANDLER` property or global `set_prompt_handler()` method
 - **Timing control:** `PARAM_PROMPT_TIMING` property controls when prompts appear (`PROMPT_ON_START` or `PROMPT_ON_COMMAND`); `PROMPT_ON_COMMANDS` property stores list of command names when using `PROMPT_ON_COMMAND` timing; auto-population of `PROMPT_ON_COMMANDS` property from `COMMAND_REQUIRED_PARAMS`; reciprocal `COMMAND_PROMPT_PARAMS` list built automatically on commands for O(1) lookup
 - **Inline definitions:** Commands can define prompt params inline in `COMMAND_PROMPT_PARAMS` using dictionary definitions, consistent with `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields (see `examples/inline_definitions_basic.py`)
@@ -293,18 +293,22 @@ What should the user input mechanism look like?
 - Multiple choice: Display numbered list and accept number input?
 - Error handling: Retry on invalid input, abort, or use default?
 
-**Answer:** See [Further Consideration 1: Design Pattern Research](#1-design-pattern-research---resolved) - Use Python's built-in `input()` function as the default handler, with extensibility support.
+**Answer:** See [Further Consideration 1: Design Pattern Research](#1-design-pattern-research---resolved) - Use Python's built-in `input()` function as the default handler, with `getpass.getpass()` for sensitive data, and extensibility support.
 
 **Implementation:**
-- Default prompt handler implemented in new file `input_prompt.py` using `input()` function
+- Default prompt handler implemented in new file `input_prompt.py` using `input()` function for regular input and `getpass.getpass()` for sensitive data
+- `PARAM_SENSITIVE` property controls sensitive data handling (suppresses echo and default value display)
 - Extensible via `PARAM_PROMPT_HANDLER` property (per-param override) or `set_prompt_handler()` method (global override)
-- **Text:** Use `input()` with string return value
+- **Text:** Use `input()` with string return value (or `getpass.getpass()` if `PARAM_SENSITIVE: True`)
 - **Boolean:** Accept yes/no, y/n, true/false with case-insensitive matching
 - **Number:** Use `input()` with int() or float() conversion, retry on ValueError
 - **Multiple choice:** Display numbered list, accept either number or text value
 - **Error handling:** Retry on invalid input with clear error message
+- **Sensitive data:** Use `getpass.getpass()` for non-echoing input, suppress default value display to prevent credential leakage
 
-**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. Extensible design allows custom handlers for advanced use cases (GUI prompts, API-based input, etc.).
+**Note:** The `PARAM_SENSITIVE` flag should also be checked when logging parameter values to prevent passwords, API keys, and tokens from appearing in log files.
+
+**Rationale:** Python's built-in `input()` function is simple, requires no dependencies, works on all platforms, and is what most Python CLI tools use. The `getpass` module (also in standard library) provides secure non-echoing input for sensitive data. Extensible design allows custom handlers for advanced use cases (GUI prompts, API-based input, etc.).
 
 [↑ Back to top](#table-of-contents)
 
@@ -361,14 +365,15 @@ PARAM_PROMPT = 'prompt'  # Prompt text to display to user
 PARAM_PROMPT_HANDLER = 'prompt-handler'  # Custom handler function for this param
 PARAM_PROMPT_TIMING = 'prompt-timing'  # When to display prompt (constant or list)
 PARAM_PROMPT_REPEAT = 'prompt-repeat'  # Repeat behaviour for cycles/multiple commands
+PARAM_SENSITIVE = 'sensitive'  # Boolean: suppress echo and default display for sensitive data
 ```
 
 **Test 1.1.2: Tests for param prompt constants definition**
 
 ```gherkin
-Scenario: All PARAM_PROMPT* constants are defined in param constants module
+Scenario: All PARAM_PROMPT* and PARAM_SENSITIVE constants are defined in param constants module
   Given the param constants module is imported
-  When checking for PARAM_PROMPT, PARAM_PROMPT_HANDLER, PARAM_PROMPT_TIMING, PARAM_PROMPT_REPEAT
+  When checking for PARAM_PROMPT, PARAM_PROMPT_HANDLER, PARAM_PROMPT_TIMING, PARAM_PROMPT_REPEAT, PARAM_SENSITIVE
   Then all constants are defined as string keys
   And each constant has a unique value
   
@@ -379,30 +384,33 @@ Scenario: All PARAM_PROMPT* constants are defined in param constants module
 ```python
 # Test 1.1.2: Add to tests/test_constants.py
 def test_param_prompt_constants_exist():
-    """Test that all PARAM_PROMPT* constants required for prompt configuration are defined.
+    """Test that all PARAM_PROMPT* and PARAM_SENSITIVE constants required for prompt configuration are defined.
     
     This test verifies that PARAM_PROMPT, PARAM_PROMPT_HANDLER, PARAM_PROMPT_TIMING,
-    and PARAM_PROMPT_REPEAT constants exist as strings with unique values.
+    PARAM_PROMPT_REPEAT, and PARAM_SENSITIVE constants exist as strings with unique values.
     This behaviour is expected because these constants form the core vocabulary for
     configuring interactive prompts on parameters and must be available for param definitions."""
-    # Block 1.1.2.1: Check all four prompt property constants exist
+    # Block 1.1.2.1: Check all five prompt property constants exist
     assert hasattr(param, 'PARAM_PROMPT'), "PARAM_PROMPT constant missing"
     assert hasattr(param, 'PARAM_PROMPT_HANDLER'), "PARAM_PROMPT_HANDLER constant missing"
     assert hasattr(param, 'PARAM_PROMPT_TIMING'), "PARAM_PROMPT_TIMING constant missing"
     assert hasattr(param, 'PARAM_PROMPT_REPEAT'), "PARAM_PROMPT_REPEAT constant missing"
+    assert hasattr(param, 'PARAM_SENSITIVE'), "PARAM_SENSITIVE constant missing"
     
     # Block 1.1.2.2: Verify all are strings (required for dict keys)
     assert isinstance(param.PARAM_PROMPT, str), "PARAM_PROMPT must be string"
     assert isinstance(param.PARAM_PROMPT_HANDLER, str), "PARAM_PROMPT_HANDLER must be string"
     assert isinstance(param.PARAM_PROMPT_TIMING, str), "PARAM_PROMPT_TIMING must be string"
     assert isinstance(param.PARAM_PROMPT_REPEAT, str), "PARAM_PROMPT_REPEAT must be string"
+    assert isinstance(param.PARAM_SENSITIVE, str), "PARAM_SENSITIVE must be string"
     
     # Block 1.1.2.3: Verify all values are unique
     constant_values = [
         param.PARAM_PROMPT,
         param.PARAM_PROMPT_HANDLER,
         param.PARAM_PROMPT_TIMING,
-        param.PARAM_PROMPT_REPEAT
+        param.PARAM_PROMPT_REPEAT,
+        param.PARAM_SENSITIVE
     ]
     assert len(constant_values) == len(set(constant_values)), "Constant values must be unique"
 ```
@@ -621,7 +629,8 @@ from spafw37.constants.param import (
     PARAM_TYPE_TEXT,
     PARAM_TYPE_NUMBER,
     PARAM_TYPE_TOGGLE,
-    PARAM_ALLOWED_VALUES
+    PARAM_ALLOWED_VALUES,
+    PARAM_SENSITIVE
 )
 ```
 
@@ -665,21 +674,34 @@ def test_format_prompt_text_with_default():
 
 ```python
 # Block 2.3.1: Add to src/spafw37/input_prompt.py
-def _handle_text_input(param_def, user_input):
-    """Handle text input type (no conversion needed).
+from getpass import getpass
+
+def _handle_text_input(param_def, prompt_text):
+    """Handle text input type with sensitive data support.
+    
+    Uses getpass.getpass() for sensitive params (no echo) and input() for regular params.
     
     Args:
         param_def: Parameter definition dictionary.
-        user_input: Raw user input string.
+        prompt_text: Formatted prompt text to display.
         
     Returns:
         User input string or default value if blank.
     """
-    # Block 2.3.1.1: Return user input if not blank
+    # Block 2.3.1.1: Check if param is sensitive
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    
+    # Block 2.3.1.2: Get user input with appropriate function
+    if is_sensitive:
+        user_input = getpass(prompt_text)
+    else:
+        user_input = input(prompt_text)
+    
+    # Block 2.3.1.3: Return user input if not blank
     if user_input.strip():
         return user_input.strip()
     
-    # Block 2.3.1.2: Return default if blank input
+    # Block 2.3.1.4: Return default if blank input
     return param_def.get(PARAM_DEFAULT)
 ```
 
@@ -759,6 +781,99 @@ def test_prompt_text_with_default_blank_input(monkeypatch):
     
     # Block 2.3.3.4: Verify default value returned
     assert user_value == 'default_value', "Expected 'default_value', got '{0}'".format(user_value)
+```
+
+**Test 2.3.4: Tests for sensitive param uses getpass**
+
+```gherkin
+Scenario: Sensitive parameter uses getpass for non-echoing input
+  Given a param with PARAM_TYPE_TEXT and PARAM_SENSITIVE True
+  And getpass.getpass is mocked to return "secret123"
+  When prompt_for_value() is called
+  Then getpass.getpass was called (not input())
+  And the function returns "secret123"
+  
+  # Tests: Sensitive parameter input handling
+  # Validates: getpass.getpass() used instead of input() for non-echoing input
+```
+
+```python
+# Test 2.3.4: Add to tests/test_input_prompt.py
+def test_prompt_sensitive_param_uses_getpass(monkeypatch):
+    """Test that sensitive parameters use getpass.getpass() for non-echoing input.
+    
+    This test verifies that when PARAM_SENSITIVE is True, the handler calls getpass.getpass()
+    instead of input() to prevent keystrokes from being echoed to the terminal.
+    This behaviour is expected for security reasons - passwords, API keys, and tokens should not
+    be visible on screen or in terminal logs."""
+    # Block 2.3.4.1: Create sensitive param
+    param_def = {
+        PARAM_PROMPT: 'Password',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_SENSITIVE: True
+    }
+    
+    # Block 2.3.4.2: Mock getpass to return test value
+    getpass_called = []
+    def mock_getpass(prompt_text):
+        getpass_called.append(prompt_text)
+        return "secret123"
+    monkeypatch.setattr('getpass.getpass', mock_getpass)
+    
+    # Block 2.3.4.3: Call prompt handler
+    user_value = input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.4.4: Verify getpass was called
+    assert len(getpass_called) == 1, "getpass should have been called once"
+    assert user_value == "secret123", "Expected 'secret123', got '{0}'".format(user_value)
+```
+
+**Test 2.3.5: Tests for sensitive param suppresses default value display**
+
+```gherkin
+Scenario: Sensitive parameter with default does not display default in prompt
+  Given a param with PARAM_TYPE_TEXT, PARAM_SENSITIVE True, and PARAM_DEFAULT "old_key"
+  And getpass.getpass is mocked
+  When prompt text is formatted
+  Then the prompt does NOT contain "[default: old_key]"
+  And the prompt is just "API Key: "
+  
+  # Tests: Default value suppression for sensitive parameters
+  # Validates: Prevents credential leakage by not displaying default values in prompts
+```
+
+```python
+# Test 2.3.5: Add to tests/test_input_prompt.py
+def test_prompt_sensitive_param_suppresses_default_display(monkeypatch):
+    """Test that sensitive parameters do not display default values in prompt text.
+    
+    This test verifies that when PARAM_SENSITIVE is True and PARAM_DEFAULT is set,
+    the formatted prompt text does NOT include the '[default: value]' suffix.
+    This behaviour is expected for security reasons - displaying default passwords or API keys
+    in the prompt would leak credentials in terminal logs, screen recordings, or observed screens."""
+    # Block 2.3.5.1: Create sensitive param with default
+    param_def = {
+        PARAM_PROMPT: 'API Key',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_SENSITIVE: True,
+        PARAM_DEFAULT: 'old_secret_key_12345'
+    }
+    
+    # Block 2.3.5.2: Mock getpass
+    getpass_called = []
+    def mock_getpass(prompt_text):
+        getpass_called.append(prompt_text)
+        return ""
+    monkeypatch.setattr('getpass.getpass', mock_getpass)
+    
+    # Block 2.3.5.3: Call prompt handler to trigger prompt text formatting
+    input_prompt.prompt_for_value(param_def)
+    
+    # Block 2.3.5.4: Verify default not in prompt text
+    prompt_text = getpass_called[0]
+    assert '[default:' not in prompt_text, "Sensitive param must not display default value"
+    assert 'old_secret_key_12345' not in prompt_text, "Credential leaked in prompt text"
+    assert prompt_text == 'API Key: ', "Expected 'API Key: ', got '{0}'".format(prompt_text)
 ```
 
 **Code 2.4.1: Handle number input**
@@ -2229,6 +2344,27 @@ This enables commands to mix named references ("username") with inline definitio
 6. Add tests for mixed entries (strings and dicts together)
 7. Add tests for invalid entry types (raise ValueError)
 
+**Module-level imports for tests/test_command.py:**
+
+```python
+# Module-level imports for tests/test_command.py
+from spafw37 import command, param
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_ACTION,
+    COMMAND_PROMPT_PARAMS,
+    COMMAND_REQUIRED_PARAMS,
+    PROMPT_ON_COMMANDS
+)
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT
+)
+import pytest
+```
+
 **Code 4.1.1: Helper function to normalise COMMAND_PROMPT_PARAMS**
 
 ```python
@@ -3527,16 +3663,20 @@ Implement prompt text formatting following bash/Unix conventions for default val
 **Algorithm:**
 
 1. Get base prompt text from param definition's `PARAM_PROMPT` property
-2. Check if param has `PARAM_DEFAULT` property set:
+2. Check if param has `PARAM_SENSITIVE` flag set to True:
+   - If True: skip default value display (security: prevent credential leakage)
+   - If False or not present: proceed to check for default
+3. Check if param has `PARAM_DEFAULT` property set (only if not sensitive):
    - If present and not None:
      - Append " [default: {value}]" to prompt text (bash convention format)
      - Use the actual default value in the message
    - If not present: leave prompt text unchanged
-3. Append ": " (colon and space) to prompt text for cursor positioning
-4. Return formatted string
+4. Append ": " (colon and space) to prompt text for cursor positioning
+5. Return formatted string
 
 **Example outputs:**
 - Without default: "Enter username: "
+- Sensitive param (no default shown): "API Key: "
 - With default: "Enter username [default: admin]: "
 - Toggle with default: "Confirm deletion? (y/n) [default: n]: "
 
