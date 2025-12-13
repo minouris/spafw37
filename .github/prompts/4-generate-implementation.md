@@ -173,7 +173,7 @@ For each implementation step, follow this pattern:
 - Failing tests demonstrate that the implementation genuinely relies on the helper functions
 - Tests should be written immediately after each function to document expected behaviour
 - All tests should pass once the complete implementation (main + all helpers) is in place
-- Alternative: If bottom-up dependency order is preferred, implement helpers first, then main function
+- **CRITICAL: If a main function that is long enough to require helpers passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
 
 ### Module-Level Setup (Exception to Pattern)
 
