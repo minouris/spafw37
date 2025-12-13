@@ -113,7 +113,14 @@ from spafw37.constants.param import PARAM_NAME
 import pytest
 ```
 
-**Test 3.1.2:**
+**Test 3.1.2: Test parameter registration**
+
+```gherkin
+Scenario: Parameter is registered successfully
+  Given a parameter definition with name
+  When add_param is called
+  Then the parameter is stored in the registry
+```
 
 ```python
 def test_something():
@@ -159,6 +166,14 @@ For each implementation step, follow this pattern:
 - Its own `**Code X.Y.Z: function_name**` heading
 - Its own fenced Python code block
 - Immediately following test blocks before next function
+
+**Important note on test failures:**
+- Tests for the main function **should fail initially** until all helper functions are implemented
+- This is **expected and desirable behaviour** - it proves the main function is properly dependent on helper methods
+- Failing tests demonstrate that the implementation genuinely relies on the helper functions
+- Tests should be written immediately after each function to document expected behaviour
+- All tests should pass once the complete implementation (main + all helpers) is in place
+- Alternative: If bottom-up dependency order is preferred, implement helpers first, then main function
 
 ### Module-Level Setup (Exception to Pattern)
 
