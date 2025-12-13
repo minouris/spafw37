@@ -102,7 +102,7 @@ def test_something():
 ```
 
 **Example - CORRECT way (module-level imports):**
-```markdown
+````markdown
 **File:** `tests/test_param.py`
 
 Module-level imports:
@@ -120,7 +120,7 @@ def test_something():
     """Test something."""
     param.add_param({PARAM_NAME: 'test'})  # ✅ Correct - uses already-imported module
 ```
-```
+````
 
 ## Algorithm
 
@@ -164,20 +164,20 @@ For each implementation step, follow this pattern:
 
 Constants and module-level variables are shown first:
 
-```markdown
+````markdown
 **Code X.1: Module-level constants**
 
 ```python
 # Block X.1.1: Module-level constant for feature
 CONSTANT_NAME = 'value'  # Description of purpose
 ```
-```
+````
 
 ### Anti-Pattern Example: WRONG vs RIGHT
 
 #### ❌ WRONG: Bundled helpers without individual tests
 
-```markdown
+````markdown
 **Code 3.2: Helper functions**
 
 ```python
@@ -199,7 +199,7 @@ def _store_result(value):
 
 **Test 3.3: Test helper functions**
 (Tests for all helpers grouped together)
-```
+````
 
 **Problems with this approach:**
 - Multiple functions in one code block violates "one function per block" rule
@@ -209,7 +209,7 @@ def _store_result(value):
 
 #### ✅ CORRECT: Each helper in separate block with immediate tests
 
-```markdown
+````markdown
 **Code 3.2.1: _validate_input**
 
 ```python
@@ -302,7 +302,7 @@ def test_store_result_appends_to_list():
     _store_result("test")
     assert "test" in _results
 ```
-```
+````
 
 **Why this is correct:**
 - Each function in its own code block
