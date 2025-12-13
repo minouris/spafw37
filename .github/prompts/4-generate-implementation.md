@@ -173,7 +173,7 @@ For each implementation step, follow this pattern:
 - Failing tests demonstrate that the implementation genuinely relies on the helper functions
 - Tests should be written immediately after each function to document expected behaviour
 - All tests should pass once the complete implementation (main + all helpers) is in place
-- **CRITICAL: If a main function that is long enough to require helpers passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
+- **CRITICAL: If a main function that requires helper extraction (due to violating nesting depth >2 levels or nested block size >2 lines) passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
 
 ### Module-Level Setup (Exception to Pattern)
 
