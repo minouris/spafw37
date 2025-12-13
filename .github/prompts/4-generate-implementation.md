@@ -102,7 +102,7 @@ def test_something():
 ```
 
 **Example - CORRECT way (module-level imports):**
-```markdown
+````markdown
 **File:** `tests/test_param.py`
 
 Module-level imports:
@@ -113,13 +113,21 @@ from spafw37.constants.param import PARAM_NAME
 import pytest
 ```
 
-**Test 3.1.2:**
+**Test 3.1.2: Test parameter registration**
+
+```gherkin
+Scenario: Parameter is registered successfully
+  Given a parameter definition with name
+  When add_param is called
+  Then the parameter is stored in the registry
+```
 
 ```python
 def test_something():
     """Test something."""
     param.add_param({PARAM_NAME: 'test'})  # ✅ Correct - uses already-imported module
 ```
+````
 
 ## Algorithm
 
@@ -131,48 +139,198 @@ if there is not an Algorithm section here, add one. If there is, do not remove i
 
 ## Code Block Organization
 
-For each implementation step:
+**CRITICAL RULE: Each function (main or helper) MUST be in its own separate fenced code block, immediately followed by its own test blocks, before the next function appears.**
 
-#### 1. Constants and Module-Level Setup
+This applies to:
+- Main implementation functions
+- All helper functions (no matter how small)
+- Private functions (prefixed with `_`)
 
-```markdown
+**See `.github/instructions/plan-structure.instructions.md` § "One function per code block" for complete details.**
+
+### Structure Pattern: Main Function → Tests → Helpers → Tests
+
+For each implementation step, follow this pattern:
+
+1. **Algorithm section** (if not already present)
+2. **Implementation order section** 
+3. **Main function** in separate code block
+4. **Tests for main function** (one or more test blocks)
+5. **First helper function** in separate code block
+6. **Tests for first helper** (one or more test blocks)
+7. **Second helper function** in separate code block
+8. **Tests for second helper** (one or more test blocks)
+9. Continue pattern for remaining helpers
+
+**Each function gets:**
+- Its own `**Code X.Y.Z: function_name**` heading
+- Its own fenced Python code block
+- Immediately following test blocks before next function
+
+**Important note on test failures:**
+- Tests for the main function **should fail initially** until all helper functions are implemented
+- This is **expected and desirable behaviour** - it proves the main function is properly dependent on helper methods
+- Failing tests demonstrate that the implementation genuinely relies on the helper functions
+- Tests should be written immediately after each function to document expected behaviour
+- All tests should pass once the complete implementation (main + all helpers) is in place
+- **CRITICAL: If a main function that requires helper extraction passes its tests on the first go, this is a RED FLAG** - the agent must flag this as a problem and investigate why the tests passed prematurely (likely the function doesn't actually use its helpers, or the tests are inadequate)
+
+**Criteria for when a function requires helper extraction:**
+- **Nesting depth:** More than 2 levels of nesting below the function declaration (see `python.instructions.md` § Nesting Depth and Block Size Limits)
+- **Nested block size:** Any nested block (inside `if`, `for`, `while`, `with`, `try`) exceeds 2 lines
+- **Multiple responsibilities:** Function performs more than one distinct logical operation (violates Single Responsibility Principle)
+- **Lines per operation:** Individual logical operations within the function exceed 3-5 lines
+- **Complex logic:** Function contains complex conditional logic, data transformations, or algorithmic operations that obscure the main flow
+
+### Module-Level Setup (Exception to Pattern)
+
+Constants and module-level variables are shown first:
+
+````markdown
 **Code X.1: Module-level constants**
 
 ```python
 # Block X.1.1: Module-level constant for feature
 CONSTANT_NAME = 'value'  # Description of purpose
 ```
+````
 
-#### 2. Main Implementation Functions
+### Anti-Pattern Example: WRONG vs RIGHT
 
-```markdown
-**Code X.2: main_function_name**
+#### ❌ WRONG: Bundled helpers without individual tests
 
-```python
-# Block X.2
-def main_function_name(parameters):
-    """Comprehensive docstring following standards."""
-    # Block X.2.1: First logical section
-    setup_code()
-    
-    # Block X.2.2: Main logic
-    process_data()
-    
-    # Block X.2.3: Return or final actions
-    return result
-```
-
-#### 3. Helper Functions
-
-```markdown
-**Code X.3: helper_function_name**
+````markdown
+**Code 3.2: Helper functions**
 
 ```python
-# Block X.3
-def _helper_function(parameters):
-    """Brief docstring for internal helper."""
-    # Implementation with block numbering
+# Block 3.2.1
+def _validate_input(value):
+    """Validate input."""
+    return value is not None
+
+# Block 3.2.2  
+def _process_input(value):
+    """Process input."""
+    return value.upper()
+
+# Block 3.2.3
+def _store_result(value):
+    """Store result."""
+    _results.append(value)
 ```
+
+**Test 3.3: Test helper functions**
+(Tests for all helpers grouped together)
+````
+
+**Problems with this approach:**
+- Multiple functions in one code block violates "one function per block" rule
+- Tests are not immediately after each function
+- Cannot trace which test validates which helper
+- Violates plan structure rules
+
+#### ✅ CORRECT: Each helper in separate block with immediate tests
+
+````markdown
+**Code 3.2.1: _validate_input**
+
+```python
+# Block 3.2.1
+def _validate_input(value):
+    """Validate input returns True if value is not None."""
+    return value is not None
+```
+
+**Test 3.2.2: Tests for _validate_input with valid value**
+
+```gherkin
+Scenario: Valid value returns True
+  Given value is not None
+  When _validate_input is called
+  Then it returns True
+```
+
+```python
+# Test 3.2.2
+def test_validate_input_with_valid_value():
+    """Test validation succeeds with valid value."""
+    assert _validate_input("test") is True
+```
+
+**Test 3.2.3: Tests for _validate_input with None**
+
+```gherkin
+Scenario: None value returns False
+  Given value is None
+  When _validate_input is called
+  Then it returns False
+```
+
+```python
+# Test 3.2.3
+def test_validate_input_with_none():
+    """Test validation fails with None."""
+    assert _validate_input(None) is False
+```
+
+**Code 3.3.1: _process_input**
+
+```python
+# Block 3.3.1
+def _process_input(value):
+    """Process input by converting to uppercase."""
+    return value.upper()
+```
+
+**Test 3.3.2: Tests for _process_input**
+
+```gherkin
+Scenario: Input is converted to uppercase
+  Given value is "hello"
+  When _process_input is called
+  Then it returns "HELLO"
+```
+
+```python
+# Test 3.3.2
+def test_process_input_converts_to_uppercase():
+    """Test input is converted to uppercase."""
+    assert _process_input("hello") == "HELLO"
+```
+
+**Code 3.4.1: _store_result**
+
+```python
+# Block 3.4.1
+def _store_result(value):
+    """Store result in module-level results list."""
+    _results.append(value)
+```
+
+**Test 3.4.2: Tests for _store_result**
+
+```gherkin
+Scenario: Result is appended to list
+  Given _results is empty
+  When _store_result is called with "test"
+  Then _results should contain "test"
+```
+
+```python
+# Test 3.4.2
+def test_store_result_appends_to_list():
+    """Test result is appended to results list."""
+    _results.clear()
+    _store_result("test")
+    assert "test" in _results
+```
+````
+
+**Why this is correct:**
+- Each function in its own code block
+- Tests immediately follow each function
+- Clear traceability: Test X.Y.Z tests Code X.Y.(Z-1)
+- Follows plan structure rules exactly
 
 ## Table of Contents
 
@@ -205,17 +363,31 @@ Use UK spelling: initialise, synchronise, optimise, behaviour, colour
 For EACH step in the plan:
 
 1. **Add "Implementation order" subsection** after the step description
-2. **Add numbered code blocks** with:
-   - Proper hierarchical numbering (X.Y, X.Y.1, X.Y.2, etc.)
-   - Complete, working code (not pseudocode)
-   - Comprehensive docstrings for public functions
-   - Minimum one-line docstrings for private functions
-   - Descriptive block comments
-   - Proper Python 3.7 compatibility
-   - UK English in comments and docstrings
-3. **Follow naming standards** - no lazy placeholder names
-4. **Include helper functions** if needed (separate code blocks)
-5. **Add regression tests** if modifying existing functions (verify unchanged behaviour)
+2. **Add main function code block** with proper numbering
+3. **Add tests for main function** (one or more test blocks)
+4. **CRITICAL: For each helper function:**
+   - Add separate code block with heading `**Code X.Y.Z: helper_name**`
+   - Add fenced Python code block with the helper implementation
+   - Immediately add test blocks for that helper (Gherkin + Python)
+   - **BEFORE** moving to next helper or next step
+5. **Verify structure:** Each function appears in this order:
+   - Code block for function
+   - Test block(s) for that function
+   - Code block for next function
+   - Test block(s) for next function
+   - (repeat)
+
+**Each code block must contain:**
+- Proper hierarchical numbering (X.Y, X.Y.1, X.Y.2, etc.)
+- Complete, working code (not pseudocode)
+- Comprehensive docstrings for public functions
+- Minimum one-line docstrings for private functions
+- Descriptive block comments
+- Proper Python 3.7 compatibility
+- UK English in comments and docstrings
+
+**Follow naming standards** - no lazy placeholder names
+**Add regression tests** if modifying existing functions (verify unchanged behaviour)
 
 ## Output Requirements
 
@@ -247,7 +419,9 @@ Specifically verify:
 4. ✅ **NO lazy naming** (`tmp`, `data`, `result`, `i`, `j`)
 5. ✅ **NO Step Xa/Xb structure** in plan documents
 6. ✅ **Each function immediately followed by its tests**
-7. ✅ **Regression tests included** if modifying existing functions
+7. ✅ **Each helper in separate code block** (not bundled with other helpers)
+8. ✅ **Each helper has its own test blocks** immediately following it
+9. ✅ **Regression tests included** if modifying existing functions
 
 **If any violations found, fix them before submitting your response.**
 
