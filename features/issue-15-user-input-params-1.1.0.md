@@ -6428,47 +6428,119 @@ def test_prompt_params_for_command_no_params():
 
 ---
 
-## Step 6: CLI Integration (Simplified)
-
-**Step 6.1: Integrate prompts in CLI workflow**
+## Step 6: CLI Integration
 
 **File:** `src/spafw37/cli.py`
 
 Integrate start-timing prompts into the CLI execution flow by calling the public param API. This adds a single function call between command-line parsing and command execution. All complexity (identification, filtering, retry logic) is handled by param.py.
 
 **Integration point:**
-- After `_parse_command_line()` has completed
+- After `_parse_args()` has completed
 - Before command queue processing begins
 - Before required param validation occurs
 
 **Algorithm:**
 
-1. Locate integration point in `run_cli()` function
-2. Add single line: `param.prompt_params_for_start()`
-3. Errors from required params propagate, CLI handles application exit
+The CLI integration follows this logical flow:
 
-**No tests needed in this step - integration is a single function call, tested via end-to-end tests in Step 7.5.**
+1. Parse command-line arguments to capture user-provided values
+2. **Prompt for start-timing params**: Call `param.prompt_params_for_start()`
+   - Param module identifies all PROMPT_ON_START params
+   - For each param: check if should prompt (not set via CLI)
+   - If should prompt: execute prompt with handler and retry logic
+   - Set prompted values in param registry
+   - Track successfully prompted params
+3. Continue with command queue processing
+4. If any required param fails: error propagates, CLI exits with error code
 
-**Code 6.1.1: CLI integration**
+**Key behaviours:**
+- CLI-provided values (from args) skip prompting
+- Required param failures cause immediate exit
+- Optional param failures allow execution to continue
+- All prompting complexity handled by param module
+
+### Code 6.1: Add prompt_params_for_start() call to CLI
 
 ```python
-# Block 6.1.1: Add to src/spafw37/cli.py in run_cli() function
-# After: _parse_command_line() completion
-# Before: command queue processing
+# File: src/spafw37/cli.py
+# Location: In the _run_cli() function, after _parse_args() and before command execution
 
+# Module-level imports (add if not present)
 from spafw37 import param
-param.prompt_params_for_start()
+
+# Block 6.1.1: Call param.prompt_params_for_start() after parsing args
+def _run_cli(args=None):
+    """Execute the CLI with the given arguments."""
+    # ... existing code for initialization ...
+    
+    # Block 6.1.1.1: Parse command-line arguments
+    _parse_args(args)
+    
+    # Block 6.1.1.2: Prompt for parameters marked PROMPT_ON_START
+    param.prompt_params_for_start()
+    
+    # ... existing code for command execution ...
 ```
+
+### Test 6.1.2: Verify param.prompt_params_for_start() is called
+
+**Gherkin:**
+```gherkin
+Given the CLI is executed
+When _run_cli() runs
+Then param.prompt_params_for_start() is called exactly once
+And it is called after _parse_args()
+```
+
+**Implementation:**
+```python
+def test_run_cli_calls_prompt_params_for_start():
+    """
+    Verify that _run_cli() calls param.prompt_params_for_start() after parsing arguments.
+    
+    Given the CLI is executed
+    When _run_cli() runs
+    Then param.prompt_params_for_start() is called exactly once
+    And it is called after _parse_args()
+    """
+    from unittest.mock import patch, call
+    from spafw37 import cli
+    
+    with patch.object(cli, '_parse_args') as mock_parse_args:
+        with patch('spafw37.param.prompt_params_for_start') as mock_prompt:
+            with patch.object(cli, '_execute_command'):
+                cli._run_cli(['test_cmd'])
+    
+    mock_prompt.assert_called_once()
+    
+    call_order = []
+    for call_item in mock_parse_args.mock_calls + mock_prompt.mock_calls:
+        call_order.append(call_item)
+    
+    parse_index = next(
+        index for index, c in enumerate(call_order) 
+        if 'parse_args' in str(c)
+    )
+    prompt_index = next(
+        index for index, c in enumerate(call_order) 
+        if 'prompt_params_for_start' in str(c)
+    )
+    
+    assert parse_index < prompt_index
+```
+
+**Notes:**
+- The call occurs after `_parse_args()` so CLI-provided values are already set
+- The call occurs before command execution so prompted values are available
+- Unit test verifies the call is made and sequencing is correct
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-## Step 7: Command Integration (Simplified)
+## Step 7: Command Integration
 
-**Step 7.1: Integrate prompts in command execution**
-
-**File:** `src/spafw37/command.py` or command execution location
+**File:** `src/spafw37/command.py`
 
 Integrate command-timing prompts into the command execution pipeline by calling the public param API. This adds a single function call immediately before each command executes. All complexity (COMMAND_PROMPT_PARAMS lookup, repeat behaviour, retry logic) is handled by param.py.
 
@@ -6477,326 +6549,825 @@ Integrate command-timing prompts into the command execution pipeline by calling 
 - Immediately before each command's action function is called
 - After command dependencies are resolved
 
-**Algorithm:**
-
-1. Locate the command execution loop
-2. Before each command executes: `param.prompt_params_for_command(command_def)`
-3. Errors from required params propagate, command execution handles exit
-
 **Repeat behaviour:**
 - Automatically handled by `_should_prompt_param()` called within param.py
 - PROMPT_REPEAT_ALWAYS: Prompts every command execution
 - PROMPT_REPEAT_IF_BLANK: Prompts only if value blank
 - PROMPT_REPEAT_NEVER: Prompts only if not in `_prompted_params` set
 
-**No tests needed in this step - integration is a single function call, tested via end-to-end tests in Step 7.5.**
+**Algorithm:**
 
-**Code 7.1.1: Command integration**
+The command integration follows this logical flow for each command execution:
+
+1. Command execution begins after dependencies resolved
+2. **Prompt for command-timing params**: Call `param.prompt_params_for_command(command_def)`
+   - Param module gets COMMAND_PROMPT_PARAMS list from command definition
+   - For each param in list: check if should prompt
+     - Apply PARAM_PROMPT_REPEAT logic (ALWAYS/IF_BLANK/NEVER)
+     - Check if already in `_prompted_params` set
+     - Check if value already set (CLI override or previous prompt)
+   - If should prompt: execute prompt with handler and retry logic
+   - Set prompted values in param registry
+   - Track successfully prompted params
+3. Execute command handler with prompted values available
+4. If any required param fails: error propagates, command execution stops
+
+**Key behaviours:**
+- REPEAT_ALWAYS: Prompts on every command execution (even in cycles)
+- REPEAT_IF_BLANK: Prompts only when param has no value
+- REPEAT_NEVER: Prompts at most once per session
+- CLI-provided values skip prompting (overrides prompt request)
+- All repeat logic and state management handled by param module
+
+### Code 7.1: Add prompt_params_for_command() call to command execution
 
 ```python
-# Block 7.1.1: Add to src/spafw37/command.py or command execution location
-# Before: each command action execution
+# File: src/spafw37/command.py
+# Location: In the _execute_command() function, before the command handler is called
 
+# Module-level imports (add if not present)
 from spafw37 import param
-param.prompt_params_for_command(command_def)
+
+# Block 7.1.1: Call param.prompt_params_for_command() before executing handler
+def _execute_command(command_def):
+    """Execute a command with the given command definition."""
+    # ... existing code for pre-execution setup ...
+    
+    # Block 7.1.1.1: Prompt for parameters marked PROMPT_ON_COMMAND
+    param.prompt_params_for_command(command_def)
+    
+    # Block 7.1.1.2: Execute the command handler
+    # ... existing code for handler execution ...
 ```
 
-**Steps 7.2-7.4: Repeat behaviour implementation**
+### Test 7.1.2: Verify param.prompt_params_for_command() is called
 
-**Note:** The repeat behaviour for `PROMPT_REPEAT_ALWAYS`, `PROMPT_REPEAT_IF_BLANK`, and `PROMPT_REPEAT_NEVER` is implemented within the `_should_prompt_param()` helper function (Step 5.2) and does not require separate implementation steps.
+**Gherkin:**
+```gherkin
+Given a command is being executed
+When _execute_command() runs
+Then param.prompt_params_for_command() is called with the command definition
+And it is called before the command handler executes
+```
 
-The algorithm in Step 5.2 handles all three modes:
-- **PROMPT_REPEAT_ALWAYS:** `_should_prompt_param` always returns True for the command context
-- **PROMPT_REPEAT_IF_BLANK:** `_should_prompt_param` checks current param value
-- **PROMPT_REPEAT_NEVER:** `_should_prompt_param` checks `_prompted_params` set
+**Implementation:**
+```python
+def test_execute_command_calls_prompt_params_for_command():
+    """
+    Verify that _execute_command() calls param.prompt_params_for_command()
+    before executing the command handler.
+    
+    Given a command is being executed
+    When _execute_command() runs
+    Then param.prompt_params_for_command() is called with the command definition
+    And it is called before the command handler executes
+    """
+    from unittest.mock import patch, MagicMock
+    from spafw37 import command
+    
+    mock_handler = MagicMock()
+    command_def = {
+        'name': 'test_cmd',
+        'handler': mock_handler,
+    }
+    
+    call_sequence = []
+    
+    def track_prompt_call(cmd_def):
+        call_sequence.append('prompt')
+    
+    def track_handler_call():
+        call_sequence.append('handler')
+    
+    mock_handler.side_effect = track_handler_call
+    
+    with patch('spafw37.param.prompt_params_for_command', side_effect=track_prompt_call):
+        command._execute_command(command_def)
+    
+    assert call_sequence == ['prompt', 'handler']
+```
 
-All repeat logic is centralised in the timing check helper, avoiding code duplication.
+**Notes:**
+- The call occurs before the command handler executes
+- The PARAM_PROMPT_REPEAT behaviour is handled inside param module (Step 5.2)
+- This integration point applies to all command executions (including cycles)
+- Unit test verifies the call is made with correct arguments and sequencing
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 7.5: Add end-to-end integration tests**
+## Step 8: Integration Tests
 
 **File:** `tests/test_integration_prompts.py` (new file)
 
-Create comprehensive integration tests covering complete workflows from CLI invocation through prompt execution to command completion. These tests validate the entire prompt system working together: timing modes, repeat behaviour, CLI overrides, validation retry logic, custom handlers, and auto-population mechanisms.
+Create comprehensive integration tests covering complete workflows from CLI invocation through prompt execution to command completion. These tests validate the entire prompt system working together: timing modes, repeat behaviour, CLI overrides, validation retry logic, and custom handlers.
 
-**Test coverage areas:**
-- PROMPT_ON_START with CLI override preventing prompts
-- PROMPT_ON_COMMAND with multiple commands in sequence
-- All three repeat modes (ALWAYS, IF_BLANK, NEVER) in cycles
-- Mixed prompt timings in same application
-- Validation failures with retry logic and max retry handling
-- Custom handlers (param-level and global)
-- Auto-population from COMMAND_REQUIRED_PARAMS
-- Inline param definitions in COMMAND_PROMPT_PARAMS
-- Error handling (EOFError, KeyboardInterrupt, validation errors)
+### Module-level imports
 
-**Detailed implementation and tests will be added in Steps 3-4**
+```python
+# File: tests/test_integration_prompts.py
+
+import sys
+from io import StringIO
+from unittest.mock import patch, MagicMock
+
+import pytest
+
+from spafw37 import core as spafw37
+from spafw37 import param
+from spafw37 import command
+from spafw37.constants.param import (
+    PARAM_PROMPT_ON_START,
+    PARAM_PROMPT_ON_COMMAND,
+    PARAM_PROMPT_REPEAT_ALWAYS,
+    PARAM_PROMPT_REPEAT_IF_BLANK,
+    PARAM_PROMPT_REPEAT_NEVER,
+)
+```
+
+### Test 8.8.1: PROMPT_ON_START prompts before command execution
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_START
+And a command that uses the parameter
+When the CLI runs
+Then the parameter is prompted for before the command executes
+And the command receives the prompted value
+```
+
+**Implementation:**
+```python
+def test_prompt_on_start_executes_before_commands():
+    """
+    Verify that parameters marked PROMPT_ON_START are prompted for
+    before any command executes.
+    
+    Given a parameter marked PROMPT_ON_START
+    And a command that uses the parameter
+    When the CLI runs
+    Then the parameter is prompted for before the command executes
+    And the command receives the prompted value
+    """
+    spafw37.reset()
+    
+    prompted_value = None
+    command_received_value = None
+    
+    def mock_handler(user_input):
+        return user_input.strip()
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('test_param')
+    
+    spafw37.add_params([{
+        'name': 'test_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    with patch('builtins.input', return_value='test_value'):
+        spafw37.run_cli(['test_cmd'])
+    
+    assert command_received_value == 'test_value'
+```
+
+### Test 8.8.2: PROMPT_ON_COMMAND prompts before each command execution
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_COMMAND
+And the parameter is used by a command
+When the command executes
+Then the parameter is prompted for before the command handler runs
+And the command receives the prompted value
+```
+
+**Implementation:**
+```python
+def test_prompt_on_command_executes_per_command():
+    """
+    Verify that parameters marked PROMPT_ON_COMMAND are prompted for
+    before each command that uses them.
+    
+    Given a parameter marked PROMPT_ON_COMMAND
+    And the parameter is used by a command
+    When the command executes
+    Then the parameter is prompted for before the command handler runs
+    And the command receives the prompted value
+    """
+    spafw37.reset()
+    
+    command_received_value = None
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('cmd_param')
+    
+    spafw37.add_params([{
+        'name': 'cmd_param',
+        'prompt': 'Enter command value',
+        'prompt_on': PARAM_PROMPT_ON_COMMAND,
+        'prompt_repeat': PARAM_PROMPT_REPEAT_ALWAYS,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+        'params': ['cmd_param'],
+    }])
+    
+    with patch('builtins.input', return_value='cmd_value'):
+        spafw37.run_cli(['test_cmd'])
+    
+    assert command_received_value == 'cmd_value'
+```
+
+### Test 8.8.3: REPEAT_ALWAYS prompts every cycle iteration
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_COMMAND with REPEAT_ALWAYS
+And a command that runs in a cycle with 3 iterations
+When the cycle executes
+Then the parameter is prompted for 3 times (once per iteration)
+And each iteration receives its prompted value
+```
+
+**Implementation:**
+```python
+def test_repeat_always_prompts_every_cycle():
+    """
+    Verify that PARAM_PROMPT_REPEAT_ALWAYS prompts on every cycle iteration.
+    
+    Given a parameter marked PROMPT_ON_COMMAND with REPEAT_ALWAYS
+    And a command that runs in a cycle with 3 iterations
+    When the cycle executes
+    Then the parameter is prompted for 3 times (once per iteration)
+    And each iteration receives its prompted value
+    """
+    spafw37.reset()
+    
+    received_values = []
+    prompt_count = [0]
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        return f'value_{prompt_count[0]}'
+    
+    def test_command():
+        value = param.get_param('cycle_param')
+        received_values.append(value)
+    
+    spafw37.add_params([{
+        'name': 'cycle_param',
+        'prompt': 'Enter cycle value',
+        'prompt_on': PARAM_PROMPT_ON_COMMAND,
+        'prompt_repeat': PARAM_PROMPT_REPEAT_ALWAYS,
+    }, {
+        'name': 'cycle_count',
+        'default': '3',
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+        'params': ['cycle_param'],
+    }])
+    
+    spafw37.add_cycles([{
+        'command': 'test_cmd',
+        'count_param': 'cycle_count',
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['test_cmd'])
+    
+    assert len(received_values) == 3
+    assert received_values == ['value_1', 'value_2', 'value_3']
+    assert prompt_count[0] == 3
+```
+
+### Test 8.8.4: REPEAT_IF_BLANK only prompts when blank
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_COMMAND with REPEAT_IF_BLANK
+And a command that runs in a cycle with 3 iterations
+When the first prompt provides a value
+Then subsequent iterations do not prompt again
+And all iterations receive the same value
+```
+
+**Implementation:**
+```python
+def test_repeat_if_blank_prompts_only_when_blank():
+    """
+    Verify that PARAM_PROMPT_REPEAT_IF_BLANK only prompts when the value is blank.
+    
+    Given a parameter marked PROMPT_ON_COMMAND with REPEAT_IF_BLANK
+    And a command that runs in a cycle with 3 iterations
+    When the first prompt provides a value
+    Then subsequent iterations do not prompt again
+    And all iterations receive the same value
+    """
+    spafw37.reset()
+    
+    received_values = []
+    prompt_count = [0]
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        return 'persistent_value'
+    
+    def test_command():
+        value = param.get_param('persistent_param')
+        received_values.append(value)
+    
+    spafw37.add_params([{
+        'name': 'persistent_param',
+        'prompt': 'Enter persistent value',
+        'prompt_on': PARAM_PROMPT_ON_COMMAND,
+        'prompt_repeat': PARAM_PROMPT_REPEAT_IF_BLANK,
+    }, {
+        'name': 'cycle_count',
+        'default': '3',
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+        'params': ['persistent_param'],
+    }])
+    
+    spafw37.add_cycles([{
+        'command': 'test_cmd',
+        'count_param': 'cycle_count',
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['test_cmd'])
+    
+    assert len(received_values) == 3
+    assert all(value == 'persistent_value' for value in received_values)
+    assert prompt_count[0] == 1
+```
+
+### Test 8.8.5: REPEAT_NEVER only prompts once per session
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_COMMAND with REPEAT_NEVER
+And multiple commands that use the parameter
+When the commands execute in sequence
+Then the parameter is only prompted for once
+And all commands receive the same value
+```
+
+**Implementation:**
+```python
+def test_repeat_never_prompts_once_per_session():
+    """
+    Verify that PARAM_PROMPT_REPEAT_NEVER only prompts once per session.
+    
+    Given a parameter marked PROMPT_ON_COMMAND with REPEAT_NEVER
+    And multiple commands that use the parameter
+    When the commands execute in sequence
+    Then the parameter is only prompted for once
+    And all commands receive the same value
+    """
+    spafw37.reset()
+    
+    received_values = []
+    prompt_count = [0]
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        return 'session_value'
+    
+    def test_command_one():
+        value = param.get_param('session_param')
+        received_values.append(('cmd1', value))
+    
+    def test_command_two():
+        value = param.get_param('session_param')
+        received_values.append(('cmd2', value))
+    
+    spafw37.add_params([{
+        'name': 'session_param',
+        'prompt': 'Enter session value',
+        'prompt_on': PARAM_PROMPT_ON_COMMAND,
+        'prompt_repeat': PARAM_PROMPT_REPEAT_NEVER,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'cmd1',
+        'handler': test_command_one,
+        'params': ['session_param'],
+        'next': 'cmd2',
+    }, {
+        'name': 'cmd2',
+        'handler': test_command_two,
+        'params': ['session_param'],
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['cmd1'])
+    
+    assert len(received_values) == 2
+    assert received_values[0] == ('cmd1', 'session_value')
+    assert received_values[1] == ('cmd2', 'session_value')
+    assert prompt_count[0] == 1
+```
+
+### Test 8.8.6: Nested cycles respect REPEAT settings
+
+**Gherkin:**
+```gherkin
+Given an outer cycle with 2 iterations
+And an inner cycle with 2 iterations per outer iteration
+And a parameter marked REPEAT_ALWAYS
+When the nested cycles execute
+Then the parameter is prompted for 4 times (2 outer × 2 inner)
+```
+
+**Implementation:**
+```python
+def test_nested_cycles_respect_repeat_settings():
+    """
+    Verify that nested cycles correctly apply PARAM_PROMPT_REPEAT settings.
+    
+    Given an outer cycle with 2 iterations
+    And an inner cycle with 2 iterations per outer iteration
+    And a parameter marked REPEAT_ALWAYS
+    When the nested cycles execute
+    Then the parameter is prompted for 4 times (2 outer × 2 inner)
+    """
+    spafw37.reset()
+    
+    received_values = []
+    prompt_count = [0]
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        return f'nested_{prompt_count[0]}'
+    
+    def inner_command():
+        value = param.get_param('nested_param')
+        received_values.append(value)
+    
+    def outer_command():
+        pass
+    
+    spafw37.add_params([{
+        'name': 'nested_param',
+        'prompt': 'Enter nested value',
+        'prompt_on': PARAM_PROMPT_ON_COMMAND,
+        'prompt_repeat': PARAM_PROMPT_REPEAT_ALWAYS,
+    }, {
+        'name': 'outer_count',
+        'default': '2',
+    }, {
+        'name': 'inner_count',
+        'default': '2',
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'outer_cmd',
+        'handler': outer_command,
+        'next': 'inner_cmd',
+    }, {
+        'name': 'inner_cmd',
+        'handler': inner_command,
+        'params': ['nested_param'],
+    }])
+    
+    spafw37.add_cycles([{
+        'command': 'outer_cmd',
+        'count_param': 'outer_count',
+    }, {
+        'command': 'inner_cmd',
+        'count_param': 'inner_count',
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['outer_cmd'])
+    
+    assert len(received_values) == 4
+    assert received_values == ['nested_1', 'nested_2', 'nested_3', 'nested_4']
+    assert prompt_count[0] == 4
+```
+
+### Test 8.8.7: CLI values override prompts
+
+**Gherkin:**
+```gherkin
+Given a parameter marked PROMPT_ON_START
+And the parameter is provided via CLI argument
+When the CLI runs
+Then the parameter is not prompted for
+And the CLI value is used
+```
+
+**Implementation:**
+```python
+def test_cli_values_override_prompts():
+    """
+    Verify that values provided via CLI override prompt requests.
+    
+    Given a parameter marked PROMPT_ON_START
+    And the parameter is provided via CLI argument
+    When the CLI runs
+    Then the parameter is not prompted for
+    And the CLI value is used
+    """
+    spafw37.reset()
+    
+    prompt_called = [False]
+    command_received_value = None
+    
+    def mock_input(prompt_text):
+        prompt_called[0] = True
+        return 'prompted_value'
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('cli_param')
+    
+    spafw37.add_params([{
+        'name': 'cli_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['test_cmd', '--cli-param', 'cli_value'])
+    
+    assert command_received_value == 'cli_value'
+    assert not prompt_called[0]
+```
+
+### Test 8.8.8: Custom handlers are used when set
+
+**Gherkin:**
+```gherkin
+Given a custom prompt handler is set globally
+And a parameter marked PROMPT_ON_START
+When the CLI runs
+Then the custom handler is called for prompting
+And the custom handler's return value is used
+```
+
+**Implementation:**
+```python
+def test_custom_handlers_are_used():
+    """
+    Verify that custom prompt handlers are used when set.
+    
+    Given a custom prompt handler is set globally
+    And a parameter marked PROMPT_ON_START
+    When the CLI runs
+    Then the custom handler is called for prompting
+    And the custom handler's return value is used
+    """
+    spafw37.reset()
+    
+    custom_handler_called = [False]
+    command_received_value = None
+    
+    def custom_handler(prompt_text, param_def):
+        custom_handler_called[0] = True
+        return 'custom_value'
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('custom_param')
+    
+    param.set_prompt_handler(custom_handler)
+    
+    spafw37.add_params([{
+        'name': 'custom_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    spafw37.run_cli(['test_cmd'])
+    
+    assert command_received_value == 'custom_value'
+    assert custom_handler_called[0]
+```
+
+### Test 8.8.9: Param-level handlers override global handlers
+
+**Gherkin:**
+```gherkin
+Given a global prompt handler is set
+And a parameter with its own prompt handler
+When the parameter is prompted for
+Then the parameter-level handler is used
+And the global handler is not called
+```
+
+**Implementation:**
+```python
+def test_param_handlers_override_global_handlers():
+    """
+    Verify that parameter-level prompt handlers override global handlers.
+    
+    Given a global prompt handler is set
+    And a parameter with its own prompt handler
+    When the parameter is prompted for
+    Then the parameter-level handler is used
+    And the global handler is not called
+    """
+    spafw37.reset()
+    
+    global_handler_called = [False]
+    param_handler_called = [False]
+    command_received_value = None
+    
+    def global_handler(prompt_text, param_def):
+        global_handler_called[0] = True
+        return 'global_value'
+    
+    def param_handler(prompt_text, param_def):
+        param_handler_called[0] = True
+        return 'param_value'
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('override_param')
+    
+    param.set_prompt_handler(global_handler)
+    
+    spafw37.add_params([{
+        'name': 'override_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+        'prompt_handler': param_handler,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    spafw37.run_cli(['test_cmd'])
+    
+    assert command_received_value == 'param_value'
+    assert param_handler_called[0]
+    assert not global_handler_called[0]
+```
+
+### Test 8.8.10: Validation errors trigger retry
+
+**Gherkin:**
+```gherkin
+Given a parameter with input validation
+And the validation fails on first 2 attempts
+And the validation passes on 3rd attempt
+When the parameter is prompted for
+Then the user is prompted 3 times
+And the valid value is used
+```
+
+**Implementation:**
+```python
+def test_validation_errors_trigger_retry():
+    """
+    Verify that validation errors trigger retry with max attempts.
+    
+    Given a parameter with input validation
+    And the validation fails on first 2 attempts
+    And the validation passes on 3rd attempt
+    When the parameter is prompted for
+    Then the user is prompted 3 times
+    And the valid value is used
+    """
+    spafw37.reset()
+    
+    prompt_count = [0]
+    command_received_value = None
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        if prompt_count[0] < 3:
+            return 'invalid'
+        return 'valid_value'
+    
+    def validate_value(value):
+        if value != 'valid_value':
+            raise ValueError('Invalid value')
+        return value
+    
+    def test_command():
+        nonlocal command_received_value
+        command_received_value = param.get_param('validated_param')
+    
+    spafw37.add_params([{
+        'name': 'validated_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+        'input_filter': validate_value,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        spafw37.run_cli(['test_cmd'])
+    
+    assert command_received_value == 'valid_value'
+    assert prompt_count[0] == 3
+```
+
+### Test 8.8.11: Max retries exceeded raises exception
+
+**Gherkin:**
+```gherkin
+Given a parameter with input validation
+And the validation always fails
+And max retries is set to 3
+When the parameter is prompted for
+Then the user is prompted 3 times
+And a RuntimeError is raised after max retries
+```
+
+**Implementation:**
+```python
+def test_max_retries_exceeded_raises_exception():
+    """
+    Verify that exceeding max retries raises an exception.
+    
+    Given a parameter with input validation
+    And the validation always fails
+    And max retries is set to 3
+    When the parameter is prompted for
+    Then the user is prompted 3 times
+    And a RuntimeError is raised after max retries
+    """
+    spafw37.reset()
+    
+    prompt_count = [0]
+    
+    def mock_input(prompt_text):
+        prompt_count[0] += 1
+        return 'always_invalid'
+    
+    def validate_value(value):
+        raise ValueError('Always invalid')
+    
+    def test_command():
+        pass
+    
+    param.set_max_prompt_retries(3)
+    
+    spafw37.add_params([{
+        'name': 'failing_param',
+        'prompt': 'Enter value',
+        'prompt_on': PARAM_PROMPT_ON_START,
+        'input_filter': validate_value,
+    }])
+    
+    spafw37.add_commands([{
+        'name': 'test_cmd',
+        'handler': test_command,
+    }])
+    
+    with patch('builtins.input', side_effect=mock_input):
+        with pytest.raises(RuntimeError) as exc_info:
+            spafw37.run_cli(['test_cmd'])
+    
+    assert 'maximum prompt attempts' in str(exc_info.value).lower()
+    assert prompt_count[0] == 3
+```
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-**Step 8.1: Add cycle-specific tests**
+#### Phase 3: Documentation
 
-**File:** `tests/test_integration_prompts.py` (extend)
-
-**Tests:** Comprehensive tests for prompt behaviour in cycle contexts with all repeat options.
-
-This step validates that the prompt system works correctly within spafw37's cycle infrastructure. Cycles repeat commands multiple times, creating unique challenges for prompt timing and repeat behaviour. These tests ensure all three repeat modes (ALWAYS, IF_BLANK, NEVER) work correctly in cycles, nested cycles maintain proper state, and CLI overrides prevent prompting across all iterations. Cycles are the most complex context for prompts due to iteration state management.
-
-**Test 8.8.1: test_cycle_repeat_always_prompts_every_iteration**
-
-This test validates PROMPT_REPEAT_ALWAYS behaviour in cycles. Each cycle iteration should prompt before the command executes, allowing users to provide different values or confirm the action on every iteration. This is useful for per-item confirmation workflows. The test confirms REPEAT_ALWAYS prompts on every cycle iteration without state interference between iterations.
-
-```gherkin
-Scenario: PROMPT_REPEAT_ALWAYS prompts on every cycle iteration with previous value
-  Given a param "filename" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["process"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS
-  And a cycle that runs "process" command 3 times
-  And stdin mocked with StringIO("file1.txt\nfile2.txt\nfile3.txt\n")
-  When cycle executes
-  Then iteration 1: prompt appears, input "file1.txt"
-  And iteration 2: prompt appears with [default: file1.txt], input "file2.txt"
-  And iteration 3: prompt appears with [default: file2.txt], input "file3.txt"
-  And each iteration processes with different filename
-  
-  # Tests: REPEAT_ALWAYS in cycles
-  # Validates: Per-iteration prompting with default value preservation
-```
-
-**Test 8.8.2: test_cycle_repeat_if_blank_first_iteration_only**
-
-This test validates PROMPT_REPEAT_IF_BLANK behaviour in cycles. Only the first iteration should prompt (value starts blank), and all subsequent iterations should reuse the same value without prompting. This is efficient for batch processing where the same parameter applies to all items. The test confirms REPEAT_IF_BLANK prompts once and reuses the value across iterations.
-
-```gherkin
-Scenario: PROMPT_REPEAT_IF_BLANK prompts first iteration then reuses value
-  Given a param "format" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["convert"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_IF_BLANK
-  And a cycle that runs "convert" command 5 times
-  And stdin mocked with StringIO("json\n")
-  When cycle executes
-  Then iteration 1: value blank, prompt appears, input "json" captured
-  And iteration 2-5: value set to "json", prompt skipped
-  And all five iterations use format="json"
-  
-  # Tests: REPEAT_IF_BLANK in cycles
-  # Validates: Single prompt with value reuse across all iterations
-```
-
-**Test 8.8.3: test_cycle_repeat_never_prompts_before_cycle_starts**
-
-This test validates PROMPT_REPEAT_NEVER behaviour in cycles. The prompt should appear once before the cycle starts, and all iterations should use the same value without re-prompting. This enables initialization-style prompts for cycle parameters. The test confirms REPEAT_NEVER prompts once and the tracking state persists correctly throughout the cycle.
-
-```gherkin
-Scenario: PROMPT_REPEAT_NEVER prompts once before cycle starts
-  Given a param "mode" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["task"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_NEVER
-  And a cycle that runs "task" command 4 times
-  And stdin mocked with StringIO("batch\n")
-  When cycle executes
-  Then before cycle iteration 1: prompt appears, input "batch" captured
-  And param "mode" added to _prompted_params set
-  And iterations 1-4: all execute with mode="batch", no prompts
-  
-  # Tests: REPEAT_NEVER in cycles
-  # Validates: One-time initialization for cycle parameters
-```
-
-**Test 8.8.4: test_nested_cycles_repeat_behaviour_independent**
-
-This test validates that nested cycles maintain independent prompt state. Inner and outer cycles should each respect their own repeat behaviour without interfering with each other. This ensures complex nested workflows work correctly. The test confirms nested cycles maintain separate prompt tracking and repeat behaviour operates correctly at each level.
-
-```gherkin
-Scenario: Nested cycles maintain independent prompt state and repeat behaviour
-  Given outer param "batch" with PROMPT_REPEAT_NEVER for outer cycle command
-  And inner param "item" with PROMPT_REPEAT_ALWAYS for inner cycle command
-  And outer cycle runs 2 times, inner cycle runs 3 times per outer iteration
-  And stdin mocked with StringIO("batch1\nitem1\nitem2\nitem3\nitem4\nitem5\nitem6\n")
-  When nested cycles execute
-  Then outer iteration 1 prompts once for "batch": "batch1"
-  And inner iterations 1-3 each prompt for "item": "item1", "item2", "item3"
-  And outer iteration 2 does not prompt (REPEAT_NEVER)
-  And inner iterations 4-6 each prompt for "item": "item4", "item5", "item6"
-  And prompt state tracked independently for each cycle level
-  
-  # Tests: Nested cycles with different repeat behaviours
-  # Validates: Independent prompt state at each nesting level
-```
-
-**Test 8.8.5: test_cycle_with_cli_override_no_prompting**
-
-This test validates that CLI overrides prevent prompting across all cycle iterations. When a param value is set via command-line arguments, no prompts should appear during the cycle regardless of repeat behaviour configuration. This maintains consistent CLI override semantics. The test confirms CLI values work correctly in cycle contexts without any prompting.
-
-```gherkin
-Scenario: CLI override prevents prompting across all cycle iterations
-  Given a param "limit" with PARAM_PROMPT and PROMPT_ON_COMMANDS ["check"]
-  And PARAM_PROMPT_REPEAT=PROMPT_REPEAT_ALWAYS (would normally prompt every time)
-  And a cycle that runs "check" command 4 times
-  And stdin mocked with StringIO("") (empty, should not be read)
-  When application runs with command line "--limit 100 [cycle command]"
-  Then CLI parsing sets limit="100"
-  And all 4 cycle iterations execute with limit="100"
-  And no prompts occur (CLI override in effect)
-  And stdin never read
-  
-  # Tests: CLI override in cycles
-  # Validates: Command-line arguments prevent all cycle prompts
-```
-
-[↑ Back to top](#table-of-contents)
-
----
-
-**Step 8.2: Add extensibility tests**
-
-**File:** `tests/test_param_prompts.py` (extend)
-
-**Tests:** Test custom handler functionality and extensibility system.
-
-This step validates the extensibility architecture that allows applications to replace the default `input()` handler with custom logic. Custom handlers enable advanced scenarios like GUI prompts, API-based input, or specialized input validation. These tests ensure the three-tier precedence system (param-level → global → default) works correctly, handlers receive proper context, return values are processed correctly, and error handling is robust.
-
-**Test 8.8.6: test_global_custom_handler_replaces_default**
-
-This test validates that a global custom handler replaces the default `input()` handler for all prompts without param-specific handlers. Applications can call `set_prompt_handler(custom_function)` once to change prompt behaviour globally. The test confirms global handler registration works correctly and the custom handler is invoked instead of the default for all applicable prompts.
-
-```gherkin
-Scenario: Global custom handler used for all prompts without param-specific handlers
-  Given a custom handler function gui_prompt(param_def)
-  When set_prompt_handler(gui_prompt) is called
-  And a param "name" with PARAM_PROMPT (no PARAM_PROMPT_HANDLER)
-  And prompt execution occurs for "name"
-  Then gui_prompt function is called with param definition
-  And default input_prompt.prompt_for_value NOT called
-  And return value from gui_prompt set as param value
-  
-  # Tests: Global handler registration and invocation
-  # Validates: Applications can replace default handler globally
-```
-
-**Test 8.8.7: test_param_level_handler_overrides_global_and_default**
-
-This test validates that param-specific handlers have highest precedence, overriding both global and default handlers. Individual params can specify `PARAM_PROMPT_HANDLER` for specialized input handling whilst other params use the global or default handler. The test confirms param-level handlers are invoked correctly and take precedence over all other handlers.
-
-```gherkin
-Scenario: Param-specific handler takes precedence over global and default
-  Given a global handler set to global_custom_handler
-  And param "password" with PARAM_PROMPT_HANDLER set to secure_input_handler
-  And param "username" with PARAM_PROMPT (no handler, uses global)
-  When prompts execute for both params
-  Then "password" uses secure_input_handler (param-level)
-  And "username" uses global_custom_handler (global fallback)
-  And default input_prompt.prompt_for_value NOT used for either
-  
-  # Tests: Param-level handler precedence
-  # Validates: Individual params can override global handler configuration
-```
-
-**Test 8.8.8: test_handler_precedence_chain_all_levels**
-
-This test validates the complete three-tier precedence chain (param-level → global → default) in a single scenario. Different params should use different handlers based on what's configured. The test confirms the precedence resolution logic works correctly across all three levels simultaneously.
-
-```gherkin
-Scenario: Handler precedence chain resolves correctly across three levels
-  Given set_prompt_handler(global_handler) called
-  And param "special" with PARAM_PROMPT_HANDLER=special_handler (level 1)
-  And param "normal" with PARAM_PROMPT only (level 2 - uses global)
-  And param "default_test" with PARAM_PROMPT only
-  When global handler is then cleared (set to None)
-  Then "special" uses special_handler (param-level precedence)
-  And "normal" uses global_handler (global precedence)
-  And "default_test" uses input_prompt.prompt_for_value (default fallback)
-  And precedence: param > global > default confirmed
-  
-  # Tests: Complete precedence chain
-  # Validates: Three-tier handler resolution works correctly
-```
-
-**Test 8.8.9: test_custom_handler_receives_param_definition**
-
-This test validates that custom handlers receive the complete param definition as context. Handlers need access to param properties like PARAM_TYPE, PARAM_DEFAULT, PARAM_ALLOWED_VALUES to provide appropriate prompts. The test confirms handlers receive the full param definition object with all properties intact.
-
-```gherkin
-Scenario: Custom handler receives complete param definition with all properties
-  Given a custom handler that inspects its param_def argument
-  And param "choice" with multiple properties:
-    - PARAM_PROMPT="Select option:"
-    - PARAM_TYPE=PARAM_TYPE_TEXT
-    - PARAM_ALLOWED_VALUES=["a", "b", "c"]
-    - PARAM_DEFAULT="a"
-  When custom handler is invoked for "choice"
-  Then param_def argument contains all properties
-  And handler can access PARAM_PROMPT, PARAM_TYPE, etc.
-  And handler uses properties to customize prompt behaviour
-  
-  # Tests: Handler receives param context
-  # Validates: Custom handlers have access to all param configuration
-```
-
-**Test 8.8.10: test_custom_handler_return_value_sets_param**
-
-This test validates that the return value from a custom handler is used as the param value. Handlers can perform custom input collection and return the result, which the framework should validate and set as the param value. The test confirms the handler return value flows correctly through validation and into param storage.
-
-```gherkin
-Scenario: Return value from custom handler validated and set as param value
-  Given a custom handler that returns "custom_result"
-  And param "data" with PARAM_PROMPT_HANDLER=custom_handler
-  And param has validation rules
-  When prompt execution occurs
-  Then custom_handler called and returns "custom_result"
-  And "custom_result" passed through framework validation
-  And if validation passes, param "data" set to "custom_result"
-  And command receives value from custom handler
-  
-  # Tests: Handler return value processing
-  # Validates: Custom handler results validated and stored correctly
-```
-
-**Test 8.8.11: test_custom_handler_exceptions_handled_gracefully**
-
-This test validates exception handling for custom handlers. If a custom handler raises an exception, the framework should catch it, log an appropriate error, and either retry or fail gracefully based on param requirements. Poor handler implementations shouldn't crash the entire application. The test confirms exception handling provides robust behaviour even with faulty handlers.
-
-```gherkin
-Scenario: Exceptions in custom handlers caught and handled gracefully
-  Given a custom handler that raises ValueError("Handler error")
-  And param "test" with PARAM_PROMPT_HANDLER=faulty_handler
-  When prompt execution occurs
-  Then ValueError raised by handler is caught
-  And error logged with clear message "Custom handler error: Handler error"
-  And if param PARAM_REQUIRED=True, application exits with clear error
-  And if param optional, param set to None and execution continues
-  
-  # Tests: Custom handler exception handling
-  # Validates: Faulty handlers don't crash application unexpectedly
-```
-
-[↑ Back to top](#table-of-contents)
-
----
-
-#### Phase 3: Documentation and Final Testing
-
-**Step 9: Regression testing**
-
-**Files:** Existing test suite
-
-Run full test suite to ensure no regressions:
-- All existing param tests pass
-- All existing command tests pass
-- All existing cycle tests pass
-- All existing CLI parsing tests pass
-- Params without `PARAM_PROMPT` behave exactly as before
-- Commands without prompt params behave exactly as before
-
-[Detailed test specifications will be added in Step 3]
-
-[↑ Back to top](#table-of-contents)
-
----
-
-**Step 10: Update documentation**
+**Step 9: Update documentation**
 
 **Files:** `doc/parameters.md`, `README.md`, `examples/params_prompts.py`
 
