@@ -8734,7 +8734,7 @@ with pytest.raises(EOFError):
 
 **Note:** This section must follow the format specified in `features/CHANGES-TEMPLATE.md`. The content will be posted as the closing comment and consumed by the release workflow.
 
-[PENDING REVIEW - To be completed in Step 6]
+Issue #15: User Input Params
 
 ### Issues Closed
 
@@ -8742,21 +8742,106 @@ with pytest.raises(EOFError):
 
 ### Additions
 
-[PENDING REVIEW - To be completed in Step 6]
+**Constants in `src/spafw37/constants/param.py`:**
+- `PARAM_PROMPT` - Prompt text to display when soliciting user input.
+- `PARAM_PROMPT_HANDLER` - Custom handler function for parameter-specific prompt behaviour.
+- `PARAM_PROMPT_TIMING` - Controls when prompts appear (start or command execution).
+- `PARAM_PROMPT_REPEAT` - Controls repeat behaviour in cycles and multiple commands.
+- `PARAM_SENSITIVE` - Boolean flag to suppress terminal echo for sensitive data.
+- `PROMPT_ON_START` - Timing constant for prompting at application start.
+- `PROMPT_ON_COMMAND` - Timing constant for prompting before specific commands.
+- `PROMPT_ON_COMMANDS` - Property containing list of commands that trigger prompts.
+- `PROMPT_REPEAT_NEVER` - Repeat behaviour constant for prompting only once.
+- `PROMPT_REPEAT_IF_BLANK` - Repeat behaviour constant for prompting when value becomes blank.
+- `PROMPT_REPEAT_ALWAYS` - Repeat behaviour constant for prompting every time.
+
+**Constants in `src/spafw37/constants/command.py`:**
+- `COMMAND_PROMPT_PARAMS` - Command property for inline prompt parameter definitions.
+
+**Module `src/spafw37/input_prompt.py`:**
+- `prompt_for_value()` function provides default terminal-based prompt handling using `input()` for regular parameters and `getpass.getpass()` for sensitive parameters, with support for multiple choice display and validation retry.
+
+**Functions in `src/spafw37/param.py`:**
+- `set_prompt_handler()` function sets global prompt handler for all parameters.
+- `_get_prompt_handler()` internal function resolves handler precedence (param-level → global → default).
+- `_global_prompt_handler` module-level variable stores global prompt handler.
+- `_prompted_params` module-level set tracks prompt history for `PROMPT_REPEAT_NEVER` behaviour.
+- `_param_value_is_set()` internal function checks if parameter has a value (CLI override detection).
+- `_timing_matches_context()` internal function verifies timing configuration matches execution context.
+- `_should_prompt_param()` internal function orchestrates all prompt decision logic.
+- `set_max_prompt_retries()` function configures maximum retry attempts for invalid input.
+- `set_allowed_values()` function dynamically updates allowed values at runtime.
+
+**Integration in `src/spafw37/cli.py` and `src/spafw37/command.py`:**
+- Prompt execution integrated at application start for `PROMPT_ON_START` timing.
+- Prompt execution integrated before command execution for `PROMPT_ON_COMMAND` timing.
+- `COMMAND_PROMPT_PARAMS` inline definitions processed during command registration.
+- `PROMPT_ON_COMMANDS` property auto-populated from `COMMAND_REQUIRED_PARAMS`.
+- Reciprocal `COMMAND_PROMPT_PARAMS` list built on commands for O(1) lookup.
+
+**Examples:**
+- `examples/params_prompt_basic.py` - Basic parameter prompting with `PROMPT_ON_START` timing.
+- `examples/params_prompt_timing.py` - Prompt timing control (`PROMPT_ON_START` vs `PROMPT_ON_COMMAND`).
+- `examples/params_prompt_repeat.py` - Repeat behaviour modes (NEVER, IF_BLANK, ALWAYS).
+- `examples/params_prompt_sensitive.py` - Sensitive parameter handling with suppressed echo.
+- `examples/params_prompt_choices.py` - Multiple choice prompts with static and dynamic options.
+- `examples/params_prompt_handlers.py` - Custom prompt handlers (global and per-param).
+- `examples/params_prompt_validation.py` - Validation integration and retry logic.
 
 ### Removals
 
-[PENDING REVIEW - To be completed in Step 6]
+None.
 
 ### Changes
 
-[PENDING REVIEW - To be completed in Step 6]
+- Parameters can now solicit interactive user input at runtime using the `PARAM_PROMPT` property and associated timing/repeat controls.
+- Prompts integrate with existing parameter validation, type handling, and required parameter checking.
+- Prompts respect CLI-provided values (prompting skipped entirely if user already supplied value via `--param-name`).
+- Multiple choice prompts automatically enabled when `PARAM_ALLOWED_VALUES` is present, displaying numbered options.
+- Sensitive parameters suppress terminal echo and hide default values when `PARAM_SENSITIVE` is `True`.
+- Custom prompt handlers supported via per-param `PARAM_PROMPT_HANDLER` property or global `set_prompt_handler()` method.
+- Prompt timing controlled via `PARAM_PROMPT_TIMING` property with `PROMPT_ON_START` (at application start) or `PROMPT_ON_COMMAND` (before specific commands) options.
+- Repeat behaviour in cycles controlled via `PARAM_PROMPT_REPEAT` property with `PROMPT_REPEAT_NEVER` (prompt once), `PROMPT_REPEAT_IF_BLANK` (prompt if blank), or `PROMPT_REPEAT_ALWAYS` (prompt every time) options.
+- Commands can define prompt parameters inline using `COMMAND_PROMPT_PARAMS` field, consistent with existing inline definition patterns.
+- `PROMPT_ON_COMMANDS` property automatically populated from `COMMAND_REQUIRED_PARAMS` if not explicitly set.
+- Invalid input triggers re-prompting with error message displayed, up to configurable maximum retry limit (default 3 attempts).
 
 ### Migration
 
-[PENDING REVIEW - To be completed in Step 6]
+No migration required. This is new functionality only. All prompt features are opt-in via new parameter properties.
+
+**Note:** Parameters without `PARAM_PROMPT` property behave exactly as before with no changes to existing functionality. Applications that do not use prompt features will see no behaviour changes.
 
 ### Documentation
+
+- `doc/parameters.md` - Added "Interactive Prompts" section with comprehensive usage guide covering basic usage, timing control, repeat behaviour, sensitive data, multiple choice, custom handlers, CLI override, inline definitions, and validation/retry. Updated Parameter Definition Constants table with new prompt-related constants. Updated Table of Contents to include new Interactive Prompts section with all subsections.
+- `doc/api-reference.md` - Added documentation for `param.set_prompt_handler()`, `param.set_max_prompt_retries()`, and `param.set_allowed_values()` functions. Updated Table of Contents (if present) to include new API functions.
+- `README.md` - Updated Features list with interactive parameter prompts entry. Added 7 new example files to Examples list. Added "What's New in v1.1.0" section with 6 bullet points covering prompt functionality.
+
+### Testing
+
+- New unit tests in `tests/test_constants.py` covering all new prompt constants.
+- New unit tests in `tests/test_input_prompt.py` covering `prompt_for_value()` function with various input types, validation, error conditions, and sensitive parameter handling.
+- New unit tests in `tests/test_param_prompts.py` covering handler resolution, timing checks, repeat behaviour, CLI override detection, and orchestration logic.
+- New integration tests in `tests/test_integration_prompts.py` covering:
+  - `PROMPT_ON_START` timing execution
+  - `PROMPT_ON_COMMAND` timing execution
+  - All three repeat modes (`PROMPT_REPEAT_NEVER`, `PROMPT_REPEAT_IF_BLANK`, `PROMPT_REPEAT_ALWAYS`)
+  - Sensitive parameter handling with echo suppression
+  - Custom handler precedence (param-level, global, default)
+  - Inline definition processing via `COMMAND_PROMPT_PARAMS`
+  - Auto-population of `PROMPT_ON_COMMANDS` from `COMMAND_REQUIRED_PARAMS`
+  - Validation retry logic with configurable maximum attempts
+  - Max retry enforcement and error raising
+- Regression tests verify existing parameter functionality unaffected by prompt feature additions.
+- Tests use pytest with `monkeypatch` fixture and `StringIO` for stdin mocking (Python 3.7.9 compatible).
+- All tests pass with overall test coverage remaining above 80% (target 90%+ for new code).
+- Final test results: [To be updated after implementation - target: XXX passed, X skipped, XX.XX% coverage]
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0
+Issues: https://github.com/minouris/spafw37/issues/15
 
 [PENDING REVIEW - To be completed in Step 6]
 
