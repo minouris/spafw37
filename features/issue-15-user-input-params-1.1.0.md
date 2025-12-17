@@ -26,7 +26,7 @@
   - [Implementation Steps](#implementation-steps)
     - [Phase 1: Core Infrastructure](#phase-1-core-infrastructure)
     - [Phase 2: Prompt Execution](#phase-2-prompt-execution)
-    - [Phase 3: Testing and Documentation](#phase-3-testing-and-documentation)
+    - [Phase 3: Documentation](#phase-3-documentation)
 - [Further Considerations](#further-considerations)
   - [1. Design Pattern Research](#1-design-pattern-research---resolved)
   - [2. Architecture Approach Trade-offs](#2-architecture-approach-trade-offs---resolved)
@@ -65,7 +65,79 @@ The solution provides an extensible design with a default handler using Python's
 
 ## Success Criteria
 
-[PENDING REVIEW - To be completed in Step 5]
+- [ ] `PARAM_PROMPT` constant defined in `constants/param.py`
+- [ ] `PARAM_PROMPT_HANDLER` constant defined in `constants/param.py`
+- [ ] `PARAM_PROMPT_TIMING` constant defined in `constants/param.py`
+- [ ] `PARAM_PROMPT_REPEAT` constant defined in `constants/param.py`
+- [ ] `PARAM_SENSITIVE` constant defined in `constants/param.py`
+- [ ] `PROMPT_ON_START` constant defined in `constants/param.py`
+- [ ] `PROMPT_ON_COMMAND` constant defined in `constants/param.py`
+- [ ] `PROMPT_ON_COMMANDS` constant defined in `constants/param.py`
+- [ ] `PROMPT_REPEAT_NEVER` constant defined in `constants/param.py`
+- [ ] `PROMPT_REPEAT_IF_BLANK` constant defined in `constants/param.py`
+- [ ] `PROMPT_REPEAT_ALWAYS` constant defined in `constants/param.py`
+- [ ] `COMMAND_PROMPT_PARAMS` constant defined in `constants/command.py`
+- [ ] `input_prompt.py` module created with `prompt_for_value()` function
+- [ ] `prompt_for_value()` uses `input()` for regular params
+- [ ] `prompt_for_value()` uses `getpass.getpass()` for sensitive params
+- [ ] `prompt_for_value()` displays numbered options for `PARAM_ALLOWED_VALUES`
+- [ ] `prompt_for_value()` validates input immediately with retry logic
+- [ ] `_global_prompt_handler` variable added to `param.py`
+- [ ] `set_prompt_handler()` function added to `param.py`
+- [ ] `_get_prompt_handler()` helper function created
+- [ ] Handler resolution follows precedence: param-level → global → default
+- [ ] `_prompted_params` set added to track prompt history
+- [ ] `_param_value_is_set()` helper function created
+- [ ] `_timing_matches_context()` helper function created
+- [ ] `_should_prompt_param()` orchestration function created
+- [ ] `_should_prompt_param()` respects CLI override (skips if value set)
+- [ ] `_should_prompt_param()` handles `PROMPT_ON_START` timing
+- [ ] `_should_prompt_param()` handles `PROMPT_ON_COMMAND` timing
+- [ ] `_should_prompt_param()` handles `PROMPT_REPEAT_NEVER` behaviour
+- [ ] `_should_prompt_param()` handles `PROMPT_REPEAT_IF_BLANK` behaviour
+- [ ] `_should_prompt_param()` handles `PROMPT_REPEAT_ALWAYS` behaviour
+- [ ] `COMMAND_PROMPT_PARAMS` inline definitions processed in `command.py`
+- [ ] `PROMPT_ON_COMMANDS` auto-populated from `COMMAND_REQUIRED_PARAMS`
+- [ ] Reciprocal `COMMAND_PROMPT_PARAMS` list built on commands
+- [ ] Prompt execution integrated at application start for `PROMPT_ON_START`
+- [ ] Prompt execution integrated before command execution for `PROMPT_ON_COMMAND`
+- [ ] `set_max_prompt_retries()` function added to `param.py`
+- [ ] Max retry enforcement in prompt execution logic
+- [ ] `set_allowed_values()` function added to `param.py`
+- [ ] Unit tests added for all constants
+- [ ] Unit tests added for `prompt_for_value()` function
+- [ ] Unit tests added for handler resolution
+- [ ] Unit tests added for timing checks
+- [ ] Unit tests added for repeat behaviour
+- [ ] Unit tests added for CLI override
+- [ ] Integration tests added for `PROMPT_ON_START` timing
+- [ ] Integration tests added for `PROMPT_ON_COMMAND` timing
+- [ ] Integration tests added for all repeat modes
+- [ ] Integration tests added for sensitive parameter handling
+- [ ] Integration tests added for custom handlers
+- [ ] Integration tests added for inline definitions
+- [ ] Integration tests added for auto-population
+- [ ] Integration tests added for validation retry
+- [ ] Integration tests added for max retry enforcement
+- [ ] Regression tests added for existing parameter functionality
+- [ ] All existing tests still passing
+- [ ] Overall test coverage remains above 80%
+- [ ] Documentation updated in `doc/parameters.md`
+- [ ] API reference updated in `doc/api-reference.md`
+- [ ] README.md updated with feature description
+- [ ] README.md updated with examples list entry
+- [ ] README.md updated with "What's New in v1.1.0" entry
+- [ ] Example created in `examples/params_prompt_basic.py`
+- [ ] Example created in `examples/params_prompt_timing.py`
+- [ ] Example created in `examples/params_prompt_repeat.py`
+- [ ] Example created in `examples/params_prompt_sensitive.py`
+- [ ] Example created in `examples/params_prompt_choices.py`
+- [ ] Example created in `examples/params_prompt_handlers.py`
+- [ ] Example created in `examples/params_prompt_validation.py`
+- [ ] All examples run without errors
+- [ ] Issue #15 closed with reference to implementation
+
+[↑ Back to top](#table-of-contents)
 
 ## Implementation Plan
 
@@ -7369,22 +7441,1037 @@ def test_max_retries_exceeded_raises_exception():
 
 **Step 9: Update documentation**
 
-**Files:** `doc/parameters.md`, `README.md`, `examples/params_prompts.py`
+**Files:** `doc/parameters.md`, `doc/api-reference.md`, `README.md`
 
-Add comprehensive documentation:
-- **New param properties:** Usage guide for all `PARAM_PROMPT*` properties
-- **Timing options:** Examples of `PROMPT_ON_START` vs `PROMPT_ON_COMMAND` with `PROMPT_ON_COMMANDS` property
-- **Repeat behaviour:** Examples of each `PROMPT_REPEAT_*` option in cycles
-- **Custom handlers:** Guide for implementing and registering custom prompt handlers
-- **Multiple choice:** Dynamic population with `set_allowed_values()` examples
-- **CLI override:** Explain how CLI args prevent prompting
-- **Auto-population:** Document `PROMPT_ON_COMMANDS` property auto-population from `COMMAND_REQUIRED_PARAMS`
-- **Inline definitions:** Document `COMMAND_PROMPT_PARAMS` inline definition support (see `examples/inline_definitions_basic.py` and `examples/inline_definitions_advanced.py` for pattern)
-- **Complete examples:** Working examples demonstrating common use cases
+Update documentation to reflect new interactive prompt functionality.
 
-**Note:** The `COMMAND_PROMPT_PARAMS` field supports inline parameter definitions, consistent with `COMMAND_REQUIRED_PARAMS`, `COMMAND_TRIGGER_PARAM`, and dependency fields. This allows commands to define prompt-enabled params directly within their definition without separate `add_param()` calls, enabling rapid prototyping whilst maintaining API consistency.
+**Implementation order:**
 
-[Detailed documentation plan will be added in Step 5]
+1. Update Table of Contents in all affected documentation files
+2. Add version notes to new documentation sections
+3. Update parameters user guide with prompt functionality
+4. Add code examples demonstrating usage patterns
+5. Update API reference with new functions and constants
+6. Update README with feature summary
+7. Add examples to examples list
+8. Add "What's New" entry
+
+**Documentation specifications:**
+
+**Doc 9.1: Parameters guide updates**
+
+Add to `doc/parameters.md`:
+
+**First, update the Parameter Definition Constants table to include new prompt-related constants:**
+
+In the "Advanced Configuration" section of the constants table, add:
+
+| Constant | Description |
+|----------|-------------|
+| `PARAM_PROMPT` | Prompt text to display when soliciting user input. Enables interactive prompting for this parameter. |
+| `PARAM_PROMPT_HANDLER` | Custom handler function for this parameter's prompt. Overrides global handler. Signature: `(param_name: str, prompt_text: str, param_def: dict) -> str` |
+| `PARAM_PROMPT_TIMING` | When to display prompt: `PROMPT_ON_START` (at application start) or `PROMPT_ON_COMMAND` (before specific commands). |
+| `PARAM_PROMPT_REPEAT` | Repeat behaviour: `PROMPT_REPEAT_NEVER` (default, prompt once), `PROMPT_REPEAT_IF_BLANK` (prompt if blank), `PROMPT_REPEAT_ALWAYS` (prompt every time). |
+| `PARAM_SENSITIVE` | Boolean flag to suppress terminal echo and hide default values for sensitive data (passwords, API keys, tokens). |
+
+Add new constants section for "Prompt Timing Options":
+
+| Constant | Description |
+|----------|-------------|
+| `PROMPT_ON_START` | Display prompt at application start (after CLI parsing, before command execution) |
+| `PROMPT_ON_COMMAND` | Display prompt before specific command execution (requires `PROMPT_ON_COMMANDS` property) |
+| `PROMPT_ON_COMMANDS` | List of command names that trigger this prompt (used with `PROMPT_ON_COMMAND` timing) |
+
+Add new constants section for "Prompt Repeat Behaviour Options":
+
+| Constant | Description |
+|----------|-------------|
+| `PROMPT_REPEAT_NEVER` | Prompt only on first occurrence, reuse value for subsequent commands/cycles |
+| `PROMPT_REPEAT_IF_BLANK` | Prompt again if value becomes blank |
+| `PROMPT_REPEAT_ALWAYS` | Prompt every time, preserving previous value as default |
+
+**Then, add the new Interactive Prompts section after the "Custom Input Filters" section:**
+
+````markdown
+## Interactive Prompts
+
+**Added in v1.1.0**
+
+Parameters can solicit interactive user input at runtime using the prompt system. This enables workflows requiring dynamic data entry, confirmation dialogues, or sensitive information that shouldn't appear in command history.
+
+The prompt system integrates with existing parameter validation, type handling, and required parameter checking. Prompts respect CLI-provided values (prompting is skipped if the user already supplied a value via `--param-name`), and support custom handlers for advanced use cases such as GUI prompts or automated testing.
+
+### Basic Usage
+
+Enable prompts by setting the `PARAM_PROMPT` property:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_START,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'username',
+    PARAM_PROMPT: 'Enter username: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+}])
+```
+
+When the application runs, users are prompted to enter a value if none was provided via CLI.
+
+**See example:** [params_prompt_basic.py](examples/params_prompt_basic.py)
+
+### Timing Control
+
+The `PARAM_PROMPT_TIMING` property controls when prompts appear:
+
+**PROMPT_ON_START** - Prompt at application start (after CLI parsing, before command execution):
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_START,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'api_key',
+    PARAM_PROMPT: 'Enter API key: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+}])
+```
+
+**PROMPT_ON_COMMAND** - Prompt before specific command execution:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'confirmation',
+    PARAM_PROMPT: 'Proceed with deletion? (yes/no): ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS: ['delete', 'purge'],
+}])
+```
+
+The `PROMPT_ON_COMMANDS` property specifies which commands trigger the prompt. This property is automatically populated from `COMMAND_REQUIRED_PARAMS` if not explicitly set.
+
+**See example:** [params_prompt_timing.py](examples/params_prompt_timing.py)
+
+### Repeat Behaviour
+
+The `PARAM_PROMPT_REPEAT` property controls prompt frequency in cycles and when multiple commands use the same param:
+
+**PROMPT_REPEAT_NEVER** (default) - Prompt only on first occurrence:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_REPEAT_NEVER,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'batch_size',
+    PARAM_PROMPT: 'Enter batch size: ',
+    PARAM_PROMPT_REPEAT: PROMPT_REPEAT_NEVER,
+}])
+```
+
+**PROMPT_REPEAT_IF_BLANK** - Prompt again if value becomes blank:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_REPEAT_IF_BLANK,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'iteration_count',
+    PARAM_PROMPT: 'Enter count for this iteration: ',
+    PARAM_PROMPT_REPEAT: PROMPT_REPEAT_IF_BLANK,
+}])
+```
+
+**PROMPT_REPEAT_ALWAYS** - Prompt every time (value preserved between prompts):
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_REPEAT_ALWAYS,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'continue_processing',
+    PARAM_PROMPT: 'Continue processing? (yes/no): ',
+    PARAM_PROMPT_REPEAT: PROMPT_REPEAT_ALWAYS,
+}])
+```
+
+**See example:** [params_prompt_repeat.py](examples/params_prompt_repeat.py)
+
+### Sensitive Data
+
+The `PARAM_SENSITIVE` property suppresses terminal echo and hides default values in prompts:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_SENSITIVE,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'password',
+    PARAM_PROMPT: 'Enter password: ',
+    PARAM_SENSITIVE: True,
+}])
+```
+
+When prompting for sensitive params, input is not echoed to the terminal and default values are not displayed in the prompt text.
+
+**See example:** [params_prompt_sensitive.py](examples/params_prompt_sensitive.py)
+
+### Multiple Choice
+
+Use `PARAM_ALLOWED_VALUES` to create selection prompts:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_ALLOWED_VALUES,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'environment',
+    PARAM_PROMPT: 'Select environment',
+    PARAM_ALLOWED_VALUES: ['development', 'staging', 'production'],
+}])
+```
+
+The prompt displays numbered options and validates the user's selection.
+
+For dynamic options, use `set_allowed_values()`:
+
+```python
+from spafw37 import param
+
+available_regions = get_regions_from_api()
+param.set_allowed_values('region', available_regions)
+```
+
+**See example:** [params_prompt_choices.py](examples/params_prompt_choices.py)
+
+### Custom Handlers
+
+Replace the default terminal input handler with custom implementations:
+
+**Global handler** (affects all prompt params):
+
+```python
+from spafw37 import param
+
+def custom_prompt_handler(param_name, prompt_text, param_def):
+    # Custom implementation (e.g., GUI dialogue, automated input)
+    return user_input
+
+param.set_prompt_handler(custom_prompt_handler)
+```
+
+**Per-param handler** (overrides global handler for specific param):
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_PROMPT_HANDLER,
+)
+
+def file_picker_handler(param_name, prompt_text, param_def):
+    # Show file picker dialogue
+    return selected_file_path
+
+spafw37.add_params([{
+    PARAM_NAME: 'input_file',
+    PARAM_PROMPT: 'Select input file',
+    PARAM_PROMPT_HANDLER: file_picker_handler,
+}])
+```
+
+Handler precedence: param-level → global → default
+
+**See example:** [params_prompt_handlers.py](examples/params_prompt_handlers.py)
+
+### CLI Override
+
+Prompts are skipped entirely if the parameter value is provided via CLI:
+
+```bash
+# This will NOT prompt for username
+python myapp.py --username alice process
+```
+
+No confirmation is needed; CLI values take absolute precedence.
+
+**See example:** [params_prompt_basic.py](examples/params_prompt_basic.py) (demonstrates CLI override in usage comments)
+
+### Inline Definitions
+
+Commands can define prompt params inline using `COMMAND_PROMPT_PARAMS`, consistent with `COMMAND_REQUIRED_PARAMS`:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_ALLOWED_VALUES,
+    PARAM_REQUIRED,
+)
+from spafw37.constants.command import (
+    COMMAND_NAME,
+    COMMAND_HANDLER,
+    COMMAND_PROMPT_PARAMS,
+)
+
+spafw37.add_commands([{
+    COMMAND_NAME: 'deploy',
+    COMMAND_HANDLER: deploy_handler,
+    COMMAND_PROMPT_PARAMS: [
+        {
+            PARAM_NAME: 'environment',
+            PARAM_PROMPT: 'Select environment',
+            PARAM_ALLOWED_VALUES: ['dev', 'staging', 'prod'],
+        },
+        {
+            PARAM_NAME: 'confirm',
+            PARAM_PROMPT: 'Proceed with deployment? (yes/no)',
+            PARAM_REQUIRED: True,
+        },
+    ],
+}])
+```
+
+This enables rapid prototyping without separate `add_param()` calls whilst maintaining API consistency.
+
+**See also:** Existing inline definition examples in [inline_definitions_basic.py](examples/inline_definitions_basic.py) and [inline_definitions_advanced.py](examples/inline_definitions_advanced.py)
+
+### Validation and Retry
+
+Prompts integrate with existing parameter validation:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_PROMPT,
+    PARAM_INPUT_FILTER,
+)
+
+def validate_port(value):
+    port = int(value)
+    if not (1 <= port <= 65535):
+        raise ValueError("Port must be between 1 and 65535")
+    return port
+
+spafw37.add_params([{
+    PARAM_NAME: 'port',
+    PARAM_PROMPT: 'Enter port number: ',
+    PARAM_INPUT_FILTER: validate_port,
+}])
+```
+
+Invalid input triggers re-prompting with the error message displayed. The framework retries up to the configured maximum (default 3 attempts) before raising an error.
+
+Configure retry limit:
+
+```python
+from spafw37 import param
+
+param.set_max_prompt_retries(5)
+```
+
+**See example:** [params_prompt_validation.py](examples/params_prompt_validation.py)
+
+---
+````
+
+**Update the Table of Contents in `doc/parameters.md` to include:**
+```markdown
+- [Interactive Prompts](#interactive-prompts)
+  - [Basic Usage](#basic-usage)
+  - [Timing Control](#timing-control)
+  - [Repeat Behaviour](#repeat-behaviour)
+  - [Sensitive Data](#sensitive-data)
+  - [Multiple Choice](#multiple-choice)
+  - [Custom Handlers](#custom-handlers)
+  - [CLI Override](#cli-override)
+  - [Inline Definitions](#inline-definitions)
+  - [Validation and Retry](#validation-and-retry)
+```
+
+**Doc 9.2: API reference updates**
+
+Add to `doc/api-reference.md`:
+
+````markdown
+### `param.set_prompt_handler(handler)`
+
+**Added in v1.1.0**
+
+Sets a global prompt handler function that replaces the default terminal input handler for all prompt-enabled params.
+
+**Parameters:**
+- `handler` - Callable with signature `(param_name: str, prompt_text: str, param_def: dict) -> str`, or `None` to reset to default
+
+**Returns:** None
+
+**Example:**
+```python
+from spafw37 import param
+
+def automated_handler(param_name, prompt_text, param_def):
+    return test_values.get(param_name, 'default')
+
+param.set_prompt_handler(automated_handler)
+```
+
+### `param.set_max_prompt_retries(max_retries)`
+
+**Added in v1.1.0**
+
+Sets the maximum number of retry attempts for invalid input before raising an error.
+
+**Parameters:**
+- `max_retries` - Integer count of maximum retry attempts (must be >= 1)
+
+**Returns:** None
+
+**Example:**
+```python
+from spafw37 import param
+
+param.set_max_prompt_retries(5)
+```
+
+### `param.set_allowed_values(param_name, allowed_values)`
+
+**Added in v1.1.0**
+
+Dynamically updates the allowed values for a parameter at runtime.
+
+**Parameters:**
+- `param_name` - Parameter name string
+- `allowed_values` - List of allowed values
+
+**Returns:** None
+
+**Example:**
+```python
+from spafw37 import param
+
+regions = fetch_available_regions()
+param.set_allowed_values('region', regions)
+```
+
+---
+````
+
+**Update the API reference documentation to add the new functions under the appropriate section (likely "Parameter Module" or "Core Module")**
+
+**If `doc/api-reference.md` has a Table of Contents, update it to include:**
+```markdown
+- `param.set_prompt_handler(handler)` - Set global prompt handler
+- `param.set_max_prompt_retries(max_retries)` - Configure maximum retry attempts  
+- `param.set_allowed_values(param_name, allowed_values)` - Dynamically update allowed values
+```
+
+**Doc 9.3: README updates**
+
+**Note:** README.md does not have a formal Table of Contents, so no ToC updates needed.
+
+**Features list** - Add bullet point to features section:
+```markdown
+- Interactive parameter prompts with timing control, repeat behaviour, sensitive data handling, validation retry, and custom handler support
+```
+
+**Examples list** - Add entries to examples section:
+```markdown
+- **`params_prompt_basic.py`** - Basic parameter prompting with PROMPT_ON_START timing
+- **`params_prompt_timing.py`** - Prompt timing control (PROMPT_ON_START vs PROMPT_ON_COMMAND)
+- **`params_prompt_repeat.py`** - Repeat behaviour modes (NEVER, IF_BLANK, ALWAYS)
+- **`params_prompt_sensitive.py`** - Sensitive parameter handling with suppressed echo
+- **`params_prompt_choices.py`** - Multiple choice prompts with static and dynamic options
+- **`params_prompt_handlers.py`** - Custom prompt handlers (global and per-param)
+- **`params_prompt_validation.py`** - Validation integration and retry logic
+```
+
+**"What's New in v1.1.0" section** - Add concise bullet points:
+```markdown
+## What's New in v1.1.0
+
+- Interactive parameter prompts with `PARAM_PROMPT` property, timing control (`PROMPT_ON_START`, `PROMPT_ON_COMMAND`), and repeat behaviour (`PROMPT_REPEAT_NEVER`, `PROMPT_REPEAT_IF_BLANK`, `PROMPT_REPEAT_ALWAYS`)
+- Sensitive parameter handling with `PARAM_SENSITIVE` property (suppresses terminal echo and hides default values)
+- Custom prompt handlers via `param.set_prompt_handler()` for GUI integration or automated testing
+- Inline prompt parameter definitions via `COMMAND_PROMPT_PARAMS` field for rapid prototyping
+- Automatic population of `PROMPT_ON_COMMANDS` from `COMMAND_REQUIRED_PARAMS` for seamless integration
+- Prompt validation retry with configurable maximum attempts via `param.set_max_prompt_retries()`
+```
+
+**Tests:** Manual review to verify documentation clarity and consistency
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+**Step 10: Create example files**
+
+**Files:** `examples/params_prompt_basic.py`, `examples/params_prompt_timing.py`, `examples/params_prompt_repeat.py`, `examples/params_prompt_sensitive.py`, `examples/params_prompt_choices.py`, `examples/params_prompt_handlers.py`, `examples/params_prompt_validation.py`
+
+Create focused examples demonstrating each type of prompt behaviour.
+
+**Implementation order:**
+
+1. Create basic prompting example
+2. Create timing control example
+3. Create repeat behaviour example
+4. Create sensitive data example
+5. Create multiple choice example
+6. Create custom handlers example
+7. Create validation and retry example
+8. Test all examples run successfully
+
+**Code 10.1: Basic prompting example (`examples/params_prompt_basic.py`)**
+
+```python
+"""Basic parameter prompt demonstration.
+
+This example shows:
+- Basic prompt usage with PROMPT_ON_START timing
+- Text input and multiple choice prompts
+- CLI override behaviour (pass --username value to skip prompt)
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_START,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+def process_command():
+    """Command handler that displays param values."""
+    username = spafw37.get_param_value('username')
+    print(f'Processing for user: {username}')
+
+
+if __name__ == '__main__':
+    spafw37.add_params([{
+        PARAM_NAME: 'username',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Enter username: ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    }])
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'process',
+        COMMAND_HANDLER: process_command,
+    }])
+    
+    # If no CLI args provided, will prompt for username
+    # Try: python params_prompt_basic.py process
+    # Or skip prompt: python params_prompt_basic.py --username alice process
+    spafw37.run_cli()
+```
+
+**Code 10.2: Timing control example (`examples/params_prompt_timing.py`)**
+
+```python
+"""Prompt timing control demonstration.
+
+This example shows:
+- PROMPT_ON_START timing (prompt at application start)
+- PROMPT_ON_COMMAND timing (prompt before specific commands)
+- PROMPT_ON_COMMANDS property (specify which commands trigger prompts)
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_START,
+    PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+def init_command():
+    """Initialisation command."""
+    api_key = spafw37.get_param_value('api_key')
+    print(f'Initialised with API key: {api_key[:10]}...')
+
+
+def delete_command():
+    """Deletion command requiring confirmation."""
+    confirmation = spafw37.get_param_value('confirmation')
+    if confirmation.lower() == 'yes':
+        print('Deletion confirmed and executed')
+    else:
+        print('Deletion cancelled')
+
+
+if __name__ == '__main__':
+    # This param prompts at application start
+    spafw37.add_params([{
+        PARAM_NAME: 'api_key',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Enter API key: ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    }])
+    
+    # This param prompts only before delete command
+    spafw37.add_params([{
+        PARAM_NAME: 'confirmation',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Proceed with deletion? (yes/no): ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['delete'],
+    }])
+    
+    spafw37.add_commands([
+        {
+            COMMAND_NAME: 'init',
+            COMMAND_HANDLER: init_command,
+        },
+        {
+            COMMAND_NAME: 'delete',
+            COMMAND_HANDLER: delete_command,
+        },
+    ])
+    
+    # Try: python params_prompt_timing.py init delete
+    # api_key prompts at start, confirmation prompts before delete
+    spafw37.run_cli()
+```
+
+**Code 10.3: Repeat behaviour example (`examples/params_prompt_repeat.py`)**
+
+```python
+"""Prompt repeat behaviour demonstration.
+
+This example shows:
+- PROMPT_REPEAT_NEVER (prompt only once, reuse value)
+- PROMPT_REPEAT_IF_BLANK (prompt again if value becomes blank)
+- PROMPT_REPEAT_ALWAYS (prompt every time)
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PARAM_PROMPT_REPEAT,
+    PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS,
+    PROMPT_REPEAT_NEVER,
+    PROMPT_REPEAT_ALWAYS,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+iteration_count = [0]
+
+
+def iterate_command():
+    """Command that runs multiple times."""
+    iteration_count[0] += 1
+    batch_size = spafw37.get_param_value('batch_size')
+    continue_flag = spafw37.get_param_value('continue_flag')
+    print(f'Iteration {iteration_count[0]}: batch_size={batch_size}, continue={continue_flag}')
+
+
+if __name__ == '__main__':
+    # This param prompts only once (default behaviour)
+    spafw37.add_params([{
+        PARAM_NAME: 'batch_size',
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_PROMPT: 'Enter batch size: ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['iterate'],
+        PARAM_PROMPT_REPEAT: PROMPT_REPEAT_NEVER,
+    }])
+    
+    # This param prompts every time
+    spafw37.add_params([{
+        PARAM_NAME: 'continue_flag',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Continue processing? (yes/no): ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+        PROMPT_ON_COMMANDS: ['iterate'],
+        PARAM_PROMPT_REPEAT: PROMPT_REPEAT_ALWAYS,
+    }])
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'iterate',
+        COMMAND_HANDLER: iterate_command,
+    }])
+    
+    # Try: python params_prompt_repeat.py iterate iterate iterate
+    # batch_size prompts once, continue_flag prompts every time
+    spafw37.run_cli()
+```
+
+**Code 10.4: Sensitive data example (`examples/params_prompt_sensitive.py`)**
+
+```python
+"""Sensitive parameter handling demonstration.
+
+This example shows:
+- PARAM_SENSITIVE property to suppress echo
+- Password input without terminal display
+- Default value suppression for sensitive params
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PARAM_SENSITIVE,
+    PROMPT_ON_START,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+def login_command():
+    """Login command using password."""
+    username = spafw37.get_param_value('username')
+    password = spafw37.get_param_value('password')
+    print(f'Login attempt for user: {username}')
+    print(f'Password length: {len(password)} characters')
+    print('(Password not displayed for security)')
+
+
+if __name__ == '__main__':
+    spafw37.add_params([
+        {
+            PARAM_NAME: 'username',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter username: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        },
+        {
+            PARAM_NAME: 'password',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter password: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+            PARAM_SENSITIVE: True,
+        },
+    ])
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'login',
+        COMMAND_HANDLER: login_command,
+    }])
+    
+    # Try: python params_prompt_sensitive.py login
+    # Username displays as you type, password does not
+    spafw37.run_cli()
+```
+
+**Code 10.5: Multiple choice example (`examples/params_prompt_choices.py`)**
+
+```python
+"""Multiple choice prompt demonstration.
+
+This example shows:
+- Static multiple choice with PARAM_ALLOWED_VALUES
+- Numbered selection display
+- Dynamic population with set_allowed_values()
+"""
+
+from spafw37 import core as spafw37
+from spafw37 import param
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PARAM_ALLOWED_VALUES,
+    PROMPT_ON_START,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+def deploy_command():
+    """Deployment command."""
+    environment = spafw37.get_param_value('environment')
+    region = spafw37.get_param_value('region')
+    print(f'Deploying to {environment} environment in {region} region')
+
+
+if __name__ == '__main__':
+    # Static multiple choice
+    spafw37.add_params([{
+        PARAM_NAME: 'environment',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Select environment',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        PARAM_ALLOWED_VALUES: ['development', 'staging', 'production'],
+    }])
+    
+    # Dynamic multiple choice
+    spafw37.add_params([{
+        PARAM_NAME: 'region',
+        PARAM_TYPE: PARAM_TYPE_TEXT,
+        PARAM_PROMPT: 'Select region',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    }])
+    
+    # Populate region choices dynamically
+    available_regions = ['us-east', 'us-west', 'eu-central', 'ap-south']
+    param.set_allowed_values('region', available_regions)
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'deploy',
+        COMMAND_HANDLER: deploy_command,
+    }])
+    
+    # Try: python params_prompt_choices.py deploy
+    # Both prompts display numbered options
+    spafw37.run_cli()
+```
+
+**Code 10.6: Custom handlers example (`examples/params_prompt_handlers.py`)**
+
+```python
+"""Custom prompt handler demonstration.
+
+This example shows:
+- Global prompt handler with set_prompt_handler()
+- Per-param handler with PARAM_PROMPT_HANDLER
+- Handler precedence (param-level → global → default)
+"""
+
+from spafw37 import core as spafw37
+from spafw37 import param
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PARAM_PROMPT_HANDLER,
+    PROMPT_ON_START,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+automated_values = {
+    'api_key': 'test-api-key-12345',
+    'region': 'us-west',
+    'batch_size': '100',
+}
+
+
+def automated_handler(param_name, prompt_text, param_def):
+    """Global automated handler for testing."""
+    value = automated_values.get(param_name, 'default')
+    print(f'{prompt_text}{value} (automated)')
+    return value
+
+
+def custom_batch_handler(param_name, prompt_text, param_def):
+    """Custom handler for batch size param only."""
+    print(f'{prompt_text}50 (custom handler)')
+    return '50'
+
+
+def process_command():
+    """Process command."""
+    api_key = spafw37.get_param_value('api_key')
+    region = spafw37.get_param_value('region')
+    batch_size = spafw37.get_param_value('batch_size')
+    print(f'API Key: {api_key[:10]}...')
+    print(f'Region: {region}')
+    print(f'Batch Size: {batch_size}')
+
+
+if __name__ == '__main__':
+    # Set global handler
+    param.set_prompt_handler(automated_handler)
+    
+    # These params use global handler
+    spafw37.add_params([
+        {
+            PARAM_NAME: 'api_key',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter API key: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        },
+        {
+            PARAM_NAME: 'region',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Select region: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        },
+    ])
+    
+    # This param uses custom handler (overrides global)
+    spafw37.add_params([{
+        PARAM_NAME: 'batch_size',
+        PARAM_TYPE: PARAM_TYPE_NUMBER,
+        PARAM_PROMPT: 'Enter batch size: ',
+        PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        PARAM_PROMPT_HANDLER: custom_batch_handler,
+    }])
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'process',
+        COMMAND_HANDLER: process_command,
+    }])
+    
+    # Try: python params_prompt_handlers.py process
+    # All prompts automated, batch_size uses custom handler
+    spafw37.run_cli()
+    
+    # Clean up
+    param.set_prompt_handler(None)
+```
+
+**Code 10.7: Validation and retry example (`examples/params_prompt_validation.py`)**
+
+```python
+"""Prompt validation and retry demonstration.
+
+This example shows:
+- Integration with PARAM_INPUT_FILTER validation
+- Retry logic on invalid input
+- Maximum retry configuration with set_max_prompt_retries()
+- Error messages displayed to user
+"""
+
+from spafw37 import core as spafw37
+from spafw37 import param
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_TYPE_NUMBER,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PARAM_INPUT_FILTER,
+    PROMPT_ON_START,
+)
+from spafw37.constants.command import COMMAND_NAME, COMMAND_HANDLER
+
+
+def validate_port(value):
+    """Validate port number is in valid range."""
+    try:
+        port = int(value)
+        if not (1 <= port <= 65535):
+            raise ValueError("Port must be between 1 and 65535")
+        return port
+    except ValueError as error:
+        raise ValueError(f"Invalid port: {error}")
+
+
+def validate_email(value):
+    """Validate email address format."""
+    if '@' not in value or '.' not in value.split('@')[-1]:
+        raise ValueError("Invalid email format")
+    return value.lower()
+
+
+def connect_command():
+    """Connection command."""
+    host = spafw37.get_param_value('host')
+    port = spafw37.get_param_value('port')
+    email = spafw37.get_param_value('email')
+    print(f'Connecting to {host}:{port}')
+    print(f'Notification email: {email}')
+
+
+if __name__ == '__main__':
+    # Configure maximum retry attempts
+    param.set_max_prompt_retries(3)
+    
+    spafw37.add_params([
+        {
+            PARAM_NAME: 'host',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter hostname: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+        },
+        {
+            PARAM_NAME: 'port',
+            PARAM_TYPE: PARAM_TYPE_NUMBER,
+            PARAM_PROMPT: 'Enter port number: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+            PARAM_INPUT_FILTER: validate_port,
+        },
+        {
+            PARAM_NAME: 'email',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter notification email: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_START,
+            PARAM_INPUT_FILTER: validate_email,
+        },
+    ])
+    
+    spafw37.add_commands([{
+        COMMAND_NAME: 'connect',
+        COMMAND_HANDLER: connect_command,
+    }])
+    
+    # Try: python params_prompt_validation.py connect
+    # Enter invalid port (e.g., 99999) to see retry behaviour
+    # Enter invalid email (e.g., notanemail) to see validation error
+    spafw37.run_cli()
+```
+
+**Tests:** Manual verification that all examples run without errors
 
 [↑ Back to top](#table-of-contents)
 
