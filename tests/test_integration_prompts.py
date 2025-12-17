@@ -43,17 +43,49 @@ from spafw37.constants.command import (
 
 @pytest.fixture(autouse=True)
 def reset_module_state():
-    """Reset module state before and after each test to ensure isolation."""
+    """Reset all framework module state before and after each test to ensure isolation."""
+    from spafw37 import command, config
+    from spafw37.constants.phase import PHASE_DEFAULT
+    
+    # Reset param module
     param._prompted_params.clear()
     param._global_prompt_handler = None
     param._output_handler = None
+    param._max_prompt_retries = 3
+    param._params = {}
+    
+    # Reset command module
+    command._commands = {}
+    command._command_queue = []
+    command._phases_completed = []
+    command._current_phase = None
+    command._phase_order = [PHASE_DEFAULT]
+    command._phases = {PHASE_DEFAULT: []}
+    
+    # Reset config module
+    config._config = {}
+    
+    # Reset cycle module
     cycle.reset_cycle_state()
     
     yield
     
+    # Reset again after test
     param._prompted_params.clear()
     param._global_prompt_handler = None
     param._output_handler = None
+    param._max_prompt_retries = 3
+    param._params = {}
+    
+    command._commands = {}
+    command._command_queue = []
+    command._phases_completed = []
+    command._current_phase = None
+    command._phase_order = [PHASE_DEFAULT]
+    command._phases = {PHASE_DEFAULT: []}
+    
+    config._config = {}
+    
     cycle.reset_cycle_state()
 
 
