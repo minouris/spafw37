@@ -20,6 +20,13 @@ PARAM_GROUP = 'param-group'  # Group name for organising parameters in help disp
 PARAM_IMMUTABLE = 'immutable'  # Immutability flag - prevents modification and removal after initial value set. Boolean flag, default: False
 PARAM_ALLOWED_VALUES = 'allowed-values'  # List of allowed values for TEXT and NUMBER params. Value must be in this list.
 PARAM_SWITCH_CHANGE_BEHAVIOR = 'switch-change-behavior'  # Controls switch group interaction: SWITCH_UNSET, SWITCH_RESET, or SWITCH_REJECT
+PARAM_PROMPT = 'prompt'  # Prompt text to display to user
+PARAM_PROMPT_HANDLER = 'prompt-handler'  # Custom handler function for this param
+PARAM_PROMPT_TIMING = 'prompt-timing'  # When to display prompt (constant or list)
+PARAM_PROMPT_REPEAT = 'prompt-repeat'  # Repeat behaviour for cycles/multiple commands
+PARAM_PROMPT_RETRIES = 'prompt-retries'  # Maximum retry attempts for validation failures
+PARAM_SENSITIVE = 'sensitive'  # Boolean: suppress echo and default display for sensitive data
+PROMPT_ON_COMMANDS = 'prompt-on-commands'  # Property containing list of command names for PROMPT_ON_COMMAND timing
 
 # Param Persistence Options
 PARAM_PERSISTENCE_ALWAYS = 'always'  # Param is always persisted to main config file
@@ -78,3 +85,12 @@ SEPARATOR_TAB = '\t'
 SWITCH_UNSET = 'switch-unset'  # Unset other switches in group using unset_param()
 SWITCH_RESET = 'switch-reset'  # Reset other switches in group using reset_param()
 SWITCH_REJECT = 'switch-reject'  # Reject change if other switches already set (current behaviour)
+
+# Prompt Timing Options
+PROMPT_ON_START = 'on-start'  # Prompt after CLI parsing, before command execution
+PROMPT_ON_COMMAND = 'on-command'  # Prompt before commands (list in PROMPT_ON_COMMANDS property)
+
+# Prompt Repeat Behaviour Options
+PROMPT_REPEAT_NEVER = 'never'  # Never repeat after first prompt
+PROMPT_REPEAT_IF_BLANK = 'if-blank'  # Repeat only if value is blank
+PROMPT_REPEAT_ALWAYS = 'always'  # Repeat every time (preserves previous value)
