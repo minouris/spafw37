@@ -11,7 +11,7 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 
 ## Features
 
-- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, persistence, complete lifecycle management (get/set/unset/reset), and switch change behaviour control for mutually exclusive groups
+- **Flexible Parameter System** - Typed parameters with aliases, defaults, validation, persistence, complete lifecycle management (get/set/unset/reset), switch change behaviour control for mutually exclusive groups, and interactive prompts for user input
 - **Declarative Command Definition** - Define commands with actions, dependencies, and orchestration
 - **Command Orchestration** - Automatic dependency resolution, sequencing, and triggers
 - **Multi-Phase Execution** - Organize commands into setup, cleanup, execution, teardown, and end phases
@@ -161,6 +161,36 @@ from spafw37.constants.param import *
 - [`params_required.py`](https://github.com/minouris/spafw37/blob/main/examples/params_required.py) - Globally required parameters
 - [`params_runtime.py`](https://github.com/minouris/spafw37/blob/main/examples/params_runtime.py) - Runtime-only state management
 - [`params_groups.py`](https://github.com/minouris/spafw37/blob/main/examples/params_groups.py) - Organized parameter display
+
+### Interactive Prompts
+
+Automatically prompt users for missing parameter values at runtime:
+
+```python
+from spafw37.constants.param import *
+
+{
+    PARAM_NAME: 'api-key',
+    PARAM_PROMPT: 'Enter API key: ',
+    PARAM_PROMPT_ON: PROMPT_ON_START,      # Prompt before command execution
+    PARAM_PROMPT_SENSITIVE: True,          # Hide input for passwords/tokens
+}
+```
+
+**Prompt Timing:**
+- `PROMPT_ON_START` - Prompt once before any commands execute
+- `PROMPT_ON_COMMAND` - Prompt before each command that needs the value
+- `PROMPT_NEVER` - Never prompt (default)
+
+**Examples:**
+
+- [`params_prompt_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_basic.py) - Simple interactive prompts
+- [`params_prompt_timing.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_timing.py) - Prompt timing control (start vs per-command)
+- [`params_prompt_handlers.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_handlers.py) - Custom prompt and output handlers
+- [`params_prompt_validation.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_validation.py) - Input validation with retries
+- [`params_prompt_sensitive.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_sensitive.py) - Hidden input for passwords
+- [`params_prompt_repeat.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_repeat.py) - Repeated prompts in cycles
+- [`params_prompt_cli_override.py`](https://github.com/minouris/spafw37/blob/main/examples/params_prompt_cli_override.py) - CLI arguments override prompts
 
 ### Commands
 
@@ -342,6 +372,7 @@ This framework is specifically designed for Python 3.7.x<=9 compatibility, large
 
 ## What's New in v1.1.0
 
+- **Interactive Prompts** - New `PARAM_PROMPT` constant enables interactive user input for parameters that are unset. Control prompt timing with `PARAM_PROMPT_ON` (start, per-command, or never), configure repeated prompts with `PARAM_PROMPT_REPEAT` for cycle iterations, and hide sensitive input with `PARAM_PROMPT_SENSITIVE`. Supports custom prompt handlers, validation with retries, and can be overridden via CLI arguments.
 - **Switch Change Behaviour Control** - New `PARAM_SWITCH_CHANGE_BEHAVIOR` constant controls what happens when setting parameters in mutually exclusive groups: `SWITCH_UNSET` (automatically clear conflicting switches), `SWITCH_RESET` (restore defaults), or `SWITCH_REJECT` (raise error - default). Enables mode switching patterns and state restoration while maintaining backward compatibility.
 - **Allowed Values Validation** - New `PARAM_ALLOWED_VALUES` constant restricts TEXT, NUMBER, and LIST parameters to predefined value sets. TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case. Provides clear error messages when invalid values are provided.
 - **New Parameter API** - Data is now shared, validated and accessed via parameters instead of directly accessing config, with `get_param()`, `set_param()` and `join_param()` providing validated and typed access to parameter values. Customisable value parsers allow for more flexible handling of values on the command line.
