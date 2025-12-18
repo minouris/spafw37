@@ -13,7 +13,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      has_code_changes: ${{ steps.check.outputs.has_code_changes }}
+    steps:
+    - name: Checkout code with full history
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Check for relevant file changes
+      id: check
+      run: |
+        # If manually triggered, always proceed with build
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "Manual trigger detected - bypassing file change check"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Find the most recent tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        
+        # If no tags exist, allow build to proceed
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No tags found - allowing build to proceed"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "Checking changes since tag: $LATEST_TAG"
+        
+        # Get list of changed files since the last tag
+        CHANGED_FILES=$(git diff --name-only "$LATEST_TAG" HEAD)
+        
+        # Define patterns for files that should trigger a release
+        RELEASE_PATTERNS="^(src/|tests/|examples/|doc/|README\.md|setup\.py|setup\.cfg|pyproject\.toml)"
+        
+        # Check if any changed files match the release patterns
+        if echo "$CHANGED_FILES" | grep -E "$RELEASE_PATTERNS" > /dev/null; then
+          echo "Release-worthy changes detected:"
+          echo "$CHANGED_FILES" | grep -E "$RELEASE_PATTERNS"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "No release-worthy changes detected"
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo "has_code_changes=false" >> $GITHUB_OUTPUT
+        fi
+
   prepare-python:
+    needs: check-changes
+    if: needs.check-changes.outputs.has_code_changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Ensure cache directories exist
@@ -58,7 +110,8 @@ jobs:
           ls -la "$PY_PREFIX/bin"
 
   test:
-    needs: prepare-python
+    needs: [check-changes, prepare-python]
+    if: needs.check-changes.outputs.has_code_changes == 'true'
     runs-on: ubuntu-latest
     env:
       PY_PREFIX: ${{ github.workspace }}/.local/python-3.7.9
