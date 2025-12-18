@@ -23,7 +23,6 @@ The fix involves modifying the checkout step to reference the actual PR branch (
 - [Implementation Steps](#implementation-steps)
 - [Further Considerations](#further-considerations)
 - [Success Criteria](#success-criteria)
-- [CHANGES for v1.1.0 Release](#changes-for-v110-release)
 
 ## Implementation Steps
 
@@ -120,23 +119,6 @@ The fix is successful when:
 3. **Changelog updates:** CHANGELOG.md updates are committed and pushed back to the correct branch in both scenarios
 4. **No regressions:** Other jobs in the pre-publish workflow continue to function as before
 5. **Clean workflow runs:** The Pre-Publish Validation workflow shows green checkmarks for both push and pull_request event types
-
-[↑ Back to top](#table-of-contents)
-
-## CHANGES for v1.1.0 Release
-
-### Fixed
-
-**Pre-Publish Validation workflow now works on pull requests**
-
-The Pre-Publish Validation workflow (`.github/workflows/pre-publish.yml`) previously failed when triggered by pull_request events with a "detached HEAD" error. The workflow now correctly checks out the PR branch and pushes changelog updates back to it.
-
-**Technical details:**
-- Modified checkout step to use `github.head_ref || github.ref` to select the appropriate branch reference
-- Modified push command to explicitly specify target branch: `git push origin HEAD:${{ github.head_ref || github.ref }}`
-- Maintains backward compatibility with push events
-
-**Impact:** Automated CHANGELOG.md updates now work correctly for both pull requests and direct pushes to branches.
 
 [↑ Back to top](#table-of-contents)
 
