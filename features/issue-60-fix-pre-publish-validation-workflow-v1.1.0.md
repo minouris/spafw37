@@ -1,6 +1,6 @@
-# Fix: Pre-Publish Validation workflow fails on pull_request events (detached HEAD)
+# Issue #60: Fix Pre-Publish Validation workflow fails on pull_request events (detached HEAD)
 
-**GitHub Issue:** Related to PR minouris/spafw37#60
+**GitHub Issue:** https://github.com/minouris/spafw37/issues/60
 
 ## Overview
 
