@@ -41,6 +41,18 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         run-id: ${{ github.event.workflow_run.id }}
 
+    - name: Check if artifacts exist
+      if: github.event_name == 'workflow_run'
+      id: check_artifacts
+      run: |
+        if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
+          echo "Artifacts found - proceeding with publish"
+          echo "has_artifacts=true" >> $GITHUB_OUTPUT
+        else
+          echo "No artifacts found - build was skipped due to no code changes"
+          echo "has_artifacts=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Configure Git
       run: |
         git config user.name "github-actions[bot]"
@@ -101,13 +113,19 @@ jobs:
         python3 -m build --sdist --wheel
 
     - name: Publish to TestPyPI
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
 
     - name: Bump version after successful publish
-      if: inputs.skip_version_bump != 'true'
+      if: |
+        inputs.skip_version_bump != 'true' &&
+        (github.event_name == 'workflow_dispatch' || 
+         (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true'))
       id: bump_version
       run: |
         NEW_VERSION="${{ steps.next_version.outputs.new_version }}"
@@ -118,6 +136,9 @@ jobs:
         git push origin main
 
     - name: Set publish version
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
       id: publish_version
       run: |
         # Always use the version that was actually published to TestPyPI
@@ -125,6 +146,9 @@ jobs:
         echo "version=${{ steps.read_version.outputs.version }}" >> $GITHUB_OUTPUT
 
     - name: Create git tag
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
       run: |
         TAG="v${{ steps.publish_version.outputs.version }}"
         git tag "$TAG"
@@ -132,12 +156,18 @@ jobs:
         echo "Created and pushed tag: $TAG"
 
     - name: Generate release notes
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
       id: release_notes
       run: |
         python3 .github/scripts/generate_dev_release_notes.py "${{ steps.publish_version.outputs.version }}" > release_notes.md
         echo "Release notes generated"
 
     - name: Create GitHub pre-release
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
       run: |
         TAG="v${{ steps.publish_version.outputs.version }}"
         gh release create "$TAG" \
