@@ -13,7 +13,7 @@ This implementation will add a file change detection mechanism to the Pre-Publis
 **Key architectural decisions:**
 
 - **Detection point:** File change detection occurs in the Pre-Publish Validation workflow before running tests and building distributions
-- **Scope of relevant changes:** Changes to `src/`, `tests/`, `examples/`, `doc/`, `README.md`, `setup.py`, `setup.cfg`, `pyproject.toml`, `requirements.txt`, `requirements-dev.txt` trigger releases
+- **Scope of relevant changes:** Changes to `src/`, `tests/`, `examples/`, `doc/`, `README.md`, `setup.py`, `setup.cfg`, `pyproject.toml` trigger releases
 - **Workflow control:** Use GitHub Actions conditional execution to skip build and publish jobs when no relevant changes are detected
 - **Git-based detection:** Use `git diff` to compare current commit against the most recent release tag to identify changed files
 - **Backward compatibility:** Manual workflow_dispatch triggers bypass the check and always build/publish
@@ -51,7 +51,7 @@ The job will run before all other jobs and its output will be used to conditiona
 
 **Implementation details:**
 
-- **Relevant file patterns:** `src/`, `tests/`, `examples/`, `doc/`, `README.md`, `setup.py`, `setup.cfg`, `pyproject.toml`, `requirements.txt`, `requirements-dev.txt`
+- **Relevant file patterns:** `src/`, `tests/`, `examples/`, `doc/`, `README.md`, `setup.py`, `setup.cfg`, `pyproject.toml`
 - **Tag detection:** Use `git describe --tags --abbrev=0` to find the most recent tag
 - **Fallback:** If no tags exist (first release), assume changes exist and proceed with build
 - **Manual triggers:** When workflow is manually triggered via `workflow_dispatch`, bypass the check and always build
@@ -117,18 +117,19 @@ This prevents attempting to publish non-existent packages and makes the workflow
 
 ---
 
-### 2. What about changes to dependencies?
+### 2. What about changes to dependencies? - RESOLVED
 
 **Question:** Should changes to `requirements.txt` or `requirements-dev.txt` trigger a release even if no code changed?
 
-**Answer:** TO BE DETERMINED - requires user input
+**Answer:** No, dependency changes should not trigger releases on their own. Dependency changes will most likely occur prior to, or alongside, code commits that require those dependencies.
 
 **Rationale:**
-- **Pro (include requirements):** Dependency changes can affect package behaviour and should trigger a release
-- **Con (exclude requirements-dev):** Development dependencies don't affect the published package
-- **Recommendation:** Include `requirements.txt` but potentially exclude `requirements-dev.txt`
+- Dependency updates typically accompany code changes that use those dependencies
+- Standalone dependency updates without corresponding code changes are rare
+- If a dependency must be updated for security or compatibility, it will be accompanied by code that uses or requires the updated dependency
+- Both `requirements.txt` and `requirements-dev.txt` should be excluded from release-triggering patterns
 
-**Implementation:** Affects the file pattern list in Step 1
+**Implementation:** The file pattern list in Step 1 will exclude both `requirements.txt` and `requirements-dev.txt`
 
 [↑ Back to top](#table-of-contents)
 
