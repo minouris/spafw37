@@ -67,6 +67,15 @@ This design keeps the API surface clean and shields applications from internal i
 - Dict parameters support multiple JSON blocks (automatically merged)
 - Dict parameters support file references within JSON (e.g., `{'data': @file.json}`)
 
+**Interactive Prompts:**
+- Added `PARAM_PROMPT` for interactive user input when parameters are unset
+- Added `PARAM_PROMPT_ON` for controlling prompt timing (ON_START, ON_COMMAND, NEVER)
+- Added `PARAM_PROMPT_REPEAT` for repeated prompts during cycles
+- Added `PARAM_PROMPT_SENSITIVE` for hiding sensitive input (passwords, tokens)
+- Added `set_prompt_handler()` for custom prompt implementations
+- Added `set_max_prompt_retries()` for configurable retry limits
+- Added `set_output_handler()` for custom message output
+
 ## Import Pattern
 
 **Recommended import pattern for all applications:**
@@ -614,6 +623,127 @@ spafw37.reset_param(param_name='runtime-state')  # If no PARAM_DEFAULT, removes 
 - Cleaning up between test runs
 
 **See:** [Parameters Guide - Unsetting and Resetting Parameter Values](parameters.md#unsetting-and-resetting-parameter-values) for when to use unset vs reset.
+
+##### `set_prompt_handler(handler_function)`
+
+**Added in v1.1.0**
+
+Set a custom prompt handler function for interactive parameter prompts ([see example](../examples/params_prompt_handlers.py)).
+
+```python
+def my_prompt_handler(param_config):
+    """Custom handler with validation and formatting."""
+    prompt_text = param_config.get('PARAM_PROMPT', 'Enter value: ')
+    while True:
+        value = input(prompt_text)
+        if value:
+            return value
+        print("Value cannot be empty. Please try again.")
+
+# Register custom handler
+spafw37.set_prompt_handler(my_prompt_handler)
+```
+
+**Args:**
+- `handler_function` (callable) - Function that accepts `param_config` dict and returns user input string
+
+**Handler Function Contract:**
+- **Input:** `param_config` (dict) - Complete parameter configuration dictionary
+- **Output:** User input value as string (will be processed by PARAM_INPUT_FILTER if configured)
+- **Behavior:** Should handle prompting, validation, retries internally
+- **Exceptions:** Should not raise exceptions for validation failures (handle internally or return empty string)
+
+**Common usage:**
+- Custom prompt formatting (colours, styles, rich UI)
+- Built-in validation before returning value
+- Integration with third-party input libraries (e.g., `prompt_toolkit`)
+- Logging or auditing user inputs
+- Different prompts for different environments (terminal types, CI/CD)
+
+**Default handler:** Uses Python's built-in `input()` function with configurable retry logic
+
+**See:** [Parameters Guide - Interactive Prompts](parameters.md#interactive-prompts) for complete prompt handler documentation.
+
+##### `set_max_prompt_retries(max_retries)`
+
+**Added in v1.1.0**
+
+Set the maximum number of retry attempts for invalid inputs when using the default prompt handler ([see example](../examples/params_prompt_handlers.py)).
+
+```python
+# Allow 5 attempts for complex validations
+spafw37.set_max_prompt_retries(5)
+
+# Infinite retries (loop until valid input or Ctrl+C)
+spafw37.set_max_prompt_retries(None)
+
+# Fail immediately on first invalid input
+spafw37.set_max_prompt_retries(0)
+```
+
+**Args:**
+- `max_retries` (int or None) - Maximum retry attempts, or `None` for infinite retries
+
+**Default:** `3` retry attempts
+
+**Behavior:**
+- Only affects the **default prompt handler** (not custom handlers)
+- Counts invalid inputs returned by `PARAM_INPUT_FILTER`
+- When limit reached, framework raises `ValueError` with all validation errors
+- Custom handlers manage their own retry logic
+
+**Common usage:**
+- Strict validation requiring immediate failure (`max_retries=0`)
+- Complex validations needing more attempts (`max_retries=5`)
+- Development/debugging with infinite retries (`max_retries=None`)
+- Production systems with controlled retry limits
+
+**Note:** This setting is global and affects all parameters using the default prompt handler.
+
+**See:** [Parameters Guide - Interactive Prompts](parameters.md#interactive-prompts) for retry behaviour details.
+
+##### `set_output_handler(handler_function)`
+
+**Added in v1.1.0**
+
+Set a custom output handler function for displaying prompt messages and errors ([see example](../examples/params_prompt_handlers.py)).
+
+```python
+import logging
+
+def logging_output_handler(message):
+    """Send prompt output to logger instead of stdout."""
+    logging.info(message)
+
+# Register custom output handler
+spafw37.set_output_handler(logging_output_handler)
+```
+
+**Args:**
+- `handler_function` (callable) - Function that accepts a message string and handles output
+
+**Handler Function Contract:**
+- **Input:** `message` (str) - Formatted message text (prompt text, validation errors, retry messages)
+- **Output:** None
+- **Behavior:** Should handle message display (stdout, stderr, logging, UI, etc.)
+- **Exceptions:** Should not raise exceptions (swallow errors or log internally)
+
+**Common usage:**
+- Redirecting output to logging system
+- Suppressing output in automated environments
+- Custom formatting or colouring
+- Integration with UI frameworks
+- Capturing output for testing
+
+**Default handler:** Uses `print()` to write to stdout
+
+**Messages sent to output handler:**
+- Prompt text (from `PARAM_PROMPT`)
+- Validation error messages (from `PARAM_INPUT_FILTER`)
+- Retry attempt messages
+- Final failure messages (after max retries exceeded)
+
+**See:** [Parameters Guide - Interactive Prompts](parameters.md#interactive-prompts) for complete output handler documentation.
 
 #### Configuration API (Deprecated)
 

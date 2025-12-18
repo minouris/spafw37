@@ -16,6 +16,18 @@ These instructions apply to all Python files regardless of Python version. For v
 
 ## Nested-Structure and Single-Responsibility Rules (Mandatory)
 
+**These rules apply to ALL Python code in the repository, including:**
+- Production code in `src/`
+- Example code in `examples/`
+- **Code examples in documentation files (*.md)**
+- **Code in implementation plans in `features/`**
+- **Pseudocode and planned code in architecture documents**
+- Any other Python code anywhere in the repository
+
+**Exception: Test code in `tests/`** - Test functions are allowed to be self-contained full subprograms and need not be split into helpers. However, extracting test helper functions for repeated setup or verification logic is encouraged.
+
+**No other exceptions.** If you're writing Python code (even in a markdown file as an example or plan), it must follow these rules. Planning code that violates these rules will result in implemented code that inherits those violations.
+
 These rules enforce code clarity, reduce cognitive load, and ensure all code is thoroughly tested.
 
 ### Nesting Depth and Block Size Limits
@@ -217,6 +229,62 @@ for i in range(len(lines)):
     result = parse_line(l)
 ```
 
+## Constants
+
+**All repeated values must be extracted to named constants:**
+- Any value used more than once in a module should be defined as a constant with a sensible, descriptive name
+- Constants improve maintainability and make the code's intent clearer
+- Use `UPPER_SNAKE_CASE` for constant names
+
+**Constants defining keys (e.g., dictionary keys, configuration keys):**
+- Follow the format: `DICT_KEY = 'dict-key'`
+- Constant name in `UPPER_SNAKE_CASE`
+- Value mirrors the name in lowercase with hyphens instead of underscores
+- This pattern makes it easy to identify the actual key value while maintaining Python naming conventions
+
+```python
+# Dictionary key constants:
+USER_NAME = 'user-name'
+EMAIL_ADDRESS = 'email-address'
+SESSION_ID = 'session-id'
+
+# Usage:
+user_data = {
+    USER_NAME: 'Alice',
+    EMAIL_ADDRESS: 'alice@example.com',
+    SESSION_ID: 'abc123'
+}
+```
+
+**Scope and visibility:**
+- Constants used only within a single function should be defined at the top of that function
+- Constants used across multiple functions in a module should be defined at module level
+- Constants used only within the module (not exported) should be private: `_PRIVATE_CONSTANT`
+- Constants intended for import by other modules should be public: `PUBLIC_CONSTANT`
+
+```python
+# Module-level public constant (exported for use by other modules):
+DEFAULT_TIMEOUT = 30
+
+# Module-level private constant (internal to this module only):
+_INTERNAL_BUFFER_SIZE = 1024
+
+def process_data(data):
+    """Process data with local configuration."""
+    # Function-level private constant (only used in this function):
+    _MAX_RETRIES = 3
+    
+    for retry_count in range(_MAX_RETRIES):
+        if attempt_processing(data, _INTERNAL_BUFFER_SIZE):
+            return True
+    return False
+```
+
+**Best practices:**
+- Extract magic numbers and strings to constants with descriptive names
+- Group related constants together at the top of the module or in a dedicated constants module
+- Use constants instead of repeating the same literal value multiple times
+
 ## Import Rules
 
 **Prefer absolute imports** for all modules within the package, rather than relative (dot) notation:
@@ -269,7 +337,7 @@ from package.module import function_name
 function_name(args)
 ```
 
-**When importing modules with common names** (like `core`, `utils`, `config`) that might conflict with application code, use an alias that clearly identifies the package to prevent namespace collisions:
+**For importing modules with common names** (like `core`, `utils`, `config`) that might conflict with application code, use an alias that clearly identifies the package to prevent namespace collisions:
 ```python
 # Preferred for demo/example code to prevent collisions:
 from mypackage import core as mypackage
@@ -279,6 +347,80 @@ mypackage.run()
 from mypackage import core
 core.run()
 ```
+
+## ANTI-PATTERN: Inline Imports (PROHIBITED)
+
+**NEVER place import statements inside functions.**
+
+All imports must be at module level (top of file) unless there is a specific, documented circular import issue.
+
+**Example of PROHIBITED pattern:**
+```python
+def some_function():
+    """Do something."""
+    from spafw37.constants.param import PARAM_NAME  # ❌ WRONG
+    from spafw37 import other_module  # ❌ WRONG
+    
+    return other_module.do_thing()
+```
+
+**Correct pattern - REQUIRED:**
+```python
+# At top of file
+from spafw37.constants.param import PARAM_NAME
+from spafw37 import other_module
+
+def some_function():
+    """Do something."""
+    return other_module.do_thing()
+```
+
+**Exception:** Circular imports may require delayed imports. If you need this, add a comment explaining why:
+```python
+def special_function():
+    """Function that needs delayed import due to circular dependency."""
+    # Import here to avoid circular import between module_a and module_b
+    from spafw37 import module_b
+    return module_b.do_thing()
+```
+
+## ANTI-PATTERN: Modules as Function Parameters (PROHIBITED)
+
+**NEVER pass modules or classes as function parameters.**
+
+If a function needs something from a module, import it at the top of the file and use it directly.
+
+**Functions and callbacks as parameters are allowed** - this anti-pattern specifically applies to passing entire modules or classes.
+
+**Example of PROHIBITED pattern:**
+```python
+def process_data(data, param_module, command_module):  # ❌ WRONG
+    """Process data using modules."""
+    value = param_module.get_param(data)
+    return command_module.process(value)
+```
+
+**Correct pattern - REQUIRED:**
+```python
+# At top of file
+from spafw37 import param
+from spafw37 import command
+
+def process_data(data):
+    """Process data using params and commands."""
+    value = param.get_param(data)
+    return command.process(value)
+```
+
+**Allowed - Functions/callbacks as parameters:**
+```python
+# This is fine - passing a function/callback
+def execute_with_handler(data, handler_function):
+    """Execute with custom handler."""
+    return handler_function(data)
+```
+
+**Why this matters:** Passing modules as arguments suggests confused architecture. Functions should declare their dependencies via imports at the top of the file, not receive them as parameters. This makes dependencies clear and explicit.
 
 ## Architectural Patterns
 

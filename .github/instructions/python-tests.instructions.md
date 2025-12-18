@@ -70,6 +70,42 @@ def test_validate_email_accepts_valid_addresses():
     assert result is True
 ```
 
+### Including Gherkin Scenarios in Test Docstrings
+
+**NOTE: This requirement has an exemption for plan documents (`features/**/*.md`) - see exemption details below.**
+
+**When implementing tests from Gherkin specifications, include the Gherkin scenario in the test docstring:**
+
+This provides clear traceability between the specification and implementation, making it easy to understand the test's purpose and verify it matches the requirements.
+
+**Exemption for plan documents:** When writing test specifications in plan documents (`features/**/*.md`), the Gherkin scenarios are written separately in their own code blocks before the Python test implementation. The Gherkin will be added to the test docstrings when the final implementation files are generated from the plan.
+
+**Format:**
+```python
+def test_validate_email_accepts_valid_addresses():
+    """Test that the email validator accepts properly formatted email addresses.
+    
+    This test verifies that email addresses with valid username@domain.tld format
+    pass validation without raising exceptions or returning errors.
+    This behaviour is expected because RFC 5322 specifies this as a valid email format.
+    
+    Scenario: Valid email address
+      Given an email address "user@example.com"
+      When the validator checks the email
+      Then it should return True
+      And no exceptions should be raised
+    """
+    setup_function()
+    result = validate_email("user@example.com")
+    assert result is True
+```
+
+**Key points:**
+- Place the Gherkin scenario **after** the three-sentence description
+- Maintain proper Gherkin indentation (two spaces for Given/When/Then/And)
+- The Gherkin scenario should match the actual test implementation
+- If the test implementation differs from the original Gherkin specification, update the docstring to reflect what the test actually does
+
 ## Test Granularity
 
 **Each test function MUST test exactly one outcome or behaviour at a time:**

@@ -15,7 +15,7 @@ When reviewing pull requests following a code review:
 4. **Address all file types** - PR comments may reference:
    - Source code files (tests, implementation)
    - Documentation files (markdown, examples)
-   - Planning documents (features/*.md) - these often contain code examples that must follow the same standards as production code
+   - Planning documents (features/*.md) - these must follow the structure rules in `.github/instructions/plan-structure.instructions.md` and code examples must follow the same standards as production code
 
 5. **No assumptions** - Do not assume you've addressed a comment without explicit confirmation
 

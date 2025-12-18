@@ -17,8 +17,10 @@ When creating issue planning documents, follow the structure defined in the ISSU
 4. **Program Flow Analysis** (when applicable) - Comparison of old vs new program flow
 5. **Implementation Steps** - Numbered, detailed steps with files, tests, code examples
 6. **Further Considerations** - Questions, decisions, and rationale
-7. **Success Criteria** - How to verify the implementation is complete
-8. **CHANGES for vX.Y.Z Release** - See Changes Documentation below
+7. **Fixing Regressions** (if applicable) - Additional steps discovered during testing
+8. **Success Criteria** - How to verify the implementation is complete
+9. **Implementation Plan Changes** (if applicable) - Documents evolution of the plan
+10. **CHANGES for vX.Y.Z Release** - See Changes Documentation below
 
 **Key principles:**
 - Be thorough and specific - include file paths, function names, exact specifications
@@ -203,6 +205,81 @@ With `SWITCH_UNSET` configured, programmatic usage exhibits automatic conflict r
 3. **Behaviour abstraction**: `_get_switch_change_behavior()` respects config in programmatic usage but overrides when batch mode enabled
 4. **Validation renamed**: `_validate_xor_conflicts()` → `_handle_switch_group_behavior()`
 ````
+
+[↑ Back to top](#table-of-contents)
+
+### Fixing Regressions Section
+
+**When to include:** After core implementation (Steps 1-N) is complete and testing reveals issues requiring fixes. Omit if all tests pass after core implementation.
+
+**Position in document:** After Further Considerations, before Success Criteria.
+
+**Purpose:** Document fixes for bugs or incorrect behavior discovered during post-implementation testing, separate from the planned implementation steps.
+
+**Structure:**
+
+Each regression fix should be documented as a numbered step continuing from the last implementation step (N+1, N+2, etc.). Use ✅ COMPLETE marker when implemented. Each step should include numbered code blocks matching the hierarchical numbering system, and for test updates, use OLD/NEW Gherkin scenarios to document expected behavior changes.
+
+See template at `.github/instructions/templates/ISSUE-PLAN.md` for complete examples.
+
+[↑ Back to top](#table-of-contents)
+
+### Implementation Plan Changes Section
+
+**When to include:** When the plan evolves during implementation. Omit if implementation follows the original plan exactly.
+
+**Position in document:** After Success Criteria, before CHANGES section.
+
+**Purpose:** Provide transparency about how the implementation process evolved, what was discovered during testing, and why additional steps were needed.
+
+**Structure:**
+
+1. **Post-Implementation Analysis:** List test failures or issues discovered, categorize by type
+2. **Additional Implementation Steps:** List additional steps added (N+1, N+2) with brief descriptions
+3. **Additional Considerations:** List considerations documented post-implementation with resolution status
+4. **Timeline:** Chronological summary including core implementation, additional steps, final results
+
+See template at `.github/instructions/templates/ISSUE-PLAN.md` for complete example.
+
+[↑ Back to top](#table-of-contents)
+
+### Status Tracking in Steps
+
+**When to use:** Mark steps as complete when implemented to provide clear progress tracking.
+
+**Format:** Add ✅ COMPLETE marker to step title and include brief status line.
+
+**Example:**
+
+```markdown
+### 7. Fix _has_switch_conflict() for mixed-type switch groups ✅ COMPLETE
+
+**Status:** COMPLETE - All 4 logging tests now pass
+```
+
+[↑ Back to top](#table-of-contents)
+
+### Enhanced CHANGES Section Documentation
+
+**Migration notes for behavior changes:**
+
+When implementation includes behavior changes that might affect existing code, add explicit warnings with concrete examples of what changed and what users need to update.
+
+**Detailed testing documentation:**
+
+The Testing subsection should include:
+- Count and location of new tests
+- Count and list of updated tests with specific descriptions
+- Comprehensive coverage list (what aspects are tested)
+- Final test results (passed count, skipped count, coverage percentage)
+
+**Bug fix documentation:**
+
+When regression fixes include actual bug fixes (not just behavior changes), document them explicitly in the Changes section with technical details about what was wrong and what's now correct.
+
+See template at `.github/instructions/templates/ISSUE-PLAN.md` for complete examples.
+
+[↑ Back to top](#table-of-contents)
 
 ### Documentation Update Section
 

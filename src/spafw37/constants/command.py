@@ -48,6 +48,7 @@ COMMAND_PHASE = "command-phase"                 # Phase in which this command sh
 COMMAND_FRAMEWORK = "framework"                 # True if this is a framework-defined command (vs app-defined)
 COMMAND_EXCLUDE_HELP = "exclude-from-help"      # True if this command should be excluded from help displays
 COMMAND_CYCLE = "command-cycle"                 # Attaches a cycle to a command, from the command side
+COMMAND_PROMPT_PARAMS = 'prompt-params'         # List of param names that prompt before this command
 COMMAND_INVOCABLE = "command-invocable"         # Marks a command as invocable by a param-trigger, or a CLI command. Default true for 
                                                 # regular commands, false for cycle-internal commands. Should not be shown in help, except as
                                                 # a child of a cycle command, but command help text will be shown as part of the help for the 

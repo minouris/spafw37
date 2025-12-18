@@ -6,6 +6,7 @@ from spafw37.constants.param import (
     PARAM_ALLOWED_VALUES,
     PARAM_NAME,
     PARAM_CONFIG_NAME,
+    PARAM_REQUIRED,
     PARAM_RUNTIME_ONLY,
     PARAM_TYPE,
     PARAM_ALIASES,
@@ -35,6 +36,18 @@ from spafw37.constants.param import (
     SWITCH_UNSET,
     SWITCH_RESET,
     SWITCH_REJECT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_HANDLER,
+    PARAM_PROMPT_TIMING,
+    PARAM_PROMPT_REPEAT,
+    PARAM_PROMPT_RETRIES,
+    PARAM_SENSITIVE,
+    PROMPT_ON_COMMANDS,
+    PROMPT_ON_START,
+    PROMPT_ON_COMMAND,
+    PROMPT_REPEAT_ALWAYS,
+    PROMPT_REPEAT_IF_BLANK,
+    PROMPT_REPEAT_NEVER,
 )
 from spafw37 import config
 
@@ -65,6 +78,21 @@ _registration_mode = False
 
 # Module-level switch behaviour constant for registration mode
 _SWITCH_REGISTER = 'switch-register'  # Internal: Skip validation during registration
+
+# Global prompt handler storage (None = use default handler)
+_global_prompt_handler = None
+
+# Tracked params that have been prompted (for PROMPT_REPEAT_NEVER)
+_prompted_params = set()
+
+# Auto-population flag marker (internal use only)
+_PROMPT_AUTO_POPULATE = '_prompt_auto_populate'
+
+# Maximum prompt retry count (-1 for infinite, 0 for no retries, N for N retries)
+_max_prompt_retries = 3
+
+# Output handler for user-facing messages (None = use print())
+_output_handler = None
 
 
 # Helper functions for inline object definitions
@@ -1098,6 +1126,71 @@ def _set_param_default(_param):
     set_param(param_name=param_name, value=default_value)
 
 
+def _validate_prompt_timing(timing_value):
+    """Validate PARAM_PROMPT_TIMING value is a recognised constant.
+    
+    Args:
+        timing_value: Value from PARAM_PROMPT_TIMING property.
+        
+    Raises:
+        ValueError: If timing value is not valid.
+    """
+    if timing_value == PROMPT_ON_START:
+        return
+    if timing_value == PROMPT_ON_COMMAND:
+        return
+    raise ValueError(
+        "PARAM_PROMPT_TIMING must be PROMPT_ON_START or PROMPT_ON_COMMAND constant"
+    )
+
+
+def _validate_prompt_repeat(repeat_value):
+    """Validate PARAM_PROMPT_REPEAT value is a recognised constant.
+    
+    Args:
+        repeat_value: Value from PARAM_PROMPT_REPEAT property.
+        
+    Raises:
+        ValueError: If repeat value is not valid.
+    """
+    valid_repeats = (PROMPT_REPEAT_ALWAYS, PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER)
+    if repeat_value not in valid_repeats:
+        raise ValueError(
+            "PARAM_PROMPT_REPEAT must be one of: PROMPT_REPEAT_ALWAYS, "
+            "PROMPT_REPEAT_IF_BLANK, PROMPT_REPEAT_NEVER"
+        )
+
+
+def _validate_and_process_prompt_properties(_param):
+    """Validate and process prompt-related properties during parameter registration.
+    
+    Args:
+        _param: Parameter definition dictionary.
+        
+    Raises:
+        ValueError: If prompt properties are invalid or required fields missing.
+    """
+    if PARAM_PROMPT not in _param:
+        return
+    prompt_text = _param[PARAM_PROMPT]
+    if not isinstance(prompt_text, str) or not prompt_text.strip():
+        param_name = _param.get(PARAM_NAME, '<unknown>')
+        raise ValueError(
+            "PARAM_PROMPT must be a non-empty string for param '{0}'".format(param_name)
+        )
+    if PARAM_TYPE not in _param:
+        param_name = _param.get(PARAM_NAME, '<unknown>')
+        raise ValueError(
+            "PARAM_TYPE is required for prompt-enabled param '{0}'".format(param_name)
+        )
+    if PARAM_PROMPT_TIMING in _param:
+        _validate_prompt_timing(_param[PARAM_PROMPT_TIMING])
+    else:
+        _param[_PROMPT_AUTO_POPULATE] = True
+    if PARAM_PROMPT_REPEAT in _param:
+        _validate_prompt_repeat(_param[PARAM_PROMPT_REPEAT])
+
+
 def add_param(_param):
     """Add a parameter and activate it immediately.
     
@@ -1112,6 +1205,7 @@ def add_param(_param):
     _assign_default_input_filter(_param)
     _validate_and_normalise_default(_param)
     _apply_runtime_only_constraint(_param)
+    _validate_and_process_prompt_properties(_param)
     
     _params[_param_name] = _param
     
@@ -1172,6 +1266,318 @@ def add_pre_parse_args(preparse_args):
     """
     global _preparse_args
     _preparse_args.extend(preparse_args)
+
+
+def set_prompt_handler(handler):
+    """Set the global prompt handler function for all parameters.
+    
+    This handler will be used for any parameter prompts that don't have
+    a param-specific PARAM_PROMPT_HANDLER defined. Set to None to restore
+    the default handler (input_prompt.prompt_for_value).
+    
+    Args:
+        handler: Callable that accepts param_def dict and returns user input value.
+                 Signature: handler(param_def) -> value
+    """
+    global _global_prompt_handler
+    _global_prompt_handler = handler
+
+
+def set_allowed_values(param_name, values):
+    """Set or update the allowed values list for a parameter at runtime.
+    
+    This enables dynamic population of multiple choice prompts by commands
+    or other runtime logic without creating bidirectional dependencies.
+    
+    Args:
+        param_name: Name of the parameter to update.
+        values: List of allowed string values for the parameter.
+        
+    Raises:
+        KeyError: If param_name is not a registered parameter.
+        ValueError: If values is not a list.
+    """
+    if param_name not in _params:
+        raise KeyError("Parameter '{0}' is not registered".format(param_name))
+    if not isinstance(values, list):
+        raise ValueError("Allowed values must be a list")
+    _params[param_name][PARAM_ALLOWED_VALUES] = values
+
+
+def set_output_handler(handler):
+    """Set output handler for user-facing error messages during prompts.
+    
+    This allows param module to display error messages without depending on core.
+    If not set, defaults to print().
+    
+    Args:
+        handler: Callable that takes a message string and displays it to user.
+                 Typically set to core.output by the framework during initialization.
+    """
+    global _output_handler
+    _output_handler = handler
+
+
+def set_max_prompt_retries(count):
+    """Set global maximum retry count for validation failures.
+    
+    This configures the default retry behaviour for all params. Individual params
+    can override this using PARAM_PROMPT_RETRIES property.
+    
+    Args:
+        count: Maximum retries. -1 for infinite, 0 for no retries, N for N retries.
+    """
+    global _max_prompt_retries
+    _max_prompt_retries = count
+
+
+def log_param(level, message, param_def):
+    """Log message with PARAM_SENSITIVE awareness.
+    
+    For sensitive params, redacts detailed error information to prevent
+    credential leakage in logs.
+    
+    Args:
+        level: Log level (logging.ERROR, logging.INFO, etc.)
+        message: Full message to log (may contain sensitive data)
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+    """
+    param_name = param_def.get(PARAM_NAME, 'unknown')
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    if is_sensitive:
+        sanitized_message = "Invalid value for sensitive param '{0}'".format(param_name)
+    else:
+        sanitized_message = message
+    logging.log(_level=level, _message=sanitized_message)
+
+
+def raise_param_error(error, param_def):
+    """Raise exception with PARAM_SENSITIVE awareness.
+    
+    For sensitive params, raises new exception with sanitized message to prevent
+    credential leakage in exception traces, monitoring tools, and error logs.
+    For non-sensitive params, raises original error with full details.
+    
+    Args:
+        error: The exception to raise (ValueError, TypeError, etc.)
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+        
+    Raises:
+        Exception of same type as error parameter
+    """
+    is_sensitive = param_def.get(PARAM_SENSITIVE, False)
+    if is_sensitive:
+        param_name = param_def.get(PARAM_NAME, 'unknown')
+        sanitized_error = type(error)(
+            "Invalid value for sensitive param '{0}'".format(param_name)
+        )
+        raise sanitized_error
+    else:
+        raise error
+
+
+def _get_prompt_handler(param_def):
+    """Resolve prompt handler for param using three-tier precedence.
+    
+    Resolution order: param-level → global → default
+    
+    Args:
+        param_def: Parameter definition dictionary
+        
+    Returns:
+        Callable prompt handler function
+    """
+    if PARAM_PROMPT_HANDLER in param_def and param_def[PARAM_PROMPT_HANDLER] is not None:
+        return param_def[PARAM_PROMPT_HANDLER]
+    if _global_prompt_handler is not None:
+        return _global_prompt_handler
+    from spafw37 import input_prompt
+    return input_prompt.prompt_for_value
+
+
+def _param_value_is_set(param_name):
+    """Check if parameter has a non-empty value (CLI override detection).
+    
+    Args:
+        param_name: Name of the parameter to check.
+        
+    Returns:
+        True if param has non-empty value, False otherwise.
+    """
+    if param_name not in _params:
+        return False
+    value = get_param(param_name=param_name)
+    if value is None:
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
+    return True
+
+
+def _timing_matches_context(param_def, command_name):
+    """Check if param's timing configuration matches execution context.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        command_name: Command name string or None for start-of-execution context
+        
+    Returns:
+        True if timing matches context, False otherwise
+    """
+    timing = param_def.get(PARAM_PROMPT_TIMING, PROMPT_ON_START)
+    if timing == PROMPT_ON_START:
+        return command_name is None
+    if timing == PROMPT_ON_COMMAND:
+        if command_name is None:
+            return False
+        prompt_commands = param_def.get(PROMPT_ON_COMMANDS, [])
+        return command_name in prompt_commands
+    return False
+
+
+def _should_repeat_prompt(param_def, param_name):
+    """Check if param should repeat prompt based on repeat behaviour configuration.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        param_name: Parameter name string
+        
+    Returns:
+        True if should prompt again, False otherwise
+    """
+    repeat_mode = param_def.get(PARAM_PROMPT_REPEAT, PROMPT_REPEAT_ALWAYS)
+    if repeat_mode == PROMPT_REPEAT_ALWAYS:
+        return True
+    if repeat_mode == PROMPT_REPEAT_IF_BLANK:
+        return not _param_value_is_set(param_name)
+    if repeat_mode == PROMPT_REPEAT_NEVER:
+        return param_name not in _prompted_params
+    return True
+
+
+def _should_prompt_param(param_def, command_name=None, check_value=True):
+    """Determine whether param should prompt in current context.
+    
+    Consolidates CLI override, timing, and repeat behaviour checks.
+    
+    Args:
+        param_def: Parameter definition dictionary
+        command_name: Command name for command-timing context, None for start-timing
+        check_value: If True, skip prompt if param already has value (CLI override)
+        
+    Returns:
+        True if prompt should execute, False otherwise
+    """
+    param_name = param_def.get(PARAM_NAME)
+    if check_value and _param_value_is_set(param_name):
+        return False
+    if not _timing_matches_context(param_def, command_name):
+        return False
+    return _should_repeat_prompt(param_def, param_name)
+
+
+def _should_continue_after_prompt_error(max_retries, retry_count):
+    """Determine if prompt should continue after validation error.
+    
+    Pure logic function with no side effects. Returns decision based solely on
+    retry configuration and current count.
+    
+    Args:
+        max_retries: Maximum retry count (-1 infinite, 0 none, N finite)
+        retry_count: Current retry attempt count
+        
+    Returns:
+        Tuple of (should_continue: bool, updated_retry_count: int)
+    """
+    if max_retries == -1:
+        return (True, retry_count)
+    if max_retries == 0:
+        return (False, retry_count)
+    retry_count += 1
+    should_continue = retry_count < max_retries
+    return (should_continue, retry_count)
+
+
+def _display_prompt_validation_error(param_def, error):
+    """Display validation error to user during prompt.
+    
+    Uses both logging (for audit trail) and injected output handler (for user feedback).
+    Redacts sensitive param details from logs via log_param helper.
+    If no output handler configured, defaults to print().
+    
+    Args:
+        param_def: Parameter definition dict (checked for PARAM_SENSITIVE)
+        error: The validation error exception
+    """
+    param_name = param_def.get(PARAM_NAME, 'unknown')
+    log_message = "Invalid value for '{0}': {1}".format(param_name, error)
+    log_param(logging.ERROR, log_message, param_def)
+    message = "Invalid value: {0}. Please try again.".format(error)
+    if _output_handler is not None:
+        _output_handler(message)
+    else:
+        print(message)
+
+
+def _handle_prompt_error_stop(param_def, validation_error):
+    """Handle stopping prompt execution due to max retries exceeded.
+    
+    For required params: uses raise_param_error() for sensitive-aware exception raising.
+    For optional params: returns silently (param remains unset).
+    
+    Args:
+        param_def: Parameter definition dictionary
+        validation_error: The validation exception to potentially raise
+        
+    Raises:
+        ValueError or TypeError: If param is required (sanitized for sensitive params)
+    """
+    is_required = param_def.get(PARAM_REQUIRED, False)
+    if is_required:
+        raise_param_error(validation_error, param_def)
+
+
+def _execute_prompt(param_def, handler):
+    """Execute prompt with validation retry loop.
+    
+    Calls handler to get user input, validates via set_param_value(), and retries
+    on validation failure based on configured max retries (param-level or global).
+    
+    Retry behaviour:
+    - -1: Infinite retries (always display error and retry)
+    - 0: No retries (first validation error propagates immediately)
+    - N: Retry up to N times
+    
+    Precedence: PARAM_PROMPT_RETRIES → _max_prompt_retries (global default)
+    
+    Args:
+        param_def: Parameter definition dictionary
+        handler: Callable that prompts user and returns input string
+        
+    Raises:
+        EOFError: If stdin closed (non-interactive environment)
+        KeyboardInterrupt: If user presses Ctrl+C
+        ValueError: If required param and max retries exceeded
+    """
+    param_name = param_def.get(PARAM_NAME)
+    max_retries = param_def.get(PARAM_PROMPT_RETRIES, _max_prompt_retries)
+    retry_count = 0
+    while True:
+        try:
+            user_value = handler(param_def)
+            set_param(param_name=param_name, value=user_value)
+            return
+        except (EOFError, KeyboardInterrupt):
+            raise
+        except (ValueError, TypeError) as validation_error:
+            should_continue, retry_count = _should_continue_after_prompt_error(
+                max_retries, retry_count
+            )
+            if should_continue:
+                _display_prompt_validation_error(param_def, validation_error)
+                continue
+            _handle_prompt_error_stop(param_def, validation_error)
+            return
 
 
 def get_pre_parse_args():
@@ -2154,3 +2560,115 @@ def reset_param(param_name=None, bind_name=None, alias=None):
     else:
         # No default - use unset_param to remove
         unset_param(param_name=param_name, bind_name=bind_name, alias=alias)
+
+
+def _get_params_to_prompt(timing):
+    """Identify params that need prompting for given timing.
+    
+    Iterates all registered params, filters by timing and prompt need,
+    resolves handlers.
+    
+    Args:
+        timing: PROMPT_ON_START or PROMPT_ON_COMMAND constant
+        
+    Returns:
+        List of (param_name, param_def, handler) tuples
+    """
+    results = []
+    
+    for param_name, param_def in _params.items():
+        if PARAM_PROMPT not in param_def:
+            continue
+        if param_def.get(PARAM_PROMPT_TIMING) != timing:
+            continue
+        if not _should_prompt_param(param_def, None):
+            continue
+        
+        handler = _get_prompt_handler(param_def)
+        results.append((param_name, param_def, handler))
+    
+    return results
+
+
+def _get_params_for_command(command_def):
+    """Identify params that need prompting for command execution.
+    
+    Uses COMMAND_PROMPT_PARAMS list for O(1) lookup of which params to check.
+    Filters by prompt need and resolves handlers.
+    
+    Args:
+        command_def: Command definition dictionary with COMMAND_PROMPT_PARAMS
+        
+    Returns:
+        List of (param_name, param_def, handler) tuples
+    """
+    from spafw37.constants.command import COMMAND_PROMPT_PARAMS, COMMAND_NAME
+    
+    prompt_params = command_def.get(COMMAND_PROMPT_PARAMS, [])
+    if not prompt_params:
+        return []
+    
+    command_name = command_def.get(COMMAND_NAME)
+    results = []
+    
+    for param_name in prompt_params:
+        param_def = _params.get(param_name)
+        if not param_def:
+            continue
+        if not _should_prompt_param(param_def, command_name):
+            continue
+        
+        handler = _get_prompt_handler(param_def)
+        results.append((param_name, param_def, handler))
+    
+    return results
+
+
+def _execute_prompts(params_to_prompt):
+    """Execute prompts for list of params.
+    
+    Orchestration function that iterates params, executes prompts, and tracks
+    successful prompts. Errors from required params propagate to caller.
+    
+    Args:
+        params_to_prompt: List of (param_name, param_def, handler) tuples
+    """
+    for param_name, param_def, handler in params_to_prompt:
+        _execute_prompt(param_def, handler)
+        _prompted_params.add(param_name)
+
+
+def prompt_params_for_start():
+    """Prompt all params with PROMPT_ON_START timing.
+    
+    Public API called by cli.py after command-line parsing. Identifies which
+    params need prompting, executes prompts with retry logic, and sets values.
+    
+    Raises:
+        ValueError: If required param fails validation after max retries
+    """
+    params_to_prompt = _get_params_to_prompt(PROMPT_ON_START)
+    if not params_to_prompt:
+        return
+    
+    _execute_prompts(params_to_prompt)
+
+
+def prompt_params_for_command(command_def):
+    """Prompt all params for command execution.
+    
+    Public API called by command.py before each command executes. Uses
+    COMMAND_PROMPT_PARAMS list for efficient lookup, executes prompts with
+    retry logic and repeat behaviour control.
+    
+    Args:
+        command_def: Command definition dict with COMMAND_PROMPT_PARAMS
+        
+    Raises:
+        ValueError: If required param fails validation after max retries
+    """
+    params_to_prompt = _get_params_for_command(command_def)
+    if not params_to_prompt:
+        return
+    
+    _execute_prompts(params_to_prompt)

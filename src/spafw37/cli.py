@@ -273,6 +273,9 @@ def handle_cli_args(args):
     # Parse command line arguments using regex tokenizer
     _parse_command_line(tokenized_args)
     
+    # Prompt for params with PROMPT_ON_START timing
+    param.prompt_params_for_start()
+    
     # Execute queued commands
     command.run_command_queue()
     

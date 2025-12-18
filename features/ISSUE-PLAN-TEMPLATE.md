@@ -51,7 +51,10 @@ This ensures:
   - [1. [Consideration name]](#1-consideration-name)
   - [2. [Consideration name]](#2-consideration-name)
   - [Continue numbering...](#continue-numbering)
+- [Fixing Regressions](#fixing-regressions) (if applicable)
+  - [[Step number]. [Regression fix name]](#step-number-regression-fix-name)
 - [Success Criteria](#success-criteria)
+- [Implementation Plan Changes](#implementation-plan-changes) (if applicable)
 - [CHANGES for vX.X.X Release](#changes-for-vxxx-release)
 
 ## Implementation Steps
@@ -187,6 +190,128 @@ def example_function():
 
 [↑ Back to top](#table-of-contents)
 
+## Fixing Regressions
+
+**Note:** This section is added post-implementation when testing reveals issues requiring fixes. If core implementation (Steps 1-N) passes all tests, this section may be omitted.
+
+### [N+1]. [Regression fix name] ✅ COMPLETE
+
+**Depends on:** Core implementation (steps 1-N) complete, Consideration #X documented
+
+**Status:** COMPLETE - [Brief status description]
+
+**File:** `path/to/file.py`
+
+[Provide detailed description of the regression and fix]
+
+**Current buggy behavior:**
+
+[Explain the bug or incorrect behavior]
+
+**Correct behavior:**
+
+[Explain what should happen instead]
+
+**Implementation:**
+
+[Detailed fix instructions]
+
+**Code [N+1].1: Current buggy implementation**
+
+```python
+def buggy_function():
+    """Docstring."""
+    # Block [N+1].1.1: Description
+    buggy_code_here()
+    
+    # Block [N+1].1.2: Problem explanation
+    incorrect_logic()
+```
+
+**Code [N+1].2: Fixed implementation**
+
+```python
+def fixed_function():
+    """Docstring."""
+    # Block [N+1].2.1: Description
+    fixed_code_here()
+    
+    # Block [N+1].2.2: Correct logic
+    correct_logic()
+```
+
+**Verification:**
+
+After fix, run:
+```bash
+pytest tests/test_file.py -v
+```
+
+[List specific tests that should now pass]
+
+[↑ Back to top](#table-of-contents)
+
+### [N+2]. [Test expectation updates] ✅ COMPLETE
+
+**Depends on:** Core implementation (steps 1-N) complete, Step [N+1] complete, Consideration #X resolved
+
+**Status:** COMPLETE - [Brief status description]
+
+**File:** `tests/test_file.py`
+
+[Provide description explaining why test expectations need updating]
+
+**Tests to update ([X] tests):**
+
+**Test [N+2].1: test_function_name (Line ~XXX)**
+
+Old assertion (expects incorrect behavior):
+```gherkin
+Scenario: Description of old expectation (OLD)
+  Given [precondition]
+  When [action]
+  Then [old expectation]
+```
+
+New assertion (expects correct behavior):
+```gherkin
+Scenario: Description of new expectation (NEW)
+  Given [precondition]
+  When [action]
+  Then [new expectation]
+  
+  # Validates: [Why this is the correct behavior]
+```
+
+[Repeat for each test requiring updates]
+
+**Implementation approach:**
+
+Use `multi_replace_string_in_file` to update all tests in a single operation. Each replacement should:
+- Include sufficient context (3-5 lines before/after)
+- Update the assertion to match new behavior
+- Update or add comments explaining the change
+
+**Verification:**
+
+After updates, run:
+```bash
+pytest tests/test_file.py -v
+```
+
+All [X] previously failing tests should now pass.
+
+**Final verification:**
+
+After completing all regression fixes, run full test suite:
+```bash
+pytest tests/ -v --cov=spafw37 --cov-report=term-missing
+```
+
+All tests should pass (XXX passed, X skipped).
+
+[↑ Back to top](#table-of-contents)
+
 ## Success Criteria
 
 - [ ] [Specific deliverable 1]
@@ -202,6 +327,46 @@ def example_function():
 - [ ] Issue #[NUMBER] closed with reference to implementation
 
 [↑ Back to top](#table-of-contents)
+
+---
+
+## Implementation Plan Changes
+
+**Note:** This section documents changes made to the implementation plan after the initial core implementation was completed. Include this section only if the plan evolved during implementation.
+
+This section documents changes made to the implementation plan after the initial core implementation (Steps 1-N) was completed.
+
+### Post-Implementation Analysis
+
+After completing Steps 1-N, comprehensive testing revealed [X] test failures that required additional work:
+
+1. **[X] [category] test failures** - [Brief description of what was discovered]
+
+2. **[X] [category] test failures** - [Brief description of what was discovered]
+
+### Additional Implementation Steps
+
+[X] additional steps were added to the "Fixing Regressions" section:
+
+- **Step [N+1]**: [Brief description of what this step does]
+- **Step [N+2]**: [Brief description of what this step does]
+
+### Additional Considerations
+
+[X] additional considerations were documented and resolved:
+
+- **Consideration #X**: [Name] (RESOLVED - addressed by Step [N+1])
+- **Consideration #Y**: [Name] (RESOLVED - addressed by Step [N+2])
+
+### Timeline
+
+- Steps 1-N: Implemented and tested (core functionality complete)
+- Step [N+1]: Implemented ([brief result])
+- Step [N+2]: Implemented ([brief result])
+- Final result: All [XXX] tests passing, [XX]% coverage
+
+[↑ Back to top](#table-of-contents)
+
 ---
 
 ## CHANGES for vX.X.X Release
@@ -231,6 +396,10 @@ None.
 
 No migration required. New functionality only.
 
+**Note:** If implementation includes behavior changes that might affect existing code, add explicit warnings:
+
+**[If behavior changed]:** [Component] now [new behavior] instead of [old behavior]. If your code relied on [old behavior], update [what needs updating].
+
 ### Documentation
 
 - `doc/file.md` [what was added/changed]
@@ -238,8 +407,15 @@ No migration required. New functionality only.
 
 ### Testing
 
-- [X] new tests in `tests/test_file.py`
-- Tests cover [what they cover]
+- [X] new tests in `tests/test_file.py` covering [specific functionality]
+- [X] new tests in `tests/test_other.py` verifying [specific behavior]
+- [X] existing tests in `tests/test_file.py` updated to reflect [what changed]:
+  - `test_name_1` - [Brief description of update]
+  - `test_name_2` - [Brief description of update]
+- [If regression fixes] [X] tests in `tests/test_file.py` updated for [reason]
+- Tests cover [comprehensive list of what's covered]
+- All tests updated to reflect [any timing/behavior changes]
+- Final test results: [XXX] passed, [X] skipped, [XX.XX]% coverage
 
 ---
 

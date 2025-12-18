@@ -181,6 +181,89 @@ python params_required.py status --env production --project myapp
 python params_required.py deploy --env staging --project api
 ```
 
+### `params_prompt_basic.py` - Basic Interactive Prompts (**v1.1.0**)
+- **NEW:** Interactive user prompts for missing parameters
+- `PROMPT_ON_START` timing (prompt before command execution)
+- CLI override behaviour
+- Text input prompts
+
+**Run:**
+```bash
+# Will prompt for username:
+python params_prompt_basic.py process
+# Skip prompt with CLI arg:
+python params_prompt_basic.py --username alice process
+```
+
+### `params_prompt_timing.py` - Prompt Timing Control (**v1.1.0**)
+- **NEW:** `PROMPT_ON_START` vs `PROMPT_ON_COMMAND` timing
+- Per-command prompts with `PROMPT_ON_COMMANDS`
+- Different timing for different parameters
+
+**Run:**
+```bash
+python params_prompt_timing.py init delete
+# api_key prompts at start, confirmation prompts before delete
+```
+
+### `params_prompt_handlers.py` - Custom Prompt Handlers (**v1.1.0**)
+- **NEW:** `set_prompt_handler()` for custom prompt implementations
+- **NEW:** `set_output_handler()` for custom message output
+- **NEW:** `set_max_prompt_retries()` for retry limit configuration
+
+**Run:**
+```bash
+python params_prompt_handlers.py process
+```
+
+### `params_prompt_validation.py` - Validation with Retries (**v1.1.0**)
+- **NEW:** Integration with `PARAM_INPUT_FILTER` for validation
+- Automatic retry on validation failure
+- Custom error messages from input filters
+
+**Run:**
+```bash
+python params_prompt_validation.py register
+# Try invalid values to see retry behaviour
+```
+
+### `params_prompt_sensitive.py` - Hidden Input for Passwords (**v1.1.0**)
+- **NEW:** `PARAM_PROMPT_SENSITIVE` for hidden input
+- Password and token prompts without echo
+- Integration with `getpass` module
+
+**Run:**
+```bash
+python params_prompt_sensitive.py login
+# Password and token inputs are hidden
+```
+
+### `params_prompt_repeat.py` - Repeat Behaviour (**v1.1.0**)
+- **NEW:** `PROMPT_REPEAT_NEVER` vs `PROMPT_REPEAT_ALWAYS`
+- Value reuse vs repeated prompts
+- Multiple command execution patterns
+
+**Run:**
+```bash
+python params_prompt_repeat.py process process process
+# batch-size prompts once, continue-flag prompts every time
+```
+
+### `params_prompt_cli_override.py` - CLI Override Behaviour (**v1.1.0**)
+- **NEW:** How CLI arguments override prompts
+- Combining interactive and non-interactive modes
+- Selective prompt skipping
+
+**Run:**
+```bash
+# All prompts:
+python params_prompt_cli_override.py deploy
+# Skip environment prompt:
+python params_prompt_cli_override.py --environment production deploy
+# Skip all prompts:
+python params_prompt_cli_override.py --environment production --confirm yes deploy
+```
+
 ## Commands Examples
 
 ### `commands_basic.py` - Basic Commands

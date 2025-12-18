@@ -28,6 +28,7 @@
 - [Parameter Groups](#parameter-groups)
 - [Runtime-Only Parameters](#runtime-only-parameters)
 - [Custom Input Filters](#custom-input-filters)
+- [Interactive Prompts](#interactive-prompts)
 - [Advanced: Parameter Resolution Modes](#advanced-parameter-resolution-modes)
 - [Best Practices and Anti-Patterns](#best-practices-and-anti-patterns)
 
@@ -38,6 +39,19 @@ Parameters are the foundation of spafw37 applications. They define command-line 
 ## Version Changes
 
 ### v1.1.0
+
+**Interactive Prompts:**
+- Added `PARAM_PROMPT` for soliciting user input at runtime
+- Added `PARAM_PROMPT_TIMING` with `PROMPT_ON_START` and `PROMPT_ON_COMMAND` options
+- Added `PARAM_PROMPT_REPEAT` for controlling cycle behaviour (NEVER, IF_BLANK, ALWAYS)
+- Added `PARAM_SENSITIVE` for hiding sensitive input (passwords, API keys)
+- Added `PROMPT_ON_COMMANDS` for command-specific prompt timing
+- Added `COMMAND_PROMPT_PARAMS` for linking prompts to commands
+- Added `set_prompt_handler()` for custom prompt handlers
+- Added `set_output_handler()` for custom error message display
+- Added `set_max_prompt_retries()` for configuring validation retry limit
+- Prompts respect CLI overrides (skip if value provided via command-line)
+- Prompts integrate with `PARAM_INPUT_FILTER` validation
 
 **Simplified Parameter Access:**
 - Introduced unified `get_param()` function that automatically returns the correct type based on `PARAM_TYPE`
@@ -397,6 +411,12 @@ Parameters are defined as dictionaries using these constants as keys:
 | `PARAM_JOIN_SEPARATOR` | Separator string for joining multiple string values with `join_param()`. Defaults to space `' '`. |
 | `PARAM_DICT_MERGE_TYPE` | Controls dict merge behavior: `DICT_MERGE_SHALLOW` (default) or `DICT_MERGE_DEEP` |
 | `PARAM_DICT_OVERRIDE_STRATEGY` | Controls collision handling: `DICT_OVERRIDE_RECENT` (default), `DICT_OVERRIDE_OLDEST`, or `DICT_OVERRIDE_ERROR` |
+| `PARAM_PROMPT` | Prompt text to display when soliciting user input. Enables interactive prompting. See [Interactive Prompts](#interactive-prompts). |
+| `PARAM_PROMPT_HANDLER` | Custom handler function for this parameter's prompt. Overrides global handler. See [Interactive Prompts](#interactive-prompts). |
+| `PARAM_PROMPT_TIMING` | When to display prompt: `PROMPT_ON_START` or `PROMPT_ON_COMMAND`. See [Interactive Prompts](#interactive-prompts). |
+| `PARAM_PROMPT_REPEAT` | Repeat behaviour: `PROMPT_REPEAT_NEVER` (default), `PROMPT_REPEAT_IF_BLANK`, or `PROMPT_REPEAT_ALWAYS`. See [Interactive Prompts](#interactive-prompts). |
+| `PARAM_SENSITIVE` | Boolean flag to suppress terminal echo and hide default values for sensitive data (passwords, API keys). See [Interactive Prompts](#interactive-prompts). |
+| `PROMPT_ON_COMMANDS` | List of command names that trigger this prompt (used with `PROMPT_ON_COMMAND` timing). See [Interactive Prompts](#interactive-prompts). |
 
 ### Persistence Options
 
@@ -423,6 +443,21 @@ Parameters are defined as dictionaries using these constants as keys:
 | `SWITCH_REJECT` | Raise error if another switch in the group is already set (default) |
 | `SWITCH_UNSET` | Automatically unset other switches in the group |
 | `SWITCH_RESET` | Reset other switches in the group to their default values |
+
+### Prompt Timing Options
+
+| Constant | Description |
+|----------|-------------|
+| `PROMPT_ON_START` | Display prompt at application start (after CLI parsing, before command execution) |
+| `PROMPT_ON_COMMAND` | Display prompt before specific command execution (requires `PROMPT_ON_COMMANDS` property) |
+
+### Prompt Repeat Behaviour Options
+
+| Constant | Description |
+|----------|-------------|
+| `PROMPT_REPEAT_NEVER` | Prompt only on first occurrence, reuse value for subsequent commands/cycles (default) |
+| `PROMPT_REPEAT_IF_BLANK` | Prompt again if value becomes blank |
+| `PROMPT_REPEAT_ALWAYS` | Prompt every time, preserving previous value as default |
 
 ## Basic Parameter Definition
 
@@ -1503,6 +1538,340 @@ python my_app.py connect --db "host=localhost;port=5432;db=myapp"
 - Business logic (use command implementations instead)
 - Validation (use type validation and command parameter checks instead)
 - Side effects (filters should be pure functions)
+
+## Interactive Prompts
+
+**Added in v1.1.0**
+
+Parameters can solicit interactive user input at runtime using the prompt system. This enables workflows requiring dynamic data entry, confirmation dialogues, or sensitive information that shouldn't appear in command history.
+
+The prompt system integrates with existing parameter validation, type handling, and required parameter checking. Prompts respect CLI-provided values (prompting is skipped if the user already supplied a value via `--param-name`), and support custom handlers for advanced use cases such as GUI prompts or automated testing.
+
+### Basic Usage
+
+Enable prompts by setting the `PARAM_PROMPT` property:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.param import (
+    PARAM_NAME,
+    PARAM_TYPE,
+    PARAM_TYPE_TEXT,
+    PARAM_PROMPT,
+    PARAM_PROMPT_TIMING,
+    PROMPT_ON_START,
+)
+
+spafw37.add_params([{
+    PARAM_NAME: 'username',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter username: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+}])
+```
+
+When the application runs, users are prompted to enter a value if none was provided via CLI:
+
+```bash
+$ python my_app.py command
+Enter username: john_doe
+# Command executes with username='john_doe'
+
+$ python my_app.py command --username alice
+# No prompt shown, uses CLI value 'alice'
+```
+
+**See example:** [params_basic.py](../examples/params_basic.py)
+
+### Timing Control
+
+The `PARAM_PROMPT_TIMING` property controls when prompts appear:
+
+#### PROMPT_ON_START
+
+Prompt at application start (after CLI parsing, before command execution):
+
+```python
+from spafw37.constants.param import PROMPT_ON_START
+
+spafw37.add_params([{
+    PARAM_NAME: 'api_key',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter API key: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_SENSITIVE: True,  # Hides input with getpass
+}])
+```
+
+Use `PROMPT_ON_START` for:
+- Application-wide configuration (API keys, database connections)
+- One-time input needed by multiple commands
+- Authentication credentials at startup
+
+#### PROMPT_ON_COMMAND
+
+Prompt before specific command execution:
+
+```python
+from spafw37.constants.param import (
+    PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS,
+)
+from spafw37.constants.command import COMMAND_PROMPT_PARAMS
+
+# Define param with command timing
+spafw37.add_params([{
+    PARAM_NAME: 'confirmation',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Type "yes" to confirm deletion: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+    PROMPT_ON_COMMANDS: ['delete-data'],  # List of commands
+}])
+
+# Link param to command
+spafw37.add_commands([{
+    COMMAND_NAME: 'delete-data',
+    COMMAND_ACTION: delete_handler,
+    COMMAND_PROMPT_PARAMS: ['confirmation'],  # Prompt before this command
+}])
+```
+
+Use `PROMPT_ON_COMMAND` for:
+- Command-specific confirmation dialogues
+- Per-operation input (commit messages, action reasons)
+- Context-sensitive data entry
+
+**See example:** [commands_basic.py](../examples/commands_basic.py)
+
+### Sensitive Data Handling
+
+Set `PARAM_SENSITIVE: True` to hide input for passwords, API keys, and tokens:
+
+```python
+from spafw37.constants.param import PARAM_SENSITIVE
+
+spafw37.add_params([{
+    PARAM_NAME: 'password',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter password: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_SENSITIVE: True,  # Uses getpass (no terminal echo)
+}])
+```
+
+**Sensitive parameter behaviour:**
+- Input hidden during prompting (uses Python's `getpass.getpass()`)
+- Default values not displayed in prompts
+- Values redacted in error messages and logs
+
+### Repeat Behaviour in Cycles
+
+Control how prompts behave across multiple command executions or cycle iterations:
+
+```python
+from spafw37.constants.param import (
+    PARAM_PROMPT_REPEAT,
+    PROMPT_REPEAT_NEVER,      # Prompt once, reuse value
+    PROMPT_REPEAT_IF_BLANK,   # Prompt if value becomes blank
+    PROMPT_REPEAT_ALWAYS,     # Prompt every time
+)
+
+# Prompt only once per session
+spafw37.add_params([{
+    PARAM_NAME: 'session_id',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter session ID: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_PROMPT_REPEAT: PROMPT_REPEAT_NEVER,  # Default
+}])
+
+# Prompt every cycle iteration
+spafw37.add_params([{
+    PARAM_NAME: 'iteration_note',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter note for this iteration: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+    PARAM_PROMPT_REPEAT: PROMPT_REPEAT_ALWAYS,
+}])
+```
+
+| Mode | Behaviour |
+|------|-----------|
+| `PROMPT_REPEAT_NEVER` | Prompt once; subsequent commands/cycles use the same value |
+| `PROMPT_REPEAT_IF_BLANK` | Prompt again if value becomes blank (via `unset_param()`) |
+| `PROMPT_REPEAT_ALWAYS` | Prompt every time, displaying previous value as default |
+
+**See example:** [cycles_basic.py](../examples/cycles_basic.py)
+
+### Custom Prompt Handlers
+
+Replace the default terminal input handler with custom implementations:
+
+#### Global Handler
+
+Set a handler for all prompted parameters:
+
+```python
+from spafw37 import param
+
+def gui_prompt_handler(param_def):
+    """Custom handler using GUI dialogue."""
+    prompt_text = param_def.get(PARAM_PROMPT, 'Enter value')
+    # ... GUI dialogue implementation ...
+    return user_input
+
+param.set_prompt_handler(gui_prompt_handler)
+```
+
+#### Parameter-Level Handler
+
+Override for specific parameters:
+
+```python
+def specialized_handler(param_def):
+    """Handler for specific parameter."""
+    # ... custom logic ...
+    return value
+
+spafw37.add_params([{
+    PARAM_NAME: 'special_input',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter value',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_PROMPT_HANDLER: specialized_handler,  # Overrides global
+}])
+```
+
+**Handler precedence:** Parameter-level → Global → Default (`input()`/`getpass()`)
+
+**Handler signature:**
+```python
+def handler(param_def: dict) -> str:
+    """
+    Args:
+        param_def: Complete parameter definition dictionary
+    
+    Returns:
+        User input as string (will be validated and type-coerced)
+    """
+```
+
+**See example:** [output_handlers.py](../examples/output_handlers.py)
+
+### Validation and Retry Logic
+
+Prompts integrate with parameter validation:
+
+```python
+from spafw37 import param
+
+def validate_email(value):
+    """Validate email format."""
+    if '@' not in value or '.' not in value:
+        raise ValueError('Invalid email format')
+    return value
+
+# Configure retry limit
+param.set_max_prompt_retries(3)  # Default: 3 attempts
+
+spafw37.add_params([{
+    PARAM_NAME: 'email',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Enter email address: ',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_INPUT_FILTER: validate_email,  # Validation function
+    PARAM_REQUIRED: True,
+}])
+```
+
+**Retry behaviour:**
+1. User enters invalid input → validation fails
+2. Error message displayed via `set_output_handler()` or `print()`
+3. User prompted again (up to max retries)
+4. If max retries exceeded:
+   - **Required params:** Raises `RuntimeError`
+   - **Optional params:** Returns `None`, command may proceed
+
+**See example:** [params_input_filter.py](../examples/params_input_filter.py)
+
+### Multiple Choice Prompts
+
+Use `PARAM_ALLOWED_VALUES` for selection menus:
+
+```python
+from spafw37.constants.param import PARAM_ALLOWED_VALUES
+
+spafw37.add_params([{
+    PARAM_NAME: 'environment',
+    PARAM_TYPE: PARAM_TYPE_TEXT,
+    PARAM_PROMPT: 'Select environment',
+    PARAM_PROMPT_TIMING: PROMPT_ON_START,
+    PARAM_ALLOWED_VALUES: ['development', 'staging', 'production'],
+}])
+```
+
+**Terminal output:**
+```
+Select environment:
+  1) development
+  2) staging
+  3) production
+Enter choice (1-3 or text): 2
+# Selects 'staging'
+```
+
+Users can enter either the number or the text value.
+
+**See example:** [params_allowed_values.py](../examples/params_allowed_values.py)
+
+### Inline Parameter Definitions
+
+Commands can define prompt parameters inline, consistent with `COMMAND_REQUIRED_PARAMS`:
+
+```python
+spafw37.add_commands([{
+    COMMAND_NAME: 'deploy',
+    COMMAND_ACTION: deploy_handler,
+    COMMAND_PROMPT_PARAMS: [
+        {
+            PARAM_NAME: 'deploy_message',
+            PARAM_TYPE: PARAM_TYPE_TEXT,
+            PARAM_PROMPT: 'Enter deployment message: ',
+            PARAM_PROMPT_TIMING: PROMPT_ON_COMMAND,
+            PROMPT_ON_COMMANDS: ['deploy'],
+        }
+    ],
+}])
+```
+
+**See example:** [inline_definitions_basic.py](../examples/inline_definitions_basic.py)
+
+### Prompt Constants Reference
+
+**Timing Options:**
+- `PROMPT_ON_START` - Prompt after CLI parsing, before command execution
+- `PROMPT_ON_COMMAND` - Prompt before specific commands (requires `PROMPT_ON_COMMANDS` list)
+
+**Repeat Behaviour:**
+- `PROMPT_REPEAT_NEVER` - Prompt once per session (default)
+- `PROMPT_REPEAT_IF_BLANK` - Prompt again if value becomes blank
+- `PROMPT_REPEAT_ALWAYS` - Prompt every time
+
+**Parameter Properties:**
+- `PARAM_PROMPT` - Prompt text to display
+- `PARAM_PROMPT_TIMING` - When to prompt (`PROMPT_ON_START` or `PROMPT_ON_COMMAND`)
+- `PARAM_PROMPT_REPEAT` - Repeat behaviour constant
+- `PARAM_PROMPT_HANDLER` - Custom handler function for this parameter
+- `PARAM_SENSITIVE` - Boolean flag for sensitive data (hides input, redacts logs)
+- `PROMPT_ON_COMMANDS` - List of command names for `PROMPT_ON_COMMAND` timing
+
+**Command Properties:**
+- `COMMAND_PROMPT_PARAMS` - List of parameter names or inline definitions to prompt before command
+
+**API Functions:**
+- `param.set_prompt_handler(handler)` - Set global prompt handler
+- `param.set_output_handler(handler)` - Set handler for error messages
+- `param.set_max_prompt_retries(count)` - Configure retry limit (default: 3)
 
 ## Advanced: Parameter Resolution Modes
 

@@ -540,6 +540,7 @@ def run_command_queue():
             cmd = _phases[_current_phase].pop(0)
             cmd_name = cmd.get(COMMAND_NAME)
             log_info(_message=f"Starting command: {cmd_name}")
+            param.prompt_params_for_command(cmd)
             action = cmd.get(COMMAND_ACTION)
             if not callable(action):
                 raise ValueError(f"Command '{cmd_name}' has no valid action to execute.")
