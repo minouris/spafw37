@@ -135,35 +135,38 @@ This prevents attempting to publish non-existent packages and makes the workflow
 
 ---
 
-### 3. How to handle the very first commit with no previous release?
+### 3. How to handle the very first commit with no previous release? - RESOLVED
 
 **Question:** What should happen when there are no release tags yet (new repository or before first release)?
 
-**Answer:** TO BE DETERMINED - needs implementation decision
+**Answer:** The workflow should not rely on a previous tag existing. If no tags exist, the workflow should handle this gracefully and allow the build to proceed. While the very first commit of the project is unlikely to contain usable code and it is acceptable for this to fail, the build system must not break due to missing tags.
 
 **Rationale:**
-- If no tags exist, `git describe --tags` will fail
-- We should assume this is a first release and allow the build to proceed
+- If no tags exist, `git describe --tags` or similar commands will fail
+- The workflow must handle this case without breaking
+- Assuming changes exist and allowing the build to proceed is the safest approach
 - This is a one-time edge case that won't occur after the first release
+- Relying on a tag existing may itself be a bug that needs to be addressed
 
-**Implementation:** Add fallback logic in Step 1 to handle missing tags
+**Implementation:** Add fallback logic in Step 1 that detects when no tags exist and defaults to allowing the build to proceed
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### 4. Should manual workflow dispatches bypass the check?
+### 4. Should manual workflow dispatches bypass the check? - RESOLVED
 
 **Question:** When a user manually triggers the workflow via `workflow_dispatch`, should the file change check be bypassed?
 
-**Answer:** TO BE DETERMINED - requires user input
+**Answer:** Yes, manual workflow invocations should skip the file change check. Direct user intervention should always override automated behaviours.
 
 **Rationale:**
-- **Pro (bypass):** Manual triggers indicate user intent to publish regardless of changes
-- **Con (check always):** Consistent behaviour regardless of trigger type
-- **Recommendation:** Bypass the check for manual triggers to allow force-publishing if needed
+- Manual triggers indicate explicit user intent to publish regardless of detected changes
+- Users may need to force a release for various reasons (hotfix, republish, etc.)
+- Automated checks serve to prevent unintended releases, but manual triggers are intentional
+- This provides an escape hatch for edge cases not covered by automated logic
 
-**Implementation:** Add conditional check in Step 1 to detect `github.event_name == 'workflow_dispatch'`
+**Implementation:** Add conditional check in Step 1 to detect `github.event_name == 'workflow_dispatch'` and bypass file change detection when true
 
 [↑ Back to top](#table-of-contents)
 
