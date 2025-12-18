@@ -99,18 +99,19 @@ This prevents attempting to publish non-existent packages and makes the workflow
 
 ## Further Considerations
 
-### 1. Should documentation changes trigger releases?
+### 1. Should documentation changes trigger releases? - RESOLVED
 
 **Question:** Should changes to documentation files in `doc/` trigger a new release, or should only code changes (src/, tests/, examples/) trigger releases?
 
-**Answer:** TO BE DETERMINED - requires user input
+**Answer:** Yes, documentation in `doc/` should trigger a release. Documentation changes may be to correct errors in documentation, and these corrections should be made available to users via a new release.
 
 **Rationale:**
-- **Pro (include doc/):** Documentation is part of the package and users may want updated docs available on PyPI
-- **Con (exclude doc/):** Documentation-only changes don't affect functionality and may not warrant a version bump
-- **Middle ground:** Include `doc/` but exclude `.github/` and other CI/CD files
+- Documentation is part of the package and ships with the package on PyPI
+- Documentation corrections and improvements are valuable to users
+- Users may want updated docs available when they install the package
+- Including `doc/` ensures documentation fixes are properly versioned and distributed
 
-**Implementation:** The list of relevant file patterns in Step 1 depends on this decision
+**Implementation:** The file pattern list in Step 1 will include `doc/` as a release-triggering directory
 
 [↑ Back to top](#table-of-contents)
 
