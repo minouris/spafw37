@@ -56,7 +56,71 @@ The job will run before all other jobs and its output will be used to conditiona
 - **Fallback:** If no tags exist (first release), assume changes exist and proceed with build
 - **Manual triggers:** When workflow is manually triggered via `workflow_dispatch`, bypass the check and always build
 
-[Detailed implementation and tests will be added in Steps 3-4]
+**Detailed implementation:**
+
+Add this new job immediately after the `jobs:` declaration and before `prepare-python:`:
+
+```yaml
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      has_code_changes: ${{ steps.check.outputs.has_code_changes }}
+    steps:
+    - name: Checkout code with full history
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Check for relevant file changes
+      id: check
+      run: |
+        # If manually triggered, always proceed with build
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "Manual trigger detected - bypassing file change check"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Find the most recent tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        
+        # If no tags exist, allow build to proceed
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No tags found - allowing build to proceed"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "Checking changes since tag: $LATEST_TAG"
+        
+        # Get list of changed files since the last tag
+        CHANGED_FILES=$(git diff --name-only "$LATEST_TAG" HEAD)
+        
+        # Define patterns for files that should trigger a release
+        RELEASE_PATTERNS="^(src/|tests/|examples/|doc/|README\.md|setup\.py|setup\.cfg|pyproject\.toml)"
+        
+        # Check if any changed files match the release patterns
+        if echo "$CHANGED_FILES" | grep -E "$RELEASE_PATTERNS" > /dev/null; then
+          echo "Release-worthy changes detected:"
+          echo "$CHANGED_FILES" | grep -E "$RELEASE_PATTERNS"
+          echo "has_code_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "No release-worthy changes detected"
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo "has_code_changes=false" >> $GITHUB_OUTPUT
+        fi
+```
+
+**Logic explanation:**
+
+1. **Manual trigger bypass:** First check if `github.event_name` is `workflow_dispatch` - if so, set `has_code_changes=true` and exit
+2. **Find latest tag:** Use `git describe --tags --abbrev=0` with error handling (`2>/dev/null || echo ""`)
+3. **Handle missing tags:** If `LATEST_TAG` is empty, set `has_code_changes=true` and exit
+4. **Get changed files:** Use `git diff --name-only "$LATEST_TAG" HEAD` to list all changed files
+5. **Pattern matching:** Use `grep -E` with regex pattern to check if any files match release-worthy patterns
+6. **Set output:** Set `has_code_changes` to either `true` or `false` based on whether matches were found
 
 [↑ Back to top](#table-of-contents)
 
@@ -64,19 +128,44 @@ The job will run before all other jobs and its output will be used to conditiona
 
 **File:** `.github/workflows/pre-publish.yml`
 
-Modify the existing jobs (`test`, `build-and-verify`, `update-changelog`) to conditionally execute based on the output from the file change detection job. Jobs should:
+Modify the existing jobs (`prepare-python`, `test`, `build-and-verify`, `update-changelog`) to conditionally execute based on the output from the file change detection job. Jobs should:
 - Always run if `has_code_changes == 'true'`
-- Always run if the workflow was manually triggered
+- Always run if the workflow was manually triggered (handled by check-changes job)
 - Skip execution if `has_code_changes == 'false'` and workflow was automatic
 
 This ensures that CI/CD metadata changes don't waste compute resources running unnecessary builds and tests.
 
 **Implementation approach:**
-- Add `needs: check-changes` to each job that should be conditional
+- Add `needs: check-changes` to jobs that should be conditional
 - Add `if:` conditions that check the output from the `check-changes` job
 - Preserve the existing job logic unchanged
+- Jobs that depend on conditional jobs will automatically skip via dependency chain
 
-[Detailed implementation will be added in Step 4]
+**Detailed implementation:**
+
+**Change 1:** Update `prepare-python` job (currently line 16):
+
+```yaml
+  prepare-python:
+    needs: check-changes
+    if: needs.check-changes.outputs.has_code_changes == 'true'
+    runs-on: ubuntu-latest
+```
+
+**Change 2:** Update `test` job (currently line 60):
+
+```yaml
+  test:
+    needs: [check-changes, prepare-python]
+    if: needs.check-changes.outputs.has_code_changes == 'true'
+    runs-on: ubuntu-latest
+```
+
+**Note:** The `build-and-verify` and `update-changelog` jobs already depend on `test` through their `needs:` declarations, so they will automatically be skipped when `test` is skipped. No additional changes needed for those jobs.
+
+**Dependency chain:**
+- `check-changes` → `prepare-python` → `test` → `build-and-verify` → `update-changelog`
+- If `check-changes` outputs `has_code_changes=false`, all subsequent jobs skip automatically
 
 [↑ Back to top](#table-of-contents)
 
@@ -93,7 +182,60 @@ Update the workflow to:
 
 This prevents attempting to publish non-existent packages and makes the workflow behaviour explicit in the logs.
 
-[Detailed implementation will be added in Step 4]
+**Detailed implementation:**
+
+**Change 1:** Add artifact existence check step after "Download pre-built packages" (after line 42):
+
+```yaml
+    - name: Check if artifacts exist
+      if: github.event_name == 'workflow_run'
+      id: check_artifacts
+      run: |
+        if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
+          echo "Artifacts found - proceeding with publish"
+          echo "has_artifacts=true" >> $GITHUB_OUTPUT
+        else
+          echo "No artifacts found - build was skipped due to no code changes"
+          echo "has_artifacts=false" >> $GITHUB_OUTPUT
+        fi
+```
+
+**Change 2:** Make the "Publish to TestPyPI" step conditional (currently line 103):
+
+```yaml
+    - name: Publish to TestPyPI
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true')
+      uses: actions/download-artifact@v4
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+```
+
+**Change 3:** Make version bump conditional on artifacts existing (currently line 109):
+
+```yaml
+    - name: Bump version after successful publish
+      if: |
+        inputs.skip_version_bump != 'true' &&
+        (github.event_name == 'workflow_dispatch' || 
+         (github.event_name == 'workflow_run' && steps.check_artifacts.outputs.has_artifacts == 'true'))
+      id: bump_version
+```
+
+**Change 4:** Make subsequent steps (tag creation, release notes, GitHub release) also conditional on artifacts existing by adding the same condition pattern to each step.
+
+**Logic explanation:**
+
+1. After downloading artifacts (which will be empty/missing if build skipped), check if `dist/` directory exists and contains files
+2. Set `has_artifacts` output variable based on this check
+3. Make all publish-related steps conditional on either:
+   - Manual trigger (`workflow_dispatch`), OR
+   - Automatic trigger (`workflow_run`) AND artifacts exist
+4. This ensures manual triggers always work, but automatic triggers only proceed when artifacts were actually built
+
+**Note:** The workflow will complete successfully even when skipping publish steps, which is the desired behaviour.
 
 [↑ Back to top](#table-of-contents)
 
