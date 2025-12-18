@@ -1,6 +1,6 @@
-# Issue #60: Fix Pre-Publish Validation workflow fails on pull_request events (detached HEAD)
+# Issue #64: Fix Pre-Publish Validation workflow fails on pull_request events (detached HEAD)
 
-**GitHub Issue:** https://github.com/minouris/spafw37/issues/60
+**GitHub Issue:** https://github.com/minouris/spafw37/issues/64
 
 ## Overview
 
@@ -33,7 +33,22 @@ The fix involves modifying the checkout step to reference the actual PR branch (
 
 Modify the checkout step in the `update-changelog` job (line 168-172) to conditionally use the appropriate ref based on the event type. For pull_request events, use `github.head_ref` to check out the actual PR branch instead of the detached merge commit.
 
-[Detailed implementation will be added in Steps 3-4]
+**Implementation:**
+
+Change line 172 from:
+```yaml
+        ref: ${{ github.ref }}
+```
+
+To:
+```yaml
+        ref: ${{ github.head_ref || github.ref }}
+```
+
+**Logic:**
+- For `pull_request` events: `github.head_ref` contains the PR branch name (e.g., "feature-branch"), so that value is used
+- For `push` events: `github.head_ref` is empty, so the expression falls back to `github.ref` (e.g., "refs/heads/main")
+- This ensures the workflow checks out the actual branch in both scenarios, avoiding detached HEAD state
 
 [↑ Back to top](#table-of-contents)
 
@@ -41,9 +56,25 @@ Modify the checkout step in the `update-changelog` job (line 168-172) to conditi
 
 **File:** `.github/workflows/pre-publish.yml`
 
-Modify the push command in the "Commit and push changelog" step (line 217-222) to explicitly specify the target branch. For pull_request events, push to `github.head_ref`; for push events, use the default behaviour.
+Modify the push command in the "Commit and push changelog" step (line 217-222) to explicitly specify the target branch. For pull_request events, push to `github.head_ref`; for push events, use the current ref.
 
-[Detailed implementation will be added in Steps 3-4]
+**Implementation:**
+
+Change line 222 from:
+```yaml
+        git push
+```
+
+To:
+```yaml
+        git push origin HEAD:${{ github.head_ref || github.ref }}
+```
+
+**Logic:**
+- `HEAD` refers to the current commit (which is now on the actual branch after Step 1)
+- For `pull_request` events: Pushes to `origin/{branch-name}` where branch-name is from `github.head_ref`
+- For `push` events: Pushes to the ref specified in `github.ref`
+- This explicit push target ensures the command succeeds even if the local branch tracking isn't set up
 
 [↑ Back to top](#table-of-contents)
 
@@ -82,13 +113,30 @@ Modify the push command in the "Commit and push changelog" step (line 217-222) t
 
 ## Success Criteria
 
-[PLACEHOLDER - Will be filled in Step 5]
+The fix is successful when:
+
+1. **Pull request events:** The `update-changelog` job completes successfully on pull_request events without "detached HEAD" errors
+2. **Push events:** The `update-changelog` job continues to work correctly on push events to branches
+3. **Changelog updates:** CHANGELOG.md updates are committed and pushed back to the correct branch in both scenarios
+4. **No regressions:** Other jobs in the pre-publish workflow continue to function as before
+5. **Clean workflow runs:** The Pre-Publish Validation workflow shows green checkmarks for both push and pull_request event types
 
 [↑ Back to top](#table-of-contents)
 
 ## CHANGES for v1.1.0 Release
 
-[PLACEHOLDER - Will be filled in Step 6]
+### Fixed
+
+**Pre-Publish Validation workflow now works on pull requests**
+
+The Pre-Publish Validation workflow (`.github/workflows/pre-publish.yml`) previously failed when triggered by pull_request events with a "detached HEAD" error. The workflow now correctly checks out the PR branch and pushes changelog updates back to it.
+
+**Technical details:**
+- Modified checkout step to use `github.head_ref || github.ref` to select the appropriate branch reference
+- Modified push command to explicitly specify target branch: `git push origin HEAD:${{ github.head_ref || github.ref }}`
+- Maintains backward compatibility with push events
+
+**Impact:** Automated CHANGELOG.md updates now work correctly for both pull requests and direct pushes to branches.
 
 [↑ Back to top](#table-of-contents)
 
