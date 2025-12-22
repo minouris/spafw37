@@ -421,7 +421,7 @@ After implementation is complete:
   - Copy everything else exactly
 - Extracting sections upfront reduces context load and speeds up implementation
 - The Implementation Checklist is your TODO list - follow it line by line and check off items as you complete them
-- **Update the checklist file after EVERY step** - mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
+- **Update the checklist file after completing EVERY checklist item** - mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
 - Agents with tracking tools (like manage_todo_list) may use them as supplementary progress tracking
 - The implementation log captures reality - log all deviations and errors
 - Tests define correct behaviour - don't change them to make implementation easier
