@@ -125,7 +125,7 @@ def _store_command(cmd):
 
 ## Verification
 
-After implementing Step 5:
+After implementing Step 6:
 - Run `pytest tests/test_command.py::test_store_command_registry_storage -v`
 - Run `pytest tests/test_command.py::test_store_command_cycle_registration -v`
 - Run full test suite: `pytest tests/test_command.py -v`
