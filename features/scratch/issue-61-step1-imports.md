@@ -43,6 +43,6 @@ from spafw37 import command, config, cycle, param
 
 - All constants from `spafw37.constants.command` used across Steps 1-6 are imported explicitly
 - `PARAM_NAME` from `spafw37.constants.param` is needed for Step 2 (inline params)
-- Module imports include `command`, `param` (Steps 1-2, 6), `config` (Step 4), and `cycle` (Step 5)
+- Module imports include `command`, `param` (Steps 1-2, 6), `config` (Step 5), and `cycle` (Step 6)
 - These imports should be added to `tests/test_command.py` before implementing any step
 - Implementation file `src/spafw37/command.py` already has all necessary constant imports
