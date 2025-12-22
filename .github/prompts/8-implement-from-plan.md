@@ -162,7 +162,7 @@ For EACH checklist item:
 1. **Mark as IN PROGRESS** in `features/scratch/issue-{NUMBER}/implementation-checklist.md` when you begin working on it:
    - Add annotation: `- [ ] **IN PROGRESS** - [Item description]`
    - This helps track interruptions
-2. **Locate code blocks** in the plan (using line ranges you noted)
+2. **Locate code blocks** in the plan
 3. **Execute the checklist item**:
    - If it's a test: Write the test (from Gherkin + code block)
    - If it's implementation: Write the implementation code
@@ -183,7 +183,7 @@ For EACH checklist item:
    - **ONLY change tests if categorically wrong** (see Critical Rules below)
 8. **Move to next item**
 
-**CRITICAL: Update the checklist file after EVERY single checklist item.** This refers to individual checklist items in the implementation checklist, not the numbered steps in the process. Mark each checklist item as **IN PROGRESS** when starting, and check it off `[x]` immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
+**CRITICAL: Update the checklist file after EVERY single checklist item.** This refers to individual checklist items in the implementation checklist, not the numbered steps in the Implementation Process section. Mark each checklist item as **IN PROGRESS** when starting, and check it off `[x]` immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
 
 ### Step 5: Critical Rules for Test Implementation
 
@@ -421,7 +421,7 @@ After implementation is complete:
   - Copy everything else exactly
 - Extracting sections upfront reduces context load and speeds up implementation
 - The Implementation Checklist is your TODO list - follow it line by line and check off items as you complete them
-- **Update the checklist file after EVERY step** - mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
+- **Update the checklist file after completing EVERY checklist item** - This refers to individual checklist items in the implementation checklist, not the numbered steps in the Implementation Process section. Mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
 - Agents with tracking tools (like manage_todo_list) may use them as supplementary progress tracking
 - The implementation log captures reality - log all deviations and errors
 - Tests define correct behaviour - don't change them to make implementation easier
