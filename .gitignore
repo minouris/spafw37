@@ -11,3 +11,5 @@ logs/
 htmlcov/
 .pytest_cache/
 scratch/
+
+scratch/

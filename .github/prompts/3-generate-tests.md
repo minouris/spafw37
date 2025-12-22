@@ -53,14 +53,20 @@ You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAM
 
 ## Test Specification Format
 
-**From planning.instructions.md:**
+**CRITICAL: In plan documents, Gherkin comes FIRST in separate blocks, then Python tests.**
+
+**From python-tests.instructions.md § Including Gherkin Scenarios in Tests:**
+
+In plan documents (`features/**/*.md`), Gherkin scenarios are written separately in their own code blocks BEFORE the Python test implementation. The Python test contains only the descriptive docstring (What/Outcome/Why). When generating final implementation files, the Gherkin will be integrated into the test docstrings.
+
+**Why:** This separation aids in test generation and keeps specifications clear for review.
 
 For EACH test, document using this format:
 
 ```markdown
-**Test X.Y.Z: test_function_name**
+### Test X.Y.Z: Brief description of what's being tested
 
-```gherkin
+\`\`\`gherkin
 Scenario: Description of what this test validates
   Given [preconditions - what state exists before test]
   And [additional preconditions if needed]
@@ -70,7 +76,20 @@ Scenario: Description of what this test validates
   
   # Tests: [What specific functionality this test exercises]
   # Validates: [Why this test confirms correct behaviour]
-```
+\`\`\`
+
+### Code X.Y.Z: Test for function_name()
+
+\`\`\`python
+def test_function_name():
+    """Test that [what is being tested].
+    
+    This test verifies that [expected outcome].
+    This behaviour is expected because [why this validates correct behaviour].
+    """
+    setup_function()
+    # Test implementation here
+\`\`\`
 ```
 
 **For tests that need updating (obsolete or changed expectations):**

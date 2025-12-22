@@ -70,17 +70,62 @@ def test_validate_email_accepts_valid_addresses():
     assert result is True
 ```
 
-### Including Gherkin Scenarios in Test Docstrings
+### Including Gherkin Scenarios in Tests
 
-**NOTE: This requirement has an exemption for plan documents (`features/**/*.md`) - see exemption details below.**
+**Gherkin scenarios serve as both human-readable and machine-readable test specifications.**
 
-**When implementing tests from Gherkin specifications, include the Gherkin scenario in the test docstring:**
+#### In Plan Documents (`features/**/*.md`)
 
-This provides clear traceability between the specification and implementation, making it easy to understand the test's purpose and verify it matches the requirements.
+**Gherkin scenarios come FIRST in separate code blocks, followed by Python test code:**
 
-**Exemption for plan documents:** When writing test specifications in plan documents (`features/**/*.md`), the Gherkin scenarios are written separately in their own code blocks before the Python test implementation. The Gherkin will be added to the test docstrings when the final implementation files are generated from the plan.
+- Gherkin is written in its own code block before the Python test implementation
+- Python test code contains only the descriptive docstring (What/Outcome/Why sentences)
+- Gherkin is NOT included in test docstrings in plan documents
+- This separation aids in test generation and keeps specifications clear
 
-**Format:**
+**Why this pattern:** Separating Gherkin from implementation in plans makes it easier to:
+- Generate test code from specifications
+- Review test logic independently
+- Modify specifications without touching implementation details
+
+#### In Final Implementation Files (`tests/**/*.py`)
+
+**When implementing tests, integrate Gherkin INTO the docstring along with descriptive text:**
+
+This provides complete traceability and ensures both human-readable descriptions and machine-readable specifications are available in the final test code.
+
+**Plan document format:**
+```markdown
+### Test 1.2.1: Email validation - valid address
+
+\`\`\`gherkin
+Scenario: Valid email address
+  Given an email address "user@example.com"
+  When the validator checks the email
+  Then it should return True
+  And no exceptions should be raised
+  
+  # Tests: Email validation for valid format
+  # Validates: RFC 5322 compliance
+\`\`\`
+
+### Code 1.2.1: Test for validate_email() with valid address
+
+\`\`\`python
+def test_validate_email_accepts_valid_addresses():
+    """Test that the email validator accepts properly formatted email addresses.
+    
+    This test verifies that email addresses with valid username@domain.tld format
+    pass validation without raising exceptions or returning errors.
+    This behaviour is expected because RFC 5322 specifies this as a valid email format.
+    """
+    setup_function()
+    result = validate_email("user@example.com")
+    assert result is True
+\`\`\`
+```
+
+**Final implementation format (`tests/**/*.py`):**
 ```python
 def test_validate_email_accepts_valid_addresses():
     """Test that the email validator accepts properly formatted email addresses.

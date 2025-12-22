@@ -7,13 +7,54 @@
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
+## CRITICAL: Use Scratch File Approach for Complex Implementations
+
+**For implementation steps with multiple functions or extensive code:**
+
+1. **Create separate scratch files in `features/scratch/`** - one per implementation step
+2. **Name format:** `step{N}-{brief-description}.md` (e.g., `step1-validation-helpers.md`)
+3. **Build each scratch file incrementally** with proper structure (Gherkin → Test → Implementation)
+4. **Review and verify** each scratch file before proceeding to next step
+5. **Merge into main plan** after all scratch files are complete and verified
+
+**Why this approach:**
+- Prevents file corruption from large, complex edits
+- Allows incremental review and validation
+- Easier to fix errors in isolated scratch files
+- Clear separation between planning steps
+
+**Scratch file structure:**
+````markdown
+# Step {N}: {Description}
+
+## Module-level imports
+\`\`\`python
+# Imports for this step
+\`\`\`
+
+## Implementation
+
+### Test {N}.{M}.{P}: {Description}
+\`\`\`gherkin
+Scenario: ...
+\`\`\`
+
+### Code {N}.{M}.{P}: {Description}
+\`\`\`python
+# Implementation
+\`\`\`
+````
+
+**Directory:** `features/scratch/`
+
 ## Your Task
 
-**CRITICAL: You are ONLY editing the plan document.**
+**CRITICAL: You are ONLY editing plan documents and scratch files.**
 
-- **File to edit:** `features/{FEATURE_NAME}.md`
+- **Primary file:** `features/{FEATURE_NAME}.md`
+- **Scratch files:** `features/scratch/step*.md` (for complex implementations)
 - **Files NOT to edit:** Any files in `src/`, `tests/`, or other directories
-- **Your job:** Add detailed code specifications to the plan document
+- **Your job:** Add detailed code specifications to plan/scratch documents
 - **You are NOT implementing the feature** - you are documenting HOW to implement it
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 4 of 6: generating detailed implementation code with proper block numbering.
@@ -21,9 +62,10 @@ You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAM
 ## Before You Start - Verify Understanding
 
 Before making any changes, confirm:
-- [ ] I am editing ONLY the plan document at `features/{FEATURE_NAME}.md`
+- [ ] I am editing ONLY plan/scratch documents in `features/`
 - [ ] I am NOT touching any files in `src/` or `tests/`
-- [ ] I am adding code block specifications to the plan
+- [ ] I am adding code block specifications to markdown documents
+- [ ] For complex steps, I will use `features/scratch/` files first
 - [ ] The code I write goes IN THE MARKDOWN, not in separate Python files
 
 ## CRITICAL: NO GUESSING POLICY
@@ -76,8 +118,12 @@ Key points for implementation:
 Key requirements:
 - Hierarchical block numbering (X.Y.Z)
 - Implementation + tests interweaved (each function immediately followed by its tests)
-- Gherkin + Python pairs (each test has both specification and implementation)
+- **Gherkin FIRST, then Python:** Each test specification starts with a Gherkin block, followed by the Python test implementation
 - Test headings describe what's being tested (not "Gherkin for...")
+- Python test docstrings contain ONLY descriptive text (What/Outcome/Why), NOT Gherkin
+- Gherkin scenarios are in separate code blocks to aid test generation
+
+**Why this pattern:** Separating Gherkin from Python implementation in plan documents makes it easier to generate test code, review specifications independently, and modify logic without touching implementation details. When generating final implementation files (`tests/**/*.py`), the Gherkin will be integrated into the test docstrings along with the descriptive text.
 
 **See the instruction file for complete details, examples, and rationale.**
 
