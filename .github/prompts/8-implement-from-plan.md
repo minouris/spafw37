@@ -309,21 +309,29 @@ For EACH checklist item:
    - Replace it ENTIRELY with your updated version (all items should be `[x]`)
    - This preserves the record of implementation progress
 
-3. **Step section recomposition (only if implementation log shows corrections):**
+3. **Implementation Log addition (always required):**
+   - Open `features/scratch/issue-{NUMBER}/implementation-log.md`
+   - Add a new section "## Implementation Log" AFTER the Implementation Checklist in the plan
+   - Copy the ENTIRE log contents (all error entries and resolutions)
+   - This creates a permanent record of issues encountered and how they were resolved
+   - Even if the log is empty (no errors), add the section with "No errors encountered during implementation."
+
+4. **Step section recomposition (only if implementation log shows corrections):**
    - If implementation log shows plan errors (incorrect test expectations, wrong specifications, etc.):
      - Identify which step sections in workspace were corrected
      - Merge those corrected sections back into the plan
    - If implementation log only shows codebase issues (wrong function names, etc.):
      - Step sections were read-only references and don't need updating
      - Leave them unchanged in the plan
-   - Most implementations only require checklist recomposition
+   - Most implementations only require checklist and log additions
 
-4. **Verify the recomposition:**
+5. **Verify the recomposition:**
    - Check that Implementation Checklist shows completion status (all items `[x]`)
+   - Check that Implementation Log section is present with all error entries
    - If step sections were updated, ensure formatting is consistent
    - Verify no temporary workspace annotations remain
 
-5. **This preserves the record** of implementation progress in the plan document
+6. **This preserves the record** of implementation progress and issues in the plan document
 
 ### Step 11: Cleanup and Final Checks
 
