@@ -243,7 +243,7 @@ def _process_inline_params(cmd):
 
 ## Verification
 
-After implementing Step 2:
+After implementing Step 3:
 - Run `pytest tests/test_command.py::test_process_inline_params_required_params -v`
 - Run `pytest tests/test_command.py::test_process_inline_params_trigger_param -v`
 - Run `pytest tests/test_command.py::test_process_inline_params_no_inline_params -v`
