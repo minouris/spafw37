@@ -536,86 +536,82 @@ The checklist should be organised by implementation step, with each step contain
 
 This checklist tracks the test-driven development workflow for implementing issue #{ISSUE_NUMBER}.
 
-**Legend:**
-- 🔴 RED - Test should fail (not yet implemented)
-- 🟢 GREEN - Test should pass (implementation complete)
-- ✅ - Checkpoint completed
+Each line item that requires action must have a checkbox [ ].
 
 ### Step {N}: {Step Description}
 
-**Test Phase (RED):**
-- [ ] Run: `pytest tests/test_module.py::test_function_name -v`
-  - Expected: 🔴 RED (test should fail - function not implemented yet)
+#### {N}.{M}: {Function Name}
 
-**Implementation Phase (GREEN):**
-- [ ] Patch: {Brief description of what to implement}
-  - Implement `function_name()` in `src/module.py`
-  - Make test pass
-
-**Regression Phase:**
-- [ ] Run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing`
-  - Expected: 🟢 All tests pass, coverage maintained
-
-### Step {N+1}: {Next Step Description}
-
-(Repeat structure for each implementation step)
+- [ ] Write tests for `{function_name}()`
+  - [ ] Patch: Add `test_{function_name}_{scenario_1}()` to `tests/test_module.py`
+  - [ ] Patch: Add `test_{function_name}_{scenario_2}()` to `tests/test_module.py`
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_1} -v` (expect FAIL - red)
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_2} -v` (expect FAIL - red)
+- [ ] Implement `{function_name}()`
+  - [ ] Patch: Add function to `src/module.py`
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_1} -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_2} -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_module.py -v` (regression check - all module tests)
 
 ### Final Verification
 
 - [ ] All implementation steps completed
-- [ ] All tests passing: `pytest tests/ -v`
-- [ ] Coverage target met: `pytest tests/ --cov=spafw37 --cov-report=term-missing`
+- [ ] All tests passing
+  - [ ] Test run: `pytest tests/ -v`
+- [ ] Coverage target met
+  - [ ] Test run: `pytest tests/ --cov=spafw37 --cov-report=term-missing`
 - [ ] No regressions introduced
 - [ ] Code review checklist verified
 ```
 
 ### Key Principles
 
-1. **Specificity** - Use exact function names, test names, and file paths from the implementation code blocks
-2. **TDD Workflow** - Always run tests BEFORE implementation (RED phase) to verify they fail
-3. **Regression Safety** - Run full test suite after each implementation to catch regressions early
-4. **Granularity** - One checklist entry per code block (function/helper)
-5. **Traceability** - Link test commands to specific code block numbers (X.Y.Z)
+1. **Every action gets a checkbox** - Each patch, test run, and verification step must have `- [ ]`
+2. **Nested checkboxes for sub-steps** - Use indentation to show sub-steps under major items
+3. **Specificity** - Use exact function names, test names, and file paths from the implementation code blocks
+4. **TDD Workflow** - Always run tests BEFORE implementation (RED phase) to verify they fail
+5. **Regression Safety** - Run full test suite after each implementation to catch regressions early
+6. **Granularity** - One major checklist entry per function, with sub-checkboxes for each test and implementation action
+7. **Traceability** - Link test commands to specific code block numbers (X.Y.Z)
 
 ### Example: Single Step Checklist
 
 ```markdown
 ### Step 3: Implement Parameter Validation
 
-**Test Phase (RED):**
-- [ ] Run: `pytest tests/test_param.py::test_validate_param_name_missing -v`
-  - Expected: 🔴 RED (function not implemented)
-- [ ] Run: `pytest tests/test_param.py::test_validate_param_name_valid -v`
-  - Expected: 🔴 RED (function not implemented)
+#### 3.1: `_validate_param_name()`
 
-**Implementation Phase (GREEN):**
-- [ ] Patch: Implement `_validate_param_name()` helper in `src/spafw37/param.py`
-  - Extract parameter name validation from `add_param()`
-  - Handle missing/empty name
-  - Return validation result
-
-**Regression Phase:**
-- [ ] Run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing`
-  - Expected: 🟢 All tests pass, coverage ≥95%
+- [ ] Write tests for `_validate_param_name()`
+  - [ ] Patch: Add `test_validate_param_name_missing()` to `tests/test_param.py`
+  - [ ] Patch: Add `test_validate_param_name_valid()` to `tests/test_param.py`
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_missing -v` (expect FAIL - red)
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_valid -v` (expect FAIL - red)
+- [ ] Implement `_validate_param_name()`
+  - [ ] Patch: Add function to `src/spafw37/param.py` before `add_param()`
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_missing -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_valid -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_param.py -v` (regression check)
 ```
 
 ### What to Include
 
 **For each implementation step:**
-- Test commands for ALL test blocks in that step
-- Expected outcomes (RED before implementation, GREEN after)
-- Brief patch descriptions (what code to write)
-- Regression check command
-- File paths for implementation and tests
+- Major checkbox for "Write tests" with nested checkboxes for:
+  - Each patch (adding test function)
+  - Each test run command (red phase)
+- Major checkbox for "Implement function" with nested checkboxes for:
+  - Patch description (adding implementation)
+  - Each test run command (green phase)
+  - Regression check command
 
 **For helper functions:**
-- Separate checklist entries for each helper
-- Test commands specific to that helper's tests
-- Implementation details for that helper only
+- Separate major checklist items for each helper
+- Sub-checkboxes for all test/implementation/regression steps
+- File paths for implementation and tests
 
 **For modifications:**
-- Regression test commands if modifying existing functions
-- Verification that existing behaviour unchanged
+- Nested checkboxes for regression test commands
+- Sub-checkboxes for verification steps
 
 ### What NOT to Include
 
