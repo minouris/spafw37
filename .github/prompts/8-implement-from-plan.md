@@ -175,12 +175,15 @@ For EACH checklist item:
 5. **Check off the item** in the checklist file when finished:
    - Change `- [ ] **IN PROGRESS**` to `- [x]` 
    - Only check off when the item is completely finished
+   - **UPDATE THE CHECKLIST FILE IMMEDIATELY** - do not batch updates
 6. **Update agent tracking** (if using manage_todo_list or similar tools)
 7. **If errors occur**:
    - Add entry to implementation log with timestamp
    - Document the error, what caused it, and how you resolved it
    - **ONLY change tests if categorically wrong** (see Critical Rules below)
 8. **Move to next item**
+
+**CRITICAL: Update the checklist file after EVERY single step.** Mark items IN PROGRESS when starting, and check them off [x] immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
 
 ### Step 5: Critical Rules for Test Implementation
 
@@ -217,12 +220,14 @@ For EACH checklist item:
    - Implement test body per code block in plan
    - Run test: `pytest tests/test_{module}.py::test_name -v`
    - **Verify test FAILS** (if it passes, something is wrong)
+   - **Update checklist**: Check off the "Write test" item
 
 2. **Green Phase - Implement code**:
    - Write implementation per code block in plan
    - Follow exact specifications and coding standards
    - Run test: `pytest tests/test_{module}.py::test_name -v`
    - **Verify test PASSES**
+   - **Update checklist**: Check off the "Implement" item
 
 3. **Refactor Phase** (if needed):
    - Improve code clarity without changing behaviour
@@ -233,6 +238,9 @@ For EACH checklist item:
    - `pytest tests/test_{module}.py -v` (all tests in file)
    - Verify no regressions in existing tests
    - If regressions occur, log them and fix implementation
+   - **Update checklist**: Check off the "Regression check" item
+
+**Remember: Update the checklist file after completing each phase.** This provides a clear record of progress and makes it easy to resume if interrupted.
 
 ### Step 7: Handle Implementation Errors
 
@@ -396,6 +404,7 @@ After implementation is complete:
   - Copy everything else exactly
 - Extracting sections upfront reduces context load and speeds up implementation
 - The Implementation Checklist is your TODO list - follow it line by line and check off items as you complete them
+- **Update the checklist file after EVERY step** - mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
 - Agents with tracking tools (like manage_todo_list) may use them as supplementary progress tracking
 - The implementation log captures reality - log all deviations and errors
 - Tests define correct behaviour - don't change them to make implementation easier
