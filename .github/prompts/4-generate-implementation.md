@@ -480,6 +480,9 @@ For EACH implementation step:
 After completing all steps, confirm:
 - Total number of code blocks added
 - Total lines of implementation code
+- Total implementation checklist items
+- Number of test runs tracked in checklist
+- Number of regression checks in checklist
 - Any concerns about complexity or implementation details
 
 ## CRITICAL: Pre-Submission Verification
@@ -501,4 +504,125 @@ Specifically verify:
 
 **If any violations found, fix them before submitting your response.**
 
-Ask user to review implementation code before proceeding to Step 5 (documentation).
+## Step 4.5: Create Implementation Checklist
+
+**After all implementation code blocks are complete,** create a comprehensive implementation checklist that tracks the test-driven development workflow for executing this plan.
+
+### Purpose
+
+The Implementation Checklist provides a structured tracking mechanism for:
+- Running tests as they are written (TDD red phase)
+- Implementing code to make tests pass (TDD green phase)
+- Running full regression suite after each implementation
+- Tracking patches/commits for each step
+- Verifying final implementation completeness
+
+### Structure
+
+The checklist should be organised by implementation step, with each step containing:
+
+1. **Test command** - The exact pytest command to run tests for that specific code block
+2. **Expected outcome** - "RED" for tests that should fail before implementation
+3. **Checkbox** - For tracking test execution
+4. **Patch description** - Brief description of what will be implemented
+5. **Implementation checkbox** - For tracking code completion
+6. **Regression command** - Command to run full test suite
+7. **Regression checkbox** - For tracking regression verification
+
+### Checklist Format
+
+```markdown
+## Implementation Checklist
+
+This checklist tracks the test-driven development workflow for implementing issue #{ISSUE_NUMBER}.
+
+**Legend:**
+- 🔴 RED - Test should fail (not yet implemented)
+- 🟢 GREEN - Test should pass (implementation complete)
+- ✅ - Checkpoint completed
+
+### Step {N}: {Step Description}
+
+**Test Phase (RED):**
+- [ ] Run: `pytest tests/test_module.py::test_function_name -v`
+  - Expected: 🔴 RED (test should fail - function not implemented yet)
+
+**Implementation Phase (GREEN):**
+- [ ] Patch: {Brief description of what to implement}
+  - Implement `function_name()` in `src/module.py`
+  - Make test pass
+
+**Regression Phase:**
+- [ ] Run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing`
+  - Expected: 🟢 All tests pass, coverage maintained
+
+### Step {N+1}: {Next Step Description}
+
+(Repeat structure for each implementation step)
+
+### Final Verification
+
+- [ ] All implementation steps completed
+- [ ] All tests passing: `pytest tests/ -v`
+- [ ] Coverage target met: `pytest tests/ --cov=spafw37 --cov-report=term-missing`
+- [ ] No regressions introduced
+- [ ] Code review checklist verified
+```
+
+### Key Principles
+
+1. **Specificity** - Use exact function names, test names, and file paths from the implementation code blocks
+2. **TDD Workflow** - Always run tests BEFORE implementation (RED phase) to verify they fail
+3. **Regression Safety** - Run full test suite after each implementation to catch regressions early
+4. **Granularity** - One checklist entry per code block (function/helper)
+5. **Traceability** - Link test commands to specific code block numbers (X.Y.Z)
+
+### Example: Single Step Checklist
+
+```markdown
+### Step 3: Implement Parameter Validation
+
+**Test Phase (RED):**
+- [ ] Run: `pytest tests/test_param.py::test_validate_param_name_missing -v`
+  - Expected: 🔴 RED (function not implemented)
+- [ ] Run: `pytest tests/test_param.py::test_validate_param_name_valid -v`
+  - Expected: 🔴 RED (function not implemented)
+
+**Implementation Phase (GREEN):**
+- [ ] Patch: Implement `_validate_param_name()` helper in `src/spafw37/param.py`
+  - Extract parameter name validation from `add_param()`
+  - Handle missing/empty name
+  - Return validation result
+
+**Regression Phase:**
+- [ ] Run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing`
+  - Expected: 🟢 All tests pass, coverage ≥95%
+```
+
+### What to Include
+
+**For each implementation step:**
+- Test commands for ALL test blocks in that step
+- Expected outcomes (RED before implementation, GREEN after)
+- Brief patch descriptions (what code to write)
+- Regression check command
+- File paths for implementation and tests
+
+**For helper functions:**
+- Separate checklist entries for each helper
+- Test commands specific to that helper's tests
+- Implementation details for that helper only
+
+**For modifications:**
+- Regression test commands if modifying existing functions
+- Verification that existing behaviour unchanged
+
+### What NOT to Include
+
+- Generic "implement the code" descriptions
+- Test commands without specific function/test names
+- Steps without regression checks
+- Implementation steps without corresponding tests
+- Checklist items that don't correspond to actual code blocks
+
+Ask user to review implementation code AND checklist before proceeding to Step 5 (documentation).
