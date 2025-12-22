@@ -254,6 +254,78 @@ gh issue comment {ISSUE_NUMBER} --body-file /tmp/consideration.md
 - All decisions are documented with direct links to specific comment threads
 - Users can provide feedback on individual considerations without mixing topics
 
+## Step 2.5: Define Success Criteria
+
+Replace PLACEHOLDER in Success Criteria section with specific, verifiable criteria for the **feature outcomes**, not plan completion.
+
+**Purpose:** Define what "done" means for the feature from a user/system perspective.
+
+**Focus on:**
+- **Functional outcomes** - Does the feature behave correctly?
+- **Performance outcomes** - Does it meet performance requirements?
+- **Integration outcomes** - Does it work with existing systems?
+- **User experience outcomes** - Does it meet usability requirements?
+
+**NOT about:**
+- Plan document completion (that's Planning Checklist)
+- Implementation workflow (that's Implementation Checklist)
+- Code quality rules (those are universal standards)
+
+**Structure:**
+
+```markdown
+## Success Criteria
+
+This issue is considered successfully implemented when:
+
+**Functional Requirements:**
+- [ ] Feature X produces correct output Y for input Z
+- [ ] Edge case A handled correctly (specific behaviour expected)
+- [ ] Integration with existing feature B works as designed
+- [ ] Error case C produces appropriate error message D
+
+**Performance Requirements:**
+- [ ] Operation completes in <N seconds for typical input
+- [ ] Memory usage remains under X MB for Y items
+- [ ] No performance regression for existing features
+
+**Compatibility Requirements:**
+- [ ] Works with Python 3.7.0+
+- [ ] Backward compatible with existing API usage
+- [ ] Existing tests continue to pass
+
+**User Experience Requirements:**
+- [ ] Error messages are clear and actionable
+- [ ] Configuration options are intuitive
+- [ ] Documentation explains how to use feature
+- [ ] Examples demonstrate common use cases
+```
+
+**Guidelines:**
+1. **Be specific** - "Error message includes function name" not "errors handled properly"
+2. **Be measurable** - "< 100ms" not "fast", "80% coverage" not "well tested"
+3. **Be outcome-focused** - "User can X" not "Code implements Y"
+4. **Include acceptance tests** - Each criterion should be verifiable
+
+**Example - Bug Fix:**
+```markdown
+**Functional Requirements:**
+- [ ] Pre-parse params with default values retain their pre-parsed values
+- [ ] Pre-parse params without default values work as before
+- [ ] Non-pre-parse params with defaults work as before
+- [ ] XOR validation not triggered during default-setting phase
+```
+
+**Example - New Feature:**
+```markdown
+**Functional Requirements:**
+- [ ] User can specify prompt text for a parameter
+- [ ] Prompt appears before CLI parsing when configured
+- [ ] User input validation executes before storing value
+- [ ] Invalid input prompts user to re-enter
+- [ ] Prompt skipped if value provided via CLI argument
+```
+
 ## Output Requirements
 
 Update the plan document with:
@@ -261,6 +333,7 @@ Update the plan document with:
 2. ✅ Program Flow Analysis (if applicable)
 3. ✅ Implementation Steps outline with all steps identified
 4. ✅ Further Considerations with initial questions (all marked PENDING REVIEW)
-5. ✅ Updated Table of Contents to include all new sections (three levels: major sections, subsections, individual questions)
+5. ✅ Success Criteria defining feature outcomes (not plan completion)
+6. ✅ Updated Table of Contents to include all new sections (three levels: major sections, subsections, individual questions)
 
-Confirm completion and ask user to review considerations before proceeding to Step 3 (test generation).
+Confirm completion and ask user to review considerations and success criteria before proceeding to Step 3 (test generation).
