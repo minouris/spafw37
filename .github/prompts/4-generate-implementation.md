@@ -12,7 +12,7 @@
 **For implementation steps with multiple functions or extensive code:**
 
 1. **Create separate scratch files in `features/scratch/`** - one per implementation step
-2. **Name format:** `step{N}-{brief-description}.md` (e.g., `step1-validation-helpers.md`)
+2. **Name format:** `issue-{N}-step{N}-{brief-description}.md` (e.g., `issue-61-step1-validation-helpers.md`)
 3. **Build each scratch file incrementally** with proper structure (Gherkin → Test → Implementation)
 4. **Review and verify** each scratch file before proceeding to next step
 5. **Merge into main plan** after all scratch files are complete and verified

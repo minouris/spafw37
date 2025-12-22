@@ -32,11 +32,13 @@ Each helper method will have focused unit tests, clear error messages, and reusa
 
 - [Overview](#overview)
 - [Implementation Steps](#implementation-steps)
-  - [1. Extract validation helpers](#step-1-extract-validation-helpers)
-  - [2. Extract inline parameter processing](#step-2-extract-inline-parameter-processing)
-  - [3. Extract inline command processing](#step-3-extract-inline-command-processing)
-  - [4. Extract phase assignment](#step-4-extract-phase-assignment)
-  - [5. Extract command storage](#step-5-extract-command-storage)
+  - [1. Module-level imports](#step-1-module-level-imports)
+  - [2. Extract validation helpers](#step-2-extract-validation-helpers)
+  - [3. Extract inline parameter processing](#step-3-extract-inline-parameter-processing)
+  - [4. Extract inline command processing](#step-4-extract-inline-command-processing)
+  - [5. Extract phase assignment](#step-5-extract-phase-assignment)
+  - [6. Extract command storage](#step-6-extract-command-storage)
+  - [7. Refactor add_command()](#step-7-refactor-add_command-to-use-all-helpers)
 - [Further Considerations](#further-considerations)
 - [Success Criteria](#success-criteria)
 - [CHANGES for v1.1.0 Release](#changes-for-v110-release)
@@ -62,15 +64,30 @@ The `add_command()` function (lines 192-244 in `src/spafw37/command.py`) current
 
 Extract helpers in this order (simplest to most complex):
 
-1. `_validate_command_name()` - Name validation
-2. `_validate_command_action()` - Action validation
-3. `_validate_command_references()` - Self-reference and conflict checks
-4. `_process_inline_params()` - Inline parameter processing
-5. `_process_inline_commands()` - Inline command processing
-6. `_assign_command_phase()` - Phase assignment
-7. `_store_command()` - Registry storage and cycle registration
+1. Module-level imports - Add necessary test imports
+2. `_validate_command_name()` - Name validation
+3. `_validate_command_action()` - Action validation
+4. `_validate_command_references()` - Self-reference and conflict checks
+5. `_process_inline_params()` - Inline parameter processing
+6. `_process_inline_commands()` - Inline command processing
+7. `_assign_command_phase()` - Phase assignment
+8. `_store_command()` - Registry storage and cycle registration
 
-### Step 1: Extract validation helpers
+**Final step:** Refactor `add_command()` to use all extracted helpers
+
+### Step 1: Module-level imports
+
+Add all necessary imports to `tests/test_command.py` to support the helper tests in subsequent steps.
+
+**Rationale:** Consolidating all required imports upfront avoids duplication and ensures all constants and modules are available when needed.
+
+[Implementation is in scratch/issue-61-step1-imports.md]
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+### Step 2: Extract validation helpers
 
 Extract the three validation helpers that check command definition properties. These are the simplest extractions with clear boundaries.
 
@@ -78,7 +95,7 @@ Extract the three validation helpers that check command definition properties. T
 
 **Test Specifications:**
 
-**Test 1.1: Name validation**
+**Test 2.1: Name validation**
 
 ```gherkin
 Scenario: Empty command name raises ValueError
@@ -90,7 +107,7 @@ Scenario: Empty command name raises ValueError
   # Validates: Helper catches empty/None command names
 ```
 
-**Test 1.2: Action validation**
+**Test 2.2: Action validation**
 
 ```gherkin
 Scenario: Missing command action raises ValueError
@@ -102,7 +119,7 @@ Scenario: Missing command action raises ValueError
   # Validates: Helper catches missing action functions
 ```
 
-**Test 1.3: Self-reference validation**
+**Test 2.3: Self-reference validation**
 
 ```gherkin
 Scenario: Command referencing itself raises ValueError
@@ -114,7 +131,7 @@ Scenario: Command referencing itself raises ValueError
   # Validates: Helper prevents circular self-references
 ```
 
-**Test 1.4: Conflicting constraints validation**
+**Test 2.4: Conflicting constraints validation**
 
 ```gherkin
 Scenario: Conflicting GOES_BEFORE and GOES_AFTER raises ValueError
@@ -126,13 +143,13 @@ Scenario: Conflicting GOES_BEFORE and GOES_AFTER raises ValueError
   # Validates: Helper catches impossible sequencing requirements
 ```
 
-[Implementation will be added to scratch/step1-validation-helpers.md]
+[Implementation is in scratch/issue-61-step2-validation-helpers.md]
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### Step 2: Extract inline parameter processing
+### Step 3: Extract inline parameter processing
 
 Extract inline parameter definition processing for `COMMAND_REQUIRED_PARAMS` and `COMMAND_TRIGGER_PARAM` into a single helper.
 
@@ -140,7 +157,7 @@ Extract inline parameter definition processing for `COMMAND_REQUIRED_PARAMS` and
 
 **Test Specifications:**
 
-**Test 2.1: Inline required params processing**
+**Test 3.1: Inline required params processing**
 
 ```gherkin
 Scenario: Inline param definitions in COMMAND_REQUIRED_PARAMS are registered
@@ -153,7 +170,7 @@ Scenario: Inline param definitions in COMMAND_REQUIRED_PARAMS are registered
   # Validates: Helper normalizes dict definitions to name strings
 ```
 
-**Test 2.2: String param names preserved**
+**Test 3.2: String param names preserved**
 
 ```gherkin
 Scenario: String param names in COMMAND_REQUIRED_PARAMS are preserved
@@ -165,7 +182,7 @@ Scenario: String param names in COMMAND_REQUIRED_PARAMS are preserved
   # Validates: Helper doesn't modify already-normalized names
 ```
 
-**Test 2.3: Inline trigger param processing**
+**Test 3.3: Inline trigger param processing**
 
 ```gherkin
 Scenario: Inline param definition in COMMAND_TRIGGER_PARAM is registered
@@ -178,13 +195,13 @@ Scenario: Inline param definition in COMMAND_TRIGGER_PARAM is registered
   # Validates: Helper normalizes trigger param definitions
 ```
 
-[Implementation will be added to scratch/step2-inline-params.md]
+[Implementation is in scratch/issue-61-step3-inline-params.md]
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### Step 3: Extract inline command processing
+### Step 4: Extract inline command processing
 
 Extract inline command definition processing for dependency/sequencing fields into a helper.
 
@@ -192,7 +209,7 @@ Extract inline command definition processing for dependency/sequencing fields in
 
 **Test Specifications:**
 
-**Test 3.1: Inline command definitions registered**
+**Test 4.1: Inline command definitions registered**
 
 ```gherkin
 Scenario: Inline command dicts in dependency fields are registered
@@ -205,7 +222,7 @@ Scenario: Inline command dicts in dependency fields are registered
   # Validates: Helper normalizes dict definitions to name strings
 ```
 
-**Test 3.2: Multiple dependency fields processed**
+**Test 4.2: Multiple dependency fields processed**
 
 ```gherkin
 Scenario: All four dependency fields are processed
@@ -218,7 +235,7 @@ Scenario: All four dependency fields are processed
   # Validates: Helper handles GOES_AFTER, GOES_BEFORE, NEXT_COMMANDS, REQUIRE_BEFORE
 ```
 
-**Test 3.3: String command names preserved**
+**Test 4.3: String command names preserved**
 
 ```gherkin
 Scenario: String command names in dependency fields are preserved
@@ -230,13 +247,13 @@ Scenario: String command names in dependency fields are preserved
   # Validates: Helper doesn't modify already-normalized names
 ```
 
-[Implementation will be added to scratch/step3-inline-commands.md]
+[Implementation is in scratch/issue-61-step4-inline-commands.md]
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### Step 4: Extract phase assignment
+### Step 5: Extract phase assignment
 
 Extract default phase assignment logic into a helper.
 
@@ -244,7 +261,7 @@ Extract default phase assignment logic into a helper.
 
 **Test Specifications:**
 
-**Test 4.1: Default phase assignment**
+**Test 5.1: Default phase assignment**
 
 ```gherkin
 Scenario: Command without COMMAND_PHASE gets default phase
@@ -256,7 +273,7 @@ Scenario: Command without COMMAND_PHASE gets default phase
   # Validates: Helper assigns default when phase not specified
 ```
 
-**Test 4.2: Explicit phase preserved**
+**Test 5.2: Explicit phase preserved**
 
 ```gherkin
 Scenario: Command with COMMAND_PHASE keeps its value
@@ -268,13 +285,13 @@ Scenario: Command with COMMAND_PHASE keeps its value
   # Validates: Helper doesn't override explicit phase assignments
 ```
 
-[Implementation will be added to scratch/step4-phase-assignment.md]
+[Implementation is in scratch/issue-61-step5-phase-assignment.md]
 
 [↑ Back to top](#table-of-contents)
 
 ---
 
-### Step 5: Extract command storage
+### Step 6: Extract command storage
 
 Extract final storage and cycle registration into a helper.
 
@@ -282,7 +299,7 @@ Extract final storage and cycle registration into a helper.
 
 **Test Specifications:**
 
-**Test 5.1: Command stored in registry**
+**Test 6.1: Command stored in registry**
 
 ```gherkin
 Scenario: Command is added to _commands registry
@@ -294,7 +311,7 @@ Scenario: Command is added to _commands registry
   # Validates: Helper stores command in module registry
 ```
 
-**Test 5.2: Cycle registration triggered**
+**Test 6.2: Cycle registration triggered**
 
 ```gherkin
 Scenario: Command with cycle triggers cycle registration
@@ -306,7 +323,7 @@ Scenario: Command with cycle triggers cycle registration
   # Validates: Helper delegates cycle registration to cycle module
 ```
 
-**Test 5.3: Integration test - refactored add_command maintains behavior**
+**Test 6.3: Integration test - refactored add_command maintains behavior**
 
 ```gherkin
 Scenario: Refactored add_command produces identical results
@@ -319,7 +336,61 @@ Scenario: Refactored add_command produces identical results
   # Validates: Refactoring doesn't change external behavior
 ```
 
-[Implementation will be added to scratch/step5-storage.md]
+[Implementation is in scratch/issue-61-step6-storage.md]
+
+### Step 7: Refactor add_command() to use all helpers
+
+Refactor the main `add_command()` function to delegate all responsibilities to the extracted helpers. This creates a clean, high-level orchestrator function.
+
+**Rationale:** With all helpers extracted and tested, we can now show the final clean implementation of `add_command()` that uses them. This demonstrates the end result of the refactoring.
+
+**Test Specifications:**
+
+**Test 7.1: Integration test - refactored add_command maintains behaviour**
+
+```gherkin
+Scenario: Refactored add_command produces identical results
+  Given the same command definition
+  When add_command() is called with refactored implementation
+  Then command is registered identically to original implementation
+  And all existing tests continue to pass
+  
+  # Tests: Backward compatibility
+  # Validates: Refactoring doesn't change external behaviour
+```
+
+**Implementation:**
+
+**Code 7.1: Refactored add_command() using all helpers**
+
+```python
+# Block 7.1: Replace add_command() in src/spafw37/command.py
+
+def add_command(cmd):
+    """Register a command for execution.
+    
+    [... existing docstring unchanged ...]
+    """
+    # Validation
+    _validate_command_name(cmd)
+    _validate_command_action(cmd)
+    
+    # Skip if already registered
+    name = cmd[COMMAND_NAME]
+    if name in _commands:
+        return
+    
+    # Process inline definitions
+    _process_inline_params(cmd)
+    _process_inline_commands(cmd)
+    
+    # Validate references after inline processing
+    _validate_command_references(cmd)
+    
+    # Assign phase and store
+    _assign_command_phase(cmd)
+    _store_command(cmd)
+```
 
 [↑ Back to top](#table-of-contents)
 
