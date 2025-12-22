@@ -6,6 +6,14 @@ This file contains the TDD implementation for extracting inline command processi
 
 Extract helper: `_process_inline_commands()` - Handles inline command definitions in dependency/sequencing fields
 
+**Methods created:**
+- `_normalise_command_list()` - Converts list of command defs to command names
+  - `test_normalise_command_list()`
+- `_process_inline_commands()` - Processes inline command definitions in all dependency fields
+  - `test_process_inline_commands_goes_after()`
+  - `test_process_inline_commands_multiple_fields()`
+  - `test_process_inline_commands_no_inline_commands()`
+
 ## Module-level imports
 
 See `issue-61-step1-imports.md` for all required imports.
@@ -204,21 +212,23 @@ def test_normalise_command_list():
 def _normalise_command_list(cmd_list):
     """Normalise list of command definitions to command names.
     
-    Block 3.1.5.1: Initialize result list
-    Block 3.1.5.2: Loop through command definitions
-      Block 3.1.5.2.1: Register command and append name to result
-    Block 3.1.5.3: Return normalised list
-    
     Args:
         cmd_list: List of command definition dicts
         
     Returns:
         List of command names (strings)
     """
+    # Block 4.1.5.1: Initialize result list
     normalised_cmds = []
+    
+    # Block 4.1.5.2: Loop through command definitions
     for cmd_def in cmd_list:
+        # Block 4.1.5.2.1: Register command via _register_inline_command()
         cmd_name = _register_inline_command(cmd_def)
+        # Block 4.1.5.2.2: Append name to result list
         normalised_cmds.append(cmd_name)
+    
+    # Block 4.1.5.3: Return normalised list
     return normalised_cmds
 ```
 
@@ -230,13 +240,6 @@ def _normalise_command_list(cmd_list):
 def _process_inline_commands(cmd):
     """Process inline command definitions in dependency/sequencing fields.
     
-    Block 3.1.6.1: Define dependency field list
-    Block 3.1.6.2: Loop through each field type
-      Block 3.1.6.2.1: Get field value from command
-      Block 3.1.6.2.2: If field has values, normalise and update
-        Block 3.1.6.2.2.1: Call _normalise_command_list() helper
-        Block 3.1.6.2.2.2: Update cmd with normalised list
-    
     Handles COMMAND_GOES_BEFORE, COMMAND_GOES_AFTER, COMMAND_NEXT_COMMANDS,
     and COMMAND_REQUIRE_BEFORE. Registers inline command definitions and
     normalises fields to command names.
@@ -244,11 +247,18 @@ def _process_inline_commands(cmd):
     Args:
         cmd: Command definition dict (modified in place)
     """
+    # Block 4.1.6.1: Define dependency field list
+    # Block 4.1.6.2: Loop through each field type
     for field in [COMMAND_GOES_BEFORE, COMMAND_GOES_AFTER, 
                   COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
+        # Block 4.1.6.2.1: Get field value from command
         cmd_list = cmd.get(field, [])
+        
+        # Block 4.1.6.2.2: If field has values, normalise and update
         if cmd_list:
+            # Block 4.1.6.2.2.1: Call _normalise_command_list() helper
             normalised_cmds = _normalise_command_list(cmd_list)
+            # Block 4.1.6.2.2.2: Update cmd with normalised list
             cmd[field] = normalised_cmds
 ```
 

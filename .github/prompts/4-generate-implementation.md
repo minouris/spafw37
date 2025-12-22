@@ -27,10 +27,18 @@
 ````markdown
 # Step {N}: {Description}
 
+## Overview
+
+Brief description of what this step accomplishes.
+
+**Methods created:**
+- `method_name()` - Brief description
+  - `test_method_scenario1()`
+  - `test_method_scenario2()`
+
 ## Module-level imports
-\`\`\`python
-# Imports for this step
-\`\`\`
+
+See `issue-{N}-step1-imports.md` for all required imports.
 
 ## Implementation
 
@@ -41,9 +49,31 @@ Scenario: ...
 
 ### Code {N}.{M}.{P}: {Description}
 \`\`\`python
-# Implementation
+# Block {N}.{M}.{P}: Location comment
+
+def function_name():
+    """Docstring."""
+    # Block {N}.{M}.{P}.1: Description of first logical section
+    code_here()
+    
+    # Block {N}.{M}.{P}.2: Description of second logical section
+    more_code_here()
 \`\`\`
 ````
+
+**CRITICAL requirements for scratch files:**
+
+1. **Step 1 MUST be imports**: Create `issue-{N}-step1-imports.md` consolidating ALL imports needed across all steps. Other steps reference this file instead of duplicating imports.
+
+2. **Block numbering as comments**: Block numbers (X.Y.Z.N) must be **comments interleaved in the code**, NOT in docstrings or markdown headings. They substitute for line numbers which are unreliable in fenced code blocks.
+
+3. **Explicit constant imports**: Use `from module import CONSTANT_NAME` for individual constants, NEVER `from module import *`. List all constants explicitly.
+
+4. **Overview section**: Every step file must have an Overview section listing methods created and their tests in nested bullet format.
+
+5. **Helper extraction order**: Extract helper functions BEFORE their parent functions (bottom-up composition). Show helpers first, then the functions that use them.
+
+6. **Detailed block numbering**: Use X.Y.Z.N format where depth indicates nesting level. This helps expose nesting violations (if you have X.Y.Z.N.M.P, you have too much nesting).
 
 **Directory:** `features/scratch/`
 

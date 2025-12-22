@@ -5,7 +5,7 @@ This step documents all module-level imports required for the test file and impl
 ## Overview
 
 Add all necessary imports to `tests/test_command.py` and `src/spafw37/command.py` to support the helper functions and tests in Steps 1-6.
-
+**No methods or tests in this step** - only import statements.
 ## Test File Imports (tests/test_command.py)
 
 ```python

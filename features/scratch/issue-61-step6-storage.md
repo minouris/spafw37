@@ -6,6 +6,11 @@ This file contains the TDD implementation for extracting command storage from `a
 
 Extract helper: `_store_command()` - Registry storage and cycle registration
 
+**Methods created:**
+- `_store_command()` - Stores command in registry and registers cycle
+  - `test_store_command_registry_storage()`
+  - `test_store_command_cycle_registration()`
+
 ## Module-level imports
 
 See `issue-61-step1-imports.md` for all required imports.
@@ -108,10 +113,13 @@ def _store_command(cmd):
     Args:
         cmd: Command definition dict
     """
+    # Block 6.1.3.1: Get command name
     name = cmd[COMMAND_NAME]
+    
+    # Block 6.1.3.2: Store command in registry
     _commands[name] = cmd
     
-    # Register cycle if present
+    # Block 6.1.3.3: Register cycle if present
     cycle.register_cycle(cmd, _commands)
 ```
 

@@ -6,6 +6,14 @@ This file contains the TDD implementation for extracting inline parameter proces
 
 Extract helper: `_process_inline_params()` - Handles inline parameter definitions in `COMMAND_REQUIRED_PARAMS` and `COMMAND_TRIGGER_PARAM`
 
+**Methods created:**
+- `_normalise_param_list()` - Converts list of param defs to param names
+  - `test_normalise_param_list()`
+- `_process_inline_params()` - Processes inline param definitions
+  - `test_process_inline_params_required_params()`
+  - `test_process_inline_params_trigger_param()`
+  - `test_process_inline_params_no_inline_params()`
+
 ## Module-level imports
 
 See `issue-61-step1-imports.md` for all required imports.

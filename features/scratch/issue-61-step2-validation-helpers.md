@@ -1,5 +1,20 @@
 # Step 2: Validation Helpers Implementation
 
+## Overview
+
+Extract the three validation helpers that check command definition properties. These are the simplest extractions with clear boundaries.
+
+**Methods created:**
+- `_validate_command_name()` - Validates command has non-empty name
+  - `test_validate_command_name_empty_string_raises_error()`
+  - `test_validate_command_name_none_raises_error()`
+- `_validate_command_action()` - Validates command has action function
+  - `test_validate_command_action_missing_raises_error()`
+  - `test_validate_command_action_none_raises_error()`
+- `_validate_command_references()` - Validates no self-references or conflicts
+  - `test_validate_command_references_self_reference_raises_error()`
+  - `test_validate_command_references_conflicting_constraints_raises_error()`
+
 ## Module-level imports
 
 See `issue-61-step1-imports.md` for all required imports.

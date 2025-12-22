@@ -6,6 +6,11 @@ This file contains the TDD implementation for extracting phase assignment from `
 
 Extract helper: `_assign_command_phase()` - Sets default phase if not specified
 
+**Methods created:**
+- `_assign_command_phase()` - Assigns default phase when missing
+  - `test_assign_command_phase_missing_phase()`
+  - `test_assign_command_phase_existing_phase()`
+
 ## Module-level imports
 
 See `issue-61-step1-imports.md` for all required imports.
@@ -97,7 +102,9 @@ def _assign_command_phase(cmd):
     Args:
         cmd: Command definition dict (modified in place)
     """
+    # Block 5.1.3.1: Check if phase is missing or empty
     if not cmd.get(COMMAND_PHASE):
+        # Block 5.1.3.2: Assign default phase from config
         cmd[COMMAND_PHASE] = config.get_default_phase()
 ```
 

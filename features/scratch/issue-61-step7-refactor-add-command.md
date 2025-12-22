@@ -1,10 +1,14 @@
-# Step 6: Refactor add_command() to Use All Helpers
-
-This file contains the final refactored `add_command()` function that uses all extracted helpers.
+# Step 7: Refactored add_command()
 
 ## Overview
 
-With all helpers extracted and tested (Steps 1-5), this step shows the final clean implementation of `add_command()` that delegates all responsibilities to focused helper methods.
+Refactor the main `add_command()` function to delegate all responsibilities to the extracted helpers. This creates a clean, high-level orchestrator function.
+
+**Methods modified:**
+- `add_command()` - Refactored to use all extracted helpers
+  - `test_add_command_integration()` - Integration test verifying backward compatibility
+
+With all helpers extracted and tested (Steps 1-6), this step shows the final clean implementation of `add_command()` that delegates all responsibilities to focused helper methods.
 
 ## Module-level imports
 
