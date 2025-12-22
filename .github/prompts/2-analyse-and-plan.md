@@ -326,6 +326,44 @@ This issue is considered successfully implemented when:
 - [ ] Prompt skipped if value provided via CLI argument
 ```
 
+## Step 2.6: Update Planning Checklist
+
+**After completing all analysis sections:**
+
+### Add Question Items (if questions exist)
+
+If you added questions to Further Considerations or Design Questions sections:
+
+1. **For each question with status PENDING REVIEW**, add a checklist item to the Planning Checklist:
+   - Format: `- [ ] Q{N} answered and resolved (Comment #{COMMENT_ID})`
+   - Place these items under the "Step 2: Analyse and plan" item
+   - These track individual question resolution
+   
+2. **Insert the question items** in the Planning Checklist section:
+
+```markdown
+## Planning Checklist
+
+- [x] Step 1: Create plan skeleton
+- [ ] Step 2: Analyse and plan
+  - [ ] Q1 answered and resolved (Comment #12345)
+  - [ ] Q2 answered and resolved (Comment #12346)
+  - [ ] Q3 answered and resolved (Comment #12347)
+- [ ] Step 3: Generate tests
+...
+```
+
+### Mark Analysis Status
+
+Update the "Step 2: Analyse and plan" item:
+- **If NO questions exist** (none required for this feature): Mark with `[x]`
+- **If questions exist but all are PENDING REVIEW**: Leave as `[ ]`
+- **If questions exist and all are RESOLVED**: Mark with `[x]`
+
+**Note:** The Step 2 item only gets marked complete when:
+1. All major sections (Overview, Steps, Considerations, Success Criteria) are filled, AND
+2. Either no questions were needed, OR all questions have been answered (marked RESOLVED)
+
 ## Output Requirements
 
 Update the plan document with:

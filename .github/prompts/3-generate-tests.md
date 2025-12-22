@@ -223,4 +223,10 @@ Specifically verify:
 
 **If any violations found, fix them before submitting your response.**
 
+## Step 3.1: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 3: Generate tests" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
 Ask user to review test specifications before proceeding to Step 4 (implementation code).

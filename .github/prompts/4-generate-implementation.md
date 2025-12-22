@@ -621,4 +621,10 @@ Each line item that requires action must have a checkbox [ ].
 - Implementation steps without corresponding tests
 - Checklist items that don't correspond to actual code blocks
 
+## Step 4.6: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 4: Generate implementation" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
 Ask user to review implementation code AND checklist before proceeding to Step 5 (documentation).
