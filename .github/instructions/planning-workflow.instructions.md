@@ -75,6 +75,16 @@ Use this workflow when:
 
 **Note:** This is the only step where you modify actual source code files. All previous steps work on plan documents only.
 
+### Update Prompts Workflow
+
+**Prompt:** `.github/prompts/update-prompts.md`
+
+**What it does:** Updates the planning workflow prompt files themselves. Creates an issue, branches, commits prompt changes, and merges back.
+
+**User instruction:** "Update the prompts with [description of changes]"
+
+**Note:** This is a meta-workflow for improving the prompts themselves, not for feature development. Use when refining prompt instructions, adding examples, or fixing ambiguities.
+
 ## Complete Example Workflow
 
 ```
