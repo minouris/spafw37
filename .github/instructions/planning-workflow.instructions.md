@@ -23,13 +23,51 @@ Use this workflow when:
 
 **User instruction:** "Create the plan skeleton for issue #{NUMBER}"
 
-### Step 2: Analysis and Planning
+### Step 2: Analysis and Planning (Iterative)
+
+**IMPORTANT:** Step 2 is iterative. It may require multiple back-and-forth cycles with the user to resolve questions before proceeding.
+
+#### Step 2a: Initial Analysis
 
 **Prompt:** `.github/prompts/2-analyse-and-plan.md`
 
-**What it does:** Analyses the current code, identifies what needs to change, breaks work into logical steps.
+**What it does:** 
+- Analyses current code and identifies what needs to change
+- Breaks work into logical implementation steps
+- Creates questions requiring user clarification (posted to GitHub issue)
+- Adds Planning Checklist items for each question: `- [ ] Q{N} answered and resolved (Comment #...)`
 
 **User instruction:** "Do the analysis and planning step for issue #{NUMBER}"
+
+**Output:** Plan document with Overview, Steps, Further Considerations (with questions), and Success Criteria. Questions marked PENDING REVIEW.
+
+#### Step 2b: Answer Questions Locally
+
+**Prompt:** `.github/prompts/2-update-plan-local.md`
+
+**What it does:**
+- Updates plan document with user's answers to questions
+- Changes question status from PENDING REVIEW → RESOLVED
+- Marks question Planning Checklist items complete: `- [x] Q{N} answered and resolved`
+- Marks Step 2 complete when ALL questions resolved
+
+**User instruction:** "Update the plan with: [answers to questions]"
+
+**Repeat Step 2b for each set of answers until all questions resolved.**
+
+#### Step 2c: Post Answers to GitHub
+
+**Prompt:** `.github/prompts/2-answer-plan-question.md`
+
+**What it does:**
+- Posts answers from plan document back to GitHub issue comment threads
+- Ensures GitHub discussion stays synchronized with plan document
+
+**User instruction:** "Post answers to GitHub for issue #{NUMBER}"
+
+**Note:** Step 2 is only complete when:
+1. All major sections filled (Overview, Steps, Considerations, Success Criteria), AND
+2. Either no questions were needed, OR all questions marked RESOLVED and Planning Checklist items checked
 
 ### Step 3: Generate Test Specifications
 
@@ -99,12 +137,37 @@ Use this workflow when:
 
 ```
 1. "Create plan for issue #61"
-2. "Do the analysis and planning step"
+
+2a. "Do the analysis and planning step"
+    → Creates questions, posts to GitHub, adds Planning Checklist items for each question
+    
+2b. User answers questions in chat
+    "Update the plan with: [answers]"
+    → Marks question items [x] in Planning Checklist
+    
+2b. User answers more questions
+    "Update the plan with: [more answers]"
+    → Marks more question items [x]
+    → When all questions [x], marks Step 2 complete
+    
+2c. "Post answers to GitHub for issue #61"
+    → Synchronizes answers back to GitHub issue
+
 3. "Generate test specs"
+   → Marks Step 3 complete in Planning Checklist
+
 4. "Generate implementation code" (creates scratch files if complex)
+   → Marks Step 4 complete in Planning Checklist
+
 5. "Generate documentation changes"
+   → Marks Step 5 complete in Planning Checklist
+
 6. "Generate CHANGES section"
+   → Marks Step 6 complete in Planning Checklist
+
 7. "Verify the plan is ready for implementation"
+   → Final verification, updates Planning Checklist with any issues
+
 8. "Implement the feature from the plan" (writes actual code)
 ```
 

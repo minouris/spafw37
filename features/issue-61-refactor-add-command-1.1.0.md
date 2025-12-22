@@ -1419,148 +1419,166 @@ This checklist tracks completion of this planning document.
 
 ## Implementation Checklist
 
-This section tracks the actual implementation progress with test runs and code patches.
+This section tracks the actual implementation progress with test runs and code patches. **Every action gets a checkbox.**
 
 ### Step 1: Module-level Imports
 
 - [ ] Add imports to `tests/test_command.py`
-  - Patch: Add constants from `spafw37.constants.command` and `spafw37.constants.param`
-  - Test run: `pytest tests/test_command.py -v` (verify no import errors)
+  - [ ] Patch: Add constants from `spafw37.constants.command` and `spafw37.constants.param`
+  - [ ] Test run: `pytest tests/test_command.py -v` (verify no import errors)
 
 ### Step 2: Validation Helpers
 
 #### 2.1: `_validate_command_name()`
-- [ ] Write tests (empty string, None value)
-  - Patch: `test_validate_command_name_empty_string_raises_error()`
-  - Patch: `test_validate_command_name_none_raises_error()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_name_empty_string_raises_error -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_validate_command_name_none_raises_error -v` (expect FAIL - red)
+
+- [ ] Write test `test_validate_command_name_empty_string_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_name_empty_string_raises_error -v` (expect FAIL)
+- [ ] Write test `test_validate_command_name_none_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_name_none_raises_error -v` (expect FAIL)
 - [ ] Implement `_validate_command_name()`
-  - Patch: Add function to `src/spafw37/command.py` before `add_command()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_name_empty_string_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_validate_command_name_none_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` before `add_command()`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_name_empty_string_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_name_none_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 #### 2.2: `_validate_command_action()`
-- [ ] Write tests (missing key, None value)
-  - Patch: `test_validate_command_action_missing_raises_error()`
-  - Patch: `test_validate_command_action_none_raises_error()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_action_missing_raises_error -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_validate_command_action_none_raises_error -v` (expect FAIL - red)
+
+- [ ] Write test `test_validate_command_action_missing_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_action_missing_raises_error -v` (expect FAIL)
+- [ ] Write test `test_validate_command_action_none_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_action_none_raises_error -v` (expect FAIL)
 - [ ] Implement `_validate_command_action()`
-  - Patch: Add function to `src/spafw37/command.py` after `_validate_command_name()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_action_missing_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_validate_command_action_none_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_validate_command_name()`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_action_missing_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_action_none_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 #### 2.3: `_validate_command_references()`
-- [ ] Write tests (self-reference, conflicting constraints)
-  - Patch: `test_validate_command_references_self_reference_raises_error()`
-  - Patch: `test_validate_command_references_conflicting_constraints_raises_error()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_references_self_reference_raises_error -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_validate_command_references_conflicting_constraints_raises_error -v` (expect FAIL - red)
+
+- [ ] Write test `test_validate_command_references_self_reference_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_references_self_reference_raises_error -v` (expect FAIL)
+- [ ] Write test `test_validate_command_references_conflicting_constraints_raises_error()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_references_conflicting_constraints_raises_error -v` (expect FAIL)
 - [ ] Implement `_validate_command_references()`
-  - Patch: Add function to `src/spafw37/command.py` after `_validate_command_action()`
-  - Test run: `pytest tests/test_command.py::test_validate_command_references_self_reference_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_validate_command_references_conflicting_constraints_raises_error -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_validate_command_action()`
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_references_self_reference_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_validate_command_references_conflicting_constraints_raises_error -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 ### Step 3: Inline Parameter Processing
 
 #### 3.1: `_normalise_param_list()`
-- [ ] Write test
-  - Patch: `test_normalise_param_list()`
-  - Test run: `pytest tests/test_command.py::test_normalise_param_list -v` (expect FAIL - red)
+
+- [ ] Write test `test_normalise_param_list()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_normalise_param_list -v` (expect FAIL)
 - [ ] Implement `_normalise_param_list()`
-  - Patch: Add function to `src/spafw37/command.py` after `_validate_command_references()`
-  - Test run: `pytest tests/test_command.py::test_normalise_param_list -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_validate_command_references()`
+  - [ ] Test run: `pytest tests/test_command.py::test_normalise_param_list -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 #### 3.2: `_process_inline_params()`
-- [ ] Write tests (required params, trigger param, no inline params)
-  - Patch: `test_process_inline_params_required_params()`
-  - Patch: `test_process_inline_params_trigger_param()`
-  - Patch: `test_process_inline_params_no_inline_params()`
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_required_params -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_trigger_param -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_no_inline_params -v` (expect FAIL - red)
+
+- [ ] Write test `test_process_inline_params_required_params()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_required_params -v` (expect FAIL)
+- [ ] Write test `test_process_inline_params_trigger_param()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_trigger_param -v` (expect FAIL)
+- [ ] Write test `test_process_inline_params_no_inline_params()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_no_inline_params -v` (expect FAIL)
 - [ ] Implement `_process_inline_params()`
-  - Patch: Add function to `src/spafw37/command.py` after `_normalise_param_list()`
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_required_params -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_trigger_param -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_process_inline_params_no_inline_params -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_normalise_param_list()`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_required_params -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_trigger_param -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_params_no_inline_params -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 ### Step 4: Inline Command Processing
 
 #### 4.1: `_normalise_command_list()`
-- [ ] Write test
-  - Patch: `test_normalise_command_list()`
-  - Test run: `pytest tests/test_command.py::test_normalise_command_list -v` (expect FAIL - red)
+
+- [ ] Write test `test_normalise_command_list()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_normalise_command_list -v` (expect FAIL)
 - [ ] Implement `_normalise_command_list()`
-  - Patch: Add function to `src/spafw37/command.py` after `_process_inline_params()`
-  - Test run: `pytest tests/test_command.py::test_normalise_command_list -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_process_inline_params()`
+  - [ ] Test run: `pytest tests/test_command.py::test_normalise_command_list -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 #### 4.2: `_process_inline_commands()`
-- [ ] Write tests (single field, multiple fields, no inline commands)
-  - Patch: `test_process_inline_commands_goes_after()`
-  - Patch: `test_process_inline_commands_multiple_fields()`
-  - Patch: `test_process_inline_commands_no_inline_commands()`
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_goes_after -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_multiple_fields -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_no_inline_commands -v` (expect FAIL - red)
+
+- [ ] Write test `test_process_inline_commands_goes_after()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_goes_after -v` (expect FAIL)
+- [ ] Write test `test_process_inline_commands_multiple_fields()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_multiple_fields -v` (expect FAIL)
+- [ ] Write test `test_process_inline_commands_no_inline_commands()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_no_inline_commands -v` (expect FAIL)
 - [ ] Implement `_process_inline_commands()`
-  - Patch: Add function to `src/spafw37/command.py` after `_normalise_command_list()`
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_goes_after -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_multiple_fields -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_process_inline_commands_no_inline_commands -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_normalise_command_list()`
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_goes_after -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_multiple_fields -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_process_inline_commands_no_inline_commands -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 ### Step 5: Phase Assignment
 
 #### 5.1: `_assign_command_phase()`
-- [ ] Write tests (missing phase, existing phase)
-  - Patch: `test_assign_command_phase_missing_phase()`
-  - Patch: `test_assign_command_phase_existing_phase()`
-  - Test run: `pytest tests/test_command.py::test_assign_command_phase_missing_phase -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_assign_command_phase_existing_phase -v` (expect FAIL - red)
+
+- [ ] Write test `test_assign_command_phase_missing_phase()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_assign_command_phase_missing_phase -v` (expect FAIL)
+- [ ] Write test `test_assign_command_phase_existing_phase()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_assign_command_phase_existing_phase -v` (expect FAIL)
 - [ ] Implement `_assign_command_phase()`
-  - Patch: Add function to `src/spafw37/command.py` after `_process_inline_commands()`
-  - Test run: `pytest tests/test_command.py::test_assign_command_phase_missing_phase -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_assign_command_phase_existing_phase -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_process_inline_commands()`
+  - [ ] Test run: `pytest tests/test_command.py::test_assign_command_phase_missing_phase -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_assign_command_phase_existing_phase -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 ### Step 6: Command Storage
 
 #### 6.1: `_store_command()`
-- [ ] Write tests (registry storage, cycle registration)
-  - Patch: `test_store_command_registry_storage()`
-  - Patch: `test_store_command_cycle_registration()`
-  - Test run: `pytest tests/test_command.py::test_store_command_registry_storage -v` (expect FAIL - red)
-  - Test run: `pytest tests/test_command.py::test_store_command_cycle_registration -v` (expect FAIL - red)
+
+- [ ] Write test `test_store_command_registry_storage()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_store_command_registry_storage -v` (expect FAIL)
+- [ ] Write test `test_store_command_cycle_registration()`
+  - [ ] Patch: Add test function to `tests/test_command.py`
+  - [ ] Test run: `pytest tests/test_command.py::test_store_command_cycle_registration -v` (expect FAIL)
 - [ ] Implement `_store_command()`
-  - Patch: Add function to `src/spafw37/command.py` after `_assign_command_phase()`
-  - Test run: `pytest tests/test_command.py::test_store_command_registry_storage -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py::test_store_command_cycle_registration -v` (expect PASS - green)
-  - Test run: `pytest tests/test_command.py -v` (regression check)
+  - [ ] Patch: Add function to `src/spafw37/command.py` after `_assign_command_phase()`
+  - [ ] Test run: `pytest tests/test_command.py::test_store_command_registry_storage -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py::test_store_command_cycle_registration -v` (expect PASS)
+  - [ ] Test run: `pytest tests/test_command.py -v` (regression check - all tests pass)
 
 ### Step 7: Refactor add_command()
 
 - [ ] Refactor `add_command()` to use all helpers
-  - Patch: Replace monolithic implementation in `src/spafw37/command.py` (lines 192-244)
-  - Test run: `pytest tests/test_command.py -v` (all 44+ tests should pass)
-  - Test run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing` (verify 95%+ coverage)
+  - [ ] Patch: Replace monolithic implementation in `src/spafw37/command.py` (lines 192-244)
+  - [ ] Test run: `pytest tests/test_command.py -v` (all 44+ tests should pass)
+  - [ ] Test run: `pytest tests/ -v --cov=spafw37 --cov-report=term-missing` (verify 95%+ coverage)
 
 ### Final Verification
 
-- [ ] All new tests passing (18 tests)
-- [ ] All existing tests passing (44 command module tests)
-- [ ] Test coverage above 95%
-- [ ] No regressions in other modules
-- [ ] Code follows nesting requirements (max 2 levels)
-- [ ] All helpers have block numbering comments
-- [ ] All tests have Gherkin pattern in docstrings
+- [ ] Verify all new tests passing (18 new tests)
+- [ ] Verify all existing tests passing (44 command module tests)
+- [ ] Verify test coverage above 95%
+- [ ] Verify no regressions in other modules
+- [ ] Verify code follows nesting requirements (max 2 levels)
+- [ ] Verify all helpers have block numbering comments
+- [ ] Verify all tests have Gherkin pattern in docstrings
 
 [↑ Back to top](#table-of-contents)
 

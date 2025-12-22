@@ -18,7 +18,19 @@ Your job is to translate the plan into working code while maintaining the projec
 
 ## Before You Start
 
-**Prerequisites:**
+**MANDATORY: Step 7 Verification Must Be Complete**
+
+Before proceeding with implementation, Step 7 (Verify Plan Readiness) MUST have been executed and ALL criteria satisfied:
+
+- [ ] Step 7 verification has been run on the plan document
+- [ ] All Planning Checklist items marked with ✅ (no ❌ or [ ] remaining)
+- [ ] Final readiness report shows "✅ Plan Ready for Implementation"
+- [ ] Zero critical violations reported
+- [ ] All minor issues resolved (if any were identified)
+
+**If Step 7 has not been completed or any criteria are not satisfied, STOP and complete Step 7 first.**
+
+**Additional Prerequisites:**
 - [ ] Plan document at `features/{FEATURE_NAME}.md` is complete (Steps 1-6 finished)
 - [ ] All tests specifications are written
 - [ ] Implementation code blocks are documented
@@ -37,6 +49,20 @@ Your job is to translate the plan into working code while maintaining the projec
 **See `.github/instructions/accuracy.instructions.md` for the complete NO GUESSING POLICY.**
 
 If anything in the plan is unclear or ambiguous, ask for clarification before implementing. Do not guess or make assumptions about intended behaviour.
+
+**When decisions are required:**
+- **DO NOT decide for yourself** - Always consult the user
+- If the plan doesn't specify an implementation detail, ask the user
+- If multiple approaches are possible, present options and ask the user to choose
+- If you encounter unexpected behaviour, ask the user before proceeding
+- If a test appears wrong but you're not certain, ask the user before modifying it
+
+**Examples requiring user consultation:**
+- Plan says "validate input" but doesn't specify validation logic
+- Multiple ways to implement a feature, all technically valid
+- Test fails but you can't determine if test or implementation is wrong
+- Error occurs that might require deviating from the plan
+- Ambiguity in Gherkin scenario or code specification
 
 ## Implementation Standards
 
@@ -61,67 +87,278 @@ If anything in the plan is unclear or ambiguous, ask for clarification before im
 
 ## Implementation Process
 
-### Step 1: Read and Understand the Plan
+### Step 1: Extract Implementation Checklist
 
-1. Read the complete plan document from start to finish
-2. Review architectural decisions and rationale
-3. Understand the implementation order
-4. Note any helper functions that need to be extracted
-5. Identify all files that need to be modified
+1. **Extract checklist from plan document** to workspace **verbatim**:
+   - Locate the "## Implementation Checklist" section in the plan
+   - Copy it EXACTLY as written - no extra headings, no instructions, no modifications
+   - This is a source file you'll work from, not an instruction document
+   
+2. Create `features/scratch/issue-{NUMBER}/implementation-checklist.md`
 
-### Step 2: Set Up Test Framework
+3. Paste the complete Implementation Checklist section verbatim
 
-1. Create or identify test file: `tests/test_{module}.py`
-2. Add necessary imports at module level
-3. Set up any test fixtures or setup functions needed
-4. Verify test file can be discovered: `pytest tests/test_{module}.py -v`
+4. This file will be your step-by-step execution guide that you'll update as you work
 
-### Step 3: Implement with TDD
+### Step 2: Create Implementation Workspace
 
-**For EACH implementation step in the plan:**
+1. **Create workspace folder** for implementation artifacts:
+   ```bash
+   mkdir -p features/scratch/issue-{NUMBER}
+   ```
+   This folder will contain all temporary files created during implementation, isolated from the main plan document.
 
-1. **Write tests FIRST** (from Gherkin specifications in plan)
-   - Copy Gherkin scenario into test docstring
-   - Add descriptive What/Outcome/Why sentences
-   - Implement test body
-   - Verify test FAILS (red phase)
+2. **Create implementation log** at `features/scratch/issue-{NUMBER}/implementation-log.md`:
+   - Record any errors encountered during implementation
+   - Document deviations from plan (if any)
+   - Track unexpected issues and their resolutions
+   - Note: This log is for tracking problems, NOT for changing the plan
 
-2. **Implement code to make tests pass**
-   - Follow exact specifications from plan document
-   - Maintain coding standards (nesting, naming, etc.)
-   - Extract helpers as specified in plan
-   - Verify test PASSES (green phase)
+3. **Optional: Create agent tracking** (if you have manage_todo_list or similar tools):
+   - Break the Implementation Checklist into logical chunks (e.g., by step number)
+   - Create tracking items for each major section (Step 1, Step 2, etc.)
+   - Mark items as in-progress/completed as you work
+   - This supplements, not replaces, the Implementation Checklist
 
-3. **Refactor if needed** (but stay true to plan)
-   - Improve clarity without changing behaviour
-   - Ensure all tests still pass
+### Step 3: Extract Plan Sections to Workspace
 
-4. **Run full test suite**
-   - `pytest tests/test_{module}.py -v`
+**CRITICAL: Extract ALL major sections upfront to avoid loading the full plan repeatedly.**
+
+The plan document can be very large (1000+ lines). To reduce context load during implementation, split it into separate workspace files before you begin coding.
+
+1. **Identify major sections** in the plan:
+   - Each implementation step (Step 1, Step 2, Step 3, etc.)
+   - These sections contain the Gherkin scenarios and code blocks you'll implement
+   - Look for headers like "### Step N:" in the plan
+
+2. **Extract each section verbatim**:
+   - For each step, create `features/scratch/issue-{NUMBER}/step-{N}-{short-name}.md`
+   - Copy the ENTIRE section from the plan exactly as written
+   - Include all subsections, code blocks, Gherkin scenarios, and explanatory text
+   - No modifications, no extra headings, no instructions - verbatim copy only
+   - Example: `step-2-validation-helpers.md`, `step-3-inline-params.md`
+
+3. **Why extract upfront:**
+   - Avoids reading 1000+ line plan file every time you need a code block
+   - Reduces context window usage significantly
+   - Speeds up agent processing time
+   - Makes it easier to focus on one step at a time
+   - Simplifies recomposition later (just copy files back)
+
+4. **Working with extracted files:**
+   - Reference the extracted step file when implementing that step
+   - Read only the section you're currently working on
+   - Do NOT modify these extracted files - they're read-only references
+   - All code changes go into actual source files (src/, tests/)
+
+### Step 4: Follow Implementation Checklist as Script
+
+**Work through the extracted Implementation Checklist from top to bottom, line by line.**
+
+**The Implementation Checklist IS your TODO list.** Update items in the file as you work through them.
+
+For EACH checklist item:
+
+1. **Mark as IN PROGRESS** in `features/scratch/issue-{NUMBER}/implementation-checklist.md` when you begin working on it:
+   - Change `- [ ] [Item description]` to `- [ ] **IN PROGRESS** - [Item description]`
+   - This helps track interruptions
+2. **Locate code blocks** in the plan
+3. **Execute the checklist item**:
+   - If it's a test: Write the test (from Gherkin + code block)
+   - If it's implementation: Write the implementation code
+   - If it's verification: Run tests and verify
+4. **When copying code from plan to source files**:
+   - **For all code**: Remove block comment annotations (e.g., `# Block 2.1.1: Add to tests/test_command.py`)
+   - **For test functions**: Merge the Gherkin scenario from the plan into the test docstring
+   - Copy the rest of the code exactly as written
+   - These are the ONLY planned modifications when copying code
+5. **Check off the item** in the checklist file when finished:
+   - Change `- [ ] **IN PROGRESS** - [Item description]` to `- [x] [Item description]` (remove **IN PROGRESS** marker, keep description)
+   - Only check off when the item is completely finished
+   - **UPDATE THE CHECKLIST FILE IMMEDIATELY** - do not batch updates
+6. **Update agent tracking** (if using manage_todo_list or similar tools)
+7. **If errors occur**:
+   - Add entry to implementation log with timestamp
+   - Document the error, what caused it, and how you resolved it
+   - **ONLY change tests if categorically wrong** (see Critical Rules below)
+8. **Move to next item**
+
+**CRITICAL: Update the checklist file after EVERY single checklist item.** This refers to individual checklist items in the implementation checklist, not the numbered steps in the Implementation Process section. Mark each checklist item as **IN PROGRESS** when starting, and check it off `[x]` immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
+
+### Step 5: Critical Rules for Test Implementation
+
+**Tests are the specification. They define correct behaviour.**
+
+1. **Gherkin scenarios are authoritative**:
+   - Test implementation MUST match its Gherkin scenario
+   - If test fails, implementation is wrong (not the test)
+   - Gherkin defines the contract that implementation must satisfy
+
+2. **DO NOT modify tests to make them pass** unless:
+   - The test has a clear coding error (syntax, typo in test code itself)
+   - The test contradicts its own Gherkin scenario
+   - You can **categorically establish** the test is wrong (not just "inconvenient")
+
+3. **When a test fails**:
+   - First assumption: Implementation is wrong
+   - Check: Does implementation match plan specification?
+   - Check: Does test match Gherkin scenario?
+   - Only if both are mismatched should you question the test
+
+4. **If you believe a test is wrong**:
+   - Document in implementation log with full justification
+   - Show contradiction between test and Gherkin
+   - Get user confirmation before modifying test
+   - STOP implementation until resolved
+
+### Step 6: TDD Workflow Per Checklist Item
+
+**For each implementation item in checklist:**
+
+1. **Red Phase - Write failing test**:
+   - Copy Gherkin from plan into test docstring
+   - Implement test body per code block in plan
+   - Run test: `pytest tests/test_{module}.py::test_name -v`
+   - **Verify test FAILS** (if it passes, something is wrong)
+   - **Update checklist**: Check off the "Write test" item
+
+2. **Green Phase - Implement code**:
+   - Write implementation per code block in plan
+   - Follow exact specifications and coding standards
+   - Run test: `pytest tests/test_{module}.py::test_name -v`
+   - **Verify test PASSES**
+   - **Update checklist**: Check off the "Implement" item
+
+3. **Refactor Phase** (if needed):
+   - Improve code clarity without changing behaviour
+   - Keep within plan specifications
+   - Re-run test to ensure still passes
+
+4. **Integration - Run full suite**:
+   - `pytest tests/test_{module}.py -v` (all tests in file)
    - Verify no regressions in existing tests
+   - If regressions occur, log them and fix implementation
+   - **Update checklist**: Check off the "Regression check" item
 
-### Step 4: Integration Testing
+**Remember: Update the checklist file after completing each phase.** This provides a clear record of progress and makes it easy to resume if interrupted.
+
+### Step 7: Handle Implementation Errors
+
+**When errors occur during implementation:**
+
+1. **Add to implementation log**:
+   ```markdown
+   ## Error: [Timestamp]
+   **Checklist Item:** [Item description]
+   **Error:** [Full error message]
+   **Cause:** [Why it happened]
+   **Resolution:** [How you fixed it]
+   **Deviation from Plan:** [Any changes needed, or "None"]
+   ```
+
+2. **Common error categories**:
+   - **Test failure**: Implementation doesn't match specification
+     - Resolution: Fix implementation to match plan
+   - **Import error**: Missing imports or incorrect module paths
+     - Resolution: Add missing imports (module-level only)
+   - **Regression**: Existing tests now fail
+     - Resolution: Fix implementation to maintain backwards compatibility
+   - **Test appears wrong**: Test contradicts Gherkin or plan
+     - Resolution: Document in log, STOP, ask user for guidance
+   - **Ambiguous specification**: Plan doesn't provide enough detail
+     - Resolution: Document in log, STOP, ask user for clarification
+   - **Multiple valid approaches**: More than one way to implement
+     - Resolution: Document options in log, STOP, ask user to choose
+
+3. **When to STOP and ask user**:
+   - Any time you're unsure about the correct approach
+   - When implementation detail is missing from plan
+   - When test and implementation both seem correct but test fails
+   - When error requires deviating from plan
+   - When you need to make a design decision
+
+4. **DO NOT silently change plan or tests** - log everything and consult user
+
+### Step 8: Integration Testing
 
 1. Run complete test suite: `pytest tests/ -v`
 2. Check test coverage: `pytest --cov=spafw37 --cov-report=term-missing`
-3. Verify minimum 80% coverage maintained
+3. Verify minimum 80% coverage maintained (target 90%)
 4. Test any examples if applicable
 
-### Step 5: Documentation Updates
+### Step 9: Documentation Updates
 
 1. Update documentation files as specified in plan Step 5
 2. Add "**Added in vX.Y.Z**" notes for new features
 3. Update README.md if specified
 4. Verify documentation examples are correct
 
-### Step 6: Final Verification
+### Step 10: Recompose Plan Sections
 
-1. Run all tests: `pytest tests/ -v`
-2. Check test coverage: `pytest --cov=spafw37 --cov-report=term-missing`
-3. Verify no errors or warnings
-4. Check that all plan specifications are implemented
-5. **Delete scratch files:** Remove `features/scratch/*` if they exist
-6. Review changes with `git diff`
+**After all implementation is complete, merge workspace files back into the plan document:**
+
+1. **Review implementation log first:**
+   - Open `features/scratch/issue-{NUMBER}/implementation-log.md`
+   - Check if any errors required corrections to the plan itself
+   - Most errors are codebase issues (wrong function names, missing imports, etc.)
+   - Only recompose step sections if the log shows plan corrections were needed
+
+2. **Implementation Checklist recomposition (always required):**
+   - Open updated checklist from `features/scratch/issue-{NUMBER}/implementation-checklist.md`
+   - Locate "## Implementation Checklist" section in plan `features/{FEATURE_NAME}.md`
+   - Replace it ENTIRELY with your updated version (all items should be `[x]`)
+   - This preserves the record of implementation progress
+
+3. **Implementation Log addition (always required):**
+   - Open `features/scratch/issue-{NUMBER}/implementation-log.md`
+   - Add a new section "## Implementation Log" AFTER the Implementation Checklist in the plan
+   - Copy the ENTIRE log contents (all error entries and resolutions)
+   - This creates a permanent record of issues encountered and how they were resolved
+   - Even if the log is empty (no errors), add the section with "No errors encountered during implementation."
+
+4. **Step section recomposition (only if implementation log shows corrections):**
+   - If implementation log shows plan errors (incorrect test expectations, wrong specifications, etc.):
+     - Identify which step sections in workspace were corrected
+     - Merge those corrected sections back into the plan
+   - If implementation log only shows codebase issues (wrong function names, etc.):
+     - Step sections were read-only references and don't need updating
+     - Leave them unchanged in the plan
+   - Most implementations only require checklist and log additions
+
+5. **Verify the recomposition:**
+   - Check that Implementation Checklist shows completion status (all items `[x]`)
+   - Check that Implementation Log section is present with all error entries
+   - If step sections were updated, ensure formatting is consistent
+   - Verify no temporary workspace annotations remain
+
+6. **This preserves the record** of implementation progress and issues in the plan document
+
+### Step 11: Cleanup and Final Checks
+
+1. **Complete Implementation Checklist review**:
+   - Verify all items in the recomposed checklist (now back in plan document) are checked off
+   - Ensure nothing was skipped
+
+2. **Run complete test suite**: `pytest tests/ -v`
+3. **Check test coverage**: `pytest --cov=spafw37 --cov-report=term-missing`
+4. **Verify minimum 80% coverage** maintained (target 90%)
+
+5. **Review implementation log**:
+   - Check `features/scratch/issue-{NUMBER}/implementation-log.md`
+   - Verify all errors were resolved
+   - Confirm all deviations are documented
+   - Ensure no silent changes to tests
+
+6. **Delete workspace folder**: 
+   - Remove entire `features/scratch/issue-{NUMBER}/` folder
+   - Checklist has been recomposed into plan, log has been reviewed
+   - No need to keep temporary workspace files
+
+7. **Review changes**: `git diff`
+   - Verify all changes match plan specifications
+   - Check no unintended modifications were made
+   - Ensure all coding standards are met
+   - Confirm Implementation Checklist in plan shows completion status
 
 ## Common Pitfalls to Avoid
 
@@ -134,29 +371,59 @@ If anything in the plan is unclear or ambiguous, ask for clarification before im
 7. **Don't use Python 3.8+ features:** Must be Python 3.7.0 compatible
 8. **Don't forget docstrings:** All functions need proper documentation
 9. **Don't forget Gherkin:** Test docstrings must include Gherkin scenarios
-10. **Don't leave scratch files:** Clean up `features/scratch/` before completing
+10. **Don't leave workspace folder:** Clean up `features/scratch/issue-{NUMBER}/` before completing
+11. **Don't change tests to pass:** Only modify tests if categorically wrong
+12. **Don't work out of order:** Follow Implementation Checklist top-to-bottom
+13. **Don't search plan repeatedly:** Extract ALL step sections upfront (Step 3), work from extracted files
+14. **Don't hide errors:** Log all issues in implementation log
+15. **Don't make decisions alone:** Consult user when choices or clarifications are needed
 
 ## Success Criteria
 
+- [ ] Workspace folder created at `features/scratch/issue-{NUMBER}/`
+- [ ] Implementation Checklist extracted verbatim to workspace (this is your TODO list)
+- [ ] All major step sections extracted verbatim to workspace (reduces context load)
+- [ ] Implementation log created for error tracking
+- [ ] All Implementation Checklist items checked off in workspace file
 - [ ] All tests specified in plan are implemented
+- [ ] All tests match their Gherkin scenarios exactly
 - [ ] All implementation code specified in plan is written
 - [ ] All tests pass: `pytest tests/ -v`
 - [ ] Test coverage ≥80%: `pytest --cov=spafw37 --cov-report=term-missing`
 - [ ] No Python 3.8+ features used
 - [ ] All coding standards followed (nesting, naming, docstrings)
 - [ ] Documentation updated as specified
-- [ ] Scratch files deleted from `features/scratch/`
+- [ ] Implementation log reviewed (all errors resolved)
+- [ ] All workspace sections recomposed back into plan document with completion status
+- [ ] Workspace folder deleted from `features/scratch/issue-{NUMBER}/`
 - [ ] No regressions in existing functionality
+- [ ] No tests modified except when categorically wrong (documented in log)
 
 ## Next Steps
 
 After implementation is complete:
 1. Review implementation against plan
-2. Run final test suite
-3. Update version in setup.cfg if needed
-4. Commit changes (do NOT push without permission)
-5. Prepare for PR creation
+2. Verify all Success Criteria above are met
+3. Review `git diff` for unintended changes
+4. Update version in setup.cfg if needed
+5. Commit changes (do NOT push without permission)
+6. Prepare for PR creation
 
 ---
 
-**Note:** This prompt is a work in progress. See issue #{ISSUE_NUMBER_FOR_FLESHING_OUT} for improvements needed.
+**Implementation Notes:**
+
+- All files extracted from the plan to the workspace must be verbatim copies (no modifications during extraction)
+- Extract ALL major step sections upfront before starting implementation (Step 3)
+- When copying code from plan blocks to source files:
+  - Remove block comment annotations (e.g., `# Block X.Y.Z:`)
+  - For tests: Merge Gherkin scenario into test function docstring
+  - Copy everything else exactly
+- Extracting sections upfront reduces context load and speeds up implementation
+- The Implementation Checklist is your TODO list - follow it line by line and check off items as you complete them
+- **Update the checklist file after completing EVERY checklist item** - This refers to individual checklist items in the implementation checklist, not the numbered steps in the Implementation Process section. Mark IN PROGRESS when starting, check off [x] when finished, do not batch updates
+- Agents with tracking tools (like manage_todo_list) may use them as supplementary progress tracking
+- The implementation log captures reality - log all deviations and errors
+- Tests define correct behaviour - don't change them to make implementation easier
+- Gherkin scenarios are contracts - implementation must satisfy them
+- Workspace files are source documents for reference, not instruction files

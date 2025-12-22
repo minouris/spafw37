@@ -42,6 +42,7 @@ Create a new planning document in the `features/` directory:
 - [Further Considerations](#further-considerations)
 - [Success Criteria](#success-criteria)
 - [Planning Checklist](#planning-checklist)
+- [Implementation Log](#implementation-log)
 - [Implementation Checklist](#implementation-checklist)
 - [CHANGES for v{VERSION} Release](#changes-for-vversion-release)
 
@@ -68,6 +69,16 @@ Create a new planning document in the `features/` directory:
 ## Planning Checklist
 
 [PLACEHOLDER - Will be auto-generated in Step 1 based on skeleton structure]
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+## Implementation Log
+
+This section will record any errors, deviations, or unexpected issues encountered during implementation (Step 8).
+
+**This section will be populated during Step 8: Implement from Plan.**
 
 [↑ Back to top](#table-of-contents)
 

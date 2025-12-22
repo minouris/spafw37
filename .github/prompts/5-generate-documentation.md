@@ -273,4 +273,10 @@ After completion, confirm:
 - Number of examples to be created
 - Coverage of all implementation aspects
 
+## Step 5.3: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 5: Generate documentation" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
 Ask user to review documentation before proceeding to Step 6 (changelog).
