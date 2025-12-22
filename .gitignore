@@ -10,4 +10,4 @@ logs/
 *.json
 htmlcov/
 .pytest_cache/
-
+scratch/
