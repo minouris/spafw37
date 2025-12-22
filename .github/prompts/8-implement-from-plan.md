@@ -120,34 +120,36 @@ If anything in the plan is unclear or ambiguous, ask for clarification before im
    - Mark items as in-progress/completed as you work
    - This supplements, not replaces, the Implementation Checklist
 
-### Step 3: Prepare Plan Artifacts
+### Step 3: Extract Plan Sections to Workspace
 
-**IMPORTANT: All extractions from the plan must be verbatim copies.**
+**CRITICAL: Extract ALL major sections upfront to avoid loading the full plan repeatedly.**
 
-When you need to work with specific sections of the plan:
+The plan document can be very large (1000+ lines). To reduce context load during implementation, split it into separate workspace files before you begin coding.
 
-1. **Extract sections verbatim** to workspace files:
-   - If working with a specific Step (e.g., "Step 2: Extract validation helpers"), copy that entire section exactly
-   - Create `features/scratch/issue-{NUMBER}/step-{N}-{description}.md`
-   - Copy the section EXACTLY as written - no extra headings, no instructions, no modifications
-   - These are source files you'll reference, not instruction documents
+1. **Identify major sections** in the plan:
+   - Each implementation step (Step 1, Step 2, Step 3, etc.)
+   - These sections contain the Gherkin scenarios and code blocks you'll implement
+   - Look for headers like "### Step N:" in the plan
 
-2. **Why extract verbatim:**
-   - Makes reassembly straightforward (just copy back)
-   - Preserves exact formatting and structure
-   - No risk of introducing errors during extraction
-   - Clear audit trail of what changed
+2. **Extract each section verbatim**:
+   - For each step, create `features/scratch/issue-{NUMBER}/step-{N}-{short-name}.md`
+   - Copy the ENTIRE section from the plan exactly as written
+   - Include all subsections, code blocks, Gherkin scenarios, and explanatory text
+   - No modifications, no extra headings, no instructions - verbatim copy only
+   - Example: `step-2-validation-helpers.md`, `step-3-inline-params.md`
 
-3. **When to extract:**
-   - If a section is large and you'll reference it repeatedly
-   - If you want to avoid searching the entire plan file multiple times
-   - Optional: You can also work directly from the plan document if preferred
+3. **Why extract upfront:**
+   - Avoids reading 1000+ line plan file every time you need a code block
+   - Reduces context window usage significantly
+   - Speeds up agent processing time
+   - Makes it easier to focus on one step at a time
+   - Simplifies recomposition later (just copy files back)
 
 4. **Working with extracted files:**
-   - Read them to understand what needs to be implemented
-   - Reference code blocks as you write tests and implementation
-   - Do NOT modify these extracted sections
-   - Any changes go into actual source files (src/, tests/), not the workspace copies
+   - Reference the extracted step file when implementing that step
+   - Read only the section you're currently working on
+   - Do NOT modify these extracted files - they're read-only references
+   - All code changes go into actual source files (src/, tests/)
 
 ### Step 4: Follow Implementation Checklist as Script
 
@@ -347,7 +349,7 @@ For EACH checklist item:
 10. **Don't leave workspace folder:** Clean up `features/scratch/issue-{NUMBER}/` before completing
 11. **Don't change tests to pass:** Only modify tests if categorically wrong
 12. **Don't work out of order:** Follow Implementation Checklist top-to-bottom
-13. **Don't search plan repeatedly:** Extract sections verbatim once, work from extracted content
+13. **Don't search plan repeatedly:** Extract ALL step sections upfront (Step 3), work from extracted files
 14. **Don't hide errors:** Log all issues in implementation log
 15. **Don't make decisions alone:** Consult user when choices or clarifications are needed
 
@@ -355,7 +357,7 @@ For EACH checklist item:
 
 - [ ] Workspace folder created at `features/scratch/issue-{NUMBER}/`
 - [ ] Implementation Checklist extracted verbatim to workspace (this is your TODO list)
-- [ ] Any other plan sections extracted verbatim if needed for reference
+- [ ] All major step sections extracted verbatim to workspace (reduces context load)
 - [ ] Implementation log created for error tracking
 - [ ] All Implementation Checklist items checked off in workspace file
 - [ ] All tests specified in plan are implemented
@@ -387,11 +389,12 @@ After implementation is complete:
 **Implementation Notes:**
 
 - All files extracted from the plan to the workspace must be verbatim copies (no modifications during extraction)
+- Extract ALL major step sections upfront before starting implementation (Step 3)
 - When copying code from plan blocks to source files:
   - Remove block comment annotations (e.g., `# Block X.Y.Z:`)
   - For tests: Merge Gherkin scenario into test function docstring
   - Copy everything else exactly
-- This makes reassembly straightforward and preserves the audit trail
+- Extracting sections upfront reduces context load and speeds up implementation
 - The Implementation Checklist is your TODO list - follow it line by line and check off items as you complete them
 - Agents with tracking tools (like manage_todo_list) may use them as supplementary progress tracking
 - The implementation log captures reality - log all deviations and errors
