@@ -297,24 +297,33 @@ For EACH checklist item:
 
 **After all implementation is complete, merge workspace files back into the plan document:**
 
-1. **Implementation Checklist recomposition:**
+1. **Review implementation log first:**
+   - Open `features/scratch/issue-{NUMBER}/implementation-log.md`
+   - Check if any errors required corrections to the plan itself
+   - Most errors are codebase issues (wrong function names, missing imports, etc.)
+   - Only recompose step sections if the log shows plan corrections were needed
+
+2. **Implementation Checklist recomposition (always required):**
    - Open updated checklist from `features/scratch/issue-{NUMBER}/implementation-checklist.md`
    - Locate "## Implementation Checklist" section in plan `features/{FEATURE_NAME}.md`
    - Replace it ENTIRELY with your updated version (all items should be `[x]`)
+   - This preserves the record of implementation progress
 
-2. **Any other extracted sections:**
-   - If you extracted other plan sections to workspace (Step 3), check if they were modified
-   - Most extracted sections should be unchanged (they're reference copies)
-   - If any section was updated during implementation (rare), merge those changes back
-   - Usually only the Implementation Checklist will have changed
+3. **Step section recomposition (only if implementation log shows corrections):**
+   - If implementation log shows plan errors (incorrect test expectations, wrong specifications, etc.):
+     - Identify which step sections in workspace were corrected
+     - Merge those corrected sections back into the plan
+   - If implementation log only shows codebase issues (wrong function names, etc.):
+     - Step sections were read-only references and don't need updating
+     - Leave them unchanged in the plan
+   - Most implementations only require checklist recomposition
 
-3. **Verify the recomposition:**
-   - Check that all sections are accounted for
-   - Ensure formatting is consistent with the rest of the plan
-   - Confirm Implementation Checklist shows completion status
+4. **Verify the recomposition:**
+   - Check that Implementation Checklist shows completion status (all items `[x]`)
+   - If step sections were updated, ensure formatting is consistent
    - Verify no temporary workspace annotations remain
 
-4. **This preserves the record** of implementation progress in the plan document
+5. **This preserves the record** of implementation progress in the plan document
 
 ### Step 11: Cleanup and Final Checks
 
