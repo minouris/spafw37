@@ -110,7 +110,7 @@ def _assign_command_phase(cmd):
 
 ## Verification
 
-After implementing Step 4:
+After implementing Step 5:
 - Run `pytest tests/test_command.py::test_assign_command_phase_missing_phase -v`
 - Run `pytest tests/test_command.py::test_assign_command_phase_existing_phase -v`
 - Run full test suite: `pytest tests/test_command.py -v`
