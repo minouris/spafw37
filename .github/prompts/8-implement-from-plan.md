@@ -183,7 +183,7 @@ For EACH checklist item:
    - **ONLY change tests if categorically wrong** (see Critical Rules below)
 8. **Move to next item**
 
-**CRITICAL: Update the checklist file after EVERY single step.** Mark items IN PROGRESS when starting, and check them off [x] immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
+**CRITICAL: Update the checklist file after EVERY single checklist item.** This refers to individual checklist items in the implementation checklist, not the numbered steps in the process. Mark each checklist item as **IN PROGRESS** when starting, and check it off `[x]` immediately when finished. Do not work ahead without updating the checklist - it's your progress tracker and recovery point if interrupted.
 
 ### Step 5: Critical Rules for Test Implementation
 
