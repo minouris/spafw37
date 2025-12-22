@@ -65,9 +65,19 @@ Use this workflow when:
 
 **User instruction:** "Generate CHANGES section for issue #{NUMBER}"
 
-### Step 7: Implement from Plan
+### Step 7: Verify Plan Readiness
 
-**Prompt:** `.github/prompts/7-implement-from-plan.md`
+**Prompt:** `.github/prompts/7-verify-plan-readiness.md`
+
+**What it does:** Comprehensive verification that plan is complete and meets all standards before implementation. Checks for placeholders, code standards violations, test coverage, and updates Planning Checklist.
+
+**User instruction:** "Verify the plan is ready for implementation"
+
+**Note:** Final quality gate before Step 8. If issues are found, they must be fixed before proceeding.
+
+### Step 8: Implement from Plan
+
+**Prompt:** `.github/prompts/8-implement-from-plan.md`
 
 **What it does:** Implements the actual code in `src/` and `tests/` based on the completed plan document. This is where you write the real production code.
 
@@ -94,13 +104,15 @@ Use this workflow when:
 4. "Generate implementation code" (creates scratch files if complex)
 5. "Generate documentation changes"
 6. "Generate CHANGES section"
-7. "Implement the feature from the plan" (writes actual code)
+7. "Verify the plan is ready for implementation"
+8. "Implement the feature from the plan" (writes actual code)
 ```
 
 ## Important Reminders
 
-- **Steps 1-6:** Work on plan documents only (`features/*.md`)
-- **Step 7:** Implements actual code (`src/`, `tests/`)
+- **Steps 1-7:** Work on plan documents only (`features/*.md`)
+- **Step 8:** Implements actual code (`src/`, `tests/`)
+- **Step 7 is mandatory:** Always verify plan before implementation
 - **Scratch files:** `features/scratch/` contains temporary working files, delete before merge
 - **TDD approach:** Tests are written before implementation code
 - **Review each step:** Verify output before proceeding to next step
