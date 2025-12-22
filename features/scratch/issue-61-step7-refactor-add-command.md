@@ -117,7 +117,7 @@ def add_command(cmd):
 
 ## Verification
 
-After implementing Step 6:
+After implementing Step 7:
 - Run `pytest tests/test_command.py::test_refactored_add_command_maintains_behaviour -v`
 - Run full test suite: `pytest tests/test_command.py -v`
 - Run full project test suite: `pytest tests/ -v`
