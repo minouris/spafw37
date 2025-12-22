@@ -248,9 +248,14 @@ def _process_inline_commands(cmd):
         cmd: Command definition dict (modified in place)
     """
     # Block 4.1.6.1: Define dependency field list
+    dependency_fields = [
+        COMMAND_GOES_BEFORE,
+        COMMAND_GOES_AFTER,
+        COMMAND_NEXT_COMMANDS,
+        COMMAND_REQUIRE_BEFORE,
+    ]
     # Block 4.1.6.2: Loop through each field type
-    for field in [COMMAND_GOES_BEFORE, COMMAND_GOES_AFTER, 
-                  COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
+    for field in dependency_fields:
         # Block 4.1.6.2.1: Get field value from command
         cmd_list = cmd.get(field, [])
         
