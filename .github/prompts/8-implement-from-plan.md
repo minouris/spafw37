@@ -160,7 +160,7 @@ The plan document can be very large (1000+ lines). To reduce context load during
 For EACH checklist item:
 
 1. **Mark as IN PROGRESS** in `features/scratch/issue-{NUMBER}/implementation-checklist.md` when you begin working on it:
-   - Add annotation: `- [ ] **IN PROGRESS** - [Item description]`
+   - Change `- [ ] [Item description]` to `- [ ] **IN PROGRESS** - [Item description]`
    - This helps track interruptions
 2. **Locate code blocks** in the plan (using line ranges you noted)
 3. **Execute the checklist item**:
@@ -173,7 +173,7 @@ For EACH checklist item:
    - Copy the rest of the code exactly as written
    - These are the ONLY planned modifications when copying code
 5. **Check off the item** in the checklist file when finished:
-   - Change `- [ ] **IN PROGRESS**` to `- [x]` 
+   - Change `- [ ] **IN PROGRESS** - [Item description]` to `- [x] [Item description]` (remove **IN PROGRESS** marker, keep description)
    - Only check off when the item is completely finished
    - **UPDATE THE CHECKLIST FILE IMMEDIATELY** - do not batch updates
 6. **Update agent tracking** (if using manage_todo_list or similar tools)
