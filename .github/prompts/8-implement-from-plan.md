@@ -162,7 +162,7 @@ For EACH checklist item:
 1. **Mark as IN PROGRESS** in `features/scratch/issue-{NUMBER}/implementation-checklist.md` when you begin working on it:
    - Add annotation: `- [ ] **IN PROGRESS** - [Item description]`
    - This helps track interruptions
-2. **Locate code blocks** in the plan (using line ranges you noted)
+2. **Locate code blocks** in the plan
 3. **Execute the checklist item**:
    - If it's a test: Write the test (from Gherkin + code block)
    - If it's implementation: Write the implementation code
