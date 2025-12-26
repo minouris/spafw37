@@ -261,17 +261,10 @@ def _normalise_param_list(param_list):
     Returns:
         List of parameter names (strings)
     """
-    # Block 3.1.5.1: Initialize result list
     normalised_params = []
-    
-    # Block 3.1.5.2: Loop through param definitions
     for param_def in param_list:
-        # Block 3.1.5.2.1: Register param via param module
         param_name = param._register_inline_param(param_def)
-        # Block 3.1.5.2.2: Append name to result list
         normalised_params.append(param_name)
-    
-    # Block 3.1.5.3: Return normalised list
     return normalised_params
 
 
@@ -284,24 +277,14 @@ def _process_inline_params(cmd):
     Args:
         cmd: Command definition dict (modified in place)
     """
-    # Block 3.1.6.1: Get COMMAND_REQUIRED_PARAMS list
     required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
-    
-    # Block 3.1.6.2: If list exists, normalise and update
     if required_params:
-        # Block 3.1.6.2.1: Call _normalise_param_list() helper
         normalised_params = _normalise_param_list(required_params)
-        # Block 3.1.6.2.2: Update cmd with normalised list
         cmd[COMMAND_REQUIRED_PARAMS] = normalised_params
     
-    # Block 3.1.6.3: Get COMMAND_TRIGGER_PARAM
     trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
-    
-    # Block 3.1.6.4: If trigger param exists, register and update
     if trigger_param:
-        # Block 3.1.6.4.1: Register param via param._register_inline_param()
         param_name = param._register_inline_param(trigger_param)
-        # Block 3.1.6.4.2: Update cmd with param name
         cmd[COMMAND_TRIGGER_PARAM] = param_name
 
 
@@ -314,17 +297,10 @@ def _normalise_command_list(cmd_list):
     Returns:
         List of command names (strings)
     """
-    # Block 4.1.5.1: Initialize result list
     normalised_cmds = []
-    
-    # Block 4.1.5.2: Loop through command definitions
     for cmd_def in cmd_list:
-        # Block 4.1.5.2.1: Register command via _register_inline_command()
         cmd_name = _register_inline_command(cmd_def)
-        # Block 4.1.5.2.2: Append name to result list
         normalised_cmds.append(cmd_name)
-    
-    # Block 4.1.5.3: Return normalised list
     return normalised_cmds
 
 
@@ -338,23 +314,16 @@ def _process_inline_commands(cmd):
     Args:
         cmd: Command definition dict (modified in place)
     """
-    # Block 4.1.6.1: Define dependency field list
     dependency_fields = [
         COMMAND_GOES_BEFORE,
         COMMAND_GOES_AFTER,
         COMMAND_NEXT_COMMANDS,
         COMMAND_REQUIRE_BEFORE,
     ]
-    # Block 4.1.6.2: Loop through each field type
     for field in dependency_fields:
-        # Block 4.1.6.2.1: Get field value from command
         cmd_list = cmd.get(field, [])
-        
-        # Block 4.1.6.2.2: If field has values, normalise and update
         if cmd_list:
-            # Block 4.1.6.2.2.1: Call _normalise_command_list() helper
             normalised_cmds = _normalise_command_list(cmd_list)
-            # Block 4.1.6.2.2.2: Update cmd with normalised list
             cmd[field] = normalised_cmds
 
 
@@ -366,9 +335,7 @@ def _assign_command_phase(cmd):
     Args:
         cmd: Command definition dict (modified in place)
     """
-    # Block 5.1.3.1: Check if phase is missing or empty
     if not cmd.get(COMMAND_PHASE):
-        # Block 5.1.3.2: Assign default phase from config
         cmd[COMMAND_PHASE] = config.get_default_phase()
 
 
@@ -380,13 +347,8 @@ def _store_command(cmd):
     Args:
         cmd: Command definition dict
     """
-    # Block 6.1.3.1: Get command name
     name = cmd[COMMAND_NAME]
-    
-    # Block 6.1.3.2: Store command in registry
     _commands[name] = cmd
-    
-    # Block 6.1.3.3: Register cycle if present
     cycle.register_cycle(cmd, _commands)
 
 
@@ -403,23 +365,17 @@ def add_command(cmd):
     Raises:
         ValueError: If command validation fails
     """
-    # Block 7.1.1: Validate command structure
     _validate_command_name(cmd)
     _validate_command_action(cmd)
     
-    # Block 7.1.2: Skip if already registered
     name = cmd[COMMAND_NAME]
     if name in _commands:
         return
     
-    # Block 7.1.3: Process inline definitions
     _process_inline_params(cmd)
     _process_inline_commands(cmd)
-    
-    # Block 7.1.4: Validate references after inline processing
     _validate_command_references(cmd)
     
-    # Block 7.1.5: Assign phase and store
     _assign_command_phase(cmd)
     _store_command(cmd)
 
