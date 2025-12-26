@@ -125,6 +125,8 @@ This feature was identified during implementation of Issue #15 (User Input Param
   - [3. Priority when both inline and top-level cycles exist](#3-priority-when-both-inline-and-top-level-cycles-exist---resolved)
   - [4. Related Issue: Commands and params validation](#4-related-issue-commands-and-params-validation)
 - [Success Criteria](#success-criteria)
+- [Documentation Changes](#documentation-changes)
+- [Example Files](#example-files)
 - [Planning Checklist](#planning-checklist)
 - [Implementation Log](#implementation-log)
 - [Implementation Checklist](#implementation-checklist)
@@ -3150,6 +3152,588 @@ This issue is considered successfully implemented when:
 
 ---
 
+## Documentation Changes
+
+This section specifies what documentation updates are required for this feature.
+
+### Doc Update 1: User Guide (doc/cycles.md)
+
+Add new section after existing cycle documentation:
+
+````markdown
+## Top-Level Cycle Registration
+
+**Added in v1.1.0**
+
+Cycles can be registered as top-level objects using `add_cycle()` and `add_cycles()` functions, providing an alternative to inline `COMMAND_CYCLE` definitions.
+
+### Basic Usage
+
+Register a single cycle:
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND, CYCLE_NAME, CYCLE_INIT, 
+    CYCLE_LOOP, CYCLE_END, CYCLE_COMMANDS
+)
+
+cycle_def = {
+    CYCLE_COMMAND: 'process-data',
+    CYCLE_NAME: 'data-processor',
+    CYCLE_INIT: initialise_processor,
+    CYCLE_LOOP: process_item,
+    CYCLE_END: finalise_processor,
+    CYCLE_COMMANDS: ['load', 'transform', 'save']
+}
+
+spafw37.add_cycle(cycle_def)
+```
+
+Register multiple cycles:
+
+```python
+cycles = [
+    {
+        CYCLE_COMMAND: 'cmd1',
+        CYCLE_NAME: 'cycle1',
+        CYCLE_LOOP: loop_fn1,
+        CYCLE_COMMANDS: ['sub1', 'sub2']
+    },
+    {
+        CYCLE_COMMAND: 'cmd2',
+        CYCLE_NAME: 'cycle2',
+        CYCLE_LOOP: loop_fn2,
+        CYCLE_COMMANDS: ['sub3', 'sub4']
+    }
+]
+
+spafw37.add_cycles(cycles)
+```
+
+### Registration Order
+
+Cycles can be registered before or after their target commands. The framework resolves references during command registration.
+
+### Inline Command Definitions
+
+The `CYCLE_COMMAND` field supports both string references and inline command definitions:
+
+```python
+from spafw37.constants.command import COMMAND_NAME, COMMAND_ACTION
+
+# String reference to existing command
+cycle_def = {
+    CYCLE_COMMAND: 'existing-command',
+    CYCLE_NAME: 'my-cycle',
+    CYCLE_LOOP: loop_fn
+}
+
+# Inline command definition
+cycle_def = {
+    CYCLE_COMMAND: {
+        COMMAND_NAME: 'new-command',
+        COMMAND_ACTION: action_fn
+    },
+    CYCLE_NAME: 'my-cycle',
+    CYCLE_LOOP: loop_fn
+}
+```
+
+### Duplicate Handling
+
+Registering the same cycle definition multiple times is allowed (idempotent). Attempting to register a different cycle for the same command raises `ValueError`.
+
+### Comparison with Inline Cycles
+
+**Inline approach:**
+```python
+commands = [{
+    COMMAND_NAME: 'process',
+    COMMAND_ACTION: process_fn,
+    COMMAND_CYCLE: {
+        CYCLE_NAME: 'processor',
+        CYCLE_LOOP: loop_fn
+    }
+}]
+spafw37.add_commands(commands)
+```
+
+**Top-level approach:**
+```python
+spafw37.add_cycle({
+    CYCLE_COMMAND: 'process',
+    CYCLE_NAME: 'processor',
+    CYCLE_LOOP: loop_fn
+})
+
+spafw37.add_command({
+    COMMAND_NAME: 'process',
+    COMMAND_ACTION: process_fn
+})
+```
+
+Both approaches are supported. If both exist for the same command, the inline `COMMAND_CYCLE` takes precedence.
+
+See `examples/cycles_basic.py`, `examples/cycles_multiple.py`, and `examples/cycles_flexible_order.py` for complete examples.
+````
+
+### Doc Update 2: API Reference (doc/api-reference.md)
+
+Add to Core API Functions section:
+
+````markdown
+### `add_cycle(cycle_def)`
+
+**Added in v1.1.0**
+
+Register a single cycle definition with the framework.
+
+**Parameters:**
+- `cycle_def` (dict) - Cycle definition dictionary with the following keys:
+  - `CYCLE_COMMAND` (str or dict, required) - Target command name or inline command definition
+  - `CYCLE_NAME` (str, required) - Unique identifier for the cycle
+  - `CYCLE_LOOP` (callable, required) - Function called for each iteration
+  - `CYCLE_INIT` (callable, optional) - Initialisation function
+  - `CYCLE_LOOP_START` (callable, optional) - Function called before each iteration
+  - `CYCLE_LOOP_END` (callable, optional) - Function called after each iteration
+  - `CYCLE_END` (callable, optional) - Finalisation function
+  - `CYCLE_COMMANDS` (list, optional) - Sub-commands to execute in each iteration
+
+**Returns:** None
+
+**Raises:**
+- `ValueError` - If required fields are missing or invalid
+- `ValueError` - If a different cycle is already registered for the same command
+
+**Example:**
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.cycle import CYCLE_COMMAND, CYCLE_NAME, CYCLE_LOOP
+
+cycle = {
+    CYCLE_COMMAND: 'process',
+    CYCLE_NAME: 'processor',
+    CYCLE_LOOP: loop_function
+}
+spafw37.add_cycle(cycle)
+```
+
+---
+
+### `add_cycles(cycle_defs)`
+
+**Added in v1.1.0**
+
+Register multiple cycle definitions with the framework.
+
+**Parameters:**
+- `cycle_defs` (list) - List of cycle definition dictionaries (see `add_cycle()` for structure)
+
+**Returns:** None
+
+**Raises:**
+- `ValueError` - If any cycle validation fails
+
+**Example:**
+```python
+from spafw37 import core as spafw37
+
+cycles = [
+    {CYCLE_COMMAND: 'cmd1', CYCLE_NAME: 'cycle1', CYCLE_LOOP: loop1},
+    {CYCLE_COMMAND: 'cmd2', CYCLE_NAME: 'cycle2', CYCLE_LOOP: loop2}
+]
+spafw37.add_cycles(cycles)
+```
+````
+
+**Constants Table Update:**
+
+Add to Cycle Constants table:
+
+````markdown
+| Constant | Value | Description | Version |
+|----------|-------|-------------|---------|
+| `CYCLE_COMMAND` | `'cycle-command'` | Target command name (str) or inline command definition (dict) for cycle attachment. Used in top-level cycle registration via `add_cycle()` and `add_cycles()`. | v1.1.0 |
+````
+
+### Doc Update 3: README.md
+
+**Location 1: Features section**
+
+Add bullet point to features list:
+
+```markdown
+- **Top-Level Cycle Registration**: Define cycles with `add_cycle()` and `add_cycles()` functions, separate from commands, for cleaner code organisation
+```
+
+**Location 2: After Installation section**
+
+Add new "What's New" section:
+
+```markdown
+#### What's New in v1.1.0
+
+- **Top-Level Cycle API**: New `add_cycle()` and `add_cycles()` functions allow cycles to be registered as top-level objects, matching the pattern established by `add_param()` and `add_command()`
+- **Inline Command Definitions**: The `CYCLE_COMMAND` field now supports both string references and inline command definitions (dicts)
+- **Flexible Registration Order**: Cycles can be registered before or after their target commands
+- **Equivalency Checking**: Duplicate cycle registrations with identical definitions are silently skipped; different definitions raise errors
+
+See `doc/cycles.md`, `examples/cycles_basic.py`, `examples/cycles_multiple.py`, and `examples/cycles_flexible_order.py` for details.
+```
+
+**Location 3: Examples section**
+
+Add to examples list:
+
+```markdown
+- **`cycles_basic.py`** - Basic cycle registration with `add_cycle()`
+- **`cycles_multiple.py`** - Register multiple cycles with `add_cycles()`
+- **`cycles_flexible_order.py`** - Flexible registration order (cycles before/after commands)
+```
+
+[↑ Back to top](#table-of-contents)
+
+---
+
+## Example Files
+
+This section specifies the example files to be created for this feature.
+
+### Example 1: cycles_basic.py
+
+**File:** `examples/cycles_basic.py`
+
+**Purpose:** Demonstrate basic single cycle registration using `add_cycle()` with inline command definition.
+
+**Content:**
+
+```python
+#!/usr/bin/env python
+"""Basic cycle registration with add_cycle().
+
+Demonstrates single cycle registration using inline CYCLE_COMMAND definition.
+
+Run: python examples/cycles_basic.py
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.command import COMMAND_NAME, COMMAND_ACTION
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_INIT,
+    CYCLE_LOOP,
+    CYCLE_LOOP_START,
+    CYCLE_LOOP_END,
+    CYCLE_END,
+    CYCLE_COMMANDS
+)
+
+
+cycle_state = {'count': 0, 'max_iterations': 3}
+
+
+def init_counter():
+    """Initialise cycle state."""
+    print("  [INIT] Initialising counter")
+    cycle_state['count'] = 0
+
+
+def check_counter():
+    """Check if we should continue looping."""
+    should_continue = cycle_state['count'] < cycle_state['max_iterations']
+    print(f"  [LOOP CHECK] Count={cycle_state['count']}, Continue={should_continue}")
+    return should_continue
+
+
+def loop_start_message():
+    """Print message at start of each iteration."""
+    print(f"  [LOOP START] Starting iteration {cycle_state['count'] + 1}")
+
+
+def loop_end_increment():
+    """Increment counter at end of each iteration."""
+    cycle_state['count'] += 1
+    print(f"  [LOOP END] Completed iteration {cycle_state['count']}")
+
+
+def end_summary():
+    """Print final summary."""
+    print(f"  [END] Cycle complete. Total iterations: {cycle_state['count']}")
+
+
+def step_one_action():
+    """Execute step one of the cycle."""
+    print("    → Step 1: Processing")
+
+
+def step_two_action():
+    """Execute step two of the cycle."""
+    print("    → Step 2: Processing")
+
+
+print("=== Basic Cycle Registration ===\n")
+
+cycle_def = {
+    CYCLE_COMMAND: {
+        COMMAND_NAME: 'process-data',
+        COMMAND_ACTION: lambda: print("COMMAND: process-data")
+    },
+    CYCLE_NAME: 'data-processor',
+    CYCLE_INIT: init_counter,
+    CYCLE_LOOP: check_counter,
+    CYCLE_LOOP_START: loop_start_message,
+    CYCLE_LOOP_END: loop_end_increment,
+    CYCLE_END: end_summary,
+    CYCLE_COMMANDS: [
+        {COMMAND_NAME: 'load-data', COMMAND_ACTION: step_one_action},
+        {COMMAND_NAME: 'transform-data', COMMAND_ACTION: step_two_action}
+    ]
+}
+
+spafw37.add_cycle(cycle_def)
+spafw37.run_cli(['process-data'])
+
+print("\n=== Complete ===")
+```
+
+**Demonstrates:**
+- Single cycle registration with `add_cycle()`
+- Inline CYCLE_COMMAND definition (dict format)
+- All cycle phases (INIT, LOOP, LOOP_START, LOOP_END, END)
+- Inline command definitions in CYCLE_COMMANDS
+
+---
+
+### Example 2: cycles_multiple.py
+
+**File:** `examples/cycles_multiple.py`
+
+**Purpose:** Demonstrate multiple cycle registration using `add_cycles()` with string command references.
+
+**Content:**
+
+```python
+#!/usr/bin/env python
+"""Multiple cycle registration with add_cycles().
+
+Demonstrates registering multiple cycles at once using string references
+to commands defined separately.
+
+Run: python examples/cycles_multiple.py
+```
+
+from spafw37 import core as spafw37
+from spafw37.constants.command import COMMAND_NAME, COMMAND_ACTION
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_INIT,
+    CYCLE_LOOP,
+    CYCLE_LOOP_START,
+    CYCLE_LOOP_END,
+    CYCLE_END,
+    CYCLE_COMMANDS
+)
+
+
+cycle_state = {'count': 0, 'max_iterations': 2}
+
+
+def init_counter():
+    """Initialise cycle state."""
+    print("  [INIT] Initialising counter")
+    cycle_state['count'] = 0
+
+
+def check_counter():
+    """Check if we should continue looping."""
+    should_continue = cycle_state['count'] < cycle_state['max_iterations']
+    print(f"  [LOOP CHECK] Count={cycle_state['count']}, Continue={should_continue}")
+    return should_continue
+
+
+def loop_start_message():
+    """Print message at start of each iteration."""
+    print(f"  [LOOP START] Starting iteration {cycle_state['count'] + 1}")
+
+
+def loop_end_increment():
+    """Increment counter at end of each iteration."""
+    cycle_state['count'] += 1
+    print(f"  [LOOP END] Completed iteration {cycle_state['count']}")
+
+
+def end_summary():
+    """Print final summary."""
+    print(f"  [END] Cycle complete. Total iterations: {cycle_state['count']}")
+
+
+def step_action():
+    """Execute step action."""
+    print("    → Processing step")
+
+
+print("=== Multiple Cycle Registration ===\n")
+
+# Define commands first
+commands = [
+    {
+        COMMAND_NAME: 'process-alpha',
+        COMMAND_ACTION: lambda: print("COMMAND: process-alpha")
+    },
+    {
+        COMMAND_NAME: 'process-beta',
+        COMMAND_ACTION: lambda: print("COMMAND: process-beta")
+    }
+]
+spafw37.add_commands(commands)
+
+# Define cycles referencing commands by name
+cycles = [
+    {
+        CYCLE_COMMAND: 'process-alpha',
+        CYCLE_NAME: 'alpha-cycle',
+        CYCLE_INIT: init_counter,
+        CYCLE_LOOP: check_counter,
+        CYCLE_LOOP_START: loop_start_message,
+        CYCLE_LOOP_END: loop_end_increment,
+        CYCLE_END: end_summary,
+        CYCLE_COMMANDS: [
+            {COMMAND_NAME: 'alpha-step', COMMAND_ACTION: step_action}
+        ]
+    },
+    {
+        CYCLE_COMMAND: 'process-beta',
+        CYCLE_NAME: 'beta-cycle',
+        CYCLE_INIT: init_counter,
+        CYCLE_LOOP: check_counter,
+        CYCLE_LOOP_START: loop_start_message,
+        CYCLE_LOOP_END: loop_end_increment,
+        CYCLE_END: end_summary,
+        CYCLE_COMMANDS: [
+            {COMMAND_NAME: 'beta-step', COMMAND_ACTION: step_action}
+        ]
+    }
+]
+
+spafw37.add_cycles(cycles)
+
+print("Running alpha cycle:")
+spafw37.run_cli(['process-alpha'])
+
+print("\nRunning beta cycle:")
+spafw37.run_cli(['process-beta'])
+
+print("\n=== Complete ===")
+```
+
+**Demonstrates:**
+- Multiple cycle registration with `add_cycles()`
+- String CYCLE_COMMAND references
+- Commands defined before cycles
+- Separate execution of each cycle
+
+---
+
+### Example 3: cycles_flexible_order.py
+
+**File:** `examples/cycles_flexible_order.py`
+
+**Purpose:** Demonstrate flexible registration order where cycles can be registered before commands.
+
+**Content:**
+
+```python
+#!/usr/bin/env python
+"""Flexible cycle registration order.
+
+Demonstrates that cycles can be registered before their target commands,
+providing flexibility in code organisation.
+
+Run: python examples/cycles_flexible_order.py
+"""
+
+from spafw37 import core as spafw37
+from spafw37.constants.command import COMMAND_NAME, COMMAND_ACTION
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_INIT,
+    CYCLE_LOOP,
+    CYCLE_END,
+    CYCLE_COMMANDS
+)
+
+
+cycle_state = {'count': 0, 'max_iterations': 2}
+
+
+def init_counter():
+    """Initialise cycle state."""
+    print("  [INIT] Initialising counter")
+    cycle_state['count'] = 0
+
+
+def check_counter():
+    """Check if we should continue looping."""
+    should_continue = cycle_state['count'] < cycle_state['max_iterations']
+    cycle_state['count'] += 1
+    print(f"  [LOOP CHECK] Iteration {cycle_state['count']}, Continue={should_continue}")
+    return should_continue
+
+
+def end_summary():
+    """Print final summary."""
+    print(f"  [END] Cycle complete. Total iterations: {cycle_state['count']}")
+
+
+def step_action():
+    """Execute step action."""
+    print("    → Processing step")
+
+
+print("=== Flexible Registration Order ===\n")
+
+# Register cycle BEFORE command exists
+print("Registering cycle...")
+cycle_def = {
+    CYCLE_COMMAND: 'process-flexible',
+    CYCLE_NAME: 'flexible-cycle',
+    CYCLE_INIT: init_counter,
+    CYCLE_LOOP: check_counter,
+    CYCLE_END: end_summary,
+    CYCLE_COMMANDS: [
+        {COMMAND_NAME: 'flex-step', COMMAND_ACTION: step_action}
+    ]
+}
+spafw37.add_cycle(cycle_def)
+
+# Register command AFTER cycle
+print("Registering command...\n")
+command_def = {
+    COMMAND_NAME: 'process-flexible',
+    COMMAND_ACTION: lambda: print("COMMAND: process-flexible")
+}
+spafw37.add_command(command_def)
+
+print("Running cycle:")
+spafw37.run_cli(['process-flexible'])
+
+print("\n=== Complete ===")
+```
+
+**Demonstrates:**
+- Cycle registered before command
+- Command registered after cycle
+- Framework resolves references during command registration
+- Minimal cycle definition (only required fields)
+
+[↑ Back to top](#table-of-contents)
+
+---
+
 ## Planning Checklist
 
 This checklist tracks completion of this planning document.
@@ -3178,10 +3762,10 @@ This checklist tracks completion of this planning document.
 - [x] All helper functions extracted and documented
 
 **Documentation:**
-- [ ] All affected documentation files identified (Step 7)
-- [ ] Example files planned (cycles_top_level.py)
-- [ ] API reference updates planned (doc/api-reference.md)
-- [ ] User guide updates planned (doc/cycles.md, README.md)
+- [x] All affected documentation files identified (doc/cycles.md, doc/api-reference.md, README.md)
+- [x] Example files planned (cycles_basic.py, cycles_multiple.py, cycles_flexible_order.py)
+- [x] API reference updates planned (add_cycle and add_cycles functions)
+- [x] User guide updates planned (Top-Level Cycle Registration section)
 
 **Quality Verification:**
 - [ ] All code follows Python 3.7.0 compatibility requirements
