@@ -113,7 +113,7 @@ This feature was identified during implementation of Issue #15 (User Input Param
 - [Overview](#overview)
 - [Implementation Steps](#implementation-steps)
   - [1. Add cycle storage and registration functions to cycle.py](#1-add-cycle-storage-and-registration-functions-to-cyclepy)
-  - [2. Add support for inline function definitions in cycles](#2-add-support-for-inline-function-definitions-in-cycles)
+  - [2. Add support for inline command definitions in cycles](#2-add-support-for-inline-command-definitions-in-cycles)
   - [3. Modify command registration to check for top-level cycles](#3-modify-command-registration-to-check-for-top-level-cycles)
   - [4. Expose new functions through core.py facade](#4-expose-new-functions-through-corepy-facade)
   - [5. Update constants file with CYCLE_NAME property](#5-update-constants-file-with-cycle_name-property)
@@ -189,7 +189,7 @@ Scenario: Missing CYCLE_COMMAND field
   And error message should indicate missing CYCLE_COMMAND
   
   # Tests: Required field validation
-  # Validates: Cannot register cycle without target command
+  # Validates: Cannot register cycle without a target command
 ```
 
 **Test 1.2.5: add_cycle() validates required CYCLE_NAME field**
@@ -628,66 +628,6 @@ Scenario: Review README.md features section
 ```
 
 **Tests:** Manual review to verify all documentation follows UK English spelling, uses consistent terminology, and accurately reflects implementation
-
-[↑ Back to top](#table-of-contents)
-
-### 2. Add support for inline command definitions in cycles
-
-**File:** `src/spafw37/cycle.py`
-
-Add ability to define commands inline within cycle definitions. All commands referenced by a cycle (in `CYCLE_COMMANDS` and any other cycle properties that reference commands) should support inline command definition dicts in addition to command name strings.
-
-[Detailed implementation and tests will be added in Steps 3-4]
-
-[↑ Back to top](#table-of-contents)
-
-### 3. Modify command registration to check for top-level cycles
-
-**File:** `src/spafw37/command.py`
-
-Update `_store_command()` to check if a cycle has been registered for the command via the new top-level API. If found, attach it to the command's `COMMAND_CYCLE` property before calling `cycle.register_cycle()`. Apply equivalency checking when both inline and top-level cycles exist.
-
-[Detailed implementation and tests will be added in Steps 3-4]
-
-[↑ Back to top](#table-of-contents)
-
-### 4. Expose new functions through core.py facade
-
-**File:** `src/spafw37/core.py`
-
-Add `add_cycle()` and `add_cycles()` delegate functions to core.py public API, following the same pattern as existing `add_param()`, `add_params()`, `add_command()`, and `add_commands()` functions.
-
-[Detailed implementation and tests will be added in Steps 3-4]
-
-[↑ Back to top](#table-of-contents)
-
-### 5. Update constants file with CYCLE_NAME property
-
-**File:** `src/spafw37/constants/cycle.py`
-
-Ensure `CYCLE_COMMAND` constant is properly defined and documented. Add or update `CYCLE_NAME` property documentation to clarify that cycles have independent identifiers separate from command names, potentially allowing cycles to be attached to multiple commands.
-
-[Detailed implementation and tests will be added in Steps 3-4]
-
-[↑ Back to top](#table-of-contents)
-
-### 6. Create example demonstrating new API
-
-**File:** `examples/cycles_toplevel_api.py`
-
-Create a new example file showing how to use `add_cycle()` and `add_cycles()` functions to define cycles separately from commands, demonstrating the cleaner code organisation this enables. Include examples of inline function definitions within cycles.
-
-[Detailed implementation and tests will be added in Steps 3-4]
-
-[↑ Back to top](#table-of-contents)
-
-### 7. Update documentation
-
-**Files:** `doc/cycles.md`, `doc/api-reference.md`, `README.md`
-
-Document the new top-level cycle registration API, update API reference with new functions, and add examples showing both inline and top-level approaches to cycle definition.
-
-[Detailed implementation and tests will be added in Steps 3-4]
 
 [↑ Back to top](#table-of-contents)
 
