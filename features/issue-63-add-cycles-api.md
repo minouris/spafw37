@@ -3748,7 +3748,7 @@ This checklist tracks completion of this planning document.
   - [x] Q3: Priority when both inline and top-level cycles exist answered and resolved (Comment #3692535462)
 - [x] Success Criteria defined (feature outcomes)
 - [x] Implementation Checklist created (TDD workflow)
-- [ ] CHANGES section populated for release
+- [x] CHANGES section populated for release
 - [x] Table of Contents updated to reflect all sections
 
 **Implementation Details:**
@@ -4034,6 +4034,90 @@ Each line item that requires action must have a checkbox [ ].
 
 ## CHANGES for v1.1.0 Release
 
-**PLACEHOLDER:** This section will contain the release notes once Step 6 is complete.
+Issue #63: Add top-level add_cycles() API for cycle definitions
+
+### Issues Closed
+
+- #63: Add top-level add_cycles() API for cycle definitions
+
+### Additions
+
+- `add_cycle(cycle_def)` function in `cycle.py` registers single cycle definition with command association
+- `add_cycles(cycle_defs)` function in `cycle.py` registers multiple cycle definitions
+- `get_cycle(command_name)` function in `cycle.py` retrieves registered cycle by command name
+- `_cycles` module-level dict in `cycle.py` stores registered cycles indexed by command name
+- `_validate_cycle_required_fields(cycle_def)` internal function validates required cycle fields (CYCLE_COMMAND, CYCLE_NAME, CYCLE_LOOP)
+- `_cycles_are_equivalent(cycle1, cycle2)` internal function performs deep equality comparison for cycle definitions
+- `_extract_command_name(command_ref)` internal function extracts command name from string or inline dict reference
+- `_register_inline_command(command_def)` internal function in `command.py` registers inline command definitions from cycles
+- `CYCLE_COMMAND` constant in `constants/cycle.py` specifies target command for cycle attachment
+- Core API exports `add_cycle` and `add_cycles` functions through `core.py` facade
+- `examples/cycles_basic.py` demonstrates basic single cycle registration
+- `examples/cycles_multiple.py` demonstrates multiple cycle registration with string references
+- `examples/cycles_flexible_order.py` demonstrates flexible registration order
+
+### Removals
+
+None.
+
+### Changes
+
+- `add_command()` function in `command.py` now checks for top-level cycles via `cycle.get_cycle()` and attaches them to commands during registration
+- Cycle definitions can now use inline command dicts in `CYCLE_COMMAND` field (similar to `COMMAND_REQUIRED_PARAMS`), allowing commands to be defined within cycle definitions
+- Inline `COMMAND_CYCLE` definitions continue to take precedence over top-level cycles when both exist for the same command
+- Duplicate cycle registrations with identical definitions are silently allowed (idempotent behaviour)
+- Duplicate cycle registrations with different definitions raise `ValueError` with descriptive error message
+
+### Migration
+
+No migration required. This is a new feature that adds alternative registration API whilst maintaining full backward compatibility.
+
+Existing inline `COMMAND_CYCLE` definitions continue to work unchanged. Applications can mix inline and top-level cycle definitions, or migrate incrementally from inline to top-level registration.
+
+**Note:** If a command has both an inline `COMMAND_CYCLE` and a top-level cycle registered via `add_cycle()`, the inline definition takes precedence. This ensures backward compatibility with existing code.
+
+### Documentation
+
+- `doc/cycles.md` updated with "Top-Level Cycle Registration" section documenting new API
+- `doc/cycles.md` includes usage examples for `add_cycle()` and `add_cycles()` functions
+- `doc/cycles.md` explains CYCLE_COMMAND string vs dict formats and duplicate handling behaviour
+- `doc/cycles.md` compares inline vs top-level approaches with code examples
+- `doc/api-reference.md` updated with `add_cycle()` function signature, parameters, returns, and exceptions
+- `doc/api-reference.md` updated with `add_cycles()` function signature, parameters, returns, and exceptions
+- `doc/api-reference.md` Cycle Constants table updated with `CYCLE_COMMAND` entry
+- `README.md` features list updated to include top-level cycle registration
+- `README.md` "What's New in v1.1.0" section added documenting this feature
+- `README.md` examples list updated with three new example files
+- `examples/cycles_basic.py` created demonstrating basic single cycle registration
+- `examples/cycles_multiple.py` created demonstrating multiple cycle registration
+- `examples/cycles_flexible_order.py` created demonstrating flexible registration order
+- All documentation uses UK English spelling (behaviour, organisation, initialise)
+- All new sections marked with "**Added in v1.1.0**"
+
+### Testing
+
+- 8 new tests in `tests/test_cycle.py` covering `add_cycle()` function:
+  - Module-level storage initialisation
+  - Single cycle registration
+  - Inline CYCLE_COMMAND definition support
+  - Command name extraction from inline definitions
+  - Required field validation (CYCLE_COMMAND, CYCLE_NAME, CYCLE_LOOP)
+  - Duplicate cycle handling (allow identical, reject different)
+  - Cycle equivalency checking
+- 2 new tests for `add_cycles()` function covering multiple cycle registration and mixed inline/string command references
+- 2 new tests for `get_cycle()` function covering retrieval and missing cycle behaviour
+- 3 new tests for helper functions: `_validate_cycle_required_fields()`, `_cycles_are_equivalent()`, `_extract_command_name()`
+- 3 new tests in `tests/test_command.py` covering `_register_inline_command()` and integration with `add_command()`
+- 3 new tests for top-level cycle attachment behaviour in command registration
+- 2 new tests in `tests/test_core.py` verifying `add_cycle` and `add_cycles` are exported through public API
+- 1 new test in `tests/test_constants_cycle.py` verifying `CYCLE_COMMAND` constant
+- Example files manually tested for successful execution
+- All tests maintain Python 3.7.0 compatibility
+- Target: 80%+ coverage maintained
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.0...v1.1.0
+Issues: https://github.com/minouris/spafw37/issues/63
 
 [↑ Back to top](#table-of-contents)
