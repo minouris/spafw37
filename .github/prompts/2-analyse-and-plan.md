@@ -348,6 +348,25 @@ If you added questions to Further Considerations or Design Questions sections:
 - [ ] Step 2: Analyse and plan
   - [ ] Q1 answered and resolved (Comment #12345)
   - [ ] Q2 answered and resolved (Comment #12346)
+```
+
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] Overview section complete with architectural decisions
+- [ ] All implementation steps identified with brief descriptions
+- [ ] All Further Considerations documented
+- [ ] ALL questions marked RESOLVED (no PENDING REVIEW status remains)
+- [ ] All question checklist items marked `[x]` in Planning Checklist
+- [ ] Success Criteria section populated with measurable outcomes
+- [ ] Table of Contents updated
+
+**Do NOT proceed to Step 3 until ALL items above are checked.**
+
+**CRITICAL: Step 2 is iterative. If ANY questions remain PENDING REVIEW, you MUST use prompt 2-update-plan-local.md to resolve them before proceeding.**
+
+Ask the user: "Step 2 complete. All questions resolved. Ready to proceed to Step 3 (test specifications)?"
   - [ ] Q3 answered and resolved (Comment #12347)
 - [ ] Step 3: Generate tests
 ...

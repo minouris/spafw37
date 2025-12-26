@@ -183,3 +183,17 @@ After completing all steps, inform the user:
 - The plan document location
 - Total planning checklist items
 - Confirm skeleton is ready for Step 2 (analysis)
+
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] Plan document created in `features/` directory
+- [ ] All skeleton sections present (Overview, Implementation Steps, Further Considerations, Success Criteria, Planning Checklist, etc.)
+- [ ] Table of Contents includes all major sections
+- [ ] Planning Checklist item for Step 1 marked complete `[x]`
+- [ ] No placeholder text remains in Overview or skeleton sections
+
+**Do NOT proceed to Step 2 until ALL items above are checked.**
+
+Ask the user: "Step 1 complete. Plan skeleton created. Ready to proceed to Step 2 (analysis and planning)?"
