@@ -336,6 +336,24 @@ Statistics:
 - Planning Checklist: 28/28 items complete
 
 Next step: "Implement issue #{NUMBER} from the plan"
+
+## Step Completion Gate
+
+Before proceeding to Step 8 (implementation), verify:
+
+- [ ] NO `[PLACEHOLDER]` text remains in any section
+- [ ] All code blocks verified against Python 3.7.0 standards
+- [ ] All code blocks verified against nesting rules (max 2 levels)
+- [ ] All code blocks verified against naming rules (no lazy names)
+- [ ] All functions have corresponding tests
+- [ ] ALL Planning Checklist items marked `[x]`
+- [ ] Plan reviewed and approved
+
+**Do NOT proceed to Step 8 until ALL items above are checked.**
+
+**CRITICAL: This is the final gate before writing production code. Any issues found here require going back to fix them in the plan before implementation.**
+
+Ask the user: "Step 7 complete. Plan verified and ready for implementation. Proceed to Step 8 (implement from plan)?"
 ```
 
 ## UK English Requirements

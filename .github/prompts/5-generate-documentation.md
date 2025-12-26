@@ -279,4 +279,17 @@ Mark the Planning Checklist item for this step as complete:
 1. Find "Step 5: Generate documentation" in the Planning Checklist
 2. Change `- [ ]` to `- [x]`
 
-Ask user to review documentation before proceeding to Step 6 (changelog).
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] All affected documentation files identified (README.md, doc/*.md)
+- [ ] Example files planned with names and locations
+- [ ] API reference updates specified
+- [ ] User guide updates specified
+- [ ] Planning Checklist item for Step 5 marked complete `[x]`
+- [ ] Documentation section in plan is complete
+
+**Do NOT proceed to Step 6 until ALL items above are checked.**
+
+Ask the user: "Step 5 complete. Documentation changes specified. Ready to proceed to Step 6 (CHANGES section)?"

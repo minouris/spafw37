@@ -627,4 +627,18 @@ Mark the Planning Checklist item for this step as complete:
 1. Find "Step 4: Generate implementation" in the Planning Checklist
 2. Change `- [ ]` to `- [x]`
 
-Ask user to review implementation code AND checklist before proceeding to Step 5 (documentation).
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] All scratch files have been **merged into the main plan document**
+- [ ] Implementation Checklist has been created with all functions and tests
+- [ ] Planning Checklist item for Step 4 marked complete `[x]`
+- [ ] `features/scratch/` directory still exists but main plan now contains all detailed code
+- [ ] No `[PLACEHOLDER]` text remains in Implementation Checklist section
+
+**Do NOT proceed to Step 5 until ALL items above are checked.**
+
+**CRITICAL: If scratch files have NOT been merged into the main plan, you MUST merge them before continuing. The scratch file approach is a temporary working method - the final detailed implementation code must be in the main plan document.**
+
+Ask the user: "Step 4 complete. All scratch files merged into main plan document. Ready to proceed to Step 5 (documentation)?"

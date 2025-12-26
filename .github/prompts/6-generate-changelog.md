@@ -278,4 +278,18 @@ Mark the Planning Checklist item for this step as complete:
 1. Find "Step 6: Generate CHANGES" in the Planning Checklist
 2. Change `- [ ]` to `- [x]`
 
-This completes the plan document. The user should now review the complete document before implementation begins.
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] CHANGES section populated (no `[PLACEHOLDER]` text)
+- [ ] All subsections complete (Additions, Removals, Changes, Migration, Documentation, Testing)
+- [ ] Additions list all new functions, constants, and files
+- [ ] Changes describe all modified behaviour
+- [ ] Migration section explains upgrade requirements or states "No migration required"
+- [ ] Testing section lists new/updated tests and final coverage
+- [ ] Planning Checklist item for Step 6 marked complete `[x]`
+
+**Do NOT proceed to Step 7 until ALL items above are checked.**
+
+Ask the user: "Step 6 complete. CHANGES section populated. Ready to proceed to Step 7 (final verification)?"
