@@ -1,6 +1,6 @@
-# Step 8: Update documentation
+### Step 8: Update documentation
 
-## Overview
+#### Overview
 
 This step updates all relevant documentation to reflect the new top-level cycle registration API.
 
@@ -12,34 +12,34 @@ This step updates all relevant documentation to reflect the new top-level cycle 
 **Tests created:**
 - Manual review tests (Tests 8.2.1-8.2.3)
 
-## Module-level imports
+#### Module-level imports
 
 No imports needed - documentation files only.
 
-## Algorithm
+#### Algorithm
 
-### Documentation Updates
+##### Documentation Updates
 
 1. **cycles.md**: Add new section explaining top-level API
 2. **api-reference.md**: Document new public functions
 3. **README.md**: Update features list and add version notice
 
-## Implementation
+#### Implementation
 
-### Code 8.1.1: Update doc/cycles.md
+##### Code 8.1.1: Update doc/cycles.md
 
 **File:** `doc/cycles.md`
 
 **Action:** Add new section after existing cycle documentation
 
 ````markdown
-## Top-Level Cycle Registration
+#### Top-Level Cycle Registration
 
 **Added in v1.1.0**
 
 Cycles can be registered as top-level objects using `add_cycle()` and `add_cycles()`, providing an alternative to inline `COMMAND_CYCLE` definitions.
 
-### API Functions
+##### API Functions
 
 **`add_cycle(cycle_def)`**
 
@@ -69,7 +69,7 @@ cycles = [
 spafw37.add_cycles(cycles)
 ```
 
-### CYCLE_COMMAND Field
+##### CYCLE_COMMAND Field
 
 The `CYCLE_COMMAND` field identifies which command the cycle attaches to. It can be:
 
@@ -77,14 +77,14 @@ The `CYCLE_COMMAND` field identifies which command the cycle attaches to. It can
 - **Dict**: Inline command definition (command registered immediately)
 
 ```python
-# String reference
+### String reference
 cycle = {
     CYCLE_COMMAND: 'existing-command',
     CYCLE_NAME: 'my-cycle',
     CYCLE_LOOP: loop_fn
 }
 
-# Inline definition
+### Inline definition
 cycle = {
     CYCLE_COMMAND: {
         COMMAND_NAME: 'new-command',
@@ -95,21 +95,21 @@ cycle = {
 }
 ```
 
-### Registration Order
+##### Registration Order
 
 Cycles can be registered before or after their target commands:
 
 ```python
-# Cycle before command
+### Cycle before command
 spafw37.add_cycle({CYCLE_COMMAND: 'future-cmd', ...})
 spafw37.add_command({COMMAND_NAME: 'future-cmd', ...})
 
-# Command before cycle
+### Command before cycle
 spafw37.add_command({COMMAND_NAME: 'existing-cmd', ...})
 spafw37.add_cycle({CYCLE_COMMAND: 'existing-cmd', ...})
 ```
 
-### Duplicate Handling
+##### Duplicate Handling
 
 When a cycle is registered for a command that already has a cycle (via multiple `add_cycle()` calls or both inline and top-level):
 
@@ -118,7 +118,7 @@ When a cycle is registered for a command that already has a cycle (via multiple 
 
 This allows the same cycle definition to appear in multiple modules (useful for testing and modular code) while catching actual conflicts.
 
-### Benefits
+##### Benefits
 
 - **API Consistency**: Matches `add_param()`/`add_params()` and `add_command()`/`add_commands()` patterns
 - **Separation of Concerns**: Cycles defined separately from commands
@@ -129,14 +129,14 @@ This allows the same cycle definition to appear in multiple modules (useful for 
 See `examples/cycles_toplevel_api.py` for complete usage examples.
 ````
 
-### Code 8.1.2: Update doc/api-reference.md
+##### Code 8.1.2: Update doc/api-reference.md
 
 **File:** `doc/api-reference.md`
 
 **Action:** Add new section in core API functions area
 
 ````markdown
-### add_cycle(cycle_def)
+##### add_cycle(cycle_def)
 
 Register a cycle definition for a command.
 
@@ -171,7 +171,7 @@ spafw37.add_cycle(cycle)
 
 ---
 
-### add_cycles(cycle_defs)
+##### add_cycles(cycle_defs)
 
 Register multiple cycle definitions.
 
@@ -196,7 +196,7 @@ spafw37.add_cycles(cycles)
 ```
 ````
 
-### Code 8.1.3: Update README.md features list
+##### Code 8.1.3: Update README.md features list
 
 **File:** `README.md`
 
@@ -207,7 +207,7 @@ spafw37.add_cycles(cycles)
 - **Top-Level Cycle Registration**: Define cycles with `add_cycle()` and `add_cycles()` functions, separate from commands, for cleaner code organisation
 
 <!-- Add new section after Installation: -->
-## What's New in v1.1.0
+#### What's New in v1.1.0
 
 - **Top-Level Cycle API**: New `add_cycle()` and `add_cycles()` functions allow cycles to be registered as top-level objects, matching the pattern established by `add_param()` and `add_command()`
 - **Inline Command Definitions**: The `CYCLE_COMMAND` field now supports both string references and inline command definitions (dicts)
@@ -220,7 +220,7 @@ See `doc/cycles.md` and `examples/cycles_toplevel_api.py` for details.
 - `cycles_toplevel_api.py` - Top-level cycle registration with add_cycle() and add_cycles()
 ````
 
-### Test 8.2.1: cycles.md includes new top-level API section
+##### Test 8.2.1: cycles.md includes new top-level API section
 
 **File:** Manual review
 
@@ -249,7 +249,7 @@ Scenario: Review cycles.md for top-level API documentation
 - [ ] Link to `examples/cycles_toplevel_api.py` included
 - [ ] UK English spelling throughout (behaviour, organisation, etc.)
 
-### Test 8.2.2: api-reference.md includes new functions
+##### Test 8.2.2: api-reference.md includes new functions
 
 **File:** Manual review
 
@@ -277,7 +277,7 @@ Scenario: Review api-reference.md for function signatures
 - [ ] Code examples provided for both functions
 - [ ] UK English spelling throughout
 
-### Test 8.2.3: README.md features list updated
+##### Test 8.2.3: README.md features list updated
 
 **File:** Manual review
 
@@ -304,14 +304,14 @@ Scenario: Review README.md features section
 - [ ] Examples list includes `cycles_toplevel_api.py`
 - [ ] UK English spelling throughout (organisation, behaviour, etc.)
 
-## Implementation Order
+#### Implementation Order
 
 1. Update `doc/cycles.md` (Code 8.1.1)
 2. Update `doc/api-reference.md` (Code 8.1.2)
 3. Update `README.md` (Code 8.1.3)
 4. Manual review of all documentation (Tests 8.2.1-8.2.3)
 
-## Notes
+#### Notes
 
 - All documentation must use UK English spelling (behaviour, organisation, initialise, etc.)
 - Mark all new sections with "**Added in v1.1.0**"

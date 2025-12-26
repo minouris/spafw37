@@ -1,6 +1,6 @@
-# Step 2: Add cycle storage and registration functions to cycle.py
+### Step 2: Add cycle storage and registration functions to cycle.py
 
-## Overview
+#### Overview
 
 This step adds the foundational infrastructure for registering cycles via top-level API, including support for inline command definitions in the CYCLE_COMMAND field.
 
@@ -40,7 +40,7 @@ This step adds the foundational infrastructure for registering cycles via top-le
   - `test_extract_command_name_from_dict()`
   - `test_extract_command_name_validates_dict_has_command_name()`
 
-## Module-level imports
+#### Module-level imports
 
 See `issue-63-step1-imports.md` for all required imports.
 
@@ -50,9 +50,9 @@ from spafw37 import command  # For command._register_inline_command()
 from spafw37.constants.command import COMMAND_NAME
 ```
 
-## Algorithm
+#### Algorithm
 
-### Cycle Registration Flow
+##### Cycle Registration Flow
 
 1. **Inline command handling**: If CYCLE_COMMAND is a dict (inline definition):
    - Register the command using `command._register_inline_command()`
@@ -65,7 +65,7 @@ from spafw37.constants.command import COMMAND_NAME
    - If different: raise ValueError
 5. **Storage**: Store cycle in `_cycles` dict indexed by command name
 
-### Equivalency Checking Algorithm
+##### Equivalency Checking Algorithm
 
 Deep comparison of two cycle definitions:
 1. Compare all keys (both required and optional fields)
@@ -75,20 +75,20 @@ Deep comparison of two cycle definitions:
    - Compare lists/dicts recursively
 3. Return True only if ALL fields match
 
-## Implementation
+#### Implementation
 
-### Code 2.1: Module-level storage
+##### Code 2.1: Module-level storage
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.1.1: Module-level cycle storage dictionary
-# Add after existing module state declarations (around line 45)
+### Block 2.1.1: Module-level cycle storage dictionary
+### Add after existing module state declarations (around line 45)
 
 _cycles = {}  # Stores cycles indexed by command name
 ```
 
-### Test 2.2.1: Module-level cycles storage initialised
+##### Test 2.2.1: Module-level cycles storage initialised
 
 **File:** `tests/test_cycle.py`
 
@@ -117,13 +117,13 @@ def test_add_cycle_module_level_storage_initialised():
     assert len(cycle._cycles) == 0
 ```
 
-### Code 2.3.1: add_cycle() - Main registration function
+##### Code 2.3.1: add_cycle() - Main registration function
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.3.1: Add cycle registration function
-# Add after _get_cycle_from_command() function (around line 105)
+### Block 2.3.1: Add cycle registration function
+### Add after _get_cycle_from_command() function (around line 105)
 
 def add_cycle(cycle_def):
     """Register a cycle definition for a command.
@@ -181,7 +181,7 @@ def add_cycle(cycle_def):
     _cycles[command_name] = cycle_def
 ```
 
-### Test 2.3.2: add_cycle() registers single cycle definition
+##### Test 2.3.2: add_cycle() registers single cycle definition
 
 **File:** `tests/test_cycle.py`
 
@@ -218,7 +218,7 @@ def test_add_cycle_registers_single_cycle():
     assert cycle._cycles['test-command'] == test_cycle
 ```
 
-### Test 2.3.7: add_cycle() with inline CYCLE_COMMAND definition
+##### Test 2.3.7: add_cycle() with inline CYCLE_COMMAND definition
 
 **File:** `tests/test_cycle.py`
 
@@ -264,7 +264,7 @@ def test_add_cycle_with_inline_cycle_command_definition():
     assert 'inline-parent' in command._commands
 ```
 
-### Test 2.3.6: add_cycle() extracts name from inline CYCLE_COMMAND
+##### Test 2.3.6: add_cycle() extracts name from inline CYCLE_COMMAND
 
 **File:** `tests/test_cycle.py`
 
@@ -309,7 +309,7 @@ def test_add_cycle_with_inline_cycle_command_extracts_name():
     assert stored_cycle[CYCLE_COMMAND] is inline_command_def
 ```
 
-### Test 2.3.7: add_cycle() validates required CYCLE_COMMAND field
+##### Test 2.3.7: add_cycle() validates required CYCLE_COMMAND field
 
 **File:** `tests/test_cycle.py`
 
@@ -345,7 +345,7 @@ def test_add_cycle_validates_required_cycle_command_field():
     assert 'CYCLE_COMMAND' in str(exc_info.value)
 ```
 
-### Test 2.3.6: add_cycle() validates required CYCLE_NAME field
+##### Test 2.3.6: add_cycle() validates required CYCLE_NAME field
 
 **File:** `tests/test_cycle.py`
 
@@ -381,7 +381,7 @@ def test_add_cycle_validates_required_cycle_name_field():
     assert 'CYCLE_NAME' in str(exc_info.value)
 ```
 
-### Test 2.3.7: add_cycle() validates required CYCLE_LOOP field
+##### Test 2.3.7: add_cycle() validates required CYCLE_LOOP field
 
 **File:** `tests/test_cycle.py`
 
@@ -417,7 +417,7 @@ def test_add_cycle_validates_required_cycle_loop_field():
     assert 'CYCLE_LOOP' in str(exc_info.value)
 ```
 
-### Test 2.3.6: Equivalency checking - identical cycles silently skip
+##### Test 2.3.6: Equivalency checking - identical cycles silently skip
 
 **File:** `tests/test_cycle.py`
 
@@ -461,7 +461,7 @@ def test_add_cycle_equivalency_checking_identical_cycles_skip():
     assert cycle._cycles['test-command'] is original_cycle
 ```
 
-### Test 2.3.7: Equivalency checking - different cycles raise error
+##### Test 2.3.7: Equivalency checking - different cycles raise error
 
 **File:** `tests/test_cycle.py`
 
@@ -511,13 +511,13 @@ def test_add_cycle_equivalency_checking_different_cycles_raise_error():
     assert cycle._cycles['test-command'] == first_cycle
 ```
 
-### Code 2.4.1: add_cycles() - Bulk registration function
+##### Code 2.4.1: add_cycles() - Bulk registration function
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.4.1: Add bulk cycle registration function
-# Add after add_cycle() function
+### Block 2.4.1: Add bulk cycle registration function
+### Add after add_cycle() function
 
 def add_cycles(cycle_defs):
     """Register multiple cycle definitions.
@@ -535,7 +535,7 @@ def add_cycles(cycle_defs):
         add_cycle(cycle_def)
 ```
 
-### Test 2.4.2: add_cycles() registers multiple cycle definitions
+##### Test 2.4.2: add_cycles() registers multiple cycle definitions
 
 **File:** `tests/test_cycle.py`
 
@@ -581,7 +581,7 @@ def test_add_cycles_registers_multiple_cycles():
     assert cycle._cycles['command-two'][CYCLE_NAME] == 'cycle-two'
 ```
 
-### Test 2.4.3: add_cycles() with mixed inline and string CYCLE_COMMAND
+##### Test 2.4.3: add_cycles() with mixed inline and string CYCLE_COMMAND
 
 **File:** `tests/test_cycle.py`
 
@@ -634,13 +634,13 @@ def test_add_cycles_with_mixed_inline_and_string_cycle_commands():
     assert 'inline-cmd' in command._commands
 ```
 
-### Code 2.5.1: get_cycle() - Retrieval function
+##### Code 2.5.1: get_cycle() - Retrieval function
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.5.1: Add cycle retrieval function
-# Add after add_cycles() function
+### Block 2.5.1: Add cycle retrieval function
+### Add after add_cycles() function
 
 def get_cycle(command_name):
     """Retrieve registered cycle by command name.
@@ -654,7 +654,7 @@ def get_cycle(command_name):
     return _cycles.get(command_name)
 ```
 
-### Test 2.5.2: get_cycle() retrieves registered cycle
+##### Test 2.5.2: get_cycle() retrieves registered cycle
 
 **File:** `tests/test_cycle.py`
 
@@ -694,7 +694,7 @@ def test_get_cycle_retrieves_registered_cycle():
     assert retrieved_cycle[CYCLE_NAME] == 'my-cycle'
 ```
 
-### Test 2.5.3: get_cycle() returns None for unregistered command
+##### Test 2.5.3: get_cycle() returns None for unregistered command
 
 **File:** `tests/test_cycle.py`
 
@@ -724,13 +724,13 @@ def test_get_cycle_returns_none_for_unregistered_command():
     assert result is None
 ```
 
-### Code 2.6.1: _validate_cycle_required_fields() helper
+##### Code 2.6.1: _validate_cycle_required_fields() helper
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.6.1: Add cycle validation helper
-# Add before add_cycle() function (helpers come before functions that use them)
+### Block 2.6.1: Add cycle validation helper
+### Add before add_cycle() function (helpers come before functions that use them)
 
 def _validate_cycle_required_fields(cycle_def):
     """Validate that cycle definition contains all required fields.
@@ -759,7 +759,7 @@ def _validate_cycle_required_fields(cycle_def):
         raise ValueError("Cycle definition missing required field: CYCLE_LOOP")
 ```
 
-### Test 2.6.2: _validate_cycle_required_fields() accepts valid cycle
+##### Test 2.6.2: _validate_cycle_required_fields() accepts valid cycle
 
 **File:** `tests/test_cycle.py`
 
@@ -793,7 +793,7 @@ def test_validate_cycle_required_fields_accepts_valid_cycle():
     cycle._validate_cycle_required_fields(valid_cycle)
 ```
 
-### Test 2.6.3: _validate_cycle_required_fields() rejects missing CYCLE_COMMAND
+##### Test 2.6.3: _validate_cycle_required_fields() rejects missing CYCLE_COMMAND
 
 **File:** `tests/test_cycle.py`
 
@@ -829,7 +829,7 @@ def test_validate_cycle_required_fields_rejects_missing_cycle_command():
     assert 'CYCLE_COMMAND' in str(exc_info.value)
 ```
 
-### Test 2.6.4: _validate_cycle_required_fields() rejects missing CYCLE_NAME
+##### Test 2.6.4: _validate_cycle_required_fields() rejects missing CYCLE_NAME
 
 **File:** `tests/test_cycle.py`
 
@@ -865,7 +865,7 @@ def test_validate_cycle_required_fields_rejects_missing_cycle_name():
     assert 'CYCLE_NAME' in str(exc_info.value)
 ```
 
-### Test 2.6.5: _validate_cycle_required_fields() rejects missing CYCLE_LOOP
+##### Test 2.6.5: _validate_cycle_required_fields() rejects missing CYCLE_LOOP
 
 **File:** `tests/test_cycle.py`
 
@@ -901,13 +901,13 @@ def test_validate_cycle_required_fields_rejects_missing_cycle_loop():
     assert 'CYCLE_LOOP' in str(exc_info.value)
 ```
 
-### Code 2.7.1: _cycles_are_equivalent() helper
+##### Code 2.7.1: _cycles_are_equivalent() helper
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.7.1: Add equivalency checking helper
-# Add before add_cycle() function
+### Block 2.7.1: Add equivalency checking helper
+### Add before add_cycle() function
 
 def _cycles_are_equivalent(cycle1, cycle2):
     """Check if two cycle definitions are equivalent.
@@ -943,7 +943,7 @@ def _cycles_are_equivalent(cycle1, cycle2):
     return True
 ```
 
-### Test 2.7.2: _cycles_are_equivalent() returns True for identical cycles
+##### Test 2.7.2: _cycles_are_equivalent() returns True for identical cycles
 
 **File:** `tests/test_cycle.py`
 
@@ -987,7 +987,7 @@ def test_cycles_are_equivalent_returns_true_for_identical_cycles():
     assert cycle._cycles_are_equivalent(cycle1, cycle2) is True
 ```
 
-### Test 2.7.3: _cycles_are_equivalent() returns False for different required fields
+##### Test 2.7.3: _cycles_are_equivalent() returns False for different required fields
 
 **File:** `tests/test_cycle.py`
 
@@ -1026,7 +1026,7 @@ def test_cycles_are_equivalent_returns_false_for_different_required_fields():
     assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
 ```
 
-### Test 2.7.4: _cycles_are_equivalent() returns False for different optional fields
+##### Test 2.7.4: _cycles_are_equivalent() returns False for different optional fields
 
 **File:** `tests/test_cycle.py`
 
@@ -1066,7 +1066,7 @@ def test_cycles_are_equivalent_returns_false_for_different_optional_fields():
     assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
 ```
 
-### Test 2.7.5: _cycles_are_equivalent() compares function references
+##### Test 2.7.5: _cycles_are_equivalent() compares function references
 
 **File:** `tests/test_cycle.py`
 
@@ -1105,13 +1105,13 @@ def test_cycles_are_equivalent_compares_function_references():
     assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
 ```
 
-### Code 2.8.1: _extract_command_name() helper
+##### Code 2.8.1: _extract_command_name() helper
 
 **File:** `src/spafw37/cycle.py`
 
 ```python
-# Block 2.8.1: Add command name extraction helper
-# Add after _cycles_are_equivalent() function
+### Block 2.8.1: Add command name extraction helper
+### Add after _cycles_are_equivalent() function
 
 def _extract_command_name(command_ref):
     """Extract command name from string reference or inline definition dict.
@@ -1141,7 +1141,7 @@ def _extract_command_name(command_ref):
     )
 ```
 
-### Test 2.8.2: _extract_command_name() extracts from string
+##### Test 2.8.2: _extract_command_name() extracts from string
 
 **File:** `tests/test_cycle.py`
 
@@ -1170,7 +1170,7 @@ def test_extract_command_name_from_string():
     assert result == 'my-command'
 ```
 
-### Test 2.8.3: _extract_command_name() extracts from dict
+##### Test 2.8.3: _extract_command_name() extracts from dict
 
 **File:** `tests/test_cycle.py`
 
@@ -1204,7 +1204,7 @@ def test_extract_command_name_from_dict():
     assert result == 'inline-cmd'
 ```
 
-### Test 2.8.4: _extract_command_name() validates dict has COMMAND_NAME
+##### Test 2.8.4: _extract_command_name() validates dict has COMMAND_NAME
 
 **File:** `tests/test_cycle.py`
 
@@ -1239,7 +1239,7 @@ def test_extract_command_name_validates_dict_has_command_name():
     assert 'COMMAND_NAME' in str(exc_info.value)
 ```
 
-## Implementation Order
+#### Implementation Order
 
 1. Add module-level `_cycles` dict (Code 2.1)
 2. Add `_validate_cycle_required_fields()` helper (Code 2.6.1)

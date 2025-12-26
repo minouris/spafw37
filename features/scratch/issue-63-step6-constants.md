@@ -1,6 +1,6 @@
-# Step 6: Update constants file with CYCLE_COMMAND property
+### Step 6: Update constants file with CYCLE_COMMAND property
 
-## Overview
+#### Overview
 
 This step ensures the CYCLE_COMMAND constant is properly defined and exported from the constants module, and that CYCLE_NAME documentation clarifies cycle identifiers are separate from command names.
 
@@ -11,50 +11,50 @@ This step ensures the CYCLE_COMMAND constant is properly defined and exported fr
 - `test_cycle_command_constant_defined_and_exported()` - Verify CYCLE_COMMAND exists
 - `test_cycle_name_constant_defined_and_documented()` - Verify CYCLE_NAME exists
 
-## Module-level imports
+#### Module-level imports
 
 No additional imports needed - constants file only defines string constants.
 
-## Algorithm
+#### Algorithm
 
-### Constants Validation
+##### Constants Validation
 
 1. Verify CYCLE_COMMAND constant is defined
 2. Verify CYCLE_COMMAND is exported in module's public API
 3. Verify CYCLE_NAME constant is defined
 4. Add or update docstring comments explaining usage
 
-## Implementation
+#### Implementation
 
-### Code 6.1.1: Ensure CYCLE_COMMAND constant defined
+##### Code 6.1.1: Ensure CYCLE_COMMAND constant defined
 
 **File:** `src/spafw37/constants/cycle.py`
 
 ```python
-# Block 6.1.1: Add CYCLE_COMMAND constant if not present
-# Add to constants section (check if already exists first)
+### Block 6.1.1: Add CYCLE_COMMAND constant if not present
+### Add to constants section (check if already exists first)
 
-# Target command for cycle attachment
-# Used in top-level cycle definitions via add_cycle()
-# Can be a string (command name) or dict (inline command definition)
+### Target command for cycle attachment
+### Used in top-level cycle definitions via add_cycle()
+### Can be a string (command name) or dict (inline command definition)
 CYCLE_COMMAND = 'cycle-command'
 ```
 
-### Code 6.1.2: Update CYCLE_NAME documentation
+##### Code 6.1.2: Update CYCLE_NAME documentation
 
 **File:** `src/spafw37/constants/cycle.py`
 
 ```python
-# Block 6.1.2: Update CYCLE_NAME constant documentation
-# Modify existing CYCLE_NAME constant comment
+### Block 6.1.2: Update CYCLE_NAME constant documentation
+### Modify existing CYCLE_NAME constant comment
 
-# Cycle identifier (independent of command names)
-# Used to identify cycles in logging and error messages
-# Multiple commands could potentially share a cycle (future enhancement)
+### Cycle identifier (independent of command names)
+### Used to identify cycles in logging and error messages
+### Multiple commands could potentially share a cycle (future enhancement)
 CYCLE_NAME = 'cycle-name'
 ```
 
-### Test 6.2.1: CYCLE_COMMAND constant defined and exported
+##### Test 6.2.1: CYCLE_COMMAND constant defined and exported
 
 **File:** `tests/test_cycle.py`
 
@@ -84,7 +84,7 @@ def test_cycle_command_constant_defined_and_exported():
     assert CYCLE_COMMAND == 'cycle-command'
 ```
 
-### Test 6.2.2: CYCLE_NAME constant defined and documented
+##### Test 6.2.2: CYCLE_NAME constant defined and documented
 
 **File:** `tests/test_cycle.py`
 
@@ -114,7 +114,7 @@ def test_cycle_name_constant_defined_and_documented():
     assert CYCLE_NAME == 'cycle-name'
 ```
 
-### Manual Review 6.3.1: Verify constant documentation
+##### Manual Review 6.3.1: Verify constant documentation
 
 **Action:** Manual review of `src/spafw37/constants/cycle.py`
 
@@ -127,7 +127,7 @@ def test_cycle_name_constant_defined_and_documented():
 - [ ] All constants follow existing formatting and style conventions
 - [ ] No duplicate constant definitions
 
-## Implementation Order
+#### Implementation Order
 
 1. Check if CYCLE_COMMAND already exists in constants/cycle.py
 2. Add CYCLE_COMMAND if missing (Code 6.1.1)
@@ -135,7 +135,7 @@ def test_cycle_name_constant_defined_and_documented():
 4. Add tests to `tests/test_cycle.py` (Tests 6.2.1-6.2.2)
 5. Manual review of constants file (Review 6.3.1)
 
-## Notes
+#### Notes
 
 - Check existing constants file first - CYCLE_COMMAND may already exist
 - CYCLE_NAME likely already exists - just needs documentation update

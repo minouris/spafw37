@@ -1,6 +1,6 @@
-# Step 4: Modify command registration to check for top-level cycles
+### Step 4: Modify command registration to check for top-level cycles
 
-## Overview
+#### Overview
 
 This step integrates top-level cycle registration with command registration. When a command is registered via `add_command()`, the system checks if a top-level cycle exists for that command and attaches it.
 
@@ -23,13 +23,13 @@ This step integrates top-level cycle registration with command registration. Whe
 - `test_store_command_equivalency_checking_different_cycles_raises()` - Different inline/top-level cycles raise error
 - `test_store_command_calls_register_cycle_with_attached_cycle()` - Integration with register_cycle()
 
-## Module-level imports
+#### Module-level imports
 
 See `issue-63-step1-imports.md` for all required imports.
 
-## Algorithm
+#### Algorithm
 
-### Command Registration with Top-Level Cycle Attachment
+##### Command Registration with Top-Level Cycle Attachment
 
 When a command is stored via `_store_command()`:
 1. Extract command name from command definition
@@ -43,15 +43,15 @@ When a command is stored via `_store_command()`:
 6. If only inline exists: use inline cycle (no change)
 7. Continue with existing `cycle.register_cycle()` call
 
-## Implementation
+#### Implementation
 
-### Code 4.1.1: Modify _store_command() for top-level cycle integration
+##### Code 4.1.1: Modify _store_command() for top-level cycle integration
 
 **File:** `src/spafw37/command.py`
 
 ```python
-# Block 4.1.1: Modify _store_command() function (around line 342)
-# Find the existing _store_command() function and modify it
+### Block 4.1.1: Modify _store_command() function (around line 342)
+### Find the existing _store_command() function and modify it
 
 def _store_command(cmd):
     """Store a command definition and register associated cycle.
@@ -98,7 +98,7 @@ def _store_command(cmd):
         cycle.register_cycle(cmd, cmd[COMMAND_CYCLE])
 ```
 
-### Test 4.2.1: _store_command() attaches top-level cycle
+##### Test 4.2.1: _store_command() attaches top-level cycle
 
 **File:** `tests/test_command.py`
 
@@ -146,7 +146,7 @@ def test_store_command_attaches_top_level_cycle():
     assert stored_cmd[COMMAND_CYCLE] is test_cycle
 ```
 
-### Test 4.2.2: _store_command() uses top-level cycle when no inline
+##### Test 4.2.2: _store_command() uses top-level cycle when no inline
 
 **File:** `tests/test_command.py`
 
@@ -191,7 +191,7 @@ def test_store_command_top_level_cycle_wins_when_no_inline():
     assert stored_cmd[COMMAND_CYCLE][CYCLE_NAME] == 'my-cycle'
 ```
 
-### Test 4.2.3: _store_command() uses inline cycle when no top-level
+##### Test 4.2.3: _store_command() uses inline cycle when no top-level
 
 **File:** `tests/test_command.py`
 
@@ -234,7 +234,7 @@ def test_store_command_inline_cycle_wins_when_no_top_level():
     assert stored_cmd[COMMAND_CYCLE][CYCLE_NAME] == 'inline-cycle'
 ```
 
-### Test 4.2.4: Equivalency checking - identical inline and top-level cycles
+##### Test 4.2.4: Equivalency checking - identical inline and top-level cycles
 
 **File:** `tests/test_command.py`
 
@@ -290,7 +290,7 @@ def test_store_command_equivalency_checking_identical_cycles():
     assert COMMAND_CYCLE in stored_cmd
 ```
 
-### Test 4.2.5: Equivalency checking - different inline and top-level cycles raise error
+##### Test 4.2.5: Equivalency checking - different inline and top-level cycles raise error
 
 **File:** `tests/test_command.py`
 
@@ -341,7 +341,7 @@ def test_store_command_equivalency_checking_different_cycles_raises():
     assert 'my-cmd' in str(exc_info.value)
 ```
 
-### Test 4.2.6: _store_command() calls register_cycle() with attached cycle
+##### Test 4.2.6: _store_command() calls register_cycle() with attached cycle
 
 **File:** `tests/test_command.py`
 
@@ -391,13 +391,13 @@ def test_store_command_calls_register_cycle_with_attached_cycle():
     # This test just confirms the integration point works
 ```
 
-## Implementation Order
+#### Implementation Order
 
 1. Modify `_store_command()` function (Code 4.1.1)
 2. Add tests to `tests/test_command.py` (Tests 4.2.1-4.2.6)
 3. Verify integration tests pass
 
-## Notes
+#### Notes
 
 - This step integrates top-level cycles with existing command registration
 - Equivalency checking reuses `cycle._cycles_are_equivalent()` from Step 2

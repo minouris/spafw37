@@ -1,6 +1,6 @@
-# Step 7: Create example demonstrating new API
+### Step 7: Create example demonstrating new API
 
-## Overview
+#### Overview
 
 This step creates a new example file showing how to use the `add_cycle()` and `add_cycles()` functions to define cycles separately from commands, demonstrating cleaner code organisation.
 
@@ -10,13 +10,13 @@ This step creates a new example file showing how to use the `add_cycle()` and `a
 **Tests created:**
 - Manual execution test (Test 7.2.1)
 
-## Module-level imports
+#### Module-level imports
 
 No imports needed - this is the example file itself.
 
-## Algorithm
+#### Algorithm
 
-### Example Design
+##### Example Design
 
 The example should demonstrate:
 1. Importing core API with alias: `from spafw37 import core as spafw37`
@@ -28,9 +28,9 @@ The example should demonstrate:
 7. Full cycle execution with all phases (init, loop, end)
 8. Clear output showing execution flow
 
-## Implementation
+#### Implementation
 
-### Code 7.1.1: Create cycles_toplevel_api.py example
+##### Code 7.1.1: Create cycles_toplevel_api.py example
 
 **File:** `examples/cycles_toplevel_api.py`
 
@@ -58,7 +58,7 @@ from spafw37.constants.cycle import (
 )
 
 
-# Shared state for cycle demonstration
+### Shared state for cycle demonstration
 cycle_state = {'count': 0, 'max_iterations': 3}
 
 
@@ -101,8 +101,8 @@ def step_two_action():
     print("    → Step 2: Processing")
 
 
-# Example 1: Register single cycle with add_cycle()
-# Demonstrates inline CYCLE_COMMAND definition (dict)
+### Example 1: Register single cycle with add_cycle()
+### Demonstrates inline CYCLE_COMMAND definition (dict)
 print("\n=== Example 1: Single cycle with inline command ===")
 
 single_cycle = {
@@ -126,11 +126,11 @@ spafw37.add_cycle(single_cycle)
 spafw37.run_cli(['process-single'])
 
 
-# Example 2: Register multiple cycles with add_cycles()
-# Demonstrates string CYCLE_COMMAND references (commands defined separately)
+### Example 2: Register multiple cycles with add_cycles()
+### Demonstrates string CYCLE_COMMAND references (commands defined separately)
 print("\n=== Example 2: Multiple cycles with command references ===")
 
-# Define commands first
+### Define commands first
 commands = [
     {
         COMMAND_NAME: 'process-batch-a',
@@ -143,7 +143,7 @@ commands = [
 ]
 spafw37.add_commands(commands)
 
-# Define cycles referencing commands by name
+### Define cycles referencing commands by name
 cycles = [
     {
         CYCLE_COMMAND: 'process-batch-a',
@@ -177,11 +177,11 @@ spafw37.run_cli(['process-batch-a'])
 spafw37.run_cli(['process-batch-b'])
 
 
-# Example 3: Flexible registration order
-# Demonstrates cycles can be registered before or after commands
+### Example 3: Flexible registration order
+### Demonstrates cycles can be registered before or after commands
 print("\n=== Example 3: Flexible registration order ===")
 
-# Register cycle BEFORE command exists
+### Register cycle BEFORE command exists
 flexible_cycle = {
     CYCLE_COMMAND: 'process-flexible',
     CYCLE_NAME: 'flexible-cycle',
@@ -194,7 +194,7 @@ flexible_cycle = {
 }
 spafw37.add_cycle(flexible_cycle)
 
-# Register command AFTER cycle
+### Register command AFTER cycle
 flexible_command = {
     COMMAND_NAME: 'process-flexible',
     COMMAND_ACTION: lambda: print("COMMAND: process-flexible")
@@ -206,7 +206,7 @@ spafw37.run_cli(['process-flexible'])
 print("\n=== All examples complete ===")
 ```
 
-### Test 7.2.1: Example executes without errors
+##### Test 7.2.1: Example executes without errors
 
 **File:** Manual test
 
@@ -232,13 +232,13 @@ Scenario: Run cycles_toplevel_api.py example
    - No Python exceptions or errors
 4. Verify example file in README.md examples list
 
-## Implementation Order
+#### Implementation Order
 
 1. Create `examples/cycles_toplevel_api.py` (Code 7.1.1)
 2. Test example execution manually (Test 7.2.1)
 3. Add example to README.md examples list
 
-## Notes
+#### Notes
 
 - Example uses `from spafw37 import core as spafw37` alias (standard pattern)
 - Demonstrates both inline CYCLE_COMMAND (dict) and string references

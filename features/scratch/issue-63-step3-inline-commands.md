@@ -1,6 +1,6 @@
-# Step 3: Verify inline command support in CYCLE_COMMANDS
+### Step 3: Verify inline command support in CYCLE_COMMANDS
 
-## Overview
+#### Overview
 
 This step verifies that commands can be defined inline within the **CYCLE_COMMANDS** list of cycle definitions, similar to how params can be defined inline in `COMMAND_REQUIRED_PARAMS`.
 
@@ -17,13 +17,13 @@ Commands in `CYCLE_COMMANDS` can be dicts (inline definitions) or strings (comma
 - `test_cycle_with_mixed_inline_and_string_in_cycle_commands()` - Mix of dicts and strings in CYCLE_COMMANDS
 - `test_cycle_with_inline_command_forward_reference()` - Inline command referencing not-yet-defined param
 
-## Module-level imports
+#### Module-level imports
 
 See `issue-63-step1-imports.md` for all required imports.
 
-## Algorithm
+#### Algorithm
 
-### Inline Command Support in CYCLE_COMMANDS
+##### Inline Command Support in CYCLE_COMMANDS
 
 The existing `register_cycle()` function already handles inline command definitions in the CYCLE_COMMANDS list:
 1. When a cycle is registered (via `_store_command()` calling `cycle.register_cycle()`)
@@ -38,9 +38,9 @@ The existing `register_cycle()` function already handles inline command definiti
 
 **Key insight:** No new code needed in `cycle.py` for inline command support in CYCLE_COMMANDS. The existing machinery works. We just need integration tests to verify it works with top-level cycles.
 
-## Implementation
+#### Implementation
 
-### Test 3.2.1: Inline command definition in CYCLE_COMMANDS
+##### Test 3.2.1: Inline command definition in CYCLE_COMMANDS
 
 **File:** `tests/test_cycle.py`
 
@@ -90,7 +90,7 @@ def test_cycle_with_inline_commands_in_cycle_commands():
     assert isinstance(retrieved_cycle[CYCLE_COMMANDS][0], dict)
 ```
 
-### Test 3.2.2: Mixed inline and string command references in CYCLE_COMMANDS
+##### Test 3.2.2: Mixed inline and string command references in CYCLE_COMMANDS
 
 **File:** `tests/test_cycle.py`
 
@@ -139,7 +139,7 @@ def test_cycle_with_mixed_inline_and_string_in_cycle_commands():
     assert isinstance(retrieved_cycle[CYCLE_COMMANDS][1], str)
 ```
 
-### Test 3.2.3: Validation deferred for inline commands in CYCLE_COMMANDS
+##### Test 3.2.3: Validation deferred for inline commands in CYCLE_COMMANDS
 
 **File:** `tests/test_cycle.py`
 
@@ -186,7 +186,7 @@ def test_add_cycle_with_inline_command_forward_reference():
     assert retrieved_cycle is not None
 ```
 
-## Implementation Order
+#### Implementation Order
 
 No new implementation code required. Tests verify that existing inline command support works with top-level cycles.
 

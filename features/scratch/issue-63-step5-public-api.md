@@ -1,6 +1,6 @@
-# Step 5: Expose new functions through core.py facade
+### Step 5: Expose new functions through core.py facade
 
-## Overview
+#### Overview
 
 This step exposes the new cycle registration functions through the core.py public API facade, following the same delegation pattern used for params and commands.
 
@@ -13,13 +13,13 @@ This step exposes the new cycle registration functions through the core.py publi
 - `test_core_add_cycles_delegates_to_cycle_module()` - Verify add_cycles() delegation
 - `test_core_api_consistency_with_add_command_pattern()` - Verify API pattern consistency
 
-## Module-level imports
+#### Module-level imports
 
 See `issue-63-step1-imports.md` for all required imports.
 
-## Algorithm
+#### Algorithm
 
-### Public API Delegation Pattern
+##### Public API Delegation Pattern
 
 The core.py module serves as a facade, providing simple delegation functions:
 1. Import the cycle module
@@ -27,15 +27,15 @@ The core.py module serves as a facade, providing simple delegation functions:
 3. Preserve docstrings and function signatures for consistency
 4. No additional logic - pure delegation
 
-## Implementation
+#### Implementation
 
-### Code 5.1.1: Add add_cycle() to core.py
+##### Code 5.1.1: Add add_cycle() to core.py
 
 **File:** `src/spafw37/core.py`
 
 ```python
-# Block 5.1.1: Add add_cycle() delegation function
-# Add after existing add_command() function (around line 150)
+### Block 5.1.1: Add add_cycle() delegation function
+### Add after existing add_command() function (around line 150)
 
 def add_cycle(cycle_def):
     """Register a cycle definition for a command.
@@ -78,13 +78,13 @@ def add_cycle(cycle_def):
     cycle.add_cycle(cycle_def)
 ```
 
-### Code 5.1.2: Add add_cycles() to core.py
+##### Code 5.1.2: Add add_cycles() to core.py
 
 **File:** `src/spafw37/core.py`
 
 ```python
-# Block 5.1.2: Add add_cycles() delegation function
-# Add after add_cycle() function
+### Block 5.1.2: Add add_cycles() delegation function
+### Add after add_cycle() function
 
 def add_cycles(cycle_defs):
     """Register multiple cycle definitions.
@@ -109,7 +109,7 @@ def add_cycles(cycle_defs):
     cycle.add_cycles(cycle_defs)
 ```
 
-### Test 5.2.1: core.add_cycle() delegates to cycle.add_cycle()
+##### Test 5.2.1: core.add_cycle() delegates to cycle.add_cycle()
 
 **File:** `tests/test_core.py`
 
@@ -148,7 +148,7 @@ def test_core_add_cycle_delegates_to_cycle_module():
     assert cycle._cycles['test-cmd'] == test_cycle
 ```
 
-### Test 5.2.2: core.add_cycles() delegates to cycle.add_cycles()
+##### Test 5.2.2: core.add_cycles() delegates to cycle.add_cycles()
 
 **File:** `tests/test_core.py`
 
@@ -196,7 +196,7 @@ def test_core_add_cycles_delegates_to_cycle_module():
     assert cycle._cycles['cmd2'][CYCLE_NAME] == 'cycle2'
 ```
 
-### Test 5.2.3: API consistency with add_command/add_param patterns
+##### Test 5.2.3: API consistency with add_command/add_param patterns
 
 **File:** `tests/test_core.py`
 
@@ -246,14 +246,14 @@ def test_core_api_consistency_with_add_command_pattern():
     assert len(core.add_cycles.__doc__) > 50
 ```
 
-## Implementation Order
+#### Implementation Order
 
 1. Add `add_cycle()` function to core.py (Code 5.1.1)
 2. Add `add_cycles()` function to core.py (Code 5.1.2)
 3. Add tests to `tests/test_core.py` (Tests 5.2.1-5.2.3)
 4. Verify all tests pass
 
-## Notes
+#### Notes
 
 - Pure delegation - no additional logic in core.py
 - Docstrings preserved for API documentation
