@@ -138,17 +138,496 @@ This feature was identified during implementation of Issue #15 (User Input Param
 
 Add module-level `_cycles` dictionary to store cycle definitions indexed by command name. Implement `add_cycle()` (single) and `add_cycles()` (plural) functions following the pattern established in `param.py` and `command.py`. Implement equivalency checking helper function for deep equality comparison of cycle definitions.
 
-[Detailed implementation and tests will be added in Steps 3-4]
+**Tests:** Test cycle storage, registration functions, equivalency checking, duplicate handling
+
+**Test 1.2.1: Module-level cycles storage initialised**
+
+```gherkin
+Scenario: Module-level _cycles dict exists
+  Given the cycle module is imported
+  When the module is loaded
+  Then _cycles dict should exist at module level
+  And _cycles dict should be empty initially
+  
+  # Tests: Module-level storage initialization
+  # Validates: Infrastructure for storing registered cycles
+```
+
+**Test 1.2.2: add_cycle() registers single cycle definition**
+
+```gherkin
+Scenario: Register single cycle via add_cycle()
+  Given a valid cycle definition with CYCLE_COMMAND and CYCLE_NAME
+  When add_cycle() is called with the cycle dict
+  Then the cycle should be stored in _cycles indexed by command name
+  And no exceptions should be raised
+  
+  # Tests: Single cycle registration via add_cycle()
+  # Validates: Basic cycle storage mechanism works correctly
+```
+
+**Test 1.2.3: add_cycles() registers multiple cycle definitions**
+
+```gherkin
+Scenario: Register multiple cycles via add_cycles()
+  Given a list of valid cycle definitions for different commands
+  When add_cycles() is called with the list
+  Then all cycles should be stored in _cycles indexed by command names
+  And no exceptions should be raised
+  
+  # Tests: Bulk cycle registration via add_cycles()
+  # Validates: Plural function follows param/command patterns
+```
+
+**Test 1.2.4: add_cycle() validates required CYCLE_COMMAND field**
+
+```gherkin
+Scenario: Missing CYCLE_COMMAND field
+  Given a cycle definition without CYCLE_COMMAND field
+  When add_cycle() is called
+  Then ValueError should be raised
+  And error message should indicate missing CYCLE_COMMAND
+  
+  # Tests: Required field validation
+  # Validates: Cannot register cycle without target command
+```
+
+**Test 1.2.5: add_cycle() validates required CYCLE_NAME field**
+
+```gherkin
+Scenario: Missing CYCLE_NAME field
+  Given a cycle definition without CYCLE_NAME field
+  When add_cycle() is called
+  Then ValueError should be raised
+  And error message should indicate missing CYCLE_NAME
+  
+  # Tests: Required field validation for cycle identifier
+  # Validates: Cycles must have independent identifiers
+```
+
+**Test 1.2.6: add_cycle() validates required CYCLE_LOOP field**
+
+```gherkin
+Scenario: Missing CYCLE_LOOP field
+  Given a cycle definition without CYCLE_LOOP field
+  When add_cycle() is called
+  Then ValueError should be raised
+  And error message should indicate missing CYCLE_LOOP
+  
+  # Tests: Required field validation for loop function
+  # Validates: Cycles must define loop behaviour
+```
+
+**Test 1.2.7: Equivalency checking - identical cycles silently skip**
+
+```gherkin
+Scenario: Register identical cycle definition twice
+  Given a cycle definition registered for a command
+  When add_cycle() is called again with identical definition
+  Then the second registration should be silently skipped
+  And no exception should be raised
+  And the original cycle should remain in _cycles
+  
+  # Tests: Equivalency checking with first-wins behaviour
+  # Validates: Identical definitions don't cause errors (useful for modular code)
+```
+
+**Test 1.2.8: Equivalency checking - different cycles raise error**
+
+```gherkin
+Scenario: Register different cycle for same command
+  Given a cycle definition registered for a command
+  When add_cycle() is called with different definition for same command
+  Then ValueError should be raised
+  And error message should indicate conflicting cycle definitions
+  And the original cycle should remain in _cycles
+  
+  # Tests: Conflict detection for different definitions
+  # Validates: Prevents conflicting cycle configurations
+```
+
+**Test 1.2.9: Equivalency checking compares all cycle properties**
+
+```gherkin
+Scenario: Cycles differ only in optional property
+  Given a cycle registered with CYCLE_INIT function
+  When add_cycle() is called with same command but different CYCLE_INIT
+  Then ValueError should be raised
+  And error message should indicate conflicting definitions
+  
+  # Tests: Deep equality comparison of cycle definitions
+  # Validates: All properties checked, not just required fields
+```
+
+**Test 1.2.10: Equivalency checking compares function references**
+
+```gherkin
+Scenario: Cycles with same function objects
+  Given a cycle registered with specific function references
+  When add_cycle() is called with same command and same function objects
+  Then the second registration should be silently skipped
+  And no exception should be raised
+  
+  # Tests: Function object identity comparison
+  # Validates: Same functions recognised as equivalent
+```
+
+**Test 1.2.11: get_cycle() retrieves registered cycle**
+
+```gherkin
+Scenario: Retrieve cycle by command name
+  Given a cycle registered for command "my-command"
+  When get_cycle("my-command") is called
+  Then the cycle definition should be returned
+  And the dict should contain all registered properties
+  
+  # Tests: Cycle retrieval by command name
+  # Validates: Public API for accessing registered cycles
+```
+
+**Test 1.2.12: get_cycle() returns None for unregistered command**
+
+```gherkin
+Scenario: Request cycle for command with no cycle
+  Given no cycle registered for command "unknown-command"
+  When get_cycle("unknown-command") is called
+  Then None should be returned
+  And no exception should be raised
+  
+  # Tests: Graceful handling of missing cycles
+  # Validates: Allows checking if cycle exists without errors
+```
 
 [↑ Back to top](#table-of-contents)
 
-### 2. Add support for inline function definitions in cycles
+### 2. Add support for inline command definitions in cycles
 
 **File:** `src/spafw37/cycle.py`
 
-Add ability to define functions inline within cycle definitions (similar to how commands can be defined inline in `CYCLE_COMMANDS`). Functions in fields like `CYCLE_INIT`, `CYCLE_LOOP`, `CYCLE_LOOP_START`, `CYCLE_LOOP_END`, and `CYCLE_END` can be passed as function references or defined inline.
+Add ability to define commands inline within cycle definitions. All commands referenced by a cycle (in `CYCLE_COMMANDS` and any other cycle properties that reference commands) should support inline command definition dicts in addition to command name strings.
 
-[Detailed implementation and tests will be added in Steps 3-4]
+**Tests:** Test inline command definitions in CYCLE_COMMANDS property
+
+**Test 2.2.1: Inline command definition in CYCLE_COMMANDS**
+
+```gherkin
+Scenario: Cycle with inline command definition
+  Given a cycle with CYCLE_COMMANDS containing command dict
+  When the cycle is registered via add_cycle()
+  Then the cycle should be stored successfully
+  And the inline command definition should be preserved
+  And no exceptions should be raised
+  
+  # Tests: Inline command definition support
+  # Validates: Commands can be defined inline like params
+```
+
+**Test 2.2.2: Mixed inline and string command references**
+
+```gherkin
+Scenario: CYCLE_COMMANDS with both dicts and strings
+  Given a cycle with CYCLE_COMMANDS containing mix of dicts and strings
+  When the cycle is registered via add_cycle()
+  Then the cycle should be stored successfully
+  And both inline and referenced commands should be preserved
+  And no exceptions should be raised
+  
+  # Tests: Mixed command definition formats
+  # Validates: Flexibility in specifying cycle commands
+```
+
+**Test 2.2.3: Validation deferred for inline commands**
+
+```gherkin
+Scenario: Inline command with forward reference to param
+  Given a cycle with inline command referencing param not yet defined
+  When the cycle is registered via add_cycle()
+  Then the cycle should be stored successfully
+  And no validation error should be raised
+  
+  # Tests: Deferred validation of inline command definitions
+  # Validates: Allows flexible registration order
+```
+
+[↑ Back to top](#table-of-contents)
+
+### 3. Modify command registration to check for top-level cycles
+
+**File:** `src/spafw37/command.py`
+
+Update `_store_command()` to check if a cycle has been registered for the command via the new top-level API. If found, attach it to the command's `COMMAND_CYCLE` property before calling `cycle.register_cycle()`. Apply equivalency checking when both inline and top-level cycles exist.
+
+**Tests:** Test integration between top-level cycles and command registration, equivalency checking when both exist
+
+**Test 3.2.1: Top-level cycle attached to command**
+
+```gherkin
+Scenario: Register command after top-level cycle
+  Given a cycle registered via add_cycle() for command "my-command"
+  When add_command() is called for "my-command"
+  Then the cycle should be attached to command's COMMAND_CYCLE property
+  And cycle.register_cycle() should be called with the cycle
+  And the command should be stored successfully
+  
+  # Tests: Top-level cycle integration with command registration
+  # Validates: Cycles registered first attach to commands registered later
+```
+
+**Test 3.2.2: Command registered before cycle is added**
+
+```gherkin
+Scenario: Register command before top-level cycle exists
+  Given add_command() is called for "my-command" with no cycle
+  When add_cycle() is called later for same command
+  Then the cycle should be stored in _cycles
+  And the command should remain unchanged (no retroactive attachment)
+  And no exceptions should be raised
+  
+  # Tests: Registration order flexibility
+  # Validates: Cycles can be registered after commands without errors
+```
+
+**Test 3.2.3: Inline and top-level cycle - identical definitions**
+
+```gherkin
+Scenario: Command with inline cycle, then add_cycle() with identical definition
+  Given a command registered with inline COMMAND_CYCLE
+  When add_cycle() is called for same command with identical definition
+  Then the second registration should be silently skipped
+  And the command's cycle should remain unchanged
+  And no exception should be raised
+  
+  # Tests: Equivalency checking across inline and top-level APIs
+  # Validates: Identical definitions don't conflict
+```
+
+**Test 3.2.4: Inline and top-level cycle - different definitions**
+
+```gherkin
+Scenario: Command with inline cycle, then add_cycle() with different definition
+  Given a command registered with inline COMMAND_CYCLE
+  When add_cycle() is called for same command with different definition
+  Then ValueError should be raised
+  And error message should indicate conflicting cycle definitions
+  And the command's cycle should remain unchanged
+  
+  # Tests: Conflict detection across inline and top-level APIs
+  # Validates: Different definitions raise errors
+```
+
+**Test 3.2.5: Top-level cycle priority - command with no inline cycle**
+
+```gherkin
+Scenario: Command registered with no inline cycle, top-level cycle exists
+  Given a cycle registered via add_cycle() for command "my-command"
+  When add_command() is called for "my-command" with no COMMAND_CYCLE property
+  Then the top-level cycle should be attached to command
+  And the command should execute with the cycle
+  And no exceptions should be raised
+  
+  # Tests: Top-level cycle attachment to commands without inline cycles
+  # Validates: Top-level API fully functional for commands without inline definitions
+```
+
+**Test 3.2.6: Cycle commands registered through command registration**
+
+```gherkin
+Scenario: Top-level cycle with inline command definitions
+  Given a cycle with CYCLE_COMMANDS containing inline command dicts
+  When the parent command is registered
+  Then cycle commands should be registered automatically
+  And cycle commands should not be CLI-invocable
+  And no exceptions should be raised
+  
+  # Tests: Inline command registration via cycle
+  # Validates: Commands defined inline within cycles work correctly
+```
+
+[↑ Back to top](#table-of-contents)
+
+### 4. Expose new functions through core.py facade
+
+**File:** `src/spafw37/core.py`
+
+Add `add_cycle()` and `add_cycles()` delegate functions to core.py public API, following the same pattern as existing `add_param()`, `add_params()`, `add_command()`, and `add_commands()` functions.
+
+**Tests:** Test public API functions delegate correctly to cycle module
+
+**Test 4.2.1: core.add_cycle() delegates to cycle.add_cycle()**
+
+```gherkin
+Scenario: Call core.add_cycle() with valid cycle definition
+  Given a valid cycle definition dict
+  When core.add_cycle() is called with the cycle
+  Then cycle.add_cycle() should be called
+  And the cycle should be stored in cycle._cycles
+  And no exceptions should be raised
+  
+  # Tests: Public API delegation for single cycle
+  # Validates: core.py facade provides add_cycle() access
+```
+
+**Test 4.2.2: core.add_cycles() delegates to cycle.add_cycles()**
+
+```gherkin
+Scenario: Call core.add_cycles() with list of cycle definitions
+  Given a list of valid cycle definition dicts
+  When core.add_cycles() is called with the list
+  Then cycle.add_cycles() should be called
+  And all cycles should be stored in cycle._cycles
+  And no exceptions should be raised
+  
+  # Tests: Public API delegation for multiple cycles
+  # Validates: core.py facade provides add_cycles() access
+```
+
+**Test 4.2.3: API consistency with add_command/add_param patterns**
+
+```gherkin
+Scenario: Compare add_cycle() signature with add_command()
+  Given function signatures for add_cycle() and add_command()
+  When comparing parameter names and types
+  Then add_cycle() should follow same pattern
+  And function documentation should be consistent
+  And return types should match pattern
+  
+  # Tests: API consistency across registration functions
+  # Validates: Consistent developer experience
+```
+
+[↑ Back to top](#table-of-contents)
+
+### 5. Update constants file with CYCLE_NAME property
+
+**File:** `src/spafw37/constants/cycle.py`
+
+Ensure `CYCLE_COMMAND` constant is properly defined and documented. Add or update `CYCLE_NAME` property documentation to clarify that cycles have independent identifiers separate from command names, potentially allowing cycles to be attached to multiple commands.
+
+**Tests:** Test constant definitions and documentation
+
+**Test 5.2.1: CYCLE_COMMAND constant defined and exported**
+
+```gherkin
+Scenario: Import CYCLE_COMMAND from constants.cycle
+  Given the constants.cycle module
+  When CYCLE_COMMAND is imported
+  Then the constant should be a string
+  And the constant should be properly exported
+  And no exceptions should be raised
+  
+  # Tests: CYCLE_COMMAND constant availability
+  # Validates: New constant properly defined for top-level API
+```
+
+**Test 5.2.2: CYCLE_NAME constant defined and documented**
+
+```gherkin
+Scenario: Import CYCLE_NAME from constants.cycle
+  Given the constants.cycle module
+  When CYCLE_NAME is imported
+  Then the constant should be a string
+  And the constant should be properly exported
+  And documentation should clarify cycle identifier purpose
+  
+  # Tests: CYCLE_NAME constant availability and documentation
+  # Validates: Cycle identifiers separate from command names
+```
+
+**Tests:** Manual review to verify constant documentation explains cycle identity vs command association
+
+[↑ Back to top](#table-of-contents)
+
+### 6. Create example demonstrating new API
+
+**File:** `examples/cycles_toplevel_api.py`
+
+Create a new example file showing how to use `add_cycle()` and `add_cycles()` functions to define cycles separately from commands, demonstrating the cleaner code organisation this enables. Include examples of inline function definitions within cycles.
+
+**Tests:** Manual execution and review
+
+**Test 6.2.1: Example executes without errors**
+
+```gherkin
+Scenario: Run cycles_toplevel_api.py example
+  Given the example file with add_cycle() and add_cycles() usage
+  When the example is executed from command line
+  Then it should complete successfully without exceptions
+  And it should demonstrate cycle execution
+  And output should show cycle functions being called
+  
+  # Tests: Example code functionality
+  # Validates: Top-level API works in real usage scenario
+```
+
+**Test 6.2.2: Example demonstrates both add_cycle() and add_cycles()**
+
+```gherkin
+Scenario: Review example code coverage
+  Given the cycles_toplevel_api.py example file
+  When reviewing the code
+  Then it should use add_cycle() for single cycle
+  And it should use add_cycles() for multiple cycles
+  And it should demonstrate inline command definitions
+  
+  # Tests: Example completeness
+  # Validates: Both registration approaches documented
+```
+
+**Tests:** Manual review to verify example follows all coding standards and demonstrates key features
+
+[↑ Back to top](#table-of-contents)
+
+### 7. Update documentation
+
+**Files:** `doc/cycles.md`, `doc/api-reference.md`, `README.md`
+
+Document the new top-level cycle registration API, update API reference with new functions, and add examples showing both inline and top-level approaches to cycle definition.
+
+**Tests:** Manual review of documentation accuracy and completeness
+
+**Test 7.2.1: cycles.md documents top-level API**
+
+```gherkin
+Scenario: Review cycles.md for new API documentation
+  Given the updated cycles.md documentation file
+  When searching for add_cycle() and add_cycles() documentation
+  Then both functions should be documented
+  And usage examples should be provided
+  And comparison with inline approach should be included
+  
+  # Tests: User guide completeness
+  # Validates: Users can learn new API from documentation
+```
+
+**Test 7.2.2: api-reference.md includes new functions**
+
+```gherkin
+Scenario: Review api-reference.md for function signatures
+  Given the updated api-reference.md file
+  When searching for add_cycle() and add_cycles()
+  Then both functions should be listed with parameters
+  And return types should be documented
+  And parameter descriptions should be complete
+  
+  # Tests: API reference completeness
+  # Validates: Developer reference includes new functions
+```
+
+**Test 7.2.3: README.md features list updated**
+
+```gherkin
+Scenario: Review README.md features section
+  Given the updated README.md file
+  When reviewing the features list
+  Then top-level cycle registration should be mentioned
+  And code example should show new API
+  And "What's New in v1.1.0" section should mention this feature
+  
+  # Tests: README feature visibility
+  # Validates: Users discover new feature from README
+```
+
+**Tests:** Manual review to verify all documentation follows UK English spelling, uses consistent terminology, and accurately reflects implementation
 
 [↑ Back to top](#table-of-contents)
 
@@ -341,8 +820,8 @@ This checklist tracks completion of this planning document.
 - [x] Table of Contents updated to reflect all sections
 
 **Implementation Details:**
-- [ ] All implementation steps have detailed code blocks
-- [ ] All functions have corresponding test specifications
+- [x] All implementation steps have detailed code blocks
+- [x] All functions have corresponding test specifications
 - [ ] All code blocks follow X.Y.Z numbering scheme
 - [ ] All tests written in Gherkin + Python format
 - [ ] Module-level imports consolidated in Step 1
