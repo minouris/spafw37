@@ -252,58 +252,176 @@ def _validate_command_references(cmd):
         )
 
 
+def _normalise_param_list(param_list):
+    """Normalise list of param definitions to param names.
+    
+    Args:
+        param_list: List of parameter definition dicts
+        
+    Returns:
+        List of parameter names (strings)
+    """
+    # Block 3.1.5.1: Initialize result list
+    normalised_params = []
+    
+    # Block 3.1.5.2: Loop through param definitions
+    for param_def in param_list:
+        # Block 3.1.5.2.1: Register param via param module
+        param_name = param._register_inline_param(param_def)
+        # Block 3.1.5.2.2: Append name to result list
+        normalised_params.append(param_name)
+    
+    # Block 3.1.5.3: Return normalised list
+    return normalised_params
+
+
+def _process_inline_params(cmd):
+    """Process inline parameter definitions in command.
+    
+    Handles COMMAND_REQUIRED_PARAMS (list) and COMMAND_TRIGGER_PARAM (single).
+    Registers inline param definitions and normalises fields to param names.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
+    # Block 3.1.6.1: Get COMMAND_REQUIRED_PARAMS list
+    required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
+    
+    # Block 3.1.6.2: If list exists, normalise and update
+    if required_params:
+        # Block 3.1.6.2.1: Call _normalise_param_list() helper
+        normalised_params = _normalise_param_list(required_params)
+        # Block 3.1.6.2.2: Update cmd with normalised list
+        cmd[COMMAND_REQUIRED_PARAMS] = normalised_params
+    
+    # Block 3.1.6.3: Get COMMAND_TRIGGER_PARAM
+    trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
+    
+    # Block 3.1.6.4: If trigger param exists, register and update
+    if trigger_param:
+        # Block 3.1.6.4.1: Register param via param._register_inline_param()
+        param_name = param._register_inline_param(trigger_param)
+        # Block 3.1.6.4.2: Update cmd with param name
+        cmd[COMMAND_TRIGGER_PARAM] = param_name
+
+
+def _normalise_command_list(cmd_list):
+    """Normalise list of command definitions to command names.
+    
+    Args:
+        cmd_list: List of command definition dicts
+        
+    Returns:
+        List of command names (strings)
+    """
+    # Block 4.1.5.1: Initialize result list
+    normalised_cmds = []
+    
+    # Block 4.1.5.2: Loop through command definitions
+    for cmd_def in cmd_list:
+        # Block 4.1.5.2.1: Register command via _register_inline_command()
+        cmd_name = _register_inline_command(cmd_def)
+        # Block 4.1.5.2.2: Append name to result list
+        normalised_cmds.append(cmd_name)
+    
+    # Block 4.1.5.3: Return normalised list
+    return normalised_cmds
+
+
+def _process_inline_commands(cmd):
+    """Process inline command definitions in dependency/sequencing fields.
+    
+    Handles COMMAND_GOES_BEFORE, COMMAND_GOES_AFTER, COMMAND_NEXT_COMMANDS,
+    and COMMAND_REQUIRE_BEFORE. Registers inline command definitions and
+    normalises fields to command names.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
+    # Block 4.1.6.1: Define dependency field list
+    dependency_fields = [
+        COMMAND_GOES_BEFORE,
+        COMMAND_GOES_AFTER,
+        COMMAND_NEXT_COMMANDS,
+        COMMAND_REQUIRE_BEFORE,
+    ]
+    # Block 4.1.6.2: Loop through each field type
+    for field in dependency_fields:
+        # Block 4.1.6.2.1: Get field value from command
+        cmd_list = cmd.get(field, [])
+        
+        # Block 4.1.6.2.2: If field has values, normalise and update
+        if cmd_list:
+            # Block 4.1.6.2.2.1: Call _normalise_command_list() helper
+            normalised_cmds = _normalise_command_list(cmd_list)
+            # Block 4.1.6.2.2.2: Update cmd with normalised list
+            cmd[field] = normalised_cmds
+
+
+def _assign_command_phase(cmd):
+    """Assign default phase if not specified in command.
+    
+    Sets COMMAND_PHASE to config.get_default_phase() if not already present.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
+    # Block 5.1.3.1: Check if phase is missing or empty
+    if not cmd.get(COMMAND_PHASE):
+        # Block 5.1.3.2: Assign default phase from config
+        cmd[COMMAND_PHASE] = config.get_default_phase()
+
+
+def _store_command(cmd):
+    """Store command in registry and register cycle if present.
+    
+    Adds command to _commands dict and calls cycle.register_cycle() if needed.
+    
+    Args:
+        cmd: Command definition dict
+    """
+    # Block 6.1.3.1: Get command name
+    name = cmd[COMMAND_NAME]
+    
+    # Block 6.1.3.2: Store command in registry
+    _commands[name] = cmd
+    
+    # Block 6.1.3.3: Register cycle if present
+    cycle.register_cycle(cmd, _commands)
+
+
 def add_command(cmd):
-    name = cmd.get(COMMAND_NAME)
-    if not name:
-        raise ValueError("Command name cannot be empty")
-    if not cmd.get(COMMAND_ACTION):
-        raise ValueError("Command action is required")
+    """Register a command for execution.
+    
+    This function orchestrates command registration by delegating to focused
+    helper functions. Each helper handles a specific aspect of registration:
+    validation, inline processing, phase assignment, and storage.
+    
+    Args:
+        cmd: Command definition dict
+    
+    Raises:
+        ValueError: If command validation fails
+    """
+    # Block 7.1.1: Validate command structure
+    _validate_command_name(cmd)
+    _validate_command_action(cmd)
+    
+    # Block 7.1.2: Skip if already registered
+    name = cmd[COMMAND_NAME]
     if name in _commands:
         return
     
-    # Process inline parameter definitions in COMMAND_REQUIRED_PARAMS
-    required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
-    if required_params:
-        normalized_params = []
-        for param_def in required_params:
-            param_name = param._register_inline_param(param_def)
-            normalized_params.append(param_name)
-        cmd[COMMAND_REQUIRED_PARAMS] = normalized_params
+    # Block 7.1.3: Process inline definitions
+    _process_inline_params(cmd)
+    _process_inline_commands(cmd)
     
-    # Process inline parameter definition in COMMAND_TRIGGER_PARAM
-    trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
-    if trigger_param:
-        param_name = param._register_inline_param(trigger_param)
-        cmd[COMMAND_TRIGGER_PARAM] = param_name
+    # Block 7.1.4: Validate references after inline processing
+    _validate_command_references(cmd)
     
-    # Process inline command definitions in dependency/sequencing fields
-    for field in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
-        cmd_list = cmd.get(field, [])
-        if cmd_list:
-            normalized_cmds = []
-            for cmd_def in cmd_list:
-                cmd_name = _register_inline_command(cmd_def)
-                normalized_cmds.append(cmd_name)
-            cmd[field] = normalized_cmds
-        
-    # Check for self-references
-    for ref_list in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
-        refs = cmd.get(ref_list, []) or []
-        if name in refs:
-            raise ValueError(f"Command '{name}' cannot reference itself")
-        
-    # Check for conflicting constraints
-    goes_before = set(cmd.get(COMMAND_GOES_BEFORE, []) or [])
-    goes_after = set(cmd.get(COMMAND_GOES_AFTER, []) or [])
-    if goes_before & goes_after:
-        conflicting = goes_before & goes_after
-        raise ValueError(f"Command '{name}' has conflicting constraints with: {list(conflicting)}")
-    if not cmd.get(COMMAND_PHASE):
-        cmd[COMMAND_PHASE] = config.get_default_phase()
-    _commands[name] = cmd
-    
-    # Register cycle if present
-    cycle.register_cycle(cmd, _commands)
+    # Block 7.1.5: Assign phase and store
+    _assign_command_phase(cmd)
+    _store_command(cmd)
 
 
 def _execute_command(cmd):
