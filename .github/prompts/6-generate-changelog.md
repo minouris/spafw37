@@ -23,8 +23,6 @@ The CHANGES section MUST follow this exact structure:
 ```markdown
 ## CHANGES for vX.Y.Z Release
 
-**Note:** This section must follow the format specified in `features/CHANGES-TEMPLATE.md`. The content will be posted as the closing comment and consumed by the release workflow.
-
 Issue #XX: Issue Title
 
 ### Issues Closed

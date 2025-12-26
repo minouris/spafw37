@@ -371,8 +371,6 @@ After completing Steps 1-N, comprehensive testing revealed [X] test failures tha
 
 ## CHANGES for vX.X.X Release
 
-**Note:** This section must follow the format specified in `features/CHANGES-TEMPLATE.md`. The content will be posted as the closing comment and consumed by the release workflow.
-
 Issue #[NUMBER]: [Issue Title]
 
 ### Issues Closed
