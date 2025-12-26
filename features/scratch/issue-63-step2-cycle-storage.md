@@ -177,8 +177,6 @@ def add_cycle(cycle_def):
     
     # Block 2.3.1.5: Store cycle indexed by command name
     _cycles[command_name] = cycle_def
-    # Block 2.3.1.4: Store cycle indexed by command name
-    _cycles[command_name] = cycle_def
 ```
 
 ##### Test 2.3.2: add_cycle() registers single cycle definition
