@@ -1,4 +1,19 @@
-from spafw37.constants.command import *
+# Standard library
+import pytest
+
+# Project imports - constants
+from spafw37.constants.command import (
+    COMMAND_ACTION,
+    COMMAND_CYCLE,
+    COMMAND_GOES_AFTER,
+    COMMAND_GOES_BEFORE,
+    COMMAND_NAME,
+    COMMAND_NEXT_COMMANDS,
+    COMMAND_PHASE,
+    COMMAND_REQUIRED_PARAMS,
+    COMMAND_REQUIRE_BEFORE,
+    COMMAND_TRIGGER_PARAM,
+)
 from spafw37.constants.phase import PHASE_EXECUTION
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -6,12 +21,9 @@ from spafw37.constants.param import (
     PARAM_TYPE,
     PARAM_RUNTIME_ONLY,
 )
-import pytest
 
-from spafw37 import command as command
-from spafw37 import param
-from spafw37 import config_func as config
-from spafw37.command import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
+# Project imports - modules
+from spafw37 import command, config_func as config, cycle, param
 
 def simple_action():
     """Simple no-op action for testing."""
@@ -967,4 +979,147 @@ def test_topological_sort_incomplete_result_detection():
     with pytest.raises(ValueError, match="circular dependency"):
         command.queue_commands(["cmd1", "cmd2", "cmd3"])
 
+
+# ==================== Step 2: Validation Helpers ====================
+
+def test_validate_command_name_empty_string_raises_error():
+    """Test that _validate_command_name() raises ValueError for empty string.
+    
+    Scenario: Empty command name raises ValueError
+      Given a command definition with empty string name
+      When _validate_command_name() is called
+      Then ValueError is raised with "Command name cannot be empty"
+      
+      Tests: Name validation enforcement
+      Validates: Helper catches empty command names
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with empty string names. Empty names would cause registry
+    lookup failures and must be caught early.
+    """
+    _reset_command_module()
+    
+    empty_name_command = {COMMAND_NAME: ''}
+    with pytest.raises(ValueError, match="Command name cannot be empty"):
+        command._validate_command_name(empty_name_command)
+
+
+def test_validate_command_name_none_raises_error():
+    """Test that _validate_command_name() raises ValueError for None name.
+    
+    Scenario: None command name raises ValueError
+      Given a command definition with None as name value
+      When _validate_command_name() is called
+      Then ValueError is raised with "Command name cannot be empty"
+      
+      Tests: Name validation enforcement
+      Validates: Helper catches None command names
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with None as the name value. None names would cause registry
+    lookup failures and must be caught early.
+    """
+    _reset_command_module()
+    
+    none_name_command = {COMMAND_NAME: None}
+    with pytest.raises(ValueError, match="Command name cannot be empty"):
+        command._validate_command_name(none_name_command)
+
+
+def test_validate_command_action_missing_raises_error():
+    """Test that _validate_command_action() raises ValueError for missing action.
+    
+    Scenario: Missing command action raises ValueError
+      Given a command definition without COMMAND_ACTION key
+      When _validate_command_action() is called
+      Then ValueError is raised with "Command action is required"
+      
+      Tests: Action validation enforcement
+      Validates: Helper catches missing action key
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions without the COMMAND_ACTION key. Commands without actions cannot
+    be executed and must be caught during registration.
+    """
+    _reset_command_module()
+    
+    no_action_command = {COMMAND_NAME: 'test-cmd'}
+    with pytest.raises(ValueError, match="Command action is required"):
+        command._validate_command_action(no_action_command)
+
+
+def test_validate_command_action_none_raises_error():
+    """Test that _validate_command_action() raises ValueError for None action.
+    
+    Scenario: None command action raises ValueError
+      Given a command definition with None as action value
+      When _validate_command_action() is called
+      Then ValueError is raised with "Command action is required"
+      
+      Tests: Action validation enforcement
+      Validates: Helper catches None action value
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with None as the action value. Commands with None actions cannot
+    be executed and must be caught during registration.
+    """
+    _reset_command_module()
+    
+    none_action_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: None
+    }
+    with pytest.raises(ValueError, match="Command action is required"):
+        command._validate_command_action(none_action_command)
+
+
+def test_validate_command_references_self_reference_raises_error():
+    """Test that _validate_command_references() raises ValueError for self-references.
+    
+    Scenario: Self-referencing command raises ValueError
+      Given a command definition with its own name in COMMAND_GOES_AFTER
+      When _validate_command_references() is called
+      Then ValueError is raised with "cannot reference itself"
+      
+      Tests: Self-reference detection
+      Validates: Helper catches circular dependency at definition time
+    
+    This test verifies that the validation helper correctly detects and rejects
+    commands that reference themselves in dependency fields. Self-references would
+    create immediate circular dependencies that cannot be resolved.
+    """
+    _reset_command_module()
+    
+    self_ref_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_AFTER: ['test-cmd']
+    }
+    with pytest.raises(ValueError, match="cannot reference itself"):
+        command._validate_command_references(self_ref_command)
+
+
+def test_validate_command_references_conflicting_constraints_raises_error():
+    """Test that _validate_command_references() raises ValueError for conflicts.
+    
+    Scenario: Conflicting sequencing constraints raise ValueError
+      Given a command definition with same command in GOES_BEFORE and GOES_AFTER
+      When _validate_command_references() is called
+      Then ValueError is raised with "conflicting constraints"
+      
+      Tests: Constraint conflict detection
+      Validates: Helper catches impossible sequencing requirements
+    
+    This test verifies that the validation helper correctly detects impossible
+    sequencing constraints where the same command appears in both GOES_BEFORE
+    and GOES_AFTER lists. These conflicting requirements cannot be satisfied.
+    """
+    _reset_command_module()
+    
+    conflicting_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_BEFORE: ['other-cmd'],
+        COMMAND_GOES_AFTER: ['other-cmd']
+    }
+    with pytest.raises(ValueError, match="conflicting constraints"):
+        command._validate_command_references(conflicting_command)
 

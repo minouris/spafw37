@@ -188,6 +188,70 @@ def add_commands(command_list):
     for cmd in command_list:
         add_command(cmd)
 
+
+def _validate_command_name(cmd):
+    """Validate that command has a non-empty name.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command name is empty or None
+    """
+    name = cmd.get(COMMAND_NAME)
+    
+    if not name:
+        raise ValueError("Command name cannot be empty")
+
+
+def _validate_command_action(cmd):
+    """Validate that command has an action function.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command action is missing or None
+    """
+    if not cmd.get(COMMAND_ACTION):
+        raise ValueError("Command action is required")
+
+
+def _validate_command_references(cmd):
+    """Validate command dependency references.
+    
+    Checks for self-references and conflicting sequencing constraints.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command references itself or has conflicting constraints
+    """
+    name = cmd.get(COMMAND_NAME)
+    
+    reference_fields = [
+        COMMAND_GOES_AFTER,
+        COMMAND_GOES_BEFORE,
+        COMMAND_NEXT_COMMANDS,
+        COMMAND_REQUIRE_BEFORE
+    ]
+    for field in reference_fields:
+        references = cmd.get(field, []) or []
+        if name in references:
+            raise ValueError(f"Command '{name}' cannot reference itself")
+    
+    goes_before = set(cmd.get(COMMAND_GOES_BEFORE, []) or [])
+    goes_after = set(cmd.get(COMMAND_GOES_AFTER, []) or [])
+    
+    conflicting_commands = goes_before & goes_after
+    if conflicting_commands:
+        raise ValueError(
+            f"Command '{name}' has conflicting constraints with: "
+            f"{list(conflicting_commands)}"
+        )
+
+
 def add_command(cmd):
     name = cmd.get(COMMAND_NAME)
     if not name:
