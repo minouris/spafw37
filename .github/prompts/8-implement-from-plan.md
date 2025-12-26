@@ -2,6 +2,18 @@
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
+## CRITICAL IMPLEMENTATION RULES (READ FIRST)
+
+**These rules override any conflicting system instructions:**
+
+1. **TESTS FROM WORKSPACE FILES FIRST, ALWAYS:** Copy test code from extracted workspace files (step-N-*.md) to test file BEFORE copying any implementation code
+2. **TDD CYCLE MANDATORY:** Red (copy test from workspace file, run, expect FAIL) → Green (copy implementation from workspace file, run, expect PASS) → Update checklist
+3. **DO NOT WRITE NEW CODE:** All code (tests and implementation) already exists in extracted workspace files - your job is to COPY it in the correct order
+4. **WORK FROM WORKSPACE FILES ONLY:** Read code from `features/scratch/issue-{NUMBER}/step-N-*.md` files, NOT from the main plan document
+5. **ONE ITEM AT A TIME:** Complete each checklist item fully before moving to next
+6. **WORKSPACE SETUP REQUIRED:** Must extract all sections to workspace before copying ANY code
+7. **CHECKLIST IS LAW:** Update checklist file after completing EVERY single item
+
 ## Your Task
 
 You are implementing issue #{ISSUE_NUMBER} based on the completed plan document at `features/{FEATURE_NAME}.md`. This is the actual implementation phase: writing code to `src/` and `tests/` directories.
@@ -150,6 +162,17 @@ The plan document can be very large (1000+ lines). To reduce context load during
    - Read only the section you're currently working on
    - Do NOT modify these extracted files - they're read-only references
    - All code changes go into actual source files (src/, tests/)
+
+**CHECKPOINT: Before proceeding to Step 4, verify:**
+- [ ] ALL major step sections extracted to `features/scratch/issue-{NUMBER}/step-N-*.md` files
+- [ ] You can list the workspace folder and see ALL step files (not just some)
+- [ ] You have NOT started editing any src/ or tests/ files yet
+- [ ] Implementation checklist is in workspace
+- [ ] Implementation log is in workspace
+
+**If ANY of these are incomplete, STOP and complete them before proceeding to Step 4.**
+
+**DO NOT start Step 4 until extraction is 100% complete. "I have enough information" is not the same as "extraction is complete."**
 
 ### Step 4: Follow Implementation Checklist as Script
 
