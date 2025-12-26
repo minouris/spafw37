@@ -247,42 +247,7 @@ if __name__ == '__main__':
 [↑ Back to top](#table-of-contents)
 ```
 
-## Step 5.3: Complete Success Criteria Section
 
-Replace PLACEHOLDER in Success Criteria section with comprehensive checklist:
-
-```markdown
-## Success Criteria
-
-- [ ] `function_name()` function created in `module.py`
-- [ ] `function_name()` correctly handles all parameter types
-- [ ] `CONSTANT_NAME` constant defined
-- [ ] `_helper_function()` helper function created
-- [ ] Integration with existing module working correctly
-- [ ] Unit tests added for `function_name()`
-- [ ] Integration tests added for feature
-- [ ] Regression test added demonstrating issue fix (if bug fix)
-- [ ] All existing tests still passing
-- [ ] Overall test coverage remains above 80%
-- [ ] Documentation updated in `doc/guide.md`
-- [ ] API reference updated (if applicable)
-- [ ] README.md updated with feature description
-- [ ] Example created in `examples/example.py`
-- [ ] Example runs without errors
-- [ ] Issue #{ISSUE_NUMBER} closed with reference to implementation
-
-[↑ Back to top](#table-of-contents)
----
-```
-
-**Include criteria for:**
-- Every function/constant/class added
-- Every integration point
-- Every test category
-- Documentation updates
-- Example creation
-- Test coverage requirements
-- Issue closure
 
 ## Table of Contents
 
@@ -299,15 +264,19 @@ All documentation content must use UK English spelling and conventions.
 
 1. ✅ Add documentation update step (if needed)
 2. ✅ Add example creation step (if needed)
-3. ✅ Complete Success Criteria section with comprehensive checklist
-4. ✅ All content uses UK English
-5. ✅ All code references properly formatted with backticks
-6. ✅ All code examples use proper fenced blocks with language
+3. ✅ All content uses UK English
+4. ✅ All code references properly formatted with backticks
+5. ✅ All code examples use proper fenced blocks with language
 
 After completion, confirm:
 - Number of documentation files to be updated
 - Number of examples to be created
-- Total success criteria items
 - Coverage of all implementation aspects
 
-Ask user to review documentation and success criteria before proceeding to Step 6 (changelog).
+## Step 5.3: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 5: Generate documentation" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
+Ask user to review documentation before proceeding to Step 6 (changelog).

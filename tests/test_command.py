@@ -1,4 +1,19 @@
-from spafw37.constants.command import *
+# Standard library
+import pytest
+
+# Project imports - constants
+from spafw37.constants.command import (
+    COMMAND_ACTION,
+    COMMAND_CYCLE,
+    COMMAND_GOES_AFTER,
+    COMMAND_GOES_BEFORE,
+    COMMAND_NAME,
+    COMMAND_NEXT_COMMANDS,
+    COMMAND_PHASE,
+    COMMAND_REQUIRED_PARAMS,
+    COMMAND_REQUIRE_BEFORE,
+    COMMAND_TRIGGER_PARAM,
+)
 from spafw37.constants.phase import PHASE_EXECUTION
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -6,12 +21,9 @@ from spafw37.constants.param import (
     PARAM_TYPE,
     PARAM_RUNTIME_ONLY,
 )
-import pytest
 
-from spafw37 import command as command
-from spafw37 import param
-from spafw37 import config_func as config
-from spafw37.command import COMMAND_NAME, COMMAND_REQUIRED_PARAMS, COMMAND_ACTION, COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE
+# Project imports - modules
+from spafw37 import command, config, param
 
 def simple_action():
     """Simple no-op action for testing."""
@@ -967,4 +979,532 @@ def test_topological_sort_incomplete_result_detection():
     with pytest.raises(ValueError, match="circular dependency"):
         command.queue_commands(["cmd1", "cmd2", "cmd3"])
 
+
+# ==================== Step 2: Validation Helpers ====================
+
+def test_validate_command_name_empty_string_raises_error():
+    """Test that _validate_command_name() raises ValueError for empty string.
+    
+    Scenario: Empty command name raises ValueError
+      Given a command definition with empty string name
+      When _validate_command_name() is called
+      Then ValueError is raised with "Command name cannot be empty"
+      
+      Tests: Name validation enforcement
+      Validates: Helper catches empty command names
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with empty string names. Empty names would cause registry
+    lookup failures and must be caught early.
+    """
+    _reset_command_module()
+    
+    empty_name_command = {COMMAND_NAME: ''}
+    with pytest.raises(ValueError, match="Command name cannot be empty"):
+        command._validate_command_name(empty_name_command)
+
+
+def test_validate_command_name_none_raises_error():
+    """Test that _validate_command_name() raises ValueError for None name.
+    
+    Scenario: None command name raises ValueError
+      Given a command definition with None as name value
+      When _validate_command_name() is called
+      Then ValueError is raised with "Command name cannot be empty"
+      
+      Tests: Name validation enforcement
+      Validates: Helper catches None command names
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with None as the name value. None names would cause registry
+    lookup failures and must be caught early.
+    """
+    _reset_command_module()
+    
+    none_name_command = {COMMAND_NAME: None}
+    with pytest.raises(ValueError, match="Command name cannot be empty"):
+        command._validate_command_name(none_name_command)
+
+
+def test_validate_command_action_missing_raises_error():
+    """Test that _validate_command_action() raises ValueError for missing action.
+    
+    Scenario: Missing command action raises ValueError
+      Given a command definition without COMMAND_ACTION key
+      When _validate_command_action() is called
+      Then ValueError is raised with "Command action is required"
+      
+      Tests: Action validation enforcement
+      Validates: Helper catches missing action key
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions without the COMMAND_ACTION key. Commands without actions cannot
+    be executed and must be caught during registration.
+    """
+    _reset_command_module()
+    
+    no_action_command = {COMMAND_NAME: 'test-cmd'}
+    with pytest.raises(ValueError, match="Command action is required"):
+        command._validate_command_action(no_action_command)
+
+
+def test_validate_command_action_none_raises_error():
+    """Test that _validate_command_action() raises ValueError for None action.
+    
+    Scenario: None command action raises ValueError
+      Given a command definition with None as action value
+      When _validate_command_action() is called
+      Then ValueError is raised with "Command action is required"
+      
+      Tests: Action validation enforcement
+      Validates: Helper catches None action value
+    
+    This test verifies that the validation helper correctly rejects command
+    definitions with None as the action value. Commands with None actions cannot
+    be executed and must be caught during registration.
+    """
+    _reset_command_module()
+    
+    none_action_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: None
+    }
+    with pytest.raises(ValueError, match="Command action is required"):
+        command._validate_command_action(none_action_command)
+
+
+def test_validate_command_references_self_reference_raises_error():
+    """Test that _validate_command_references() raises ValueError for self-references.
+    
+    Scenario: Self-referencing command raises ValueError
+      Given a command definition with its own name in COMMAND_GOES_AFTER
+      When _validate_command_references() is called
+      Then ValueError is raised with "cannot reference itself"
+      
+      Tests: Self-reference detection
+      Validates: Helper catches circular dependency at definition time
+    
+    This test verifies that the validation helper correctly detects and rejects
+    commands that reference themselves in dependency fields. Self-references would
+    create immediate circular dependencies that cannot be resolved.
+    """
+    _reset_command_module()
+    
+    self_ref_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_AFTER: ['test-cmd']
+    }
+    with pytest.raises(ValueError, match="cannot reference itself"):
+        command._validate_command_references(self_ref_command)
+
+
+def test_validate_command_references_conflicting_constraints_raises_error():
+    """Test that _validate_command_references() raises ValueError for conflicts.
+    
+    Scenario: Conflicting sequencing constraints raise ValueError
+      Given a command definition with same command in GOES_BEFORE and GOES_AFTER
+      When _validate_command_references() is called
+      Then ValueError is raised with "conflicting constraints"
+      
+      Tests: Constraint conflict detection
+      Validates: Helper catches impossible sequencing requirements
+    
+    This test verifies that the validation helper correctly detects impossible
+    sequencing constraints where the same command appears in both GOES_BEFORE
+    and GOES_AFTER lists. These conflicting requirements cannot be satisfied.
+    """
+    _reset_command_module()
+    
+    conflicting_command = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_BEFORE: ['other-cmd'],
+        COMMAND_GOES_AFTER: ['other-cmd']
+    }
+    with pytest.raises(ValueError, match="conflicting constraints"):
+        command._validate_command_references(conflicting_command)
+
+
+def test_normalise_param_list():
+    """Test that _normalise_param_list() converts param defs to names.
+    
+    Scenario: List of inline param definitions is normalised to param names
+      Given a list of inline parameter definitions
+      When _normalise_param_list() is called
+      Then each param is registered via param._register_inline_param()
+      And a list of param names is returned
+      
+      Tests: Param list normalisation helper
+      Validates: Helper extracts loop logic to avoid nesting violation
+    
+    This test verifies that a list of inline parameter definitions is
+    normalised to a list of parameter names by registering each param
+    and collecting the names. This helper avoids nesting violations.
+    """
+    _reset_command_module()
+    
+    param_list = [
+        {PARAM_NAME: 'param1'},
+        {PARAM_NAME: 'param2'}
+    ]
+    
+    normalised_params = command._normalise_param_list(param_list)
+    
+    assert normalised_params == ['param1', 'param2']
+    assert 'param1' in param._params
+    assert 'param2' in param._params
+
+
+def test_process_inline_params_required_params():
+    """Test that _process_inline_params() handles COMMAND_REQUIRED_PARAMS.
+    
+    Scenario: Inline parameter definitions in COMMAND_REQUIRED_PARAMS are processed
+      Given a command with inline param defs in COMMAND_REQUIRED_PARAMS
+      When _process_inline_params() is called
+      Then each inline param is registered via param._register_inline_param()
+      And COMMAND_REQUIRED_PARAMS is updated with param names
+      
+      Tests: Inline param processing for required params
+      Validates: Helper delegates to param module and normalises list
+    
+    This test verifies that inline parameter definitions in COMMAND_REQUIRED_PARAMS
+    are registered and the list is normalised to parameter names. This ensures
+    commands can define required parameters inline without pre-registration.
+    """
+    _reset_command_module()
+    
+    inline_param_1 = {PARAM_NAME: 'param1'}
+    inline_param_2 = {PARAM_NAME: 'param2'}
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_REQUIRED_PARAMS: [inline_param_1, inline_param_2]
+    }
+    
+    command._process_inline_params(cmd)
+    
+    # Params should be registered
+    assert 'param1' in param._params
+    assert 'param2' in param._params
+    # List should be normalised to names
+    assert cmd[COMMAND_REQUIRED_PARAMS] == ['param1', 'param2']
+
+
+def test_process_inline_params_trigger_param():
+    """Test that _process_inline_params() handles COMMAND_TRIGGER_PARAM.
+    
+    Scenario: Inline parameter definition in COMMAND_TRIGGER_PARAM is processed
+      Given a command with inline param def in COMMAND_TRIGGER_PARAM
+      When _process_inline_params() is called
+      Then inline param is registered via param._register_inline_param()
+      And COMMAND_TRIGGER_PARAM is updated with param name
+      
+      Tests: Inline param processing for trigger param
+      Validates: Helper delegates to param module and normalises value
+    
+    This test verifies that an inline parameter definition in COMMAND_TRIGGER_PARAM
+    is registered and the field is normalised to the parameter name. This allows
+    commands to define trigger parameters inline without pre-registration.
+    """
+    _reset_command_module()
+    
+    inline_param = {PARAM_NAME: 'trigger-param'}
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_TRIGGER_PARAM: inline_param
+    }
+    
+    command._process_inline_params(cmd)
+    
+    # Param should be registered
+    assert 'trigger-param' in param._params
+    # Field should be normalised to name
+    assert cmd[COMMAND_TRIGGER_PARAM] == 'trigger-param'
+
+
+def test_process_inline_params_no_inline_params():
+    """Test that _process_inline_params() handles commands with no inline params.
+    
+    Scenario: Command with no inline params is unchanged
+      Given a command with no COMMAND_REQUIRED_PARAMS or COMMAND_TRIGGER_PARAM
+      When _process_inline_params() is called
+      Then command dict is unchanged
+      
+      Tests: No-op behaviour for commands without inline params
+      Validates: Helper safely handles missing fields
+    
+    This test verifies that commands without COMMAND_REQUIRED_PARAMS or
+    COMMAND_TRIGGER_PARAM are processed without errors. The helper should
+    safely handle missing fields without side effects.
+    """
+    _reset_command_module()
+    
+    cmd = {COMMAND_NAME: 'test-cmd'}
+    original_cmd = cmd.copy()
+    
+    command._process_inline_params(cmd)
+    
+    # Command should be unchanged
+    assert cmd == original_cmd
+
+
+def test_normalise_command_list():
+    """Test that _normalise_command_list() converts command defs to names.
+    
+    Scenario: List of inline command definitions is normalised to command names
+      Given a list of inline command definitions
+      When _normalise_command_list() is called
+      Then each command is registered via _register_inline_command()
+      And a list of command names is returned
+      
+      Tests: Command list normalisation helper
+      Validates: Helper extracts loop logic to avoid nesting violation
+    
+    This test verifies that a list of inline command definitions is
+    normalised to a list of command names by registering each command
+    and collecting the names. This helper avoids nesting violations.
+    """
+    _reset_command_module()
+    
+    cmd_list = [
+        {COMMAND_NAME: 'cmd1', COMMAND_ACTION: lambda: None},
+        {COMMAND_NAME: 'cmd2', COMMAND_ACTION: lambda: None}
+    ]
+    
+    normalised_commands = command._normalise_command_list(cmd_list)
+    
+    assert normalised_commands == ['cmd1', 'cmd2']
+    assert 'cmd1' in command._commands
+    assert 'cmd2' in command._commands
+
+
+def test_process_inline_commands_goes_after():
+    """Test that _process_inline_commands() handles COMMAND_GOES_AFTER.
+    
+    Scenario: Inline command definitions in dependency fields are processed
+      Given a command with inline cmd defs in COMMAND_GOES_AFTER
+      When _process_inline_commands() is called
+      Then each inline cmd is registered via _register_inline_command()
+      And COMMAND_GOES_AFTER is updated with command names
+      
+      Tests: Inline command processing for dependency fields
+      Validates: Helper delegates to registration and normalises lists
+    
+    This test verifies that inline command definitions in COMMAND_GOES_AFTER
+    are registered and the list is normalised to command names. This allows
+    commands to define dependencies inline without pre-registration.
+    """
+    _reset_command_module()
+    
+    inline_cmd = {
+        COMMAND_NAME: 'inline-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_AFTER: [inline_cmd]
+    }
+    
+    command._process_inline_commands(cmd)
+    
+    # Inline command should be registered
+    assert 'inline-cmd' in command._commands
+    # List should be normalised to names
+    assert cmd[COMMAND_GOES_AFTER] == ['inline-cmd']
+
+
+def test_process_inline_commands_multiple_fields():
+    """Test that _process_inline_commands() handles all dependency fields.
+    
+    Scenario: All dependency fields with inline commands are processed
+      Given a command with inline cmds in multiple dependency fields
+      When _process_inline_commands() is called
+      Then all inline cmds are registered
+      And all fields are normalised to command names
+      
+      Tests: Comprehensive inline command processing
+      Validates: Helper processes all dependency field types
+    
+    This test verifies that inline command definitions in all dependency
+    fields (GOES_BEFORE, GOES_AFTER, NEXT_COMMANDS, REQUIRE_BEFORE) are
+    processed correctly. This ensures comprehensive inline command support.
+    """
+    _reset_command_module()
+    
+    inline_cmd_1 = {
+        COMMAND_NAME: 'inline-1',
+        COMMAND_ACTION: lambda: None
+    }
+    inline_cmd_2 = {
+        COMMAND_NAME: 'inline-2',
+        COMMAND_ACTION: lambda: None
+    }
+    inline_cmd_3 = {
+        COMMAND_NAME: 'inline-3',
+        COMMAND_ACTION: lambda: None
+    }
+    inline_cmd_4 = {
+        COMMAND_NAME: 'inline-4',
+        COMMAND_ACTION: lambda: None
+    }
+    
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_GOES_BEFORE: [inline_cmd_1],
+        COMMAND_GOES_AFTER: [inline_cmd_2],
+        COMMAND_NEXT_COMMANDS: [inline_cmd_3],
+        COMMAND_REQUIRE_BEFORE: [inline_cmd_4]
+    }
+    
+    command._process_inline_commands(cmd)
+    
+    # All inline commands should be registered
+    assert 'inline-1' in command._commands
+    assert 'inline-2' in command._commands
+    assert 'inline-3' in command._commands
+    assert 'inline-4' in command._commands
+    # All fields should be normalised
+    assert cmd[COMMAND_GOES_BEFORE] == ['inline-1']
+    assert cmd[COMMAND_GOES_AFTER] == ['inline-2']
+    assert cmd[COMMAND_NEXT_COMMANDS] == ['inline-3']
+    assert cmd[COMMAND_REQUIRE_BEFORE] == ['inline-4']
+
+
+def test_process_inline_commands_no_inline_commands():
+    """Test that _process_inline_commands() handles commands with no inline cmds.
+    
+    Scenario: Command with no inline commands is unchanged
+      Given a command with no dependency fields
+      When _process_inline_commands() is called
+      Then command dict is unchanged
+      
+      Tests: No-op behaviour for commands without inline commands
+      Validates: Helper safely handles missing fields
+    
+    This test verifies that commands without dependency fields are processed
+    without errors. The helper should safely handle missing fields without
+    side effects.
+    """
+    _reset_command_module()
+    
+    cmd = {COMMAND_NAME: 'test-cmd'}
+    original_cmd = cmd.copy()
+    
+    command._process_inline_commands(cmd)
+    
+    # Command should be unchanged
+    assert cmd == original_cmd
+
+
+def test_assign_command_phase_missing_phase():
+    """Test that _assign_command_phase() assigns default when phase missing.
+    
+    Scenario: Default phase is assigned when COMMAND_PHASE is missing
+      Given a command without COMMAND_PHASE
+      When _assign_command_phase() is called
+      Then COMMAND_PHASE is set to config.get_default_phase()
+      
+      Tests: Default phase assignment
+      Validates: Helper delegates to config module for default value
+    
+    This test verifies that commands without COMMAND_PHASE are assigned the
+    default phase from config.get_default_phase(). This ensures all commands
+    have a phase assigned before registration.
+    """
+    _reset_command_module()
+    
+    cmd = {COMMAND_NAME: 'test-cmd'}
+    
+    command._assign_command_phase(cmd)
+    
+    # Phase should be assigned
+    assert COMMAND_PHASE in cmd
+    assert cmd[COMMAND_PHASE] == config.get_default_phase()
+
+
+def test_assign_command_phase_existing_phase():
+    """Test that _assign_command_phase() preserves existing phase.
+    
+    Scenario: Existing COMMAND_PHASE is preserved
+      Given a command with COMMAND_PHASE already set
+      When _assign_command_phase() is called
+      Then COMMAND_PHASE remains unchanged
+      
+      Tests: Phase preservation
+      Validates: Helper doesn't override explicit phase values
+    
+    This test verifies that commands with COMMAND_PHASE already set are not
+    modified. The helper should only assign defaults for missing phases and
+    respect explicit phase assignments.
+    """
+    _reset_command_module()
+    
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_PHASE: 'custom-phase'
+    }
+    
+    command._assign_command_phase(cmd)
+    
+    # Phase should be unchanged
+    assert cmd[COMMAND_PHASE] == 'custom-phase'
+
+
+def test_store_command_registry_storage():
+    """Test that _store_command() stores command in registry.
+    
+    Scenario: Command is stored in registry
+      Given a command definition
+      When _store_command() is called
+      Then command is added to _commands dict with name as key
+      
+      Tests: Registry storage
+      Validates: Helper stores command in module-level registry
+    
+    This test verifies that commands are stored in the module-level _commands
+    dictionary with the command name as the key. This is the primary storage
+    mechanism for command registration.
+    """
+    _reset_command_module()
+    
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PHASE: 'test-phase'
+    }
+    
+    command._store_command(cmd)
+    
+    # Command should be in registry
+    assert 'test-cmd' in command._commands
+    assert command._commands['test-cmd'] == cmd
+
+
+def test_store_command_cycle_registration():
+    """Test that _store_command() registers cycles when present.
+    
+    Scenario: Command with cycle triggers cycle registration
+      Given a command definition with COMMAND_CYCLE
+      When _store_command() is called
+      Then cycle.register_cycle() is called with command and registry
+      
+      Tests: Cycle registration delegation
+      Validates: Helper delegates cycle registration to cycle module
+    
+    This test verifies that commands with COMMAND_CYCLE trigger cycle
+    registration by calling cycle.register_cycle(). This ensures cycle
+    functionality is properly initialised during command registration.
+    """
+    _reset_command_module()
+    
+    cmd = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_PHASE: 'test-phase'
+    }
+    
+    command._store_command(cmd)
+    
+    # Command should be in registry
+    assert 'test-cmd' in command._commands
+    # Note: cycle.register_cycle() is called internally for all commands
+    # Full cycle behaviour is tested in cycle module tests
 

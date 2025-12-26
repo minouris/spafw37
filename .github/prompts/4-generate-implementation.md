@@ -7,13 +7,84 @@
 
 **IMPORTANT:** Do NOT commit or push changes without explicit user permission.
 
+## CRITICAL: Use Scratch File Approach for Complex Implementations
+
+**For implementation steps with multiple functions or extensive code:**
+
+1. **Create separate scratch files in `features/scratch/`** - one per implementation step
+2. **Name format:** `issue-{N}-step{N}-{brief-description}.md` (e.g., `issue-61-step1-validation-helpers.md`)
+3. **Build each scratch file incrementally** with proper structure (Gherkin → Test → Implementation)
+4. **Review and verify** each scratch file before proceeding to next step
+5. **Merge into main plan** after all scratch files are complete and verified
+
+**Why this approach:**
+- Prevents file corruption from large, complex edits
+- Allows incremental review and validation
+- Easier to fix errors in isolated scratch files
+- Clear separation between planning steps
+
+**Scratch file structure:**
+````markdown
+# Step {N}: {Description}
+
+## Overview
+
+Brief description of what this step accomplishes.
+
+**Methods created:**
+- `method_name()` - Brief description
+  - `test_method_scenario1()`
+  - `test_method_scenario2()`
+
+## Module-level imports
+
+See `issue-{N}-step1-imports.md` for all required imports.
+
+## Implementation
+
+### Test {N}.{M}.{P}: {Description}
+\`\`\`gherkin
+Scenario: ...
+\`\`\`
+
+### Code {N}.{M}.{P}: {Description}
+\`\`\`python
+# Block {N}.{M}.{P}: Location comment
+
+def function_name():
+    """Docstring."""
+    # Block {N}.{M}.{P}.1: Description of first logical section
+    code_here()
+    
+    # Block {N}.{M}.{P}.2: Description of second logical section
+    more_code_here()
+\`\`\`
+````
+
+**CRITICAL requirements for scratch files:**
+
+1. **Step 1 MUST be imports**: Create `issue-{N}-step1-imports.md` consolidating ALL imports needed across all steps. Other steps reference this file instead of duplicating imports.
+
+2. **Block numbering as comments**: Block numbers (X.Y.Z.N) must be **comments interleaved in the code**, NOT in docstrings or markdown headings. They substitute for line numbers which are unreliable in fenced code blocks.
+
+3. **Explicit constant imports**: Use `from module import CONSTANT_NAME` for individual constants, NEVER `from module import *`. List all constants explicitly.
+
+4. **Overview section**: Every step file must have an Overview section listing methods created and their tests in nested bullet format.
+
+5. **Helper extraction order**: Extract helper functions BEFORE their parent functions (bottom-up composition). Show helpers first, then the functions that use them.
+
+6. **Detailed block numbering**: Use X.Y.Z.N format where depth indicates nesting level. This helps expose nesting violations (if you have X.Y.Z.N.M.P, you have too much nesting).
+
+**Directory:** `features/scratch/`
+
 ## Your Task
 
-**CRITICAL: You are ONLY editing the plan document.**
+**CRITICAL: You are ONLY editing plan documents and scratch files.**
 
-- **File to edit:** `features/{FEATURE_NAME}.md`
+- **Primary file:** `features/{FEATURE_NAME}.md`
+- **Scratch files:** `features/scratch/step*.md` (for complex implementations)
 - **Files NOT to edit:** Any files in `src/`, `tests/`, or other directories
-- **Your job:** Add detailed code specifications to the plan document
+- **Your job:** Add detailed code specifications to plan/scratch documents
 - **You are NOT implementing the feature** - you are documenting HOW to implement it
 
 You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAME}.md`. This is step 4 of 6: generating detailed implementation code with proper block numbering.
@@ -21,9 +92,10 @@ You are working on issue #{ISSUE_NUMBER} plan document at `features/{FEATURE_NAM
 ## Before You Start - Verify Understanding
 
 Before making any changes, confirm:
-- [ ] I am editing ONLY the plan document at `features/{FEATURE_NAME}.md`
+- [ ] I am editing ONLY plan/scratch documents in `features/`
 - [ ] I am NOT touching any files in `src/` or `tests/`
-- [ ] I am adding code block specifications to the plan
+- [ ] I am adding code block specifications to markdown documents
+- [ ] For complex steps, I will use `features/scratch/` files first
 - [ ] The code I write goes IN THE MARKDOWN, not in separate Python files
 
 ## CRITICAL: NO GUESSING POLICY
@@ -76,8 +148,12 @@ Key points for implementation:
 Key requirements:
 - Hierarchical block numbering (X.Y.Z)
 - Implementation + tests interweaved (each function immediately followed by its tests)
-- Gherkin + Python pairs (each test has both specification and implementation)
+- **Gherkin FIRST, then Python:** Each test specification starts with a Gherkin block, followed by the Python test implementation
 - Test headings describe what's being tested (not "Gherkin for...")
+- Python test docstrings contain ONLY descriptive text (What/Outcome/Why), NOT Gherkin
+- Gherkin scenarios are in separate code blocks to aid test generation
+
+**Why this pattern:** Separating Gherkin from Python implementation in plan documents makes it easier to generate test code, review specifications independently, and modify logic without touching implementation details. When generating final implementation files (`tests/**/*.py`), the Gherkin will be integrated into the test docstrings along with the descriptive text.
 
 **See the instruction file for complete details, examples, and rationale.**
 
@@ -404,6 +480,9 @@ For EACH implementation step:
 After completing all steps, confirm:
 - Total number of code blocks added
 - Total lines of implementation code
+- Total implementation checklist items
+- Number of test runs tracked in checklist
+- Number of regression checks in checklist
 - Any concerns about complexity or implementation details
 
 ## CRITICAL: Pre-Submission Verification
@@ -425,4 +504,127 @@ Specifically verify:
 
 **If any violations found, fix them before submitting your response.**
 
-Ask user to review implementation code before proceeding to Step 5 (documentation).
+## Step 4.5: Create Implementation Checklist
+
+**After all implementation code blocks are complete,** create a comprehensive implementation checklist that tracks the test-driven development workflow for executing this plan.
+
+### Purpose
+
+The Implementation Checklist provides a structured tracking mechanism for:
+- Running tests as they are written (TDD red phase)
+- Implementing code to make tests pass (TDD green phase)
+- Running full regression suite after each implementation
+- Tracking patches/commits for each step
+- Verifying final implementation completeness
+
+### Structure
+
+The checklist should be organised by implementation step, with each step containing:
+
+1. **Test command** - The exact pytest command to run tests for that specific code block
+2. **Expected outcome** - "RED" for tests that should fail before implementation
+3. **Checkbox** - For tracking test execution
+4. **Patch description** - Brief description of what will be implemented
+5. **Implementation checkbox** - For tracking code completion
+6. **Regression command** - Command to run full test suite
+7. **Regression checkbox** - For tracking regression verification
+
+### Checklist Format
+
+```markdown
+## Implementation Checklist
+
+This checklist tracks the test-driven development workflow for implementing issue #{ISSUE_NUMBER}.
+
+Each line item that requires action must have a checkbox [ ].
+
+### Step {N}: {Step Description}
+
+#### {N}.{M}: {Function Name}
+
+- [ ] Write tests for `{function_name}()`
+  - [ ] Patch: Add `test_{function_name}_{scenario_1}()` to `tests/test_module.py`
+  - [ ] Patch: Add `test_{function_name}_{scenario_2}()` to `tests/test_module.py`
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_1} -v` (expect FAIL - red)
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_2} -v` (expect FAIL - red)
+- [ ] Implement `{function_name}()`
+  - [ ] Patch: Add function to `src/module.py`
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_1} -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_module.py::test_{function_name}_{scenario_2} -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_module.py -v` (regression check - all module tests)
+
+### Final Verification
+
+- [ ] All implementation steps completed
+- [ ] All tests passing
+  - [ ] Test run: `pytest tests/ -v`
+- [ ] Coverage target met
+  - [ ] Test run: `pytest tests/ --cov=spafw37 --cov-report=term-missing`
+- [ ] No regressions introduced
+- [ ] Code review checklist verified
+```
+
+### Key Principles
+
+1. **Every action gets a checkbox** - Each patch, test run, and verification step must have `- [ ]`
+2. **Nested checkboxes for sub-steps** - Use indentation to show sub-steps under major items
+3. **Specificity** - Use exact function names, test names, and file paths from the implementation code blocks
+4. **TDD Workflow** - Always run tests BEFORE implementation (RED phase) to verify they fail
+5. **Regression Safety** - Run full test suite after each implementation to catch regressions early
+6. **Granularity** - One major checklist entry per function, with sub-checkboxes for each test and implementation action
+7. **Traceability** - Link test commands to specific code block numbers (X.Y.Z)
+
+### Example: Single Step Checklist
+
+```markdown
+### Step 3: Implement Parameter Validation
+
+#### 3.1: `_validate_param_name()`
+
+- [ ] Write tests for `_validate_param_name()`
+  - [ ] Patch: Add `test_validate_param_name_missing()` to `tests/test_param.py`
+  - [ ] Patch: Add `test_validate_param_name_valid()` to `tests/test_param.py`
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_missing -v` (expect FAIL - red)
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_valid -v` (expect FAIL - red)
+- [ ] Implement `_validate_param_name()`
+  - [ ] Patch: Add function to `src/spafw37/param.py` before `add_param()`
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_missing -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_param.py::test_validate_param_name_valid -v` (expect PASS - green)
+  - [ ] Test run: `pytest tests/test_param.py -v` (regression check)
+```
+
+### What to Include
+
+**For each implementation step:**
+- Major checkbox for "Write tests" with nested checkboxes for:
+  - Each patch (adding test function)
+  - Each test run command (red phase)
+- Major checkbox for "Implement function" with nested checkboxes for:
+  - Patch description (adding implementation)
+  - Each test run command (green phase)
+  - Regression check command
+
+**For helper functions:**
+- Separate major checklist items for each helper
+- Sub-checkboxes for all test/implementation/regression steps
+- File paths for implementation and tests
+
+**For modifications:**
+- Nested checkboxes for regression test commands
+- Sub-checkboxes for verification steps
+
+### What NOT to Include
+
+- Generic "implement the code" descriptions
+- Test commands without specific function/test names
+- Steps without regression checks
+- Implementation steps without corresponding tests
+- Checklist items that don't correspond to actual code blocks
+
+## Step 4.6: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 4: Generate implementation" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
+Ask user to review implementation code AND checklist before proceeding to Step 5 (documentation).

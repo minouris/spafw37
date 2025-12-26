@@ -12,6 +12,7 @@ This project uses a modular instruction system. All general coding rules have be
 - **`.github/instructions/plan-structure.instructions.md`** - Implementation plan document structure with anti-patterns
 - **`.github/instructions/documentation.instructions.md`** - Documentation standards for Markdown files
 - **`.github/instructions/planning.instructions.md`** - Issue planning and changelog documentation
+- **`.github/instructions/planning-workflow.instructions.md`** - Planning workflow steps and prompt invocation (includes Step 8 implementation policy)
 - **`.github/instructions/architecture.instructions.md`** - Architecture design documentation standards
 - **`.github/instructions/templates/`** - Templates for issue plans and changes documentation
 

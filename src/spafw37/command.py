@@ -188,58 +188,196 @@ def add_commands(command_list):
     for cmd in command_list:
         add_command(cmd)
 
-def add_command(cmd):
+
+def _validate_command_name(cmd):
+    """Validate that command has a non-empty name.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command name is empty or None
+    """
     name = cmd.get(COMMAND_NAME)
+    
     if not name:
         raise ValueError("Command name cannot be empty")
+
+
+def _validate_command_action(cmd):
+    """Validate that command has an action function.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command action is missing or None
+    """
     if not cmd.get(COMMAND_ACTION):
         raise ValueError("Command action is required")
-    if name in _commands:
-        return
+
+
+def _validate_command_references(cmd):
+    """Validate command dependency references.
     
-    # Process inline parameter definitions in COMMAND_REQUIRED_PARAMS
+    Checks for self-references and conflicting sequencing constraints.
+    
+    Args:
+        cmd: Command definition dict
+        
+    Raises:
+        ValueError: If command references itself or has conflicting constraints
+    """
+    name = cmd.get(COMMAND_NAME)
+    
+    reference_fields = [
+        COMMAND_GOES_AFTER,
+        COMMAND_GOES_BEFORE,
+        COMMAND_NEXT_COMMANDS,
+        COMMAND_REQUIRE_BEFORE
+    ]
+    for field in reference_fields:
+        references = cmd.get(field, []) or []
+        if name in references:
+            raise ValueError(f"Command '{name}' cannot reference itself")
+    
+    goes_before = set(cmd.get(COMMAND_GOES_BEFORE, []) or [])
+    goes_after = set(cmd.get(COMMAND_GOES_AFTER, []) or [])
+    
+    conflicting_commands = goes_before & goes_after
+    if conflicting_commands:
+        raise ValueError(
+            f"Command '{name}' has conflicting constraints with: "
+            f"{list(conflicting_commands)}"
+        )
+
+
+def _normalise_param_list(param_list):
+    """Normalise list of param definitions to param names.
+    
+    Args:
+        param_list: List of parameter definition dicts
+        
+    Returns:
+        List of parameter names (strings)
+    """
+    normalised_params = []
+    for param_def in param_list:
+        param_name = param._register_inline_param(param_def)
+        normalised_params.append(param_name)
+    return normalised_params
+
+
+def _process_inline_params(cmd):
+    """Process inline parameter definitions in command.
+    
+    Handles COMMAND_REQUIRED_PARAMS (list) and COMMAND_TRIGGER_PARAM (single).
+    Registers inline param definitions and normalises fields to param names.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
     required_params = cmd.get(COMMAND_REQUIRED_PARAMS, [])
     if required_params:
-        normalized_params = []
-        for param_def in required_params:
-            param_name = param._register_inline_param(param_def)
-            normalized_params.append(param_name)
-        cmd[COMMAND_REQUIRED_PARAMS] = normalized_params
+        normalised_params = _normalise_param_list(required_params)
+        cmd[COMMAND_REQUIRED_PARAMS] = normalised_params
     
-    # Process inline parameter definition in COMMAND_TRIGGER_PARAM
     trigger_param = cmd.get(COMMAND_TRIGGER_PARAM)
     if trigger_param:
         param_name = param._register_inline_param(trigger_param)
         cmd[COMMAND_TRIGGER_PARAM] = param_name
+
+
+def _normalise_command_list(cmd_list):
+    """Normalise list of command definitions to command names.
     
-    # Process inline command definitions in dependency/sequencing fields
-    for field in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
+    Args:
+        cmd_list: List of command definition dicts
+        
+    Returns:
+        List of command names (strings)
+    """
+    normalised_cmds = []
+    for cmd_def in cmd_list:
+        cmd_name = _register_inline_command(cmd_def)
+        normalised_cmds.append(cmd_name)
+    return normalised_cmds
+
+
+def _process_inline_commands(cmd):
+    """Process inline command definitions in dependency/sequencing fields.
+    
+    Handles COMMAND_GOES_BEFORE, COMMAND_GOES_AFTER, COMMAND_NEXT_COMMANDS,
+    and COMMAND_REQUIRE_BEFORE. Registers inline command definitions and
+    normalises fields to command names.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
+    dependency_fields = [
+        COMMAND_GOES_BEFORE,
+        COMMAND_GOES_AFTER,
+        COMMAND_NEXT_COMMANDS,
+        COMMAND_REQUIRE_BEFORE,
+    ]
+    for field in dependency_fields:
         cmd_list = cmd.get(field, [])
         if cmd_list:
-            normalized_cmds = []
-            for cmd_def in cmd_list:
-                cmd_name = _register_inline_command(cmd_def)
-                normalized_cmds.append(cmd_name)
-            cmd[field] = normalized_cmds
-        
-    # Check for self-references
-    for ref_list in [COMMAND_GOES_AFTER, COMMAND_GOES_BEFORE, COMMAND_NEXT_COMMANDS, COMMAND_REQUIRE_BEFORE]:
-        refs = cmd.get(ref_list, []) or []
-        if name in refs:
-            raise ValueError(f"Command '{name}' cannot reference itself")
-        
-    # Check for conflicting constraints
-    goes_before = set(cmd.get(COMMAND_GOES_BEFORE, []) or [])
-    goes_after = set(cmd.get(COMMAND_GOES_AFTER, []) or [])
-    if goes_before & goes_after:
-        conflicting = goes_before & goes_after
-        raise ValueError(f"Command '{name}' has conflicting constraints with: {list(conflicting)}")
+            normalised_cmds = _normalise_command_list(cmd_list)
+            cmd[field] = normalised_cmds
+
+
+def _assign_command_phase(cmd):
+    """Assign default phase if not specified in command.
+    
+    Sets COMMAND_PHASE to config.get_default_phase() if not already present.
+    
+    Args:
+        cmd: Command definition dict (modified in place)
+    """
     if not cmd.get(COMMAND_PHASE):
         cmd[COMMAND_PHASE] = config.get_default_phase()
-    _commands[name] = cmd
+
+
+def _store_command(cmd):
+    """Store command in registry and register cycle if present.
     
-    # Register cycle if present
+    Adds command to _commands dict and calls cycle.register_cycle() if needed.
+    
+    Args:
+        cmd: Command definition dict
+    """
+    name = cmd[COMMAND_NAME]
+    _commands[name] = cmd
     cycle.register_cycle(cmd, _commands)
+
+
+def add_command(cmd):
+    """Register a command for execution.
+    
+    This function orchestrates command registration by delegating to focused
+    helper functions. Each helper handles a specific aspect of registration:
+    validation, inline processing, phase assignment, and storage.
+    
+    Args:
+        cmd: Command definition dict
+    
+    Raises:
+        ValueError: If command validation fails
+    """
+    _validate_command_name(cmd)
+    _validate_command_action(cmd)
+    
+    name = cmd[COMMAND_NAME]
+    if name in _commands:
+        return
+    
+    _process_inline_params(cmd)
+    _process_inline_commands(cmd)
+    _validate_command_references(cmd)
+    
+    _assign_command_phase(cmd)
+    _store_command(cmd)
 
 
 def _execute_command(cmd):

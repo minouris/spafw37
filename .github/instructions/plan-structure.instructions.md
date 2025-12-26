@@ -99,6 +99,48 @@ def process_and_cache_record(record):
 
 **See `python.instructions.md` for complete rules and more examples.**
 
+## Block Numbering in Code Specifications
+
+**Purpose:** Block numbering (X.Y.Z.N format) serves as line number substitutes in fenced code blocks within markdown, where actual line numbers are unreliable.
+
+**CRITICAL: Block numbers must be COMMENTS in the code, not markdown headings or docstring content.**
+
+**Correct usage:**
+```python
+# Block 2.1.3: Add to src/spafw37/command.py after _validate_command_name()
+
+def _validate_command_action(cmd):
+    """Validate that command has an action function.
+    
+    Args:
+        cmd: Command definition dict
+    """
+    # Block 2.1.3.1: Check if action exists
+    if not cmd.get(COMMAND_ACTION):
+        # Block 2.1.3.2: Raise error if missing
+        raise ValueError("Command action is required")
+```
+
+**WRONG - numbers in docstring:**
+```python
+def _validate_command_action(cmd):
+    """Validate that command has an action function.
+    
+    Block 2.1.3.1: Check if action exists
+    Block 2.1.3.2: Raise error if missing
+    """
+    if not cmd.get(COMMAND_ACTION):
+        raise ValueError("Command action is required")
+```
+
+**Benefits:**
+1. Enables precise references without relying on line numbers
+2. Numbering depth (X.Y.Z.N vs X.Y.Z.N.M) hints at nesting depth
+3. Makes it easy to identify and discuss specific code sections
+4. Helps expose nesting violations (deep numbering = deep nesting)
+
+**Usage in reviews:** "Block 3.2.4.3 has 2-level nesting with a 3-line nested block" is precise and unambiguous.
+
 ## CRITICAL: Module-Level Imports in Plan Documents
 
 **ALL imports MUST be shown at module level, NOT inside test functions.**

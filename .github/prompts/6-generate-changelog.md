@@ -274,4 +274,10 @@ After completion, confirm:
 - Total test count and coverage percentage
 - Whether migration is required
 
+## Step 6.1: Update Planning Checklist
+
+Mark the Planning Checklist item for this step as complete:
+1. Find "Step 6: Generate CHANGES" in the Planning Checklist
+2. Change `- [ ]` to `- [x]`
+
 This completes the plan document. The user should now review the complete document before implementation begins.

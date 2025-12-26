@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2025-12-18
+## [1.1.0] - 2025-12-26
 
 ### Issues Closed
 
@@ -11,6 +11,7 @@
 - #33: Param Allowed Values
 - #35: Add CYCLE_LOOP_END to Cycles
 - #48: Param Defaults are set after pre-parse args
+- #61: Refactor command.add_command() into focused helper methods
 
 ### Additions
 
@@ -99,6 +100,18 @@
 
 - `CYCLE_LOOP_END` constant for defining function to run at end of each cycle iteration. Function runs after all cycle commands execute but before next loop condition check. Optional, same as `CYCLE_LOOP_START`.
 
+**Issue #61:**
+
+- `_validate_command_name()` internal function validates command has non-empty name during registration.
+- `_validate_command_action()` internal function validates command has action function during registration.
+- `_validate_command_references()` internal function validates no self-references or conflicting sequencing constraints.
+- `_normalise_param_list()` internal function converts list of parameter definitions to parameter names (extracts loop logic to avoid nesting violations).
+- `_process_inline_params()` internal function processes inline parameter definitions in `COMMAND_REQUIRED_PARAMS` and `COMMAND_TRIGGER_PARAM`.
+- `_normalise_command_list()` internal function converts list of command definitions to command names (extracts loop logic to avoid nesting violations).
+- `_process_inline_commands()` internal function processes inline command definitions in all dependency/sequencing fields.
+- `_assign_command_phase()` internal function assigns default phase from config when not specified in command definition.
+- `_store_command()` internal function stores command in registry and registers cycle if present.
+
 ### Removals
 
 **Issue #27:**
@@ -160,6 +173,17 @@
 - Switch conflict detection now checks registration mode and skips validation when `_SWITCH_REGISTER` behavior is active.
 - **Bug fix:** `_has_switch_conflict()` now correctly checks the type of the conflicting parameter (not the parameter being set) when determining conflict logic for mixed-type switch groups (e.g., TEXT + TOGGLE params). This fixes false conflicts when setting non-toggle params that share switch groups with toggle params.
 - Introduced internal constant `_SWITCH_REGISTER` in `param.py` to represent registration mode for switch param conflict detection. This constant is not part of the public API and is used only for internal implementation logic.
+
+**Issue #61:**
+
+- `add_command()` function refactored from monolithic 54-line function to clean orchestrator that delegates to 7 focused helper functions.
+- Command validation logic extracted into three focused validators for better testability and maintainability.
+- Inline parameter processing logic extracted into separate helper with normalisation sub-helper to comply with nesting requirements.
+- Inline command processing logic extracted into separate helper with normalisation sub-helper to comply with nesting requirements.
+- Phase assignment logic extracted into dedicated helper for clarity.
+- Command storage logic extracted into dedicated helper that encapsulates registry mutation and cycle registration.
+- All helpers follow single-responsibility principle with clear naming and focused behaviour.
+- Code nesting depth reduced throughout refactored implementation (max 2-level nesting maintained).
 
 ### Migration
 
@@ -233,6 +257,10 @@
 **Issue #48:**
 
 - No documentation changes required. This is an internal implementation fix with no user-facing API changes.
+
+**Issue #61:**
+
+- No documentation changes required. This is an internal implementation refactoring with no user-facing API changes. All helpers are private (prefixed with `_`) and not part of the public API.
 
 ## [1.0.1] - 2025-11-15
 

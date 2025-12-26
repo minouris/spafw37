@@ -183,6 +183,36 @@ Status: 2/8 questions resolved, 2/7 considerations resolved
 - ✅ Update complexity assessments
 - ✅ Maintain consistency in formatting and structure
 
+## Step 3: Update Planning Checklist
+
+**After adding answers and updating statuses:**
+
+### Mark Question Items Complete
+
+For each question you just answered (changed to RESOLVED):
+1. Find the corresponding item in Planning Checklist: `- [ ] Q{N} answered and resolved (Comment #...)`
+2. Mark it complete: `- [x] Q{N} answered and resolved (Comment #...)`
+
+### Check Step 2 Status
+
+After marking individual questions complete:
+1. **Check if ALL question items are now marked [x]**
+2. **If yes**: Mark "Step 2: Analyse and plan" as complete `- [x]`
+3. **If no**: Leave "Step 2: Analyse and plan" as `- [ ]` (still has pending questions)
+
+Example:
+```markdown
+## Planning Checklist
+
+- [x] Step 1: Create plan skeleton
+- [x] Step 2: Analyse and plan
+  - [x] Q1 answered and resolved (Comment #12345)
+  - [x] Q2 answered and resolved (Comment #12346)
+  - [x] Q3 answered and resolved (Comment #12347)
+- [ ] Step 3: Generate tests
+...
+```
+
 ### DO NOT:
 - ❌ Post comments to GitHub issue
 - ❌ Update GitHub issue comments via API
