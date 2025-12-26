@@ -23,7 +23,7 @@ from spafw37.constants.param import (
 )
 
 # Project imports - modules
-from spafw37 import command, config, config_func, cycle, param
+from spafw37 import command, config, param
 
 def simple_action():
     """Simple no-op action for testing."""
