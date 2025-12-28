@@ -9,7 +9,6 @@ This module provides functionality for defining and executing command cycles:
 - Cycle commands are not directly invocable from CLI
 """
 
-from copy import deepcopy
 from spafw37.constants.command import (
     COMMAND_CYCLE,
     COMMAND_INVOCABLE,
