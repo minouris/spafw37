@@ -15,7 +15,7 @@ A lightweight Python 3.7+ framework for building command-line applications with 
 - **Declarative Command Definition** - Define commands with actions, dependencies, and orchestration
 - **Command Orchestration** - Automatic dependency resolution, sequencing, and triggers
 - **Multi-Phase Execution** - Organize commands into setup, cleanup, execution, teardown, and end phases
-- **Cycle Support** - Repeating command sequences with init/loop/loop-end/finalization hooks
+- **Cycle Support** - Repeating command sequences with init/loop/loop-end/finalisation hooks and top-level cycle registration (v1.1.0)
 - **Configuration Management** - Persistent and runtime configuration with file I/O
 - **Integrated Logging** - Built-in logging with levels, scopes, and file/console output
 - **Automatic Help System** - Generated help for commands, parameters, and groups
@@ -264,6 +264,9 @@ from spafw37.constants.cycle import *
 
 **Examples:**
 
+- [`cycles_api_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_api_basic.py) - Top-level cycle registration with inline command (v1.1.0)
+- [`cycles_api_multiple.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_api_multiple.py) - Multiple cycles with add_cycles() (v1.1.0)
+- [`cycles_api_flexible_order.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_api_flexible_order.py) - Cycle-before-command registration (v1.1.0)
 - [`cycles_basic.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_basic.py) - Simple iteration patterns
 - [`cycles_loop_start.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_start.py) - Per-iteration preparation
 - [`cycles_loop_end.py`](https://github.com/minouris/spafw37/blob/main/examples/cycles_loop_end.py) - Per-iteration cleanup
@@ -372,6 +375,7 @@ This framework is specifically designed for Python 3.7.x<=9 compatibility, large
 
 ## What's New in v1.1.0
 
+- **Top-Level Cycle Registration** - New `add_cycle()` and `add_cycles()` functions enable defining cycles separately from commands. Cycles can be registered before or after commands, providing better code organisation and flexible definition order. Inline cycle definitions via `COMMAND_CYCLE` remain fully supported.
 - **Interactive Prompts** - New `PARAM_PROMPT` constant enables interactive user input for parameters that are unset. Control prompt timing with `PARAM_PROMPT_ON` (start, per-command, or never), configure repeated prompts with `PARAM_PROMPT_REPEAT` for cycle iterations, and hide sensitive input with `PARAM_PROMPT_SENSITIVE`. Supports custom prompt handlers, validation with retries, and can be overridden via CLI arguments.
 - **Switch Change Behaviour Control** - New `PARAM_SWITCH_CHANGE_BEHAVIOR` constant controls what happens when setting parameters in mutually exclusive groups: `SWITCH_UNSET` (automatically clear conflicting switches), `SWITCH_RESET` (restore defaults), or `SWITCH_REJECT` (raise error - default). Enables mode switching patterns and state restoration while maintaining backward compatibility.
 - **Allowed Values Validation** - New `PARAM_ALLOWED_VALUES` constant restricts TEXT, NUMBER, and LIST parameters to predefined value sets. TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case. Provides clear error messages when invalid values are provided.

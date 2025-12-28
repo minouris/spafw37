@@ -3,7 +3,7 @@
 import pytest
 import sys
 from spafw37 import core
-from spafw37 import param, command, config_func
+from spafw37 import param, command, config_func, cycle
 import spafw37.config
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -21,6 +21,11 @@ from spafw37.constants.command import (
     COMMAND_ACTION,
     COMMAND_DESCRIPTION,
     COMMAND_REQUIRED_PARAMS,
+)
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_LOOP,
 )
 from spafw37.command import CommandParameterError
 
@@ -670,3 +675,106 @@ def test_reset_param_immutable_through_core():
     
     with pytest.raises(ValueError, match="Cannot modify immutable parameter"):
         core.reset_param(param_name='app-id')
+
+
+def test_core_add_cycle_delegates_to_cycle_module():
+    """Test that core.add_cycle() delegates to cycle.add_cycle().
+    
+    Test ID: 4.1
+    Category: Core API - Cycle Registration
+    
+    Validates: Public API delegation for single cycle registration
+    
+    This test verifies that the public API function core.add_cycle()
+    correctly delegates to the cycle module's add_cycle() function.
+    This ensures consistent public API pattern.
+    """
+    setup_function()
+    cycle.reset_cycle_state()
+    
+    test_cycle = {
+        CYCLE_COMMAND: 'test-cmd',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    core.add_cycle(test_cycle)
+    
+    # Verify cycle was registered in cycle module
+    assert 'test-cmd' in cycle._cycles
+    assert cycle._cycles['test-cmd'] == test_cycle
+
+
+def test_core_add_cycles_delegates_to_cycle_module():
+    """Test that core.add_cycles() delegates to cycle.add_cycles().
+    
+    Test ID: 4.2
+    Category: Core API - Bulk Cycle Registration
+    
+    Validates: Public API delegation for multiple cycle registration
+    
+    This test verifies that the public API function core.add_cycles()
+    correctly delegates to the cycle module's add_cycles() function.
+    This ensures consistent bulk registration API pattern.
+    """
+    setup_function()
+    cycle.reset_cycle_state()
+    
+    cycles_list = [
+        {
+            CYCLE_COMMAND: 'cmd1',
+            CYCLE_NAME: 'cycle1',
+            CYCLE_LOOP: lambda: True
+        },
+        {
+            CYCLE_COMMAND: 'cmd2',
+            CYCLE_NAME: 'cycle2',
+            CYCLE_LOOP: lambda: False
+        }
+    ]
+    
+    core.add_cycles(cycles_list)
+    
+    # Verify all cycles registered
+    assert 'cmd1' in cycle._cycles
+    assert 'cmd2' in cycle._cycles
+    assert cycle._cycles['cmd1'][CYCLE_NAME] == 'cycle1'
+    assert cycle._cycles['cmd2'][CYCLE_NAME] == 'cycle2'
+
+
+def test_core_api_consistency_with_add_command_pattern():
+    """Test that add_cycle() follows add_command() API pattern.
+    
+    Test ID: 4.3
+    Category: Core API - Consistency Verification
+    
+    Validates: API consistency across registration functions
+    
+    This test verifies that the add_cycle() and add_cycles() functions
+    follow the same API patterns as add_command() and add_commands().
+    This ensures consistent developer experience across the framework.
+    """
+    setup_function()
+    
+    # Check function signatures match pattern
+    import inspect
+    
+    # add_cycle() and add_command() both take single definition
+    add_cycle_sig = inspect.signature(core.add_cycle)
+    add_command_sig = inspect.signature(core.add_command)
+    
+    assert len(add_cycle_sig.parameters) == 1
+    assert len(add_command_sig.parameters) == 1
+    
+    # add_cycles() and add_commands() both take list
+    add_cycles_sig = inspect.signature(core.add_cycles)
+    add_commands_sig = inspect.signature(core.add_commands)
+    
+    assert len(add_cycles_sig.parameters) == 1
+    assert len(add_commands_sig.parameters) == 1
+    
+    # Verify both have docstrings
+    assert core.add_cycle.__doc__ is not None
+    assert core.add_cycles.__doc__ is not None
+    assert len(core.add_cycle.__doc__) > 50
+    assert len(core.add_cycles.__doc__) > 50

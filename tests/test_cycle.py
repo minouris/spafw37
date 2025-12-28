@@ -6,7 +6,7 @@ command queueing, execution, and nested cycle support.
 """
 
 import pytest
-from spafw37 import cycle
+from spafw37 import command, cycle
 from spafw37.constants.command import (
     COMMAND_CYCLE,
     COMMAND_INVOCABLE,
@@ -18,6 +18,7 @@ from spafw37.constants.command import (
     COMMAND_REQUIRE_BEFORE,
 )
 from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
     CYCLE_NAME,
     CYCLE_INIT,
     CYCLE_LOOP,
@@ -39,6 +40,635 @@ def reset_state():
     cycle.reset_cycle_state()
     yield
     cycle.reset_cycle_state()
+
+
+def test_add_cycle_module_level_storage_initialised():
+    """Test that module-level _cycles storage is initialised.
+    
+    Scenario: Module-level _cycles dict exists
+      Given the cycle module is imported
+      When the module is loaded
+      Then _cycles dict should exist at module level
+      And _cycles dict should be empty initially
+    
+    This test verifies that the _cycles dictionary exists at module level
+    and is initially empty when the module is first imported.
+    This behaviour is expected because cycles are registered dynamically at runtime.
+    """
+    assert hasattr(cycle, '_cycles')
+    assert isinstance(cycle._cycles, dict)
+    assert len(cycle._cycles) == 0
+
+
+def test_extract_command_name_from_string():
+    """Test that _extract_command_name returns string unchanged.
+    
+    Scenario: Extract command name from string
+      Given a command name as string
+      When _extract_command_name is called
+      Then it should return the string unchanged
+    
+    This test verifies that when a command name is provided as a string,
+    the function returns it unchanged.
+    This behaviour is expected for command name references.
+    """
+    result = cycle._extract_command_name('my-command')
+    
+    assert result == 'my-command'
+
+
+def test_extract_command_name_from_dict():
+    """Test that _extract_command_name extracts name from inline definition.
+    
+    Scenario: Extract command name from inline definition
+      Given an inline command definition dict with COMMAND_NAME
+      When _extract_command_name is called
+      Then it should return the COMMAND_NAME value
+    
+    This test verifies that when an inline command definition (dict) is provided,
+    the function extracts and returns the COMMAND_NAME field.
+    This behaviour is expected for inline command definitions.
+    """
+    inline_command = {
+        COMMAND_NAME: 'inline-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    
+    result = cycle._extract_command_name(inline_command)
+    
+    assert result == 'inline-cmd'
+
+
+def test_extract_command_name_validates_dict_has_command_name():
+    """Test that _extract_command_name validates COMMAND_NAME in dict.
+    
+    Scenario: Inline definition missing COMMAND_NAME
+      Given an inline command definition dict without COMMAND_NAME
+      When _extract_command_name is called
+      Then ValueError should be raised
+      And error message should indicate missing COMMAND_NAME
+    
+    This test verifies that when an inline command definition (dict) is missing
+    the required COMMAND_NAME field, a ValueError is raised.
+    This behaviour is expected to catch malformed inline definitions.
+    """
+    invalid_inline_command = {
+        COMMAND_ACTION: lambda: None
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle._extract_command_name(invalid_inline_command)
+    
+    assert 'COMMAND_NAME' in str(exc_info.value)
+
+
+def test_validate_cycle_required_fields_accepts_valid_cycle():
+    """Test that _validate_cycle_required_fields accepts a valid cycle.
+    
+    Scenario: Valid cycle passes validation
+      Given a cycle definition with all required fields
+      When _validate_cycle_required_fields is called
+      Then no exception should be raised
+    
+    This test verifies that when a cycle definition contains all required fields,
+    the validation function does not raise any exceptions.
+    This behaviour is expected because valid cycles should pass validation.
+    """
+    valid_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    cycle._validate_cycle_required_fields(valid_cycle)
+
+
+def test_validate_cycle_required_fields_rejects_missing_cycle_command():
+    """Test that _validate_cycle_required_fields rejects missing CYCLE_COMMAND.
+    
+    Scenario: Missing CYCLE_COMMAND field rejected
+      Given a cycle definition without CYCLE_COMMAND
+      When _validate_cycle_required_fields is called
+      Then ValueError should be raised
+      And error message should mention CYCLE_COMMAND
+    
+    This test verifies that when a cycle definition is missing the CYCLE_COMMAND
+    field, the validation function raises a ValueError with an appropriate message.
+    This behaviour is expected because CYCLE_COMMAND is a required field.
+    """
+    invalid_cycle = {
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle._validate_cycle_required_fields(invalid_cycle)
+    
+    assert 'CYCLE_COMMAND' in str(exc_info.value)
+
+
+def test_validate_cycle_required_fields_rejects_missing_cycle_name():
+    """Test that _validate_cycle_required_fields rejects missing CYCLE_NAME.
+    
+    Scenario: Missing CYCLE_NAME field rejected
+      Given a cycle definition without CYCLE_NAME
+      When _validate_cycle_required_fields is called
+      Then ValueError should be raised
+      And error message should mention CYCLE_NAME
+    
+    This test verifies that when a cycle definition is missing the CYCLE_NAME
+    field, the validation function raises a ValueError with an appropriate message.
+    This behaviour is expected because CYCLE_NAME is a required field.
+    """
+    invalid_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle._validate_cycle_required_fields(invalid_cycle)
+    
+    assert 'CYCLE_NAME' in str(exc_info.value)
+
+
+def test_validate_cycle_required_fields_rejects_missing_cycle_loop():
+    """Test that _validate_cycle_required_fields rejects missing CYCLE_LOOP.
+    
+    Scenario: Missing CYCLE_LOOP field rejected
+      Given a cycle definition without CYCLE_LOOP
+      When _validate_cycle_required_fields is called
+      Then ValueError should be raised
+      And error message should mention CYCLE_LOOP
+    
+    This test verifies that when a cycle definition is missing the CYCLE_LOOP
+    field, the validation function raises a ValueError with an appropriate message.
+    This behaviour is expected because CYCLE_LOOP is a required field.
+    """
+    invalid_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle'
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle._validate_cycle_required_fields(invalid_cycle)
+    
+    assert 'CYCLE_LOOP' in str(exc_info.value)
+
+
+def test_cycles_are_equivalent_returns_true_for_identical_cycles():
+    """Test that _cycles_are_equivalent returns True for identical cycles.
+    
+    Scenario: Identical cycles are equivalent
+      Given two cycle definitions with identical properties
+      When _cycles_are_equivalent is called
+      Then it should return True
+    
+    This test verifies that when two cycle definitions have exactly the same
+    properties and values, the equivalency function returns True.
+    This behaviour is expected for detecting duplicate registrations.
+    """
+    loop_func = lambda: True
+    init_func = lambda: None
+    
+    cycle1 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_func,
+        CYCLE_INIT: init_func
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_func,
+        CYCLE_INIT: init_func
+    }
+    
+    assert cycle._cycles_are_equivalent(cycle1, cycle2) is True
+
+
+def test_cycles_are_equivalent_returns_false_for_different_required_fields():
+    """Test that _cycles_are_equivalent returns False for different required fields.
+    
+    Scenario: Cycles with different required fields are not equivalent
+      Given two cycle definitions with different CYCLE_NAME
+      When _cycles_are_equivalent is called
+      Then it should return False
+    
+    This test verifies that when two cycle definitions differ in a required field
+    like CYCLE_NAME, the equivalency function returns False.
+    This behaviour is expected to detect conflicting cycle definitions.
+    """
+    cycle1 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'cycle-one',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'cycle-two',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
+
+
+def test_cycles_are_equivalent_returns_false_for_different_optional_fields():
+    """Test that _cycles_are_equivalent returns False for different optional fields.
+    
+    Scenario: Cycles with different optional fields are not equivalent
+      Given two cycles, one with CYCLE_INIT and one without
+      When _cycles_are_equivalent is called
+      Then it should return False
+    
+    This test verifies that when two cycle definitions differ in optional fields,
+    the equivalency function returns False.
+    This behaviour is expected because all properties must match for equivalency.
+    """
+    cycle1 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True,
+        CYCLE_INIT: lambda: None
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
+
+
+def test_cycles_are_equivalent_compares_function_references():
+    """Test that _cycles_are_equivalent compares function object identity.
+    
+    Scenario: Cycles with different function objects are not equivalent
+      Given two cycles with different CYCLE_LOOP function objects
+      When _cycles_are_equivalent is called
+      Then it should return False
+    
+    This test verifies that when two cycle definitions have different function
+    objects (even if they do the same thing), equivalency returns False.
+    This behaviour is expected because function identity matters for cycles.
+    """
+    cycle1 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
+
+
+def test_add_cycle_registers_single_cycle():
+    """Test that add_cycle() registers a single cycle definition.
+    
+    Scenario: Register single cycle via add_cycle()
+      Given a valid cycle definition with CYCLE_COMMAND and CYCLE_NAME
+      When add_cycle() is called with the cycle dict
+      Then the cycle should be stored in _cycles indexed by command name
+      And no exceptions should be raised
+    
+    This test verifies that when a valid cycle definition is passed to add_cycle(),
+    it is stored in the _cycles dictionary indexed by the command name.
+    This behaviour is expected because cycles must be associated with specific commands.
+    """
+    test_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    cycle.add_cycle(test_cycle)
+    
+    assert 'test-command' in cycle._cycles
+    assert cycle._cycles['test-command'] == test_cycle
+
+
+def test_add_cycle_with_inline_cycle_command_definition():
+    """Test that add_cycle() handles inline CYCLE_COMMAND definitions.
+    
+    This test verifies that when CYCLE_COMMAND is provided as a dict
+    (inline command definition) rather than a string, the command is
+    registered and the cycle is stored correctly.
+    This behaviour is expected to allow defining commands and cycles together.
+    """
+    # Register sub-command first
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    test_cycle = {
+        CYCLE_COMMAND: {
+            COMMAND_NAME: 'inline-parent',
+            COMMAND_ACTION: lambda: None
+        },
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True,
+        CYCLE_COMMANDS: ['sub-cmd']
+    }
+    
+    cycle.add_cycle(test_cycle)
+    
+    # Cycle should be stored indexed by extracted command name
+    assert 'inline-parent' in cycle._cycles
+    assert cycle._cycles['inline-parent'] == test_cycle
+    
+    # Command should be registered
+    assert 'inline-parent' in command._commands
+
+
+def test_add_cycle_with_inline_cycle_command_extracts_name():
+    """Test that add_cycle() extracts command name from inline CYCLE_COMMAND.
+    
+    This test verifies that when CYCLE_COMMAND is an inline definition (dict),
+    the command name is correctly extracted from the COMMAND_NAME field
+    and used to index the cycle in storage.
+    This behaviour is expected for proper cycle-command association.
+    """
+    # Register sub-command first
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    inline_command_def = {
+        COMMAND_NAME: 'extracted-name',
+        COMMAND_ACTION: lambda: None
+    }
+    
+    test_cycle = {
+        CYCLE_COMMAND: inline_command_def,
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True,
+        CYCLE_COMMANDS: ['sub-cmd']
+    }
+    
+    cycle.add_cycle(test_cycle)
+    
+    # Should be indexed by extracted name, not inline dict object
+    assert 'extracted-name' in cycle._cycles
+    stored_cycle = cycle._cycles['extracted-name']
+    assert stored_cycle[CYCLE_COMMAND] is inline_command_def
+
+
+def test_add_cycle_with_inline_cycle_command_attaches_cycle_to_command():
+    """Test that add_cycle() attaches cycle to inline command definition.
+    
+    This test verifies that when CYCLE_COMMAND is an inline definition (dict),
+    the registered command has the cycle attached via COMMAND_CYCLE property.
+    This ensures the cycle will execute when the command runs.
+    This behaviour is expected for integrated cycle-command registration.
+    """
+    # Register sub-command first (required by cycle validation)
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    inline_command_def = {
+        COMMAND_NAME: 'inline-with-cycle',
+        COMMAND_ACTION: lambda: None
+    }
+    
+    test_cycle = {
+        CYCLE_COMMAND: inline_command_def,
+        CYCLE_NAME: 'attached-cycle',
+        CYCLE_LOOP: lambda: False,
+        CYCLE_COMMANDS: ['sub-cmd']
+    }
+    
+    cycle.add_cycle(test_cycle)
+    
+    # Command should be registered with cycle attached
+    registered_cmd = command._commands['inline-with-cycle']
+    assert COMMAND_CYCLE in registered_cmd
+    assert registered_cmd[COMMAND_CYCLE] == test_cycle
+
+
+def test_add_cycle_validates_required_cycle_command_field():
+    """Test that add_cycle() validates CYCLE_COMMAND field is present.
+    
+    This test verifies that when a cycle definition is missing the required
+    CYCLE_COMMAND field, a ValueError is raised with an appropriate error message.
+    This behaviour is expected because cycles must be associated with a command.
+    """
+    invalid_cycle = {
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle.add_cycle(invalid_cycle)
+    
+    assert 'CYCLE_COMMAND' in str(exc_info.value)
+
+
+def test_add_cycle_validates_required_cycle_name_field():
+    """Test that add_cycle() validates CYCLE_NAME field is present.
+    
+    This test verifies that when a cycle definition is missing the required
+    CYCLE_NAME field, a ValueError is raised with an appropriate error message.
+    This behaviour is expected because cycles need independent identifiers.
+    """
+    invalid_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle.add_cycle(invalid_cycle)
+    
+    assert 'CYCLE_NAME' in str(exc_info.value)
+
+
+def test_add_cycle_validates_required_cycle_loop_field():
+    """Test that add_cycle() validates CYCLE_LOOP field is present.
+    
+    This test verifies that when a cycle definition is missing the required
+    CYCLE_LOOP field, a ValueError is raised with an appropriate error message.
+    This behaviour is expected because cycles must define loop behaviour.
+    """
+    invalid_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle'
+    }
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle.add_cycle(invalid_cycle)
+    
+    assert 'CYCLE_LOOP' in str(exc_info.value)
+
+
+def test_add_cycle_equivalency_checking_identical_cycles_skip():
+    """Test that registering an identical cycle definition is silently skipped.
+    
+    This test verifies that when add_cycle() is called twice with the exact same
+    cycle definition for a command, the second registration is silently skipped.
+    This behaviour is expected to allow modular code where the same cycle definition
+    might appear in multiple places without causing errors.
+    """
+    test_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: lambda: True,
+        CYCLE_INIT: lambda: None
+    }
+    
+    cycle.add_cycle(test_cycle)
+    original_cycle = cycle._cycles['test-command']
+    
+    # Register same cycle again
+    cycle.add_cycle(test_cycle)
+    
+    # Verify original cycle unchanged
+    assert cycle._cycles['test-command'] is original_cycle
+
+
+def test_add_cycle_equivalency_checking_different_cycles_raise_error():
+    """Test that registering a different cycle definition raises ValueError.
+    
+    This test verifies that when add_cycle() is called with a different cycle
+    definition for a command that already has a cycle, a ValueError is raised.
+    This behaviour is expected to prevent conflicting cycle configurations.
+    """
+    first_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'first-cycle',
+        CYCLE_LOOP: lambda: True
+    }
+    
+    second_cycle = {
+        CYCLE_COMMAND: 'test-command',
+        CYCLE_NAME: 'second-cycle',
+        CYCLE_LOOP: lambda: False
+    }
+    
+    cycle.add_cycle(first_cycle)
+    
+    with pytest.raises(ValueError) as exc_info:
+        cycle.add_cycle(second_cycle)
+    
+    assert 'conflicting' in str(exc_info.value).lower()
+    assert 'test-command' in str(exc_info.value)
+    
+    # Verify original cycle unchanged
+    assert cycle._cycles['test-command'] == first_cycle
+
+
+def test_add_cycles_registers_multiple_cycles():
+    """Test that add_cycles() registers multiple cycle definitions.
+    
+    This test verifies that when a list of cycle definitions is passed to
+    add_cycles(), all cycles are registered and stored in the _cycles dictionary.
+    This behaviour is expected to provide consistent bulk registration API.
+    """
+    cycles_list = [
+        {
+            CYCLE_COMMAND: 'command-one',
+            CYCLE_NAME: 'cycle-one',
+            CYCLE_LOOP: lambda: True
+        },
+        {
+            CYCLE_COMMAND: 'command-two',
+            CYCLE_NAME: 'cycle-two',
+            CYCLE_LOOP: lambda: False
+        }
+    ]
+    
+    cycle.add_cycles(cycles_list)
+    
+    assert 'command-one' in cycle._cycles
+    assert 'command-two' in cycle._cycles
+    assert cycle._cycles['command-one'][CYCLE_NAME] == 'cycle-one'
+    assert cycle._cycles['command-two'][CYCLE_NAME] == 'cycle-two'
+
+
+def test_add_cycles_with_mixed_inline_and_string_cycle_commands():
+    """Test that add_cycles() handles mixed inline and string CYCLE_COMMAND.
+    
+    This test verifies that when a list contains some cycles with inline
+    CYCLE_COMMAND definitions (dicts) and others with string references,
+    all cycles are registered correctly.
+    This behaviour is expected to provide maximum flexibility.
+    """
+    # Register sub-commands first
+    for cmd_name in ['sub-cmd-1', 'sub-cmd-2']:
+        command.add_command({
+            COMMAND_NAME: cmd_name,
+            COMMAND_ACTION: lambda: None
+        })
+    
+    cycles_list = [
+        {
+            CYCLE_COMMAND: {
+                COMMAND_NAME: 'inline-cmd',
+                COMMAND_ACTION: lambda: None
+            },
+            CYCLE_NAME: 'inline-cycle',
+            CYCLE_LOOP: lambda: True,
+            CYCLE_COMMANDS: ['sub-cmd-1']
+        },
+        {
+            CYCLE_COMMAND: 'string-ref-cmd',
+            CYCLE_NAME: 'string-cycle',
+            CYCLE_LOOP: lambda: False,
+            CYCLE_COMMANDS: ['sub-cmd-2']
+        }
+    ]
+    
+    cycle.add_cycles(cycles_list)
+    
+    # Both should be registered
+    assert 'inline-cmd' in cycle._cycles
+    assert 'string-ref-cmd' in cycle._cycles
+
+
+def test_get_cycle_retrieves_registered_cycle():
+    """Test that get_cycle() retrieves a registered cycle by command name.
+    
+    This test verifies that after registering a cycle, it can be retrieved
+    using get_cycle() with the command name as the key.
+    This behaviour is expected to provide public API access to registered cycles.
+    """
+    test_cycle = {
+        CYCLE_COMMAND: 'my-command',
+        CYCLE_NAME: 'my-cycle',
+        CYCLE_LOOP: lambda: True,
+        CYCLE_INIT: lambda: None
+    }
+    
+    cycle.add_cycle(test_cycle)
+    retrieved_cycle = cycle.get_cycle('my-command')
+    
+    assert retrieved_cycle is not None
+    assert retrieved_cycle == test_cycle
+    assert retrieved_cycle[CYCLE_NAME] == 'my-cycle'
+
+
+def test_get_cycle_returns_none_for_unregistered_command():
+    """Test that get_cycle() returns None for an unregistered command.
+    
+    This test verifies that when get_cycle() is called with a command name
+    that has no registered cycle, None is returned without raising an exception.
+    This behaviour is expected to allow safe checking for cycle existence.
+    """
+    result = cycle.get_cycle('unknown-command')
+    
+    assert result is None
 
 
 class TestCommandNameExtraction:
