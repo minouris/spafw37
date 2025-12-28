@@ -8,6 +8,7 @@
 - [Version Changes](#version-changes)
 - [Cycle Constants](#cycle-constants)
 - [Defining a Cycle](#defining-a-cycle)
+- [Top-Level Cycle Registration](#top-level-cycle-registration)
 - [Cycle Lifecycle](#cycle-lifecycle)
 - [Parameter Validation](#parameter-validation)
 - [Nested Cycles](#nested-cycles)
@@ -32,6 +33,13 @@ Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_
 
 ### v1.1.0
 
+**Top-Level Cycle Registration:**
+- Added `add_cycle()` and `add_cycles()` for registering cycles at the top level
+- Cycles can now be registered before commands, enabling flexible definition order
+- Inline cycle definitions in commands (`COMMAND_CYCLE`) remain fully supported
+- Added `CYCLE_COMMAND` constant to link cycles to commands
+- See [`cycles_api_basic.py`](../examples/cycles_api_basic.py), [`cycles_api_multiple.py`](../examples/cycles_api_multiple.py), and [`cycles_api_flexible_order.py`](../examples/cycles_api_flexible_order.py) examples
+
 **Cycle Loop End:**
 - Added `CYCLE_LOOP_END` for per-iteration cleanup and state updates
 - Runs after all cycle commands execute but before next loop condition check
@@ -50,6 +58,7 @@ Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_
 | Constant | Description |
 |----------|-------------|
 | `CYCLE_NAME` | Name of the cycle for logging and debugging |
+| `CYCLE_COMMAND` | Command name (string) or inline command definition (dict) that executes this cycle |
 | `CYCLE_INIT` | Function to initialise resources before loop starts |
 | `CYCLE_LOOP` | Function that returns `True` to continue loop, `False` to exit |
 | `CYCLE_LOOP_START` | Function to prepare data for the iteration (runs after `CYCLE_LOOP` returns `True`) |
@@ -66,7 +75,135 @@ Cycles support nesting (default: 5 levels deep, configurable via `set_max_cycle_
 
 ## Defining a Cycle
 
-A cycle is attached to a parent command using the `COMMAND_CYCLE` key ([see example](../examples/cycles_basic.py)). The cycle definition includes initialisation, loop condition, finalisation functions, and the list of commands to execute each iteration.
+**Added in v1.1.0:** Cycles can be defined in two ways:
+
+1. **Top-level registration** using `add_cycle()` or `add_cycles()` - register cycles separately from commands, enabling flexible definition order
+2. **Inline definition** using `COMMAND_CYCLE` in command definitions - embed cycle definition within the parent command
+
+Both approaches produce identical behaviour. Top-level registration is useful for organisation and reusability, while inline definitions keep related code together.
+
+### Top-Level Cycle Registration (v1.1.0)
+
+**Added in v1.1.0**
+
+Top-level cycle registration allows you to define cycles before commands, providing better code organisation and enabling flexible definition order ([see example](../examples/cycles_api_basic.py)).
+
+#### Basic Example
+
+```python
+from spafw37 import core as spafw37
+from spafw37.constants.command import COMMAND_NAME, COMMAND_ACTION
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_LOOP,
+    CYCLE_INIT,
+    CYCLE_END,
+    CYCLE_COMMANDS
+)
+
+def init_counter():
+    spafw37.set_param('count', value=0)
+
+def get_iterations():
+    return [1, 2, 3]
+
+def show_results():
+    spafw37.output(f"Processed {spafw37.get_param('count')} items")
+
+def process_item():
+    count = spafw37.get_param('count')
+    spafw37.set_param('count', value=count + 1)
+    spafw37.output(f"Processing item {count + 1}")
+
+# Register cycle first
+spafw37.add_cycle({
+    CYCLE_COMMAND: 'process',  # Links to command below
+    CYCLE_NAME: 'item-processing',
+    CYCLE_LOOP: get_iterations,
+    CYCLE_INIT: init_counter,
+    CYCLE_END: show_results,
+    CYCLE_COMMANDS: ['process']
+})
+
+# Register command separately
+spafw37.add_command({
+    COMMAND_NAME: 'process',
+    COMMAND_ACTION: process_item
+})
+```
+
+#### Inline Command Definitions
+
+`CYCLE_COMMAND` can be a dict to define the command inline:
+
+```python
+spafw37.add_cycle({
+    CYCLE_COMMAND: {
+        COMMAND_NAME: 'process',
+        COMMAND_ACTION: process_item
+    },
+    CYCLE_NAME: 'item-processing',
+    CYCLE_LOOP: get_iterations,
+    CYCLE_INIT: init_counter,
+    CYCLE_END: show_results,
+    CYCLE_COMMANDS: ['process']
+})
+```
+
+#### Multiple Cycles
+
+Use `add_cycles()` to register multiple cycles at once ([see example](../examples/cycles_api_multiple.py)):
+
+```python
+cycles = [
+    {
+        CYCLE_COMMAND: 'process-file',
+        CYCLE_NAME: 'file-processing',
+        CYCLE_LOOP: get_file_list,
+        CYCLE_COMMANDS: ['process-file']
+    },
+    {
+        CYCLE_COMMAND: 'validate',
+        CYCLE_NAME: 'validation',
+        CYCLE_LOOP: 'results',  # Parameter name
+        CYCLE_COMMANDS: ['validate']
+    }
+]
+
+spafw37.add_cycles(cycles)
+```
+
+#### Flexible Definition Order
+
+Cycles can be registered before or after their commands ([see example](../examples/cycles_api_flexible_order.py)):
+
+```python
+# Cycle registered BEFORE command
+spafw37.add_cycle({
+    CYCLE_COMMAND: 'process',  # Command doesn't exist yet
+    CYCLE_NAME: 'processing',
+    CYCLE_LOOP: get_items,
+    CYCLE_COMMANDS: ['process']
+})
+
+# Command registered AFTER cycle
+spafw37.add_command({
+    COMMAND_NAME: 'process',
+    COMMAND_ACTION: process_action
+})
+```
+
+#### Benefits
+
+- **Better organisation:** Separate cycle logic from command definitions
+- **Flexible order:** Register cycles before or after commands
+- **Reusability:** Define cycles once, reference multiple times
+- **Consistency:** Same behaviour as inline `COMMAND_CYCLE` definitions
+
+### Inline Cycle Definition
+
+A cycle can also be attached to a parent command using the `COMMAND_CYCLE` key ([see example](../examples/cycles_basic.py)). The cycle definition includes initialisation, loop condition, finalisation functions, and the list of commands to execute each iteration.
 
 ### Basic Structure
 

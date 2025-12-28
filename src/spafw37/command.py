@@ -4,6 +4,7 @@ from spafw37.constants.command import (
     COMMAND_PHASE,
     COMMAND_REQUIRED_PARAMS,
     COMMAND_ACTION,
+    COMMAND_CYCLE,
     COMMAND_GOES_AFTER,
     COMMAND_GOES_BEFORE,
     COMMAND_NEXT_COMMANDS,
@@ -343,11 +344,28 @@ def _store_command(cmd):
     """Store command in registry and register cycle if present.
     
     Adds command to _commands dict and calls cycle.register_cycle() if needed.
+    Checks for top-level cycles and attaches them if no inline cycle exists.
     
     Args:
         cmd: Command definition dict
     """
     name = cmd[COMMAND_NAME]
+    inline_cycle = cmd.get(COMMAND_CYCLE)
+    top_level_cycle = cycle.get_cycle(name)
+    
+    # Check for top-level cycle and attach if no inline cycle
+    if top_level_cycle and not inline_cycle:
+        cmd[COMMAND_CYCLE] = top_level_cycle
+    elif top_level_cycle and inline_cycle:
+        # Both exist - check equivalency
+        if not cycle._cycles_are_equivalent(inline_cycle, top_level_cycle):
+            raise ValueError(
+                "Conflicting cycle definitions for command '{0}'. "
+                "An inline cycle was provided in the command definition and a "
+                "different top-level cycle exists. Both cycles must be identical, "
+                "or only one should be provided.".format(name)
+            )
+    
     _commands[name] = cmd
     cycle.register_cycle(cmd, _commands)
 

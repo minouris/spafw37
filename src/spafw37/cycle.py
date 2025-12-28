@@ -22,6 +22,7 @@ from spafw37.constants.command import (
     COMMAND_REQUIRE_BEFORE,
 )
 from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
     CYCLE_NAME,
     CYCLE_INIT,
     CYCLE_LOOP,
@@ -33,6 +34,7 @@ from spafw37.constants.cycle import (
 from spafw37.constants.phase import PHASE_DEFAULT
 from spafw37 import logging
 from spafw37 import config
+from spafw37 import command
 
 
 class CycleValidationError(ValueError):
@@ -51,6 +53,7 @@ class CycleExecutionError(RuntimeError):
 # in a multi-threaded context, external synchronization is required.
 _active_cycle = None
 _max_nesting_depth = 5
+_cycles = {}  # Stores cycles indexed by command name
 
 
 def get_max_cycle_nesting_depth():
@@ -93,6 +96,164 @@ def _get_command_name(command_def):
     if isinstance(command_def, str):
         return command_def
     return command_def.get(COMMAND_NAME, '')
+
+
+def _validate_cycle_required_fields(cycle_def):
+    """Validate that cycle definition contains all required fields.
+    
+    Required fields:
+    - CYCLE_COMMAND: Target command name
+    - CYCLE_NAME: Cycle identifier
+    - CYCLE_LOOP: Loop condition function
+    
+    Args:
+        cycle_def: Cycle definition dict to validate
+    
+    Raises:
+        ValueError: If any required field is missing
+    """
+    if CYCLE_COMMAND not in cycle_def:
+        raise ValueError("Cycle definition missing required field: CYCLE_COMMAND")
+    
+    if CYCLE_NAME not in cycle_def:
+        raise ValueError("Cycle definition missing required field: CYCLE_NAME")
+    
+    if CYCLE_LOOP not in cycle_def:
+        raise ValueError("Cycle definition missing required field: CYCLE_LOOP")
+
+
+def _cycles_are_equivalent(cycle1, cycle2):
+    """Check if two cycle definitions are equivalent.
+    
+    Performs deep equality comparison including:
+    - All keys (required and optional fields)
+    - Primitive values (strings, numbers, bools)
+    - Function references (using object identity)
+    - Nested structures (lists, dicts)
+    
+    Args:
+        cycle1: First cycle definition dict
+        cycle2: Second cycle definition dict
+    
+    Returns:
+        True if cycles are equivalent, False otherwise
+    """
+    if set(cycle1.keys()) != set(cycle2.keys()):
+        return False
+    
+    for key in cycle1:
+        value1 = cycle1[key]
+        value2 = cycle2[key]
+        
+        if callable(value1) and callable(value2):
+            if value1 is not value2:
+                return False
+        elif value1 != value2:
+            return False
+    
+    return True
+
+
+def _extract_command_name(command_ref):
+    """Extract command name from string reference or inline definition dict.
+    
+    Args:
+        command_ref: Either a string (command name) or dict (inline definition)
+    
+    Returns:
+        Command name as string
+        
+    Raises:
+        ValueError: If dict missing COMMAND_NAME field
+    """
+    if isinstance(command_ref, str):
+        return command_ref
+    
+    if isinstance(command_ref, dict):
+        if COMMAND_NAME not in command_ref:
+            raise ValueError("Inline command definition missing COMMAND_NAME field")
+        return command_ref[COMMAND_NAME]
+    
+    raise ValueError(
+        f"CYCLE_COMMAND must be string or dict, got {type(command_ref).__name__}"
+    )
+
+
+def add_cycle(cycle_def):
+    """Register a cycle definition for a command.
+    
+    Cycles define repeated command sequences with init, loop, and end functions.
+    This function validates the cycle structure and stores it for later attachment
+    to commands when they are registered.
+    
+    The CYCLE_COMMAND field can be:
+    - String: Name of an existing or future command (command reference)
+    - Dict: Inline command definition (will be registered immediately)
+    
+    Duplicate handling: If a cycle is already registered for the command:
+    - Identical definition (deep equality): silently skip, first registration wins
+    - Different definition: raise ValueError to prevent conflicting configurations
+    
+    Args:
+        cycle_def: Cycle definition dict containing:
+            - CYCLE_COMMAND: Command name (string) or inline definition (dict) (required)
+            - CYCLE_NAME: Identifier for the cycle (required)
+            - CYCLE_LOOP: Loop condition function (required)
+            - CYCLE_INIT: Init function (optional)
+            - CYCLE_LOOP_START: Loop start function (optional)
+            - CYCLE_LOOP_END: Loop end function (optional)
+            - CYCLE_END: End function (optional)
+            - CYCLE_COMMANDS: List of commands in cycle (optional)
+    
+    Raises:
+        ValueError: If required fields missing or conflicting cycle registered
+    """
+    _validate_cycle_required_fields(cycle_def)
+    
+    command_ref = cycle_def[CYCLE_COMMAND]
+    command_name = _extract_command_name(command_ref)
+    
+    if command_name in _cycles:
+        existing_cycle = _cycles[command_name]
+        if _cycles_are_equivalent(existing_cycle, cycle_def):
+            return
+        raise ValueError(
+            f"Conflicting cycle definition for command '{command_name}'. "
+            f"A different cycle is already registered for this command."
+        )
+    
+    _cycles[command_name] = cycle_def
+    
+    if isinstance(command_ref, dict):
+        command._register_inline_command(command_ref)
+
+
+def add_cycles(cycle_defs):
+    """Register multiple cycle definitions.
+    
+    Convenience function for registering multiple cycles at once.
+    Each cycle is registered individually using add_cycle().
+    
+    Args:
+        cycle_defs: List of cycle definition dicts
+    
+    Raises:
+        ValueError: If any cycle validation fails
+    """
+    for cycle_def in cycle_defs:
+        add_cycle(cycle_def)
+
+
+def get_cycle(command_name):
+    """Retrieve registered cycle by command name.
+    
+    Args:
+        command_name: Name of command to get cycle for
+    
+    Returns:
+        Cycle definition dict if registered, None otherwise
+    """
+    return _cycles.get(command_name)
 
 
 def _get_cycle_from_command(command_def):
@@ -550,6 +711,7 @@ def get_active_cycle():
 
 def reset_cycle_state():
     """Reset module state for testing."""
-    global _active_cycle
+    global _active_cycle, _cycles
     _active_cycle = None
+    _cycles.clear()
 

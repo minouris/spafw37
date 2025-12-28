@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2025-12-26
+## [1.1.0] - 2025-12-28
 
 ### Issues Closed
 
@@ -12,6 +12,7 @@
 - #35: Add CYCLE_LOOP_END to Cycles
 - #48: Param Defaults are set after pre-parse args
 - #61: Refactor command.add_command() into focused helper methods
+- #63: Add top-level add_cycles() API for cycle definitions
 
 ### Additions
 
@@ -112,6 +113,22 @@
 - `_assign_command_phase()` internal function assigns default phase from config when not specified in command definition.
 - `_store_command()` internal function stores command in registry and registers cycle if present.
 
+**Issue #63:**
+
+- `add_cycle(cycle_def)` function in `cycle.py` registers single cycle definition with command association
+- `add_cycles(cycle_defs)` function in `cycle.py` registers multiple cycle definitions
+- `get_cycle(command_name)` function in `cycle.py` retrieves registered cycle by command name
+- `_cycles` module-level dict in `cycle.py` stores registered cycles indexed by command name
+- `_validate_cycle_required_fields(cycle_def)` internal function validates required cycle fields (CYCLE_COMMAND, CYCLE_NAME, CYCLE_LOOP)
+- `_cycles_are_equivalent(cycle1, cycle2)` internal function performs deep equality comparison for cycle definitions
+- `_extract_command_name(command_ref)` internal function extracts command name from string or inline dict reference
+- `_register_inline_command(command_def)` internal function in `command.py` registers inline command definitions from cycles
+- `CYCLE_COMMAND` constant in `constants/cycle.py` specifies target command for cycle attachment
+- Core API exports `add_cycle` and `add_cycles` functions through `core.py` facade
+- `examples/cycles_basic.py` demonstrates basic single cycle registration
+- `examples/cycles_multiple.py` demonstrates multiple cycle registration with string references
+- `examples/cycles_flexible_order.py` demonstrates flexible registration order
+
 ### Removals
 
 **Issue #27:**
@@ -184,6 +201,14 @@
 - Command storage logic extracted into dedicated helper that encapsulates registry mutation and cycle registration.
 - All helpers follow single-responsibility principle with clear naming and focused behaviour.
 - Code nesting depth reduced throughout refactored implementation (max 2-level nesting maintained).
+
+**Issue #63:**
+
+- `add_command()` function in `command.py` now checks for top-level cycles via `cycle.get_cycle()` and attaches them to commands during registration
+- Cycle definitions can now use inline command dicts in `CYCLE_COMMAND` field (similar to `COMMAND_REQUIRED_PARAMS`), allowing commands to be defined within cycle definitions
+- Inline `COMMAND_CYCLE` definitions continue to take precedence over top-level cycles when both exist for the same command
+- Duplicate cycle registrations with identical definitions are silently allowed (idempotent behaviour)
+- Duplicate cycle registrations with different definitions raise `ValueError` with descriptive error message
 
 ### Migration
 
@@ -261,6 +286,24 @@
 **Issue #61:**
 
 - No documentation changes required. This is an internal implementation refactoring with no user-facing API changes. All helpers are private (prefixed with `_`) and not part of the public API.
+
+**Issue #63:**
+
+- `doc/cycles.md` updated with "Top-Level Cycle Registration" section documenting new API
+- `doc/cycles.md` includes usage examples for `add_cycle()` and `add_cycles()` functions
+- `doc/cycles.md` explains CYCLE_COMMAND string vs dict formats and duplicate handling behaviour
+- `doc/cycles.md` compares inline vs top-level approaches with code examples
+- `doc/api-reference.md` updated with `add_cycle()` function signature, parameters, returns, and exceptions
+- `doc/api-reference.md` updated with `add_cycles()` function signature, parameters, returns, and exceptions
+- `doc/api-reference.md` Cycle Constants table updated with `CYCLE_COMMAND` entry
+- `README.md` features list updated to include top-level cycle registration
+- `README.md` "What's New in v1.1.0" section added documenting this feature
+- `README.md` examples list updated with three new example files
+- `examples/cycles_basic.py` created demonstrating basic single cycle registration
+- `examples/cycles_multiple.py` created demonstrating multiple cycle registration
+- `examples/cycles_flexible_order.py` created demonstrating flexible registration order
+- All documentation uses UK English spelling (behaviour, organisation, initialise)
+- All new sections marked with "**Added in v1.1.0**"
 
 ## [1.0.1] - 2025-11-15
 

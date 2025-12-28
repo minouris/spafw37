@@ -177,6 +177,73 @@ def add_command(_command):
     from spafw37 import command 
     command.add_command(_command)
 
+
+def add_cycle(cycle_def):
+    """Register a cycle definition for a command.
+    
+    Cycles define repeated command sequences with init, loop, and end functions.
+    This function validates the cycle structure and stores it for later attachment
+    to commands when they are registered.
+    
+    The CYCLE_COMMAND field can be:
+    - String: Name of an existing or future command (command reference)
+    - Dict: Inline command definition (will be registered immediately)
+    
+    Duplicate handling: If a cycle is already registered for the command:
+    - Identical definition (deep equality): silently skip, first registration wins
+    - Different definition: raise ValueError to prevent conflicting configurations
+    
+    Args:
+        cycle_def: Cycle definition dict containing:
+            - CYCLE_COMMAND: Command name (string) or inline definition (dict) (required)
+            - CYCLE_NAME: Identifier for the cycle (required)
+            - CYCLE_LOOP: Loop condition function (required)
+            - CYCLE_INIT: Init function (optional)
+            - CYCLE_LOOP_START: Loop start function (optional)
+            - CYCLE_LOOP_END: Loop end function (optional)
+            - CYCLE_END: End function (optional)
+            - CYCLE_COMMANDS: List of commands in cycle (optional)
+    
+    Raises:
+        ValueError: If required fields missing or conflicting cycle registered
+    
+    Example:
+        >>> from spafw37 import core as spafw37
+        >>> cycle = {
+        ...     'cycle-command': 'my-command',
+        ...     'cycle-name': 'my-cycle',
+        ...     'cycle-loop-function': lambda: True
+        ... }
+        >>> spafw37.add_cycle(cycle)
+    """
+    from spafw37 import cycle
+    cycle.add_cycle(cycle_def)
+
+
+def add_cycles(cycle_defs):
+    """Register multiple cycle definitions.
+    
+    Convenience function for registering multiple cycles at once.
+    Each cycle is registered individually using add_cycle().
+    
+    Args:
+        cycle_defs: List of cycle definition dicts
+    
+    Raises:
+        ValueError: If any cycle validation fails
+    
+    Example:
+        >>> from spafw37 import core as spafw37
+        >>> cycles = [
+        ...     {'cycle-command': 'cmd1', 'cycle-name': 'cycle1', 'cycle-loop-function': loop_fn1},
+        ...     {'cycle-command': 'cmd2', 'cycle-name': 'cycle2', 'cycle-loop-function': loop_fn2}
+        ... ]
+        >>> spafw37.add_cycles(cycles)
+    """
+    from spafw37 import cycle
+    cycle.add_cycles(cycle_defs)
+
+
 def set_phases_order(phase_order):
     """
     Set the execution order for phases.

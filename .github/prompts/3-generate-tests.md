@@ -198,6 +198,21 @@ Use UK spelling: behaviour, colour, initialise, synchronise, optimise
 For EACH implementation step in the document:
 1. ✅ Add complete test specifications using Gherkin format
 2. ✅ Document any existing tests requiring updates (OLD/NEW format)
+
+## Step Completion Gate
+
+Before proceeding to the next step, verify:
+
+- [ ] Every implementation step has Gherkin test specifications
+- [ ] Every function has at least one test scenario
+- [ ] Edge cases and error conditions have dedicated tests
+- [ ] Test specifications follow Gherkin format (Given/When/Then)
+- [ ] Planning Checklist item for Step 3 marked complete `[x]`
+- [ ] Table of Contents updated
+
+**Do NOT proceed to Step 4 until ALL items above are checked.**
+
+Ask the user: "Step 3 complete. All test specifications added. Ready to proceed to Step 4 (implementation code)?"
 3. ✅ Include test coverage rationale
 4. ✅ Use correct hierarchical numbering
 5. ✅ Follow all Python testing standards

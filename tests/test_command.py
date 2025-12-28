@@ -14,6 +14,12 @@ from spafw37.constants.command import (
     COMMAND_REQUIRE_BEFORE,
     COMMAND_TRIGGER_PARAM,
 )
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_COMMANDS,
+    CYCLE_LOOP,
+    CYCLE_NAME,
+)
 from spafw37.constants.phase import PHASE_EXECUTION
 from spafw37.constants.param import (
     PARAM_NAME,
@@ -23,7 +29,7 @@ from spafw37.constants.param import (
 )
 
 # Project imports - modules
-from spafw37 import command, config, param
+from spafw37 import command, config, cycle, param
 
 def simple_action():
     """Simple no-op action for testing."""
@@ -1507,4 +1513,200 @@ def test_store_command_cycle_registration():
     assert 'test-cmd' in command._commands
     # Note: cycle.register_cycle() is called internally for all commands
     # Full cycle behaviour is tested in cycle module tests
+
+
+def test_add_command_attaches_top_level_cycle():
+    """Test that add_command() attaches top-level cycle when no inline cycle exists.
+    
+    Test ID: 3.1.1
+    Category: Command Registration - Top-Level Cycle Integration
+    
+    Validates: Top-level cycles are attached to commands without inline cycles
+    
+    This test verifies that when a command is registered via add_command()
+    and a matching cycle exists in the top-level cycle registry, the cycle
+    is automatically attached to the command's COMMAND_CYCLE property.
+    """
+    _reset_command_module()
+    cycle.reset_cycle_state()
+    
+    # Register a top-level cycle first
+    # Note: Must include CYCLE_COMMANDS to satisfy register_cycle() validation
+    cycle_def = {
+        CYCLE_COMMAND: 'test-cmd',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: 'param-name',
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    cycle.add_cycle(cycle_def)
+    
+    # Register the sub-command that the cycle references
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd-1',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    # Register command without inline cycle
+    cmd_def = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(cmd_def)
+    
+    # Verify cycle was attached
+    stored_cmd = command._commands['test-cmd']
+    assert COMMAND_CYCLE in stored_cmd
+    assert stored_cmd[COMMAND_CYCLE] == cycle_def
+
+
+def test_add_command_inline_cycle_when_no_top_level():
+    """Test that inline cycle is used when no top-level cycle exists.
+    
+    Test ID: 3.1.2
+    Category: Command Registration - Inline Cycle Backward Compatibility
+    
+    Validates: Inline cycles work independently without top-level cycles
+    
+    This test verifies that when a command has an inline COMMAND_CYCLE
+    and no top-level cycle exists, the inline cycle is used without error.
+    This ensures backward compatibility with existing inline cycle usage.
+    """
+    _reset_command_module()
+    cycle.reset_cycle_state()
+    
+    # Create inline cycle definition (no top-level registration)
+    inline_cycle = {
+        CYCLE_NAME: 'inline-cycle',
+        CYCLE_LOOP: 'param-name',
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    
+    # Register the sub-command
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd-1',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    # Register command with inline cycle (no top-level cycle exists)
+    cmd_def = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_CYCLE: inline_cycle
+    }
+    command.add_command(cmd_def)
+    
+    # Verify inline cycle is used
+    stored_cmd = command._commands['test-cmd']
+    assert COMMAND_CYCLE in stored_cmd
+    assert stored_cmd[COMMAND_CYCLE][CYCLE_NAME] == 'inline-cycle'
+
+
+def test_add_command_identical_inline_and_top_level_cycles():
+    """Test that identical inline and top-level cycles coexist without error.
+    
+    Test ID: 3.1.3
+    Category: Command Registration - Cycle Equivalency Checking
+    
+    Validates: Identical cycle definitions coexist (first-wins behaviour)
+    
+    This test verifies that when a command has both an inline COMMAND_CYCLE
+    and a top-level cycle with identical definitions, no error is raised
+    and the inline cycle is used (first-wins policy).
+    """
+    _reset_command_module()
+    cycle.reset_cycle_state()
+    
+    # Create shared cycle components
+    shared_loop_func = 'shared-param'
+    
+    # Register top-level cycle
+    top_level_cycle = {
+        CYCLE_COMMAND: 'test-cmd',
+        CYCLE_NAME: 'shared-cycle',
+        CYCLE_LOOP: shared_loop_func,
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    cycle.add_cycle(top_level_cycle)
+    
+    # Register the sub-command
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd-1',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    # Register command with identical inline cycle
+    inline_cycle = {
+        CYCLE_COMMAND: 'test-cmd',  # Must match top-level for equivalency
+        CYCLE_NAME: 'shared-cycle',
+        CYCLE_LOOP: shared_loop_func,
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    cmd_def = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_CYCLE: inline_cycle
+    }
+    
+    # Should not raise - identical cycles coexist
+    command.add_command(cmd_def)
+    
+    # Verify cycle attached (inline wins)
+    stored_cmd = command._commands['test-cmd']
+    assert COMMAND_CYCLE in stored_cmd
+    assert stored_cmd[COMMAND_CYCLE][CYCLE_NAME] == 'shared-cycle'
+
+
+def test_add_command_conflicting_inline_and_top_level_cycles_raises():
+    """Test that conflicting inline and top-level cycles raise ValueError.
+    
+    Test ID: 3.1.4
+    Category: Command Registration - Cycle Conflict Detection
+    
+    Validates: Different cycle definitions raise error
+    
+    This test verifies that when a command has both an inline COMMAND_CYCLE
+    and a top-level cycle with different definitions, a ValueError is raised
+    with a clear error message indicating the conflict.
+    """
+    _reset_command_module()
+    cycle.reset_cycle_state()
+    
+    # Register top-level cycle
+    top_level_cycle = {
+        CYCLE_COMMAND: 'test-cmd',
+        CYCLE_NAME: 'top-level-cycle',
+        CYCLE_LOOP: 'top-param',
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    cycle.add_cycle(top_level_cycle)
+    
+    # Register the sub-command
+    sub_cmd = {
+        COMMAND_NAME: 'sub-cmd-1',
+        COMMAND_ACTION: lambda: None
+    }
+    command.add_command(sub_cmd)
+    
+    # Try to register command with different inline cycle
+    inline_cycle = {
+        CYCLE_NAME: 'different-cycle',
+        CYCLE_LOOP: 'different-param',
+        CYCLE_COMMANDS: ['sub-cmd-1']
+    }
+    cmd_def = {
+        COMMAND_NAME: 'test-cmd',
+        COMMAND_ACTION: lambda: None,
+        COMMAND_CYCLE: inline_cycle
+    }
+    
+    # Should raise ValueError with conflict message
+    with pytest.raises(ValueError) as exc_info:
+        command.add_command(cmd_def)
+    
+    error_msg = str(exc_info.value).lower()
+    assert 'conflicting' in error_msg or 'conflict' in error_msg
+    assert 'test-cmd' in str(exc_info.value)
 

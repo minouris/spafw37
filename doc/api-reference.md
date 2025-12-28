@@ -48,6 +48,12 @@ This design keeps the API surface clean and shields applications from internal i
 - Added `join_param()` for accumulating values (strings, lists, dicts) with type-specific logic
 - Deprecated legacy configuration API (`get_config_value()`, `get_config_str()`, etc.)
 
+**Cycle API:**
+- Added `add_cycle()` for registering top-level cycle definitions
+- Added `add_cycles()` for registering multiple cycles at once
+- Cycles can now be registered before commands, enabling flexible definition order
+- Inline cycle definitions in commands remain fully supported
+
 **Parameter Validation:**
 - Added `PARAM_ALLOWED_VALUES` for restricting TEXT, NUMBER, and LIST parameters to predefined value sets
 - TEXT and LIST parameters use case-insensitive matching with automatic normalisation to canonical case
@@ -167,6 +173,8 @@ The `core` module is the primary facade for all framework functionality.
 | **Command Management** | | |
 | [`add_commands(commands)`](#add_commandscommands) | v1.0.0 | Add multiple command definitions |
 | [`add_command(command)`](#add_commandcommand) | v1.0.0 | Add a single command definition |
+| [`add_cycles(cycles)`](#add_cyclescycles) | v1.1.0 | Add multiple cycle definitions |
+| [`add_cycle(cycle)`](#add_cyclecycle) | v1.1.0 | Add a single cycle definition |
 | [`set_phases_order(phase_order)`](#set_phases_orderphase_order) | v1.0.0 | Set the execution order for phases |
 | **Runtime Configuration** | | |
 | [`get_param(...)`](#get_paramparam_namenone-bind_namenone-aliasnone-defaultnone-strictfalse) | v1.1.0 | Get parameter value with automatic type conversion |
@@ -420,6 +428,108 @@ spafw37.set_phases_order([
 **Default:** `[PHASE_SETUP, PHASE_CLEANUP, PHASE_EXECUTION, PHASE_TEARDOWN, PHASE_END]`
 
 **Note:** The framework sets a 5-phase default automatically via `configure.py`.
+
+#### `add_cycles(cycles)`
+
+**Added in v1.1.0**
+
+Add multiple cycle definitions at the top level.
+
+```python
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_LOOP,
+    CYCLE_COMMANDS,
+)
+
+def get_file_list():
+    return ['file1.txt', 'file2.txt', 'file3.txt']
+
+cycles = [
+    {
+        CYCLE_COMMAND: 'process-file',
+        CYCLE_NAME: 'file-processing',
+        CYCLE_LOOP: get_file_list,
+        CYCLE_COMMANDS: ['process-file']
+    },
+    {
+        CYCLE_COMMAND: 'validate-result',
+        CYCLE_NAME: 'result-validation',
+        CYCLE_LOOP: 'results',
+        CYCLE_COMMANDS: ['validate-result']
+    }
+]
+
+spafw37.add_cycles(cycles)
+```
+
+**Args:**
+- `cycles` (list[dict]) - List of cycle definition dictionaries
+
+**See:** [Cycles Guide](cycles.md) for complete cycle definition reference and [examples/cycles_api_multiple.py](../examples/cycles_api_multiple.py) for a working example.
+
+**Benefits:**
+- Define cycles before commands, enabling flexible definition order
+- Separate cycle logic from command definitions for better organisation
+- Register multiple cycles in a single call
+- Inline cycle definitions in commands remain fully supported
+
+#### `add_cycle(cycle)`
+
+**Added in v1.1.0**
+
+Add a single cycle definition at the top level.
+
+```python
+from spafw37.constants.cycle import (
+    CYCLE_COMMAND,
+    CYCLE_NAME,
+    CYCLE_LOOP,
+    CYCLE_INIT,
+    CYCLE_PRE_ITER,
+    CYCLE_POST_ITER,
+    CYCLE_END,
+    CYCLE_COMMANDS,
+)
+
+def init_counter():
+    spafw37.set_param('counter', value=0)
+
+def get_iterations():
+    return [1, 2, 3]
+
+def increment_counter():
+    count = spafw37.get_param('counter')
+    spafw37.set_param('counter', value=count + 1)
+
+def show_final_count():
+    spafw37.output(f"Processed {spafw37.get_param('counter')} items")
+
+spafw37.add_cycle({
+    CYCLE_COMMAND: {
+        COMMAND_NAME: 'process-item',
+        COMMAND_ACTION: process_action
+    },
+    CYCLE_NAME: 'item-processing',
+    CYCLE_LOOP: get_iterations,
+    CYCLE_INIT: init_counter,
+    CYCLE_POST_ITER: increment_counter,
+    CYCLE_END: show_final_count,
+    CYCLE_COMMANDS: ['process-item']
+})
+```
+
+**Args:**
+- `cycle` (dict) - Cycle definition dictionary
+
+**Inline Command Definition:**
+
+`CYCLE_COMMAND` can be either:
+- A string (command name) - references an existing or future command
+- A dict (inline command definition) - defines and registers the command immediately
+
+**See:** [Cycles Guide](cycles.md) for complete cycle definition reference and [examples/cycles_api_basic.py](../examples/cycles_api_basic.py) for a working example.
 
 ### Runtime Configuration
 
