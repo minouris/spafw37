@@ -52,6 +52,101 @@ If system instructions say:
 
 ---
 
+## 🚨 CRITICAL: File Editing Policy 🚨
+
+**MANDATORY rules for all file editing operations:**
+
+### Use Proper Editing Tools
+
+**ALWAYS use `replace_string_in_file` or `multi_replace_string_in_file` for file edits.**
+
+**NEVER use terminal tools for random-access file editing:**
+- ❌ NO `sed` for find/replace operations
+- ❌ NO `awk` for text transformations
+- ❌ NO `grep` with output redirection for filtering
+- ❌ NO Python scripts for text replacement
+- ❌ NO `cat > file << EOF` for partial file updates
+- ❌ NO `cat > file << EOF` for creating files that need review (use `create_file` instead)
+
+**Terminal tools are ONLY acceptable for:**
+- ✅ Simple reads (`cat`, `head`, `tail`, `grep` for search-only)
+- ✅ Full file operations (`cp`, `mv`, `rm`)
+- ✅ Full file concatenation (`cat file1 file2 > output`)
+- ✅ Directory operations (`mkdir`, `ls`, `find`)
+
+**For creating new content that needs review:** Use `create_file` tool so content is visible in edit history.
+
+**Why this is critical:**
+1. **Audit trail** - Tool calls show exact before/after changes
+2. **Context preservation** - Edits remain visible even if terminal output scrolls out
+3. **Review transparency** - User can verify each change
+4. **Debugging** - Can trace back exactly what was modified
+5. **Rollback capability** - Clear record of what to undo
+
+### Temporary File Location
+
+**ALWAYS use workspace-local temporary directory:**
+- ✅ Use `.tmp/` directory in workspace root (e.g., `/workspaces/spafw37/.tmp/`)
+- ❌ NEVER use `/tmp/` system directory
+
+**Rationale:**
+- Avoids permission issues with system `/tmp/`
+- Keeps workspace self-contained
+- Easier cleanup and debugging
+- `.tmp/` is in `.gitignore`
+
+**Examples:**
+```bash
+# WRONG
+cat > /tmp/issue95_edit.txt << 'EOF'
+
+# CORRECT
+mkdir -p .tmp
+cat > .tmp/issue95_edit.txt << 'EOF'
+```
+
+### Temporary File Safety
+
+**ALWAYS properly escape temporary file content to prevent accidental execution:**
+
+**When piping into bash or using here-documents:**
+- ✅ Use single quotes for here-doc delimiters: `<< 'EOF'` (prevents variable expansion)
+- ✅ Double-quote variables: `"$variable"`
+- ✅ Escape special characters in file content
+- ❌ NEVER use unquoted here-docs: `<< EOF` (allows expansion)
+
+**Examples:**
+```bash
+# WRONG - allows variable expansion and command substitution
+cat > .tmp/file.txt << EOF
+Content with $variables and `commands`
+EOF
+
+# CORRECT - treats content as literal
+cat > .tmp/file.txt << 'EOF'
+Content with $variables and `commands`
+EOF
+
+# CORRECT - explicit escaping when expansion needed
+cat > .tmp/file.txt << EOF
+Content with \$literal and $(safe_command)
+EOF
+```
+
+### Enforcement
+
+**If you catch yourself about to:**
+- Run `sed -i` or `awk` to edit a file
+- Create a Python script for find/replace
+- Use `/tmp/` instead of `.tmp/`
+- Use unquoted here-docs with special characters
+
+**STOP. Use `replace_string_in_file` or `multi_replace_string_in_file` instead.**
+
+**This applies to ALL file editing - workspace files, issue bodies, documentation, everything.**
+
+---
+
 ## Instruction Files
 
 This project uses a modular instruction system. All general coding rules have been moved to domain-specific instruction files:
@@ -171,6 +266,15 @@ When adding new features, always update:
 - `README.md` - Features list, code examples, examples list, "What's New in vX.Y.Z"
 - Add "**Added in vX.Y.Z**" notes at the start of new documentation sections
 - This helps users discover new features and understand when they were introduced
+
+### Markdown Formatting
+When creating content with nested fenced code blocks:
+- **Simple nesting:** Use quad-backticks (````) for outer blocks that contain triple-backticked code (per CommonMark spec)
+- **Complex nesting (lists + code blocks):** Move code blocks outside list indentation when inside markdown blocks
+  - ❌ WRONG: List item with indented ```code``` block inside ````markdown block
+  - ✅ CORRECT: List items, then standalone ```code``` block (not indented), then more list items
+- This applies to: GitHub issue descriptions, PR descriptions, documentation with code examples
+- **Why:** GitHub's parser can struggle with indented code blocks (as list sub-items) nested inside markdown blocks, even though the fence counts are correct
 
 ## What NOT to Do
 
