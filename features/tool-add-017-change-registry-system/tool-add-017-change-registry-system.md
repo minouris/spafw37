@@ -6,6 +6,19 @@
 **Status:** In Progress  
 **Opened:** 2026-01-01
 
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Deliverables](#deliverables)
+3. [Key Design Decisions](#key-design-decisions)
+4. [Prompt Integration Requirements](#prompt-integration-requirements)
+5. [Implementation Status](#implementation-status)
+6. [Success Criteria](#success-criteria)
+7. [Related Changes](#related-changes)
+8. [Notes](#notes)
+
+---
+
 ## Overview
 
 This change implements a comprehensive change tracking and registry system for the spafw37 project, independent of the GitHub issue tracking system. The system provides stable change identification, component categorization, and historical tracking across all change types (features, tools, documentation).
@@ -68,108 +81,21 @@ This change implements a comprehensive change tracking and registry system for t
 
 ## Prompt Integration Requirements
 
-### Tracking Prompts Called by Workflow
+The change registry integrates with the planning workflow through:
 
-#### change-create.md
+- **5 tracking prompts** for lifecycle management (create, complete, update-status, create-component, reject)
+- **Workflow modifications** to Step 1 and Step 8 prompts (automatic change creation and completion)
+- **Documentation updates** to planning-workflow.instructions.md for user invocation patterns
 
-**Purpose:** Create and register new change in tracking system
-
-**Called By:** Step 1 (1-create-plan-skeleton.md) at beginning
-
-**High-Level Operations:**
-- Create temporary stem plan file with progressive data capture
-- Determine work context (new vs existing ticket)
-- Generate unique Change ID
-- Collect component, milestone, description
-- Add entry to CHANGES-ACTIVE.md (fetch from #98, modify, update)
-- Rename plan file with Change ID prefix
-- Return Change ID and metadata to caller
-
-**User Invocation:** Called automatically by Step 1
-
-#### change-complete.md
-
-**Purpose:** Complete and archive change
-
-**Called By:** Step 8 (8-implement-from-plan.md) at end
-
-**High-Level Operations:**
-- Extract Change ID from plan document
-- Fetch current data from issues #98 and #99
-- Move change from active to archived registry
-- Set Status to "Complete" with dates
-- Update workspace files and tracking issues
-- Note implementation issue can be closed
-
-**User Invocation:** Called automatically by Step 8
-
-### Manual Lifecycle Management Prompts
-
-#### change-update-status.md
-
-**Purpose:** Manual status transitions between workflow steps
-
-**High-Level Operations:**
-- Fetch from #98, validate transition, update status
-- Update workspace file and tracking issue
-
-**User Invocation:** "Update status for change {change-id}"
-
-#### change-create-component.md
-
-**Purpose:** Add new component to identification registry
-
-**High-Level Operations:**
-- Validate component ID and uniqueness
-- Add to Component Identification section
-- Create GitHub label
-- Update workspace file and tracking issue
-
-**User Invocation:** "Create component {component-id}"
-
-#### change-reject.md
-
-**Purpose:** Reject change and move to archive
-
-**High-Level Operations:**
-- Fetch from #98 and #99
-- Move change to archived with Status: "Rejected"
-- Apply strikethrough formatting
-- Update workspace files and tracking issues
-
-**User Invocation:** "Reject change {change-id}"
-
-### Workflow Prompt Modifications
-
-#### 1-create-plan-skeleton.md
-
-**Modification:** Add invocation of `change-create.md` at beginning
-
-**Integration Point:** Before creating plan skeleton structure
-
-**Operations:**
-- Execute `change-create.md` prompt
-- Receive Change ID and metadata
-- Use Change ID for plan file (already renamed by change-create)
-- Proceed with skeleton creation using returned metadata
-
-#### 8-implement-from-plan.md
-
-**Modification:** Add invocation of `change-complete.md` at end
-
-**Integration Point:** After all implementation verified and tests pass
-
-**Operations:**
-- Execute `change-complete.md` prompt
-- Change archived automatically
-- Confirm completion to user
-- Note implementation issue can be closed
-
-#### planning-workflow.instructions.md
-
-**Modification:** Document change registry tracking prompts and invocation patterns
-
-**Purpose:** Enable users to invoke tracking prompts using plain English
+Detailed implementation steps are in separate Step files:
+- [step-1-change-create-prompt.md](step-1-change-create-prompt.md)
+- [step-2-change-complete-prompt.md](step-2-change-complete-prompt.md)
+- [step-3-change-update-status-prompt.md](step-3-change-update-status-prompt.md)
+- [step-4-change-create-component-prompt.md](step-4-change-create-component-prompt.md)
+- [step-5-change-reject-prompt.md](step-5-change-reject-prompt.md)
+- [step-6-modify-create-skeleton.md](step-6-modify-create-skeleton.md)
+- [step-7-modify-implement-from-plan.md](step-7-modify-implement-from-plan.md)
+- [step-8-update-planning-workflow-docs.md](step-8-update-planning-workflow-docs.md)
 
 ## Implementation Status
 
@@ -186,15 +112,17 @@ This change implements a comprehensive change tracking and registry system for t
 - ✅ Architecture.md with workflow integration decisions
 
 ### In Progress
-- 🔄 This plan document (prompt requirements documentation)
+- 🔄 Implementation step files (8 files created for detailed prompt implementation)
 
 ### Not Started
-- ⏳ Create change-update-status.md prompt
-- ⏳ Create change-create-component.md prompt
-- ⏳ Create change-reject.md prompt
-- ⏳ Update 1-create-plan-skeleton.md with change creation logic
-- ⏳ Update 8-implement-from-plan.md with change archival logic
-- ⏳ Update planning-workflow.instructions.md with registry lifecycle
+- ⏳ Implement change-create.md prompt (see [step-1-change-create-prompt.md](step-1-change-create-prompt.md))
+- ⏳ Implement change-complete.md prompt (see [step-2-change-complete-prompt.md](step-2-change-complete-prompt.md))
+- ⏳ Implement change-update-status.md prompt (see [step-3-change-update-status-prompt.md](step-3-change-update-status-prompt.md))
+- ⏳ Implement change-create-component.md prompt (see [step-4-change-create-component-prompt.md](step-4-change-create-component-prompt.md))
+- ⏳ Implement change-reject.md prompt (see [step-5-change-reject-prompt.md](step-5-change-reject-prompt.md))
+- ⏳ Modify 1-create-plan-skeleton.md (see [step-6-modify-create-skeleton.md](step-6-modify-create-skeleton.md))
+- ⏳ Modify 8-implement-from-plan.md (see [step-7-modify-implement-from-plan.md](step-7-modify-implement-from-plan.md))
+- ⏳ Update planning-workflow.instructions.md (see [step-8-update-planning-workflow-docs.md](step-8-update-planning-workflow-docs.md))
 - ⏳ Integration testing with real workflow
 
 ## Success Criteria
