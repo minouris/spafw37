@@ -329,6 +329,243 @@ def test_cycles_are_equivalent_compares_function_references():
     assert cycle._cycles_are_equivalent(cycle1, cycle2) is False
 
 
+def test_cycle_commands_match_with_same_string():
+    """Test that two string command references with same name match.
+    
+    Scenario: Two string command references with same name match
+      Given two CYCLE_COMMAND values both as string 'my-command'
+      When _cycle_commands_match is called
+      Then it should return True
+    
+    This test verifies that the helper correctly identifies two string command
+    references as matching when they have the same name.
+    
+    This behaviour is expected to ensure string-to-string comparison works.
+    """
+    same_string_commands_match = cycle._cycle_commands_match('my-command', 'my-command')
+    
+    assert same_string_commands_match is True
+
+
+def test_cycle_commands_match_with_string_and_dict_same_command():
+    """Test that string and dict command references with same name match.
+    
+    Scenario: String and dict command references with same name match
+      Given CYCLE_COMMAND as string 'my-command'
+      And CYCLE_COMMAND as dict {COMMAND_NAME: 'my-command'}
+      When _cycle_commands_match is called
+      Then it should return True
+    
+    This test verifies that the helper normalises both string and dict formats
+    and correctly identifies them as matching when they reference the same command.
+    
+    This behaviour is expected to support semantic equivalence across formats.
+    """
+    string_ref = 'my-command'
+    dict_ref = {COMMAND_NAME: 'my-command'}
+    
+    string_dict_commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
+    
+    assert string_dict_commands_match is True
+
+
+def test_cycle_commands_match_with_different_commands():
+    """Test that command references with different names do not match.
+    
+    Scenario: Command references with different names do not match
+      Given CYCLE_COMMAND as string 'command-one'
+      And CYCLE_COMMAND as dict {COMMAND_NAME: 'command-two'}
+      When _cycle_commands_match is called
+      Then it should return False
+    
+    This test verifies that the helper correctly identifies command references
+    as non-matching when they refer to different command names.
+    
+    This behaviour is expected to prevent false positives in equivalence checking.
+    """
+    string_ref = 'command-one'
+    dict_ref = {COMMAND_NAME: 'command-two'}
+    
+    different_commands_match_result = cycle._cycle_commands_match(string_ref, dict_ref)
+    
+    assert different_commands_match_result is False
+
+
+def test_cycles_are_equivalent_normalizes_string_vs_dict_same_command():
+    """Test that string and dict CYCLE_COMMAND with same name are equivalent.
+    
+    Scenario: String and dict CYCLE_COMMAND with same command name are equivalent
+      Given a cycle with CYCLE_COMMAND as string 'my-command'
+      And another cycle with CYCLE_COMMAND as inline dict {'command-name': 'my-command'}
+      And both cycles have identical CYCLE_NAME and CYCLE_LOOP
+      When _cycles_are_equivalent is called with both cycles
+      Then it should return True
+    
+    This test verifies that _cycles_are_equivalent normalises CYCLE_COMMAND values
+    before comparison, recognising a string reference and inline dict definition as
+    equivalent when they reference the same command name.
+    
+    This behaviour is expected because the framework should support semantic
+    equivalence regardless of CYCLE_COMMAND format.
+    """
+    loop_function = lambda: True
+    
+    cycle_with_string = {
+        CYCLE_COMMAND: 'my-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    cycle_with_dict = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'my-command'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    string_dict_cycles_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    
+    assert string_dict_cycles_equivalent is True
+
+
+def test_cycles_are_equivalent_normalizes_dict_vs_string_same_command():
+    """Test that dict and string CYCLE_COMMAND with same name are equivalent.
+    
+    Scenario: Dict and string CYCLE_COMMAND with same command name are equivalent (order reversed)
+      Given a cycle with CYCLE_COMMAND as inline dict {'command-name': 'my-command'}
+      And another cycle with CYCLE_COMMAND as string 'my-command'
+      And both cycles have identical CYCLE_NAME and CYCLE_LOOP
+      When _cycles_are_equivalent is called with both cycles
+      Then it should return True
+    
+    This test verifies that the normalisation is symmetric - it works correctly
+    regardless of which cycle has the string format and which has the dict format.
+    
+    This behaviour is expected because equality should be commutative.
+    """
+    loop_function = lambda: True
+    
+    cycle_with_dict = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'my-command'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    cycle_with_string = {
+        CYCLE_COMMAND: 'my-command',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    dict_string_cycles_equivalent = cycle._cycles_are_equivalent(cycle_with_dict, cycle_with_string)
+    
+    assert dict_string_cycles_equivalent is True
+
+
+def test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands():
+    """Test that string and dict CYCLE_COMMAND with different names are not equivalent.
+    
+    Scenario: String and dict CYCLE_COMMAND with different command names are not equivalent
+      Given a cycle with CYCLE_COMMAND as string 'command-one'
+      And another cycle with CYCLE_COMMAND as inline dict {'command-name': 'command-two'}
+      And both cycles have identical CYCLE_NAME and CYCLE_LOOP
+      When _cycles_are_equivalent is called with both cycles
+      Then it should return False
+    
+    This test verifies that normalisation still correctly identifies cycles with
+    different command names as non-equivalent, even when comparing mixed formats.
+    
+    This behaviour is expected because semantically different cycles should not
+    be treated as equivalent.
+    """
+    loop_function = lambda: True
+    
+    cycle_with_string = {
+        CYCLE_COMMAND: 'command-one',
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    cycle_with_dict = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'command-two'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    different_command_cycles_not_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    
+    assert different_command_cycles_not_equivalent is False
+
+
+def test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command():
+    """Test that two dict CYCLE_COMMAND values with same name are equivalent.
+    
+    Scenario: Two dict CYCLE_COMMAND values with same command name are equivalent (regression)
+      Given a cycle with CYCLE_COMMAND as inline dict {'command-name': 'my-command'}
+      And another cycle with CYCLE_COMMAND as inline dict {'command-name': 'my-command'}
+      And both cycles have identical CYCLE_NAME and CYCLE_LOOP
+      When _cycles_are_equivalent is called with both cycles
+      Then it should return True
+    
+    This test verifies that dict-to-dict comparison continues to work correctly
+    after adding normalisation logic.
+    
+    This behaviour is expected as a regression test to confirm existing functionality
+    is preserved.
+    """
+    loop_function = lambda: True
+    
+    cycle1 = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'my-command'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'my-command'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    same_command_dict_cycles_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
+    
+    assert same_command_dict_cycles_equivalent is True
+
+
+def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
+    """Test that two dict CYCLE_COMMAND values with different names are not equivalent.
+    
+    Scenario: Two dict CYCLE_COMMAND values with different command names are not equivalent (regression)
+      Given a cycle with CYCLE_COMMAND as inline dict {'command-name': 'command-one'}
+      And another cycle with CYCLE_COMMAND as inline dict {'command-name': 'command-two'}
+      And both cycles have identical CYCLE_NAME and CYCLE_LOOP
+      When _cycles_are_equivalent is called with both cycles
+      Then it should return False
+    
+    This test verifies that dict-to-dict comparison correctly detects different
+    command names after adding normalisation logic.
+    
+    This behaviour is expected as a regression test to confirm existing functionality
+    is preserved.
+    """
+    loop_function = lambda: True
+    
+    cycle1 = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'command-one'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    cycle2 = {
+        CYCLE_COMMAND: {COMMAND_NAME: 'command-two'},
+        CYCLE_NAME: 'test-cycle',
+        CYCLE_LOOP: loop_function
+    }
+    
+    different_command_dict_cycles_not_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
+    
+    assert different_command_dict_cycles_not_equivalent is False
+
+
 def test_add_cycle_registers_single_cycle():
     """Test that add_cycle() registers a single cycle definition.
     

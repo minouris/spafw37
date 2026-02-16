@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2025-12-28
+## [1.1.0] - 2026-02-16
 
 ### Issues Closed
 
@@ -13,6 +13,7 @@
 - #48: Param Defaults are set after pre-parse args
 - #61: Refactor command.add_command() into focused helper methods
 - #63: Add top-level add_cycles() API for cycle definitions
+- #94: Bug: _cycles_are_equivalent() does not normalize CYCLE_COMMAND for comparison
 
 ### Additions
 
@@ -129,6 +130,11 @@
 - `examples/cycles_multiple.py` demonstrates multiple cycle registration with string references
 - `examples/cycles_flexible_order.py` demonstrates flexible registration order
 
+**Issue #94:**
+
+- `_fields_are_equivalent()` internal helper function checks if two cycle field values are semantically equivalent, handling CYCLE_COMMAND normalisation, callable identity comparison, and regular value equality (internal use only).
+- `_cycle_commands_match()` internal helper function checks if two CYCLE_COMMAND references are semantically equivalent by normalising both to command names (internal use only).
+
 ### Removals
 
 **Issue #27:**
@@ -209,6 +215,13 @@
 - Inline `COMMAND_CYCLE` definitions continue to take precedence over top-level cycles when both exist for the same command
 - Duplicate cycle registrations with identical definitions are silently allowed (idempotent behaviour)
 - Duplicate cycle registrations with different definitions raise `ValueError` with descriptive error message
+
+**Issue #94:**
+
+- **Bug fix:** `_cycles_are_equivalent()` now normalises CYCLE_COMMAND values to command names before comparison, allowing cycles that reference the same command via different formats (string vs inline dict) to be recognised as equivalent.
+- Cycles with string CYCLE_COMMAND `'my-command'` and inline dict CYCLE_COMMAND `{COMMAND_NAME: 'my-command'}` are now correctly identified as equivalent instead of incorrectly flagged as conflicting.
+- Field comparison logic extracted to `_fields_are_equivalent()` helper to maintain 2-level nesting limit and improve code clarity.
+- Comparison logic delegates to `_cycle_commands_match()` helper which uses existing `_extract_command_name()` function for normalisation.
 
 ### Migration
 
@@ -304,6 +317,10 @@
 - `examples/cycles_flexible_order.py` created demonstrating flexible registration order
 - All documentation uses UK English spelling (behaviour, organisation, initialise)
 - All new sections marked with "**Added in v1.1.0**"
+
+**Issue #94:**
+
+- No documentation changes required. This is an internal implementation fix in private helper functions with no user-facing API changes.
 
 ## [1.0.1] - 2025-11-15
 
