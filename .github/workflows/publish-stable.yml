@@ -79,6 +79,12 @@ jobs:
         echo "release_version=${RELEASE}" >> $GITHUB_OUTPUT
         echo "Release version will be: ${RELEASE}"
 
+    - name: Strip dev suffix from version
+      run: |
+        RELEASE="${{ steps.version.outputs.release_version }}"
+        sed -i "s/^version = .*/version = ${RELEASE}/" setup.cfg
+        echo "Stripped dev suffix, release version: ${RELEASE}"
+
     - name: Build distributions
       run: |
         python3 -m pip install --upgrade pip build wheel
@@ -90,12 +96,6 @@ jobs:
         name: stable-dist-packages
         path: dist/
         retention-days: 7
-
-    - name: Strip dev suffix from version
-      run: |
-        RELEASE="${{ steps.version.outputs.release_version }}"
-        sed -i "s/^version = .*/version = ${RELEASE}/" setup.cfg
-        echo "Stripped dev suffix, release version: ${RELEASE}"
 
     - name: Update README links to point to release tag
       run: |
