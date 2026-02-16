@@ -50,13 +50,13 @@ The equivalency function (lines 132-157 in `src/spafw37/cycle.py`) performs simp
 
 ```python
 for key in cycle1:
-    value1 = cycle1[key]
-    value2 = cycle2[key]
+    cycle1_field_value = cycle1[key]
+    cycle2_field_value = cycle2[key]
     
-    if callable(value1) and callable(value2):
-        if value1 is not value2:
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        if cycle1_field_value is not cycle2_field_value:
             return False
-    elif value1 != value2:  # String != Dict -> False
+    elif cycle1_field_value != cycle2_field_value:  # String != Dict -> False
         return False
 ```
 
@@ -65,24 +65,30 @@ for key in cycle1:
 Use `_extract_command_name()` to normalize CYCLE_COMMAND values before comparison:
 
 ```python
+def _fields_are_equivalent(field_key, cycle1_field_value, cycle2_field_value):
+    """Check if two cycle field values are semantically equivalent.
+    
+    Normalises CYCLE_COMMAND values to command names and uses object identity
+    for callable comparisons.
+    """
+    # Handle CYCLE_COMMAND with normalisation
+    if field_key == CYCLE_COMMAND:
+        return _cycle_commands_match(cycle1_field_value, cycle2_field_value)
+    
+    # Handle callables with identity comparison
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        return cycle1_field_value is cycle2_field_value
+    
+    # Handle regular values with equality comparison
+    return cycle1_field_value == cycle2_field_value
+
+
 def _cycles_are_equivalent(cycle1, cycle2):
     if set(cycle1.keys()) != set(cycle2.keys()):
         return False
     
     for key in cycle1:
-        value1 = cycle1[key]
-        value2 = cycle2[key]
-        
-        # Normalize CYCLE_COMMAND for semantic comparison
-        if key == CYCLE_COMMAND:
-            name1 = _extract_command_name(value1)
-            name2 = _extract_command_name(value2)
-            if name1 != name2:
-                return False
-        elif callable(value1) and callable(value2):
-            if value1 is not value2:
-                return False
-        elif value1 != value2:
+        if not _fields_are_equivalent(key, cycle1[key], cycle2[key]):
             return False
     
     return True
@@ -172,37 +178,41 @@ The function currently performs direct value comparison for all cycle fields:
 
 ```python
 for key in cycle1:
-    value1 = cycle1[key]
-    value2 = cycle2[key]
+    cycle1_field_value = cycle1[key]
+    cycle2_field_value = cycle2[key]
     
-    if callable(value1) and callable(value2):
-        if value1 is not value2:
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        if cycle1_field_value is not cycle2_field_value:
             return False
-    elif value1 != value2:  # Direct comparison - fails for string vs dict
+    elif cycle1_field_value != cycle2_field_value:  # Direct comparison - fails for string vs dict
         return False
 ```
 
-The modified algorithm adds special handling for CYCLE_COMMAND using a helper function:
+The modified algorithm extracts the field comparison logic to a helper function, allowing CYCLE_COMMAND normalisation without violating nesting limits:
 
 ```python
 for key in cycle1:
-    value1 = cycle1[key]
-    value2 = cycle2[key]
-    
-    # NEW: Normalize CYCLE_COMMAND values before comparison
-    if key == CYCLE_COMMAND:
-        if not _cycle_commands_match(value1, value2):
-            return False
-    elif callable(value1) and callable(value2):
-        if value1 is not value2:
-            return False
-    elif value1 != value2:
+    if not _fields_are_equivalent(key, cycle1[key], cycle2[key]):
         return False
 ```
 
-Helper function for normalisation:
+Helper functions:
 
 ```python
+def _fields_are_equivalent(field_key, cycle1_field_value, cycle2_field_value):
+    """Check if two cycle field values are semantically equivalent."""
+    # Handle CYCLE_COMMAND with normalisation
+    if field_key == CYCLE_COMMAND:
+        return _cycle_commands_match(cycle1_field_value, cycle2_field_value)
+    
+    # Handle callables with identity comparison
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        return cycle1_field_value is cycle2_field_value
+    
+    # Handle regular values with equality comparison
+    return cycle1_field_value == cycle2_field_value
+
+
 def _cycle_commands_match(command_ref1, command_ref2):
     """Check if two CYCLE_COMMAND references are semantically equivalent.
     
@@ -214,12 +224,12 @@ def _cycle_commands_match(command_ref1, command_ref2):
 ```
 
 This approach:
-1. Detects when comparing CYCLE_COMMAND fields
-2. Delegates to helper function that normalises both values to command names
-3. Helper uses existing `_extract_command_name()` for normalisation
+1. Extracts field comparison logic to `_fields_are_equivalent` helper (respects 2-line nested block limit)
+2. Helper delegates CYCLE_COMMAND comparison to `_cycle_commands_match` for normalisation
+3. `_cycle_commands_match` uses existing `_extract_command_name()` for normalisation
 4. Compares normalised command names instead of raw values
-5. Preserves existing behaviour for all other fields (callables, primitives)
-6. Respects nesting limits (2-line nested block, no helper nesting)
+5. Preserves existing behaviour for callables (identity check) and primitives (equality check)
+6. Maintains max 2-level nesting throughout (no nested blocks exceed 2 lines)
 
 #### Implementation order
 
@@ -278,9 +288,9 @@ def test_cycle_commands_match_with_same_string():
     """
     cycle.setup_function()
     
-    result = cycle._cycle_commands_match('my-command', 'my-command')
+    commands_match = cycle._cycle_commands_match('my-command', 'my-command')
     
-    assert result is True
+    assert commands_match is True
 ```
 
 #### Test 1.1.3: test_cycle_commands_match_with_string_and_dict_same_command
@@ -313,9 +323,9 @@ def test_cycle_commands_match_with_string_and_dict_same_command():
     string_ref = 'my-command'
     dict_ref = {COMMAND_NAME: 'my-command'}
     
-    result = cycle._cycle_commands_match(string_ref, dict_ref)
+    commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
     
-    assert result is True
+    assert commands_match is True
 ```
 
 #### Test 1.1.4: test_cycle_commands_match_with_different_commands
@@ -348,9 +358,9 @@ def test_cycle_commands_match_with_different_commands():
     string_ref = 'command-one'
     dict_ref = {COMMAND_NAME: 'command-two'}
     
-    result = cycle._cycle_commands_match(string_ref, dict_ref)
+    commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
     
-    assert result is False
+    assert commands_match is False
 ```
 
 #### Code 1.2.1: Modify _cycles_are_equivalent() in src/spafw37/cycle.py
@@ -359,6 +369,32 @@ def test_cycle_commands_match_with_different_commands():
 
 ```python
 # Block 1.2.1: Modify _cycles_are_equivalent() to use helper for CYCLE_COMMAND comparison (lines 126-157)
+
+def _fields_are_equivalent(field_key, cycle1_field_value, cycle2_field_value):
+    """Check if two cycle field values are semantically equivalent.
+    
+    Normalises CYCLE_COMMAND values to command names before comparison. Uses object
+    identity for callable comparisons and equality for regular values.
+    
+    Args:
+        field_key: The cycle field key being compared
+        cycle1_field_value: Field value from first cycle
+        cycle2_field_value: Field value from second cycle
+    
+    Returns:
+        True if field values are equivalent, False otherwise
+    """
+    # Block 1.2.1.1: Handle CYCLE_COMMAND with normalisation
+    if field_key == CYCLE_COMMAND:
+        return _cycle_commands_match(cycle1_field_value, cycle2_field_value)
+    
+    # Block 1.2.1.2: Handle callables with identity comparison
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        return cycle1_field_value is cycle2_field_value
+    
+    # Block 1.2.1.3: Handle regular values with equality comparison
+    return cycle1_field_value == cycle2_field_value
+
 
 def _cycles_are_equivalent(cycle1, cycle2):
     """Check if two cycle definitions are equivalent.
@@ -380,18 +416,9 @@ def _cycles_are_equivalent(cycle1, cycle2):
     if set(cycle1.keys()) != set(cycle2.keys()):
         return False
     
+    # Block 1.2.1.4: Check each field using helper (max 2-line loop body)
     for key in cycle1:
-        value1 = cycle1[key]
-        value2 = cycle2[key]
-        
-        # Block 1.2.1.1: Use helper for CYCLE_COMMAND semantic comparison
-        if key == CYCLE_COMMAND:
-            if not _cycle_commands_match(value1, value2):
-                return False
-        elif callable(value1) and callable(value2):
-            if value1 is not value2:
-                return False
-        elif value1 != value2:
+        if not _fields_are_equivalent(key, cycle1[key], cycle2[key]):
             return False
     
     return True
@@ -496,9 +523,9 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    result = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    are_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
     
-    assert result is True
+    assert are_equivalent is True
 ```
 
 #### Test 2.1.2: test_cycles_are_equivalent_normalizes_dict_vs_string_same_command
@@ -543,9 +570,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_string_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    result = cycle._cycles_are_equivalent(cycle_with_dict, cycle_with_string)
+    are_equivalent = cycle._cycles_are_equivalent(cycle_with_dict, cycle_with_string)
     
-    assert result is True
+    assert are_equivalent is True
 ```
 
 #### Test 2.1.3: test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands
@@ -591,9 +618,9 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands():
         CYCLE_LOOP: loop_function
     }
     
-    result = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    are_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
     
-    assert result is False
+    assert are_equivalent is False
 ```
 
 #### Test 2.1.4: test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command
@@ -639,9 +666,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    result = cycle._cycles_are_equivalent(cycle1, cycle2)
+    are_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
     
-    assert result is True
+    assert are_equivalent is True
 ```
 
 #### Test 2.1.5: test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands
@@ -687,9 +714,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
         CYCLE_LOOP: loop_function
     }
     
-    result = cycle._cycles_are_equivalent(cycle1, cycle2)
+    are_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
     
-    assert result is False
+    assert are_equivalent is False
 ```
 
 [↑ Back to top](#table-of-contents)
@@ -798,10 +825,10 @@ This checklist tracks completion of this planning document.
 - [x] Regression tests planned for modified functions
 
 **Ready for Implementation:**
-- [ ] Plan reviewed and approved
-- [ ] All Further Considerations resolved
-- [ ] Success Criteria agreed upon
-- [ ] Implementation Checklist ready to execute
+- [x] Plan reviewed and approved (Step 7 complete - all standards met)
+- [x] All Further Considerations resolved (none identified)
+- [x] Success Criteria agreed upon
+- [x] Implementation Checklist ready to execute
 
 [↑ Back to top](#table-of-contents)
 
@@ -914,6 +941,7 @@ Issue #94: Bug: _cycles_are_equivalent() does not normalize CYCLE_COMMAND for co
 
 ### Additions
 
+- `_fields_are_equivalent()` internal helper function checks if two cycle field values are semantically equivalent, handling CYCLE_COMMAND normalisation, callable identity comparison, and regular value equality (internal use only).
 - `_cycle_commands_match()` internal helper function checks if two CYCLE_COMMAND references are semantically equivalent by normalising both to command names (internal use only).
 
 ### Removals
@@ -924,6 +952,7 @@ None.
 
 - **Bug fix:** `_cycles_are_equivalent()` now normalises CYCLE_COMMAND values to command names before comparison, allowing cycles that reference the same command via different formats (string vs inline dict) to be recognised as equivalent.
 - Cycles with string CYCLE_COMMAND `'my-command'` and inline dict CYCLE_COMMAND `{COMMAND_NAME: 'my-command'}` are now correctly identified as equivalent instead of incorrectly flagged as conflicting.
+- Field comparison logic extracted to `_fields_are_equivalent()` helper to maintain 2-level nesting limit and improve code clarity.
 - Comparison logic delegates to `_cycle_commands_match()` helper which uses existing `_extract_command_name()` function for normalisation.
 
 ### Migration
