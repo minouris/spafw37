@@ -365,8 +365,6 @@ def test_cycle_commands_match_with_different_commands():
 
 #### Code 1.2.1: Modify _cycles_are_equivalent() in src/spafw37/cycle.py
 
-#### Code 1.2.1: Modify _cycles_are_equivalent() in src/spafw37/cycle.py
-
 ```python
 # Block 1.2.1: Modify _cycles_are_equivalent() to use helper for CYCLE_COMMAND comparison (lines 126-157)
 
@@ -793,7 +791,7 @@ This checklist tracks completion of this planning document.
 
 **Plan Structure:**
 - [x] Overview section complete with architectural decisions
-- [ ] Program Flow Analysis complete (if applicable)
+- [x] Program Flow Analysis not applicable (straightforward bug fix)
 - [x] All implementation steps identified and outlined
 - [x] Further Considerations documented (all marked PENDING or RESOLVED)
 - [x] Success Criteria defined (feature outcomes)
