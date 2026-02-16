@@ -12,6 +12,16 @@
 |-----------|----------|-----------|-------------|--------|
 | feat-fix-020 | feat-cycle-api | [#94](https://github.com/minouris/spafw37/issues/94) | Bug: _cycles_are_equivalent() does not normalize CYCLE_COMMAND for comparison | Planning |
 
+### v1.2.0
+
+#### Features
+
+| Change ID | Component | Ticket ID | Description | Status |
+|-----------|----------|-----------|-------------|--------|
+| feat-add-021 | feat-log-output | [#16](https://github.com/minouris/spafw37/issues/16) | Colourful output | Planning |
+| feat-add-022 | feat-param-registration | [#23](https://github.com/minouris/spafw37/issues/23) | Std-In Param (buffered mode only) | Planning |
+| feat-add-023 | feat-cmd-registration | [#21](https://github.com/minouris/spafw37/issues/21) | Graceful Shutdown | Planning |
+
 ### No Milestone
 
 #### Tools
