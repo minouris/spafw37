@@ -148,6 +148,7 @@ def _cycles_are_equivalent(cycle1, cycle2):
     - [Code 2.1.4: Test for _cycles_are_equivalent() with dict vs dict same command (regression)](#code-214-test-for-_cycles_are_equivalent-with-dict-vs-dict-same-command-regression)
     - [Test 2.1.5: test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands](#test-215-test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands)
     - [Code 2.1.5: Test for _cycles_are_equivalent() with dict vs dict different commands (regression)](#code-215-test-for-_cycles_are_equivalent-with-dict-vs-dict-different-commands-regression)
+  - [3. Documentation Updates](#3-documentation-updates)
 - [Further Considerations](#further-considerations)
 - [Success Criteria](#success-criteria)
 - [Planning Checklist](#planning-checklist)
@@ -693,6 +694,32 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
 
 [↑ Back to top](#table-of-contents)
 
+### 3. Documentation Updates
+
+**Files:** None
+
+**No documentation updates required.**
+
+This is an internal bug fix in a private helper function (`_cycles_are_equivalent()`) within the cycle module. The fix corrects semantic equivalence checking to properly handle mixed CYCLE_COMMAND formats (string vs inline dict).
+
+**Why no documentation updates:**
+- No user-facing behaviour changes - the bug affects only internal equivalence checking
+- No new public APIs - all changes are to private functions (prefixed with `_`)
+- No user-visible functionality added or modified
+- The fix makes `add_cycle()` work correctly for edge cases that currently fail
+- Users cannot directly call `_cycles_are_equivalent()` or `_cycle_commands_match()`
+
+**Impact on users:**
+- Transparent fix - users will not notice any difference in normal usage
+- Prevents potential "Conflicting cycle definitions" errors in mixed-format scenarios
+- Existing code continues to work identically
+
+**Implementation order:**
+
+No implementation steps required - documentation section exists only to explicitly document that no updates are needed.
+
+[↑ Back to top](#table-of-contents)
+
 ## Further Considerations
 
 **No further considerations identified.** 
@@ -744,7 +771,7 @@ This checklist tracks completion of this planning document.
 - [x] Further Considerations documented (all marked PENDING or RESOLVED)
 - [x] Success Criteria defined (feature outcomes)
 - [x] Implementation Checklist created (TDD workflow)
-- [ ] CHANGES section populated for release
+- [x] CHANGES section populated for release
 - [x] Table of Contents updated to reflect all sections
 
 **Implementation Details:**
@@ -758,16 +785,16 @@ This checklist tracks completion of this planning document.
 - [x] All helper functions extracted and documented
 
 **Documentation:**
-- [ ] All affected documentation files identified
-- [ ] Example files planned (if needed)
-- [ ] API reference updates planned (if needed)
-- [ ] User guide updates planned (if needed)
+- [x] All affected documentation files identified (none - internal bug fix)
+- [x] Example files planned (if needed) (none needed)
+- [x] API reference updates planned (if needed) (none needed)
+- [x] User guide updates planned (if needed) (none needed)
 
 **Quality Verification:**
-- [ ] All code follows Python 3.7.0 compatibility requirements
-- [ ] All code follows UK English spelling conventions
-- [ ] No lazy naming (tmp, data, result, i, j, etc.)
-- [ ] All functions have proper docstrings
+- [x] All code follows Python 3.7.0 compatibility requirements
+- [x] All code follows UK English spelling conventions
+- [x] No lazy naming (tmp, data, result, i, j, etc.)
+- [x] All functions have proper docstrings
 - [x] Regression tests planned for modified functions
 
 **Ready for Implementation:**
@@ -879,6 +906,60 @@ Each line item that requires action must have a checkbox [ ].
 
 ## CHANGES for v1.1.0 Release
 
-[PLACEHOLDER - Will be filled in Step 6]
+Issue #94: Bug: _cycles_are_equivalent() does not normalize CYCLE_COMMAND for comparison
+
+### Issues Closed
+
+- #94: Bug: _cycles_are_equivalent() does not normalize CYCLE_COMMAND for comparison
+
+### Additions
+
+- `_cycle_commands_match()` internal helper function checks if two CYCLE_COMMAND references are semantically equivalent by normalising both to command names (internal use only).
+
+### Removals
+
+None.
+
+### Changes
+
+- **Bug fix:** `_cycles_are_equivalent()` now normalises CYCLE_COMMAND values to command names before comparison, allowing cycles that reference the same command via different formats (string vs inline dict) to be recognised as equivalent.
+- Cycles with string CYCLE_COMMAND `'my-command'` and inline dict CYCLE_COMMAND `{COMMAND_NAME: 'my-command'}` are now correctly identified as equivalent instead of incorrectly flagged as conflicting.
+- Comparison logic delegates to `_cycle_commands_match()` helper which uses existing `_extract_command_name()` function for normalisation.
+
+### Migration
+
+No migration required. This is a bug fix that corrects semantic equivalence checking in the cycle registration system. Existing code will continue to work identically.
+
+The bug affected only edge cases where the same command was referenced using different formats (string reference vs inline dict definition) when registering multiple cycles. In typical usage, all cycles use consistent formats (usually strings), so most applications were unaffected.
+
+### Documentation
+
+No documentation changes required. This is an internal implementation fix in private helper functions with no user-facing API changes.
+
+### Testing
+
+- 3 new tests in `tests/test_cycle.py` covering `_cycle_commands_match()` helper behaviour:
+  - `test_cycle_commands_match_with_same_string` - Verifies string-to-string comparison
+  - `test_cycle_commands_match_with_string_and_dict_same_command` - Verifies mixed format with same command matches
+  - `test_cycle_commands_match_with_different_commands` - Verifies different commands don't match
+- 5 new tests in `tests/test_cycle.py` verifying `_cycles_are_equivalent()` normalisation:
+  - `test_cycles_are_equivalent_normalizes_string_vs_dict_same_command` - String vs dict same command returns True
+  - `test_cycles_are_equivalent_normalizes_dict_vs_string_same_command` - Dict vs string same command returns True (symmetric)
+  - `test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands` - String vs dict different commands returns False
+  - `test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command` - Dict vs dict same command returns True (regression)
+  - `test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands` - Dict vs dict different commands returns False (regression)
+- 4 existing tests in `tests/test_cycle.py` continue to pass as regression verification:
+  - `test_cycles_are_equivalent_returns_true_for_identical_cycles` - Verifies string comparison unchanged
+  - `test_cycles_are_equivalent_returns_false_for_different_required_fields` - Verifies field comparison unchanged
+  - `test_cycles_are_equivalent_returns_false_for_different_optional_fields` - Verifies optional field comparison unchanged
+  - `test_cycles_are_equivalent_compares_function_references` - Verifies callable comparison unchanged
+- Tests cover string-to-string, dict-to-dict, and mixed format comparisons for both matching and non-matching command names
+- All existing cycle equivalence tests pass unchanged, confirming backward compatibility
+- Target: 95%+ coverage maintained
+
+---
+
+Full changelog: https://github.com/minouris/spafw37/compare/v1.0.1...v1.1.0
+Issues: https://github.com/minouris/spafw37/issues/94
 
 [↑ Back to top](#table-of-contents)
