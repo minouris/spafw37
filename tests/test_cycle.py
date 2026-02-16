@@ -342,9 +342,9 @@ def test_cycle_commands_match_with_same_string():
     
     This behaviour is expected to ensure string-to-string comparison works.
     """
-    commands_match = cycle._cycle_commands_match('my-command', 'my-command')
+    same_string_commands_match = cycle._cycle_commands_match('my-command', 'my-command')
     
-    assert commands_match is True
+    assert same_string_commands_match is True
 
 
 def test_cycle_commands_match_with_string_and_dict_same_command():
@@ -364,9 +364,9 @@ def test_cycle_commands_match_with_string_and_dict_same_command():
     string_ref = 'my-command'
     dict_ref = {COMMAND_NAME: 'my-command'}
     
-    commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
+    string_dict_commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
     
-    assert commands_match is True
+    assert string_dict_commands_match is True
 
 
 def test_cycle_commands_match_with_different_commands():
@@ -386,9 +386,9 @@ def test_cycle_commands_match_with_different_commands():
     string_ref = 'command-one'
     dict_ref = {COMMAND_NAME: 'command-two'}
     
-    commands_match = cycle._cycle_commands_match(string_ref, dict_ref)
+    different_commands_match_result = cycle._cycle_commands_match(string_ref, dict_ref)
     
-    assert commands_match is False
+    assert different_commands_match_result is False
 
 
 def test_cycles_are_equivalent_normalizes_string_vs_dict_same_command():
@@ -422,9 +422,9 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    are_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    string_dict_cycles_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
     
-    assert are_equivalent is True
+    assert string_dict_cycles_equivalent is True
 
 
 def test_cycles_are_equivalent_normalizes_dict_vs_string_same_command():
@@ -456,9 +456,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_string_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    are_equivalent = cycle._cycles_are_equivalent(cycle_with_dict, cycle_with_string)
+    dict_string_cycles_equivalent = cycle._cycles_are_equivalent(cycle_with_dict, cycle_with_string)
     
-    assert are_equivalent is True
+    assert dict_string_cycles_equivalent is True
 
 
 def test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands():
@@ -491,9 +491,9 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands():
         CYCLE_LOOP: loop_function
     }
     
-    are_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
+    different_command_cycles_not_equivalent = cycle._cycles_are_equivalent(cycle_with_string, cycle_with_dict)
     
-    assert are_equivalent is False
+    assert different_command_cycles_not_equivalent is False
 
 
 def test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command():
@@ -526,9 +526,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command():
         CYCLE_LOOP: loop_function
     }
     
-    are_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
+    same_command_dict_cycles_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
     
-    assert are_equivalent is True
+    assert same_command_dict_cycles_equivalent is True
 
 
 def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
@@ -561,9 +561,9 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
         CYCLE_LOOP: loop_function
     }
     
-    are_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
+    different_command_dict_cycles_not_equivalent = cycle._cycles_are_equivalent(cycle1, cycle2)
     
-    assert are_equivalent is False
+    assert different_command_dict_cycles_not_equivalent is False
 
 
 def test_add_cycle_registers_single_cycle():

@@ -286,8 +286,6 @@ def test_cycle_commands_match_with_same_string():
     
     This behaviour is expected to ensure string-to-string comparison works.
     """
-    cycle.setup_function()
-    
     commands_match = cycle._cycle_commands_match('my-command', 'my-command')
     
     assert commands_match is True
@@ -318,8 +316,6 @@ def test_cycle_commands_match_with_string_and_dict_same_command():
     
     This behaviour is expected to support semantic equivalence across formats.
     """
-    cycle.setup_function()
-    
     string_ref = 'my-command'
     dict_ref = {COMMAND_NAME: 'my-command'}
     
@@ -353,8 +349,6 @@ def test_cycle_commands_match_with_different_commands():
     
     This behaviour is expected to prevent false positives in equivalence checking.
     """
-    cycle.setup_function()
-    
     string_ref = 'command-one'
     dict_ref = {COMMAND_NAME: 'command-two'}
     
@@ -505,8 +499,6 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_same_command():
     This behaviour is expected because the framework should support semantic
     equivalence regardless of CYCLE_COMMAND format.
     """
-    cycle.setup_function()
-    
     loop_function = lambda: True
     
     cycle_with_string = {
@@ -552,8 +544,6 @@ def test_cycles_are_equivalent_normalizes_dict_vs_string_same_command():
     
     This behaviour is expected because equality should be commutative.
     """
-    cycle.setup_function()
-    
     loop_function = lambda: True
     
     cycle_with_dict = {
@@ -600,8 +590,6 @@ def test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands():
     This behaviour is expected because semantically different cycles should not
     be treated as equivalent.
     """
-    cycle.setup_function()
-    
     loop_function = lambda: True
     
     cycle_with_string = {
@@ -648,8 +636,6 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command():
     This behaviour is expected as a regression test to confirm existing functionality
     is preserved.
     """
-    cycle.setup_function()
-    
     loop_function = lambda: True
     
     cycle1 = {
@@ -696,8 +682,6 @@ def test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands():
     This behaviour is expected as a regression test to confirm existing functionality
     is preserved.
     """
-    cycle.setup_function()
-    
     loop_function = lambda: True
     
     cycle1 = {
