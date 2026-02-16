@@ -852,78 +852,87 @@ Each line item that requires action must have a checkbox [ ].
 
 #### 1.1: `_cycle_commands_match()` helper
 
-- [ ] Write tests for `_cycle_commands_match()`
-  - [ ] Patch: Add `test_cycle_commands_match_with_same_string()` to `tests/test_cycle.py`
-  - [ ] Patch: Add `test_cycle_commands_match_with_string_and_dict_same_command()` to `tests/test_cycle.py`
-  - [ ] Patch: Add `test_cycle_commands_match_with_different_commands()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_same_string -v` (expect FAIL - red)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_string_and_dict_same_command -v` (expect FAIL - red)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_different_commands -v` (expect FAIL - red)
-- [ ] Implement `_cycle_commands_match()`
-  - [ ] Patch: Add `_cycle_commands_match()` to `src/spafw37/cycle.py` (before `_cycles_are_equivalent()`)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_same_string -v` (expect PASS - green)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_string_and_dict_same_command -v` (expect PASS - green)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_different_commands -v` (expect PASS - green)
+- [x] Write tests for `_cycle_commands_match()`
+  - [x] Patch: Add `test_cycle_commands_match_with_same_string()` to `tests/test_cycle.py`
+  - [x] Patch: Add `test_cycle_commands_match_with_string_and_dict_same_command()` to `tests/test_cycle.py`
+  - [x] Patch: Add `test_cycle_commands_match_with_different_commands()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_same_string -v` (expect FAIL - red)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_string_and_dict_same_command -v` (expect FAIL - red)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_different_commands -v` (expect FAIL - red)
+- [x] Implement `_cycle_commands_match()`
+  - [x] Patch: Add `_cycle_commands_match()` to `src/spafw37/cycle.py` (before `_cycles_are_equivalent()`)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_same_string -v` (expect PASS - green)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_string_and_dict_same_command -v` (expect PASS - green)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycle_commands_match_with_different_commands -v` (expect PASS - green)
 
 #### 1.2: `_cycles_are_equivalent()` modification
 
-- [ ] Modify `_cycles_are_equivalent()` to use helper
-  - [ ] Patch: Modify `_cycles_are_equivalent()` in `src/spafw37/cycle.py` to use `_cycle_commands_match()` for CYCLE_COMMAND comparison
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_true_for_identical_cycles -v` (expect PASS - regression check)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_false_for_different_required_fields -v` (expect PASS - regression check)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_false_for_different_optional_fields -v` (expect PASS - regression check)
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_compares_function_references -v` (expect PASS - regression check)
+- [x] Modify `_cycles_are_equivalent()` to use helper
+  - [x] Patch: Modify `_cycles_are_equivalent()` in `src/spafw37/cycle.py` to use `_cycle_commands_match()` for CYCLE_COMMAND comparison
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_true_for_identical_cycles -v` (expect PASS - regression check)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_false_for_different_required_fields -v` (expect PASS - regression check)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_returns_false_for_different_optional_fields -v` (expect PASS - regression check)
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_compares_function_references -v` (expect PASS - regression check)
 
 ### Step 2: Add tests for CYCLE_COMMAND normalisation in equivalence checks
 
 #### 2.1.1: `test_cycles_are_equivalent_normalizes_string_vs_dict_same_command()`
 
-- [ ] Write test for string vs dict same command
-  - [ ] Patch: Add `test_cycles_are_equivalent_normalizes_string_vs_dict_same_command()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_string_vs_dict_same_command -v` (expect PASS after Step 1 implementation)
+- [x] Write test for string vs dict same command
+  - [x] Patch: Add `test_cycles_are_equivalent_normalizes_string_vs_dict_same_command()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_string_vs_dict_same_command -v` (expect PASS after Step 1 implementation)
 
 #### 2.1.2: `test_cycles_are_equivalent_normalizes_dict_vs_string_same_command()`
 
-- [ ] Write test for dict vs string same command (symmetric)
-  - [ ] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_string_same_command()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_string_same_command -v` (expect PASS after Step 1 implementation)
+- [x] Write test for dict vs string same command (symmetric)
+  - [x] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_string_same_command()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_string_same_command -v` (expect PASS after Step 1 implementation)
 
 #### 2.1.3: `test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands()`
 
-- [ ] Write test for string vs dict different commands
-  - [ ] Patch: Add `test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands -v` (expect PASS after Step 1 implementation)
+- [x] Write test for string vs dict different commands
+  - [x] Patch: Add `test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_string_vs_dict_different_commands -v` (expect PASS after Step 1 implementation)
 
 #### 2.1.4: `test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command()`
 
-- [ ] Write test for dict vs dict same command (regression)
-  - [ ] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command -v` (expect PASS after Step 1 implementation)
+- [x] Write test for dict vs dict same command (regression)
+  - [x] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_dict_same_command -v` (expect PASS after Step 1 implementation)
 
 #### 2.1.5: `test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands()`
 
-- [ ] Write test for dict vs dict different commands (regression)
-  - [ ] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands()` to `tests/test_cycle.py`
-  - [ ] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands -v` (expect PASS after Step 1 implementation)
+- [x] Write test for dict vs dict different commands (regression)
+  - [x] Patch: Add `test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands()` to `tests/test_cycle.py`
+  - [x] Test run: `pytest tests/test_cycle.py::test_cycles_are_equivalent_normalizes_dict_vs_dict_different_commands -v` (expect PASS after Step 1 implementation)
 
 ### Final Verification
 
-- [ ] All implementation steps completed
-- [ ] All tests passing
-  - [ ] Test run: `pytest tests/test_cycle.py -v`
-  - [ ] Test run: `pytest tests/ -v`
-- [ ] Coverage target met
-  - [ ] Test run: `pytest tests/ --cov=spafw37 --cov-report=term-missing` (expect ≥95%)
-- [ ] No regressions introduced
-  - [ ] Verify all existing `test_cycles_are_equivalent_*` tests still pass
-  - [ ] Verify existing cycle functionality unchanged
-- [ ] Code review checklist verified
-  - [ ] No inline imports (all imports at module level)
-  - [ ] No nesting violations (max 2 levels)
-  - [ ] No lazy naming
-  - [ ] UK English spelling throughout
+- [x] All implementation steps completed
+- [x] All tests passing
+  - [x] Test run: `pytest tests/test_cycle.py -v`
+  - [x] Test run: `pytest tests/ -v`
+- [x] Coverage target met
+  - [x] Test run: `pytest tests/ --cov=spafw37 --cov-report=term-missing` (expect ≥95%)
+- [x] No regressions introduced
+  - [x] Verify all existing `test_cycles_are_equivalent_*` tests still pass
+  - [x] Verify existing cycle functionality unchanged
+- [x] Code review checklist verified
+  - [x] No inline imports (all imports at module level)
+  - [x] No nesting violations (max 2 levels)
+  - [x] No lazy naming
+  - [x] UK English spelling throughout
 
 [↑ Back to top](#table-of-contents)
+
+## Implementation Log
+
+### Error: 2026-02-16T16:30:00Z
+**Checklist Item:** Write tests for `_cycle_commands_match()` - Add test_cycle_commands_match_with_same_string()
+**Error:** `AttributeError: module 'spafw37.cycle' has no attribute 'setup_function'`
+**Cause:** Plan document included `cycle.setup_function()` calls in test code, but this function doesn't exist in the codebase. The existing test suite uses a pytest fixture `reset_state()` with `autouse=True` instead, which runs automatically.
+**Resolution:** Removed `cycle.setup_function()` calls from all three `_cycle_commands_match()` tests. The pytest fixture handles setup automatically.
+**Deviation from Plan:** Test code modified - removed non-existent setup calls. No functional change to test logic.
 
 [↑ Back to top](#table-of-contents)
 

@@ -122,6 +122,48 @@ def _validate_cycle_required_fields(cycle_def):
         raise ValueError("Cycle definition missing required field: CYCLE_LOOP")
 
 
+def _cycle_commands_match(command_ref1, command_ref2):
+    """Check if two CYCLE_COMMAND references are semantically equivalent.
+    
+    Normalises both command references to their command names and compares them.
+    This allows string references and inline dict definitions to be recognised as
+    equivalent when they reference the same command.
+    
+    Args:
+        command_ref1: First command reference (string or dict)
+        command_ref2: Second command reference (string or dict)
+    
+    Returns:
+        True if both references point to the same command name, False otherwise
+    """
+    command_name1 = _extract_command_name(command_ref1)
+    command_name2 = _extract_command_name(command_ref2)
+    return command_name1 == command_name2
+
+
+def _fields_are_equivalent(field_key, cycle1_field_value, cycle2_field_value):
+    """Check if two cycle field values are semantically equivalent.
+    
+    Normalises CYCLE_COMMAND values to command names before comparison. Uses object
+    identity for callable comparisons and equality for regular values.
+    
+    Args:
+        field_key: The cycle field key being compared
+        cycle1_field_value: Field value from first cycle
+        cycle2_field_value: Field value from second cycle
+    
+    Returns:
+        True if field values are equivalent, False otherwise
+    """
+    if field_key == CYCLE_COMMAND:
+        return _cycle_commands_match(cycle1_field_value, cycle2_field_value)
+    
+    if callable(cycle1_field_value) and callable(cycle2_field_value):
+        return cycle1_field_value is cycle2_field_value
+    
+    return cycle1_field_value == cycle2_field_value
+
+
 def _cycles_are_equivalent(cycle1, cycle2):
     """Check if two cycle definitions are equivalent.
     
@@ -130,6 +172,7 @@ def _cycles_are_equivalent(cycle1, cycle2):
     - Primitive values (strings, numbers, bools)
     - Function references (using object identity)
     - Nested structures (lists, dicts)
+    - CYCLE_COMMAND values (normalized to command names)
     
     Args:
         cycle1: First cycle definition dict
@@ -142,13 +185,7 @@ def _cycles_are_equivalent(cycle1, cycle2):
         return False
     
     for key in cycle1:
-        value1 = cycle1[key]
-        value2 = cycle2[key]
-        
-        if callable(value1) and callable(value2):
-            if value1 is not value2:
-                return False
-        elif value1 != value2:
+        if not _fields_are_equivalent(key, cycle1[key], cycle2[key]):
             return False
     
     return True
